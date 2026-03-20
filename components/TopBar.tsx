@@ -1,0 +1,146 @@
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Colors } from '@/constants/colors';
+import { useDrawer } from '@/context/DrawerContext';
+import { useAuth } from '@/context/AuthContext';
+import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { useNotificacoes } from '@/context/NotificacoesContext';
+
+interface TopBarProps {
+  title: string;
+  subtitle?: string;
+  rightAction?: { icon: string; onPress: () => void };
+}
+
+export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
+  const { openLeft, openRight } = useDrawer();
+  const { user } = useAuth();
+  const { unreadCount } = useNotificacoes();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { isDesktop } = useBreakpoint();
+
+  const topPad = isDesktop ? 0 : Platform.OS === 'web' ? 67 : insets.top;
+
+  return (
+    <View style={[styles.container, { paddingTop: topPad + (isDesktop ? 16 : 8) }]}>
+      {!isDesktop && (
+        <TouchableOpacity style={styles.iconBtn} onPress={openLeft} activeOpacity={0.7}>
+          <Ionicons name="menu" size={24} color={Colors.text} />
+        </TouchableOpacity>
+      )}
+
+      <View style={styles.titleArea}>
+        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{title}</Text>
+        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      </View>
+
+      <View style={styles.rightActions}>
+        {rightAction && (
+          <TouchableOpacity style={styles.iconBtn} onPress={rightAction.onPress} activeOpacity={0.7}>
+            <Ionicons name={rightAction.icon as any} size={22} color={Colors.text} />
+          </TouchableOpacity>
+        )}
+
+        {/* Notification bell with badge */}
+        <TouchableOpacity
+          style={styles.iconBtn}
+          onPress={() => router.push('/(main)/notificacoes' as any)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="notifications" size={22} color={unreadCount > 0 ? Colors.gold : Colors.text} />
+          {unreadCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.avatarBtn} onPress={openRight} activeOpacity={0.7}>
+          <Text style={styles.avatarText}>{user?.nome?.charAt(0) ?? 'U'}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: 12,
+  },
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  titleArea: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 17,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  titleDesktop: {
+    fontSize: 19,
+  },
+  subtitle: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  rightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: Colors.danger,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: Colors.primaryDark,
+  },
+  badgeText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  avatarBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.gold,
+  },
+  avatarText: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+});

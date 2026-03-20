@@ -1,0 +1,43 @@
+[1] 3552
+
+> siga-v3@3.0.0 web:dev
+> CI=1 npx expo start --web --port 8000
+
+[1G[0K
+> siga-v3@3.0.0 server:dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0KPWA assets served from /public
+Development mode: proxying web requests to Expo web server on port 8000
+Express server running on port 5000
+Proxying web requests to Expo web server on port 8000
+Starting project at /home/runner/workspace
+React Compiler enabled
+Metro is running in CI mode, reloads are disabled. Remove CI=true to enable watch mode.
+Starting Metro Bundler
+The following packages should be updated for best compatibility with the installed expo version:
+  expo@54.0.32 - expected version: ~54.0.33
+  expo-glass-effect@0.1.8 - expected version: ~0.1.9
+  expo-router@6.0.22 - expected version: ~6.0.23
+  react-native-keyboard-controller@1.20.6 - expected version: 1.18.5
+Your project may not work correctly until you install the expected versions of the packages.
+Waiting on http://localhost:8000
+Logs for your project will appear below.
+Web node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  4.5% ( 25/118)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓░░░░░░░░░░░░░░░ 11.5% ( 95/280)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓░░░░░░░░░░░░░░ 17.7% (135/321)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 32.8% (255/445)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓░░░░░░░░░░░ 35.8% (322/538)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓░░░░░░░░░░ 41.6% (451/699)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓░░░░░░░░ 52.5% (614/847)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓░░░░░░░ 60.9% (712/912)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 74.3% ( 880/1021)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓░░░░░ 74.6% (1034/1197)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓░░░ 82.0% (1196/1321)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 92.5% (1365/1419)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.1% (1525/1540)
+[80D[1A[0JWeb Bundled 1486ms node_modules/expo-router/entry.js (1540 modules)
+Web node_modules/expo-router/entry.js ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 98.1% (1525/1540)
+[80D[1A[0JWeb node_modules/expo-router/entry.js ░░░░░░░░░░░░░░░░  0.0% (0/1)
+[80D[1A[0JWeb Bundled 65ms node_modules/expo-router/entry.js (1 module)
