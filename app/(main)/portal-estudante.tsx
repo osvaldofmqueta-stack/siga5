@@ -7,6 +7,7 @@ import {
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
@@ -20,6 +21,7 @@ const { width } = Dimensions.get('window');
 
 const TABS = [
   { key: 'painel', label: 'Painel', icon: 'grid' },
+  { key: 'cartao', label: 'Cartão', icon: 'card' },
   { key: 'notas', label: 'Notas', icon: 'document-text' },
   { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
   { key: 'materiais', label: 'Materiais', icon: 'folder-open' },
@@ -28,6 +30,9 @@ const TABS = [
   { key: 'historico', label: 'Histórico', icon: 'bar-chart' },
   { key: 'documentos', label: 'Documentos', icon: 'library' },
 ] as const;
+
+const CARTAO_TAXA_ID = 'cartao_estudante_anual';
+const CARTAO_VALOR = 2500;
 
 type TabKey = typeof TABS[number]['key'];
 
@@ -141,6 +146,8 @@ export default function PortalEstudanteScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [taxaParaPagar, setTaxaParaPagar] = useState<any>(null);
   const [metodoPagarTaxa, setMetodoPagarTaxa] = useState<'rupe' | 'multicaixa'>('rupe');
+  const [showPagarCartao, setShowPagarCartao] = useState(false);
+  const [cartaoMetodo, setCartaoMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
 
   const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
   const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
@@ -348,6 +355,33 @@ export default function PortalEstudanteScreen() {
 
   const reconfirmacaoAtual = reconfirmacoes.find(r => r.alunoId === aluno?.id && r.anoLetivo === anoLetivo);
   const solicitacoesAluno = solicitacoes.filter(s => s.alunoId === aluno?.id);
+  const pagamentoCartaoAtual = aluno
+    ? pagamentosAluno.find(p => p.taxaId === CARTAO_TAXA_ID && p.ano === anoLetivo && p.status === 'pago')
+    : null;
+  const cartaoValido = !!pagamentoCartaoAtual;
+
+  async function handlePagarCartao() {
+    if (!aluno) return;
+    setIsLoading(true);
+    try {
+      const ref = `CE-${anoLetivo}-${aluno.numeroMatricula}-${Date.now().toString(36).toUpperCase()}`;
+      await addPagamento({
+        alunoId: aluno.id,
+        taxaId: CARTAO_TAXA_ID,
+        valor: CARTAO_VALOR,
+        data: new Date().toISOString().split('T')[0],
+        ano: anoLetivo,
+        status: 'pago',
+        metodoPagamento: cartaoMetodo === 'rupe' ? 'transferencia' : 'multicaixa',
+        referencia: ref,
+        observacao: 'Cartão de Estudante Virtual',
+      });
+      setShowPagarCartao(false);
+      Alert.alert('Cartão Activado!', `O seu cartão de estudante está agora válido para ${anoLetivo}.\nReferência: ${ref}`);
+    } finally {
+      setIsLoading(false);
+    }
+  }
 
   // ───── RENDER TABS ─────────────────────────────────────────────
 
@@ -460,6 +494,194 @@ export default function PortalEstudanteScreen() {
             })}
           </View>
         )}
+      </ScrollView>
+    );
+  }
+
+  function renderCartao() {
+    const nomeCompleto = `${aluno?.nome || user?.nome || ''} ${aluno?.apelido || ''}`.trim();
+    const matricula = aluno?.numeroMatricula || '—';
+    const classeTurma = turmaAluno ? `${turmaAluno.classe}ª Classe — ${turmaAluno.nome}` : '—';
+    const periodo = turmaAluno?.turno || '—';
+    const qrData = JSON.stringify({ matricula, nome: nomeCompleto, turma: turmaAluno?.nome, ano: anoLetivo, valido: cartaoValido });
+    const foto = (user as any)?.avatar || aluno?.foto;
+    const initials = nomeCompleto.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.cartaoSectionLabel}>CARTÃO DE ESTUDANTE VIRTUAL</Text>
+
+        {/* ── Card visual ── */}
+        <View style={[styles.cartaoCard, cartaoValido && styles.cartaoCardValido]}>
+          {/* Header strip */}
+          <View style={styles.cartaoHeader}>
+            <View>
+              <Text style={styles.cartaoSchoolName}>SIGE · ESCOLA</Text>
+              <Text style={styles.cartaoAnoLetivo}>Ano Lectivo {anoLetivo}</Text>
+            </View>
+            <View style={[styles.cartaoStatusBadge, cartaoValido ? styles.cartaoStatusValido : styles.cartaoStatusPendente]}>
+              <Ionicons name={cartaoValido ? 'checkmark-circle' : 'time'} size={13} color="#fff" />
+              <Text style={styles.cartaoStatusText}>{cartaoValido ? 'VÁLIDO' : 'PENDENTE'}</Text>
+            </View>
+          </View>
+
+          {/* Body */}
+          <View style={styles.cartaoBody}>
+            {/* Photo */}
+            <View style={styles.cartaoFotoWrap}>
+              {foto ? (
+                <Image source={{ uri: foto }} style={styles.cartaoFoto} />
+              ) : (
+                <View style={styles.cartaoFotoPlaceholder}>
+                  <Text style={styles.cartaoFotoInitials}>{initials}</Text>
+                </View>
+              )}
+              {cartaoValido && (
+                <View style={styles.cartaoFotoCheck}>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                </View>
+              )}
+            </View>
+
+            {/* Info */}
+            <View style={styles.cartaoInfo}>
+              <Text style={styles.cartaoNome} numberOfLines={2}>{nomeCompleto}</Text>
+              <View style={styles.cartaoInfoRow}>
+                <Ionicons name="id-card-outline" size={12} color={Colors.gold} />
+                <Text style={styles.cartaoInfoVal}>{matricula}</Text>
+              </View>
+              <View style={styles.cartaoInfoRow}>
+                <Ionicons name="school-outline" size={12} color={Colors.gold} />
+                <Text style={styles.cartaoInfoVal}>{classeTurma}</Text>
+              </View>
+              <View style={styles.cartaoInfoRow}>
+                <Ionicons name="time-outline" size={12} color={Colors.gold} />
+                <Text style={styles.cartaoInfoVal}>Período: {periodo}</Text>
+              </View>
+              {aluno?.genero && (
+                <View style={styles.cartaoInfoRow}>
+                  <Ionicons name="person-outline" size={12} color={Colors.gold} />
+                  <Text style={styles.cartaoInfoVal}>{aluno.genero === 'M' ? 'Masculino' : 'Feminino'}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* QR Code section */}
+          <View style={styles.cartaoQrSection}>
+            <View style={[styles.cartaoQrWrap, !cartaoValido && { opacity: 0.4 }]}>
+              <QRCode
+                value={qrData}
+                size={96}
+                backgroundColor="transparent"
+                color={cartaoValido ? Colors.primary : Colors.textMuted}
+              />
+            </View>
+            <View style={styles.cartaoQrInfo}>
+              <Text style={styles.cartaoQrLabel}>QR de Validação</Text>
+              <Text style={styles.cartaoQrSub}>
+                {cartaoValido
+                  ? 'Apresente este código na portaria para confirmar situação regularizada.'
+                  : 'Pague o cartão anual para activar o código QR de validação.'}
+              </Text>
+              {pagamentoCartaoAtual?.referencia && (
+                <View style={styles.cartaoRefRow}>
+                  <Ionicons name="receipt-outline" size={11} color={Colors.textMuted} />
+                  <Text style={styles.cartaoRefText}>Ref: {pagamentoCartaoAtual.referencia}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          {/* Footer strip */}
+          <View style={styles.cartaoFooter}>
+            <Text style={styles.cartaoFooterText}>
+              {cartaoValido ? `Válido para ${anoLetivo} · Emitido em ${pagamentoCartaoAtual?.data ? new Date(pagamentoCartaoAtual.data).toLocaleDateString('pt-PT') : '—'}` : 'Cartão não pago — situação irregular'}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Info box ── */}
+        <View style={styles.cartaoInfoBox}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.info} />
+          <Text style={styles.cartaoInfoBoxText}>
+            O cartão virtual de estudante tem validade anual ({anoLetivo}). Apresente o QR code na portaria ou em qualquer serviço escolar para confirmar que a sua situação está regularizada.
+          </Text>
+        </View>
+
+        {/* ── Payment button or already paid ── */}
+        {cartaoValido ? (
+          <View style={styles.cartaoPagoRow}>
+            <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
+            <Text style={styles.cartaoPagoText}>Cartão pago e válido para {anoLetivo}</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.cartaoPagarBtn} onPress={() => setShowPagarCartao(true)}>
+            <Ionicons name="card" size={18} color="#fff" />
+            <Text style={styles.cartaoPagarBtnText}>Pagar Cartão de Estudante — {formatAOA(CARTAO_VALOR)}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Payment modal ── */}
+        <Modal visible={showPagarCartao} transparent animationType="slide" onRequestClose={() => setShowPagarCartao(false)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="card" size={20} color={Colors.gold} />
+                <Text style={styles.modalTitle}>Pagar Cartão de Estudante</Text>
+                <TouchableOpacity onPress={() => setShowPagarCartao(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.infoCard}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Descrição</Text>
+                  <Text style={styles.infoVal}>Cartão de Estudante Virtual</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Ano Lectivo</Text>
+                  <Text style={styles.infoVal}>{anoLetivo}</Text>
+                </View>
+                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+                  <Text style={styles.infoLabel}>Valor</Text>
+                  <Text style={[styles.infoVal, { color: Colors.gold, fontFamily: 'Inter_700Bold', fontSize: 16 }]}>{formatAOA(CARTAO_VALOR)}</Text>
+                </View>
+              </View>
+
+              <Text style={styles.formLabel}>Método de Pagamento</Text>
+              <View style={styles.trimestreSelector}>
+                {(['rupe', 'multicaixa'] as const).map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    style={[styles.trimBtn, cartaoMetodo === m && styles.trimBtnActive]}
+                    onPress={() => setCartaoMetodo(m)}
+                  >
+                    <Ionicons name={m === 'rupe' ? 'swap-horizontal' : 'card'} size={14} color={cartaoMetodo === m ? Colors.gold : Colors.textMuted} />
+                    <Text style={[styles.trimBtnText, cartaoMetodo === m && styles.trimBtnTextActive]}>
+                      {m === 'rupe' ? 'RUPE' : 'Multicaixa'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, { flexDirection: 'row', gap: 8 }, isLoading && { opacity: 0.6 }]}
+                onPress={handlePagarCartao}
+                disabled={isLoading}
+              >
+                {isLoading ? <ActivityIndicator color="#fff" /> : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    <Text style={styles.submitBtnText}>Confirmar Pagamento</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setShowPagarCartao(false)}>
+                <Text style={styles.closeBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     );
   }
@@ -1193,6 +1415,7 @@ export default function PortalEstudanteScreen() {
   function renderTabContent() {
     switch (activeTab) {
       case 'painel': return renderPainel();
+      case 'cartao': return renderCartao();
       case 'notas': return renderNotas();
       case 'mensagens': return renderMensagens();
       case 'materiais': return renderMateriais();
@@ -1544,4 +1767,51 @@ const styles = StyleSheet.create({
   logTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, flex: 1 },
   logSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18, marginBottom: 4 },
   logData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  cartaoSectionLabel: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, letterSpacing: 1.2, textTransform: 'uppercase', marginBottom: 14, textAlign: 'center' },
+  cartaoCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCard,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+  },
+  cartaoCardValido: { borderColor: Colors.success + '88' },
+  cartaoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 12 },
+  cartaoSchoolName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 0.5 },
+  cartaoAnoLetivo: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.7)', marginTop: 2 },
+  cartaoStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  cartaoStatusValido: { backgroundColor: Colors.success },
+  cartaoStatusPendente: { backgroundColor: Colors.warning },
+  cartaoStatusText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#fff', letterSpacing: 0.6 },
+  cartaoBody: { flexDirection: 'row', gap: 14, padding: 16 },
+  cartaoFotoWrap: { position: 'relative' },
+  cartaoFoto: { width: 72, height: 88, borderRadius: 12, borderWidth: 2, borderColor: Colors.gold },
+  cartaoFotoPlaceholder: { width: 72, height: 88, borderRadius: 12, borderWidth: 2, borderColor: Colors.gold, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center' },
+  cartaoFotoInitials: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  cartaoFotoCheck: { position: 'absolute', bottom: -6, right: -6, backgroundColor: Colors.backgroundCard, borderRadius: 10 },
+  cartaoInfo: { flex: 1, justifyContent: 'center' },
+  cartaoNome: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 8 },
+  cartaoInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 },
+  cartaoInfoVal: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1 },
+  cartaoQrSection: { flexDirection: 'row', gap: 14, paddingHorizontal: 16, paddingBottom: 16, alignItems: 'center' },
+  cartaoQrWrap: { backgroundColor: '#fff', borderRadius: 12, padding: 8, borderWidth: 1, borderColor: Colors.border },
+  cartaoQrInfo: { flex: 1 },
+  cartaoQrLabel: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 },
+  cartaoQrSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 16 },
+  cartaoRefRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
+  cartaoRefText: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  cartaoFooter: { backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 8 },
+  cartaoFooterText: { fontSize: 10, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.7)', textAlign: 'center' },
+  cartaoInfoBox: { flexDirection: 'row', gap: 10, backgroundColor: Colors.info + '18', borderWidth: 1, borderColor: Colors.info + '44', borderRadius: 12, padding: 14, marginBottom: 16 },
+  cartaoInfoBoxText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 18 },
+  cartaoPagoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.success + '18', borderWidth: 1, borderColor: Colors.success + '44', borderRadius: 12, padding: 14 },
+  cartaoPagoText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.success },
+  cartaoPagarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.accent, borderRadius: 14, padding: 16 },
+  cartaoPagarBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 });
