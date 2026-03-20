@@ -1,0 +1,1381 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Alert, Platform, Image, ActivityIndicator,
+  Modal, Dimensions,
+} from 'react-native';
+import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/colors';
+import { useAuth } from '@/context/AuthContext';
+import { useData } from '@/context/DataContext';
+import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
+import { useProfessor } from '@/context/ProfessorContext';
+import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import TopBar from '@/components/TopBar';
+
+const { width } = Dimensions.get('window');
+
+const TABS = [
+  { key: 'painel', label: 'Painel', icon: 'grid' },
+  { key: 'notas', label: 'Notas', icon: 'document-text' },
+  { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
+  { key: 'materiais', label: 'Materiais', icon: 'folder-open' },
+  { key: 'horario', label: 'Horário', icon: 'time' },
+  { key: 'financeiro', label: 'Financeiro', icon: 'cash' },
+  { key: 'historico', label: 'Histórico', icon: 'bar-chart' },
+  { key: 'documentos', label: 'Documentos', icon: 'library' },
+] as const;
+
+type TabKey = typeof TABS[number]['key'];
+
+const STORAGE_SOLICITACOES = '@sgaa_solicitacoes_docs';
+const STORAGE_RECONFIRMACOES = '@sgaa_reconfirmacoes';
+const STORAGE_HORARIOS = '@sgaa_horarios';
+
+const TIPOS_DOC = [
+  'Declaração de Matrícula',
+  'Certidão de Notas',
+  'Certidão de Frequência',
+  'Declaração de Conclusão de Curso',
+  'Histórico Escolar',
+  'Diploma',
+  'Outros',
+];
+
+const RUBRICAS = [
+  { id: 'decl_matricula', nome: 'Declaração de Matrícula', valor: 500 },
+  { id: 'cert_notas', nome: 'Certidão de Notas', valor: 1000 },
+  { id: 'cert_freq', nome: 'Certidão de Frequência', valor: 750 },
+  { id: 'historico', nome: 'Histórico Escolar', valor: 2000 },
+  { id: 'diploma', nome: 'Diploma', valor: 3000 },
+  { id: 'outros', nome: 'Outros Documentos', valor: 500 },
+];
+
+const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+const DIAS_FULL = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+const PERIODOS = [
+  { numero: 1, inicio: '07:00', fim: '07:45' },
+  { numero: 2, inicio: '07:45', fim: '08:30' },
+  { numero: 3, inicio: '08:30', fim: '09:15' },
+  { numero: 4, inicio: '09:45', fim: '10:30' },
+  { numero: 5, inicio: '10:30', fim: '11:15' },
+  { numero: 6, inicio: '11:15', fim: '12:00' },
+];
+
+function genId() {
+  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
+}
+
+function getStatusDisciplina(nf: number, trimestre: number) {
+  if (nf === 0) return { label: 'Sem nota', color: Colors.textMuted, icon: 'help-circle' };
+  if (nf >= 10) return { label: 'Aprovado', color: Colors.success, icon: 'checkmark-circle' };
+  if (trimestre < 3) return { label: 'Em atraso', color: Colors.warning, icon: 'warning' };
+  return { label: 'Reprovado', color: Colors.danger, icon: 'close-circle' };
+}
+
+function Badge({ label, color }: { label: string; color: string }) {
+  return (
+    <View style={[styles.badge, { backgroundColor: color + '22', borderColor: color + '55' }]}>
+      <Text style={[styles.badgeText, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+function SectionTitle({ title, icon }: { title: string; icon: string }) {
+  return (
+    <View style={styles.sectionTitle}>
+      <Ionicons name={icon as any} size={16} color={Colors.gold} />
+      <Text style={styles.sectionTitleText}>{title}</Text>
+    </View>
+  );
+}
+
+function StatCard({ value, label, color }: { value: string | number; label: string; color: string }) {
+  return (
+    <View style={styles.statCard}>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function NotaCell({ value, max = 20 }: { value: number; max?: number }) {
+  const ok = value >= 10;
+  const color = value === 0 ? Colors.textMuted : ok ? Colors.success : Colors.danger;
+  return (
+    <View style={[styles.notaCell, { borderColor: color + '44' }]}>
+      <Text style={[styles.notaValue, { color }]}>{value === 0 ? '—' : value.toFixed(0)}</Text>
+    </View>
+  );
+}
+
+export default function PortalEstudanteScreen() {
+  const { user, updateUser } = useAuth();
+  const { alunos, turmas, notas, presencas, updateAluno } = useData();
+  const { taxas, pagamentos, addPagamento, getPagamentosAluno, getTaxasByNivel } = useFinanceiro();
+  const { mensagens, materiais, sumarios, pautas, marcarMensagemLida } = useProfessor();
+  const { anoSelecionado } = useAnoAcademico();
+  const insets = useSafeAreaInsets();
+
+  const [activeTab, setActiveTab] = useState<TabKey>('painel');
+  const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
+  const [diaHorario, setDiaHorario] = useState(0);
+  const [horarios, setHorarios] = useState<any[]>([]);
+  const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
+  const [reconfirmacoes, setReconfirmacoes] = useState<any[]>([]);
+  const [msgFilter, setMsgFilter] = useState<'todas' | 'turma' | 'privada'>('todas');
+  const [msgAberta, setMsgAberta] = useState<any>(null);
+  const [materialAberto, setMaterialAberto] = useState<any>(null);
+  const [showSolicitacaoModal, setShowSolicitacaoModal] = useState(false);
+  const [showPagamentoModal, setShowPagamentoModal] = useState(false);
+  const [showPagarPropina, setShowPagarPropina] = useState(false);
+  const [showReconfirmacaoModal, setShowReconfirmacaoModal] = useState(false);
+  const [solForm, setSolForm] = useState({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
+  const [pagForm, setPagForm] = useState({ rubricaId: RUBRICAS[0].id, metodo: 'rupe' as 'rupe' | 'multicaixa', referencia: '' });
+  const [propinaMes, setPropinaMs] = useState(new Date().getMonth() + 1);
+  const [propinaTrimestre, setPropinaTriestre] = useState<1 | 2 | 3>(1);
+  const [propMetodo, setPropMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
+  const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
+  const anoLetivo = anoSelecionado?.ano || new Date().getFullYear().toString();
+
+  const notasAluno = aluno ? notas.filter(n => n.alunoId === aluno.id && n.anoLetivo === anoLetivo) : [];
+  const presAluno = aluno ? presencas.filter(p => p.alunoId === aluno.id) : [];
+  const pagamentosAluno = aluno ? getPagamentosAluno(aluno.id) : [];
+  const mensagensAluno = turmaAluno
+    ? mensagens.filter(m =>
+        (m.tipo === 'turma' && m.turmaId === turmaAluno.id) ||
+        (m.tipo === 'privada' && (m.destinatarioId === aluno?.id || m.remetenteId === aluno?.id))
+      )
+    : [];
+  const materiaisAluno = turmaAluno ? materiais.filter(m => m.turmaId === turmaAluno.id) : [];
+  const sumariosAluno = turmaAluno ? sumarios.filter(s => s.turmaId === turmaAluno.id) : [];
+  const horariosAluno = turmaAluno ? horarios.filter(h => h.turmaId === turmaAluno.id) : [];
+  const taxasNivel = turmaAluno ? getTaxasByNivel(turmaAluno.nivel, anoLetivo) : [];
+  const taxasPropina = taxasNivel.filter(t => t.tipo === 'propina');
+
+  const notasTrimestre = notasAluno.filter(n => n.trimestre === trimestreNotas);
+  const mediaGeral = notasAluno.length > 0
+    ? (notasAluno.reduce((s, n) => s + (n.nf || n.mac || 0), 0) / notasAluno.length).toFixed(1)
+    : '—';
+  const pctPresenca = presAluno.length > 0
+    ? Math.round((presAluno.filter(p => p.status === 'P').length / presAluno.length) * 100)
+    : 100;
+  const aprovadas = notasAluno.filter(n => n.nf >= 10).length;
+  const reprovadas = notasAluno.filter(n => n.nf > 0 && n.nf < 10).length;
+  const emAtraso = notasAluno.filter(n => n.nf === 0 && n.trimestre < 3).length;
+  const unreadMsgs = mensagensAluno.filter(m => !m.lidaPor.includes(user?.id || '')).length;
+
+  useEffect(() => {
+    loadLocalData();
+  }, []);
+
+  async function loadLocalData() {
+    try {
+      const [h, s, r] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_HORARIOS),
+        AsyncStorage.getItem(STORAGE_SOLICITACOES),
+        AsyncStorage.getItem(STORAGE_RECONFIRMACOES),
+      ]);
+      setHorarios(h ? JSON.parse(h) : []);
+      setSolicitacoes(s ? JSON.parse(s) : []);
+      setReconfirmacoes(r ? JSON.parse(r) : []);
+    } catch (e) {}
+  }
+
+  async function handlePickPhoto() {
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async (e: any) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev) => {
+          const uri = ev.target?.result as string;
+          if (aluno) await updateAluno(aluno.id, { foto: uri });
+          await updateUser({ avatar: uri });
+        };
+        reader.readAsDataURL(file);
+      };
+      input.click();
+      return;
+    }
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]?.uri) {
+      const uri = result.assets[0].uri;
+      if (aluno) await updateAluno(aluno.id, { foto: uri });
+      await updateUser({ avatar: uri });
+    }
+  }
+
+  async function handleSolicitarDocumento() {
+    if (!solForm.motivo.trim()) {
+      Alert.alert('Atenção', 'Indique o motivo da solicitação.');
+      return;
+    }
+    const nova = {
+      id: genId(),
+      alunoId: aluno?.id || '',
+      tipo: solForm.tipo,
+      motivo: solForm.motivo,
+      observacao: solForm.observacao,
+      status: 'pendente',
+      createdAt: new Date().toISOString(),
+    };
+    const updated = [...solicitacoes, nova];
+    setSolicitacoes(updated);
+    await AsyncStorage.setItem(STORAGE_SOLICITACOES, JSON.stringify(updated));
+    setShowSolicitacaoModal(false);
+    setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
+    Alert.alert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
+  }
+
+  async function handlePagarDocumento() {
+    const rubrica = RUBRICAS.find(r => r.id === pagForm.rubricaId);
+    if (!rubrica || !aluno) return;
+    const ref = pagForm.metodo === 'rupe'
+      ? `RUPE-${Math.floor(Math.random() * 900000 + 100000)}`
+      : `MCX-${Math.floor(Math.random() * 900000 + 100000)}`;
+    await addPagamento({
+      alunoId: aluno.id,
+      taxaId: rubrica.id,
+      valor: rubrica.valor,
+      data: new Date().toISOString().split('T')[0],
+      ano: anoLetivo,
+      status: 'pendente',
+      metodoPagamento: pagForm.metodo === 'multicaixa' ? 'multicaixa' : 'transferencia',
+      referencia: ref,
+      observacao: `Pagamento de documento: ${rubrica.nome}`,
+    });
+    setShowPagamentoModal(false);
+    Alert.alert('Referência Gerada', `Método: ${pagForm.metodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(rubrica.valor)}\n\nEfetue o pagamento com esta referência.`);
+  }
+
+  async function handlePagarPropina() {
+    if (!aluno || taxasPropina.length === 0) return;
+    const taxa = taxasPropina[0];
+    const ref = propMetodo === 'rupe'
+      ? `RUPE-PROP-${Math.floor(Math.random() * 900000 + 100000)}`
+      : `MCX-PROP-${Math.floor(Math.random() * 900000 + 100000)}`;
+    await addPagamento({
+      alunoId: aluno.id,
+      taxaId: taxa.id,
+      valor: taxa.valor,
+      data: new Date().toISOString().split('T')[0],
+      mes: propinaMes,
+      trimestre: propinaTrimestre,
+      ano: anoLetivo,
+      status: 'pendente',
+      metodoPagamento: propMetodo === 'multicaixa' ? 'multicaixa' : 'transferencia',
+      referencia: ref,
+      observacao: `Propina - Trimestre ${propinaTrimestre}, Mês ${propinaMes}`,
+    });
+    setShowPagarPropina(false);
+    Alert.alert('Referência de Propina Gerada', `Método: ${propMetodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxa.valor)}\n\nEfetue o pagamento com esta referência.`);
+  }
+
+  async function handleReconfirmacao() {
+    if (!aluno) return;
+    const nova = {
+      id: genId(),
+      alunoId: aluno.id,
+      anoLetivo,
+      status: 'confirmado',
+      data: new Date().toISOString(),
+    };
+    const already = reconfirmacoes.find(r => r.alunoId === aluno.id && r.anoLetivo === anoLetivo);
+    if (already) {
+      Alert.alert('Já reconfirmado', 'A sua matrícula para este ano já foi reconfirmada.');
+      setShowReconfirmacaoModal(false);
+      return;
+    }
+    const updated = [...reconfirmacoes, nova];
+    setReconfirmacoes(updated);
+    await AsyncStorage.setItem(STORAGE_RECONFIRMACOES, JSON.stringify(updated));
+    setShowReconfirmacaoModal(false);
+    Alert.alert('Matrícula Reconfirmada', `A sua matrícula para o ano lectivo ${anoLetivo} foi reconfirmada com sucesso.`);
+  }
+
+  const reconfirmacaoAtual = reconfirmacoes.find(r => r.alunoId === aluno?.id && r.anoLetivo === anoLetivo);
+  const solicitacoesAluno = solicitacoes.filter(s => s.alunoId === aluno?.id);
+
+  // ───── RENDER TABS ─────────────────────────────────────────────
+
+  function renderPainel() {
+    const disciplinas = [...new Set(notasAluno.map(n => n.disciplina))];
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Resumo Académico" icon="stats-chart" />
+        <View style={styles.statsRow}>
+          <StatCard value={mediaGeral} label="Média Geral" color={Colors.gold} />
+          <StatCard value={`${pctPresenca}%`} label="Presenças" color={Colors.info} />
+          <StatCard value={aprovadas} label="Aprovadas" color={Colors.success} />
+          <StatCard value={reprovadas} label="Reprovadas" color={Colors.danger} />
+        </View>
+
+        {turmaAluno && (
+          <View style={styles.infoCard}>
+            <SectionTitle title="Dados de Matrícula" icon="school" />
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>N.º Matrícula</Text><Text style={styles.infoVal}>{aluno?.numeroMatricula || '—'}</Text></View>
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>Turma</Text><Text style={styles.infoVal}>{turmaAluno.nome}</Text></View>
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>Classe</Text><Text style={styles.infoVal}>{turmaAluno.classe}ª Classe</Text></View>
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>Nível</Text><Text style={styles.infoVal}>{turmaAluno.nivel}</Text></View>
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>Turno</Text><Text style={styles.infoVal}>{turmaAluno.turno}</Text></View>
+            <View style={styles.infoRow}><Text style={styles.infoLabel}>Ano Lectivo</Text><Text style={styles.infoVal}>{anoLetivo}</Text></View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Reconfirmação</Text>
+              <Badge label={reconfirmacaoAtual ? 'Confirmado' : 'Pendente'} color={reconfirmacaoAtual ? Colors.success : Colors.warning} />
+            </View>
+          </View>
+        )}
+
+        <View style={styles.infoCard}>
+          <SectionTitle title="Estado das Disciplinas" icon="library" />
+          {disciplinas.length === 0 && <Text style={styles.emptyText}>Sem disciplinas registadas</Text>}
+          {disciplinas.map(disc => {
+            const notasDisc = notasAluno.filter(n => n.disciplina === disc);
+            const ultimaNota = notasDisc.sort((a, b) => b.trimestre - a.trimestre)[0];
+            const status = ultimaNota ? getStatusDisciplina(ultimaNota.nf, ultimaNota.trimestre) : { label: 'Sem nota', color: Colors.textMuted, icon: 'help-circle' };
+            return (
+              <View key={disc} style={styles.discRow}>
+                <View style={styles.discLeft}>
+                  <Ionicons name={status.icon as any} size={18} color={status.color} />
+                  <Text style={styles.discNome} numberOfLines={1}>{disc}</Text>
+                </View>
+                <Badge label={status.label} color={status.color} />
+              </View>
+            );
+          })}
+        </View>
+
+        {unreadMsgs > 0 && (
+          <TouchableOpacity style={styles.alertCard} onPress={() => setActiveTab('mensagens')}>
+            <Ionicons name="chatbubbles" size={20} color={Colors.info} />
+            <Text style={styles.alertText}>Tem {unreadMsgs} {unreadMsgs === 1 ? 'mensagem nova' : 'mensagens novas'} do professor</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.info} />
+          </TouchableOpacity>
+        )}
+
+        {pagamentosAluno.filter(p => p.status === 'pendente').length > 0 && (
+          <TouchableOpacity style={[styles.alertCard, { borderColor: Colors.warning + '55' }]} onPress={() => setActiveTab('financeiro')}>
+            <Ionicons name="cash" size={20} color={Colors.warning} />
+            <Text style={[styles.alertText, { color: Colors.warning }]}>{pagamentosAluno.filter(p => p.status === 'pendente').length} pagamento(s) pendente(s)</Text>
+            <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
+          </TouchableOpacity>
+        )}
+      </ScrollView>
+    );
+  }
+
+  function renderNotas() {
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.trimestreSelector}>
+          {([1, 2, 3] as const).map(t => (
+            <TouchableOpacity
+              key={t}
+              style={[styles.trimBtn, trimestreNotas === t && styles.trimBtnActive]}
+              onPress={() => setTrimestreNotas(t)}
+            >
+              <Text style={[styles.trimBtnText, trimestreNotas === t && styles.trimBtnTextActive]}>
+                {t}º Trimestre
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {notasTrimestre.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="document-text-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem notas lançadas para o {trimestreNotas}º trimestre</Text>
+          </View>
+        ) : (
+          notasTrimestre.map(nota => {
+            const pauta = pautas.find(p => p.turmaId === nota.turmaId && p.disciplina === nota.disciplina && p.trimestre === nota.trimestre);
+            const status = getStatusDisciplina(nota.nf, nota.trimestre);
+            return (
+              <View key={nota.id} style={styles.notaCard}>
+                <View style={styles.notaHeader}>
+                  <Text style={styles.notaDisc}>{nota.disciplina}</Text>
+                  <Badge label={status.label} color={status.color} />
+                </View>
+
+                <View style={styles.notaGrid}>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>AV1</Text>
+                    <NotaCell value={nota.aval1} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>AV2</Text>
+                    <NotaCell value={nota.aval2} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>AV3</Text>
+                    <NotaCell value={nota.aval3} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>AV4</Text>
+                    <NotaCell value={nota.aval4} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>MAC</Text>
+                    <NotaCell value={nota.mac1 || nota.mac} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>PP</Text>
+                    <NotaCell value={nota.pp1} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>PT</Text>
+                    <NotaCell value={nota.ppt} />
+                  </View>
+                  <View style={styles.notaItem}>
+                    <Text style={styles.notaItemLabel}>MT</Text>
+                    <NotaCell value={nota.mt1} />
+                  </View>
+                </View>
+
+                <View style={[styles.nfRow, { borderTopColor: Colors.border }]}>
+                  <Text style={styles.nfLabel}>Nota Final (NF)</Text>
+                  <Text style={[styles.nfValue, { color: nota.nf >= 10 ? Colors.success : nota.nf > 0 ? Colors.danger : Colors.textMuted }]}>
+                    {nota.nf > 0 ? nota.nf.toFixed(1) : '—'}
+                  </Text>
+                </View>
+
+                <View style={styles.pautaRow}>
+                  <Text style={styles.pautaLabel}>Pauta:</Text>
+                  <Badge
+                    label={pauta ? (pauta.status === 'fechada' ? 'Fechada' : pauta.status === 'aberta' ? 'Aberta' : 'Pendente') : 'Não disponível'}
+                    color={pauta?.status === 'fechada' ? Colors.success : pauta?.status === 'aberta' ? Colors.info : Colors.textMuted}
+                  />
+                </View>
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    );
+  }
+
+  function renderMensagens() {
+    const filtered = mensagensAluno.filter(m => msgFilter === 'todas' ? true : m.tipo === msgFilter);
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.filterRow}>
+          {(['todas', 'turma', 'privada'] as const).map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterBtn, msgFilter === f && styles.filterBtnActive]}
+              onPress={() => setMsgFilter(f)}
+            >
+              <Text style={[styles.filterBtnText, msgFilter === f && styles.filterBtnTextActive]}>
+                {f === 'todas' ? 'Todas' : f === 'turma' ? 'Geral da Turma' : 'Privadas'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {filtered.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem mensagens</Text>
+          </View>
+        ) : (
+          filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(msg => {
+            const lida = msg.lidaPor.includes(user?.id || '');
+            return (
+              <TouchableOpacity
+                key={msg.id}
+                style={[styles.msgCard, !lida && { borderLeftWidth: 3, borderLeftColor: Colors.info }]}
+                onPress={() => {
+                  setMsgAberta(msg);
+                  if (!lida) marcarMensagemLida(msg.id, user?.id || '');
+                }}
+              >
+                <View style={styles.msgTop}>
+                  <View style={styles.msgLeft}>
+                    <Ionicons
+                      name={msg.tipo === 'turma' ? 'people' : 'person'}
+                      size={16}
+                      color={msg.tipo === 'turma' ? Colors.info : Colors.gold}
+                    />
+                    <Text style={styles.msgRemetente}>{msg.remetenteNome}</Text>
+                    <Badge
+                      label={msg.tipo === 'turma' ? 'Turma' : 'Privada'}
+                      color={msg.tipo === 'turma' ? Colors.info : Colors.gold}
+                    />
+                  </View>
+                  {!lida && <View style={styles.unreadDot} />}
+                </View>
+                <Text style={styles.msgAssunto}>{msg.assunto}</Text>
+                <Text style={styles.msgCorpo} numberOfLines={2}>{msg.corpo}</Text>
+                <Text style={styles.msgData}>{new Date(msg.createdAt).toLocaleDateString('pt-PT')}</Text>
+              </TouchableOpacity>
+            );
+          })
+        )}
+
+        <Modal visible={!!msgAberta} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle} numberOfLines={2}>{msgAberta?.assunto}</Text>
+                <TouchableOpacity onPress={() => setMsgAberta(null)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.msgMeta}>
+                <Text style={styles.msgMetaText}>De: {msgAberta?.remetenteNome}</Text>
+                <Text style={styles.msgMetaText}>{msgAberta?.createdAt ? new Date(msgAberta.createdAt).toLocaleDateString('pt-PT') : ''}</Text>
+              </View>
+              <ScrollView style={styles.msgScrollBody}>
+                <Text style={styles.msgFullCorpo}>{msgAberta?.corpo}</Text>
+              </ScrollView>
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setMsgAberta(null)}>
+                <Text style={styles.closeBtnText}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  function renderMateriais() {
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Materiais do Professor" icon="folder-open" />
+        {materiaisAluno.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="folder-open-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem materiais disponíveis</Text>
+          </View>
+        ) : (
+          materiaisAluno.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(mat => (
+            <TouchableOpacity key={mat.id} style={styles.matCard} onPress={() => setMaterialAberto(mat)}>
+              <View style={styles.matIcon}>
+                <Ionicons
+                  name={mat.tipo === 'pdf' ? 'document' : mat.tipo === 'link' ? 'link' : mat.tipo === 'resumo' ? 'book' : 'document-text'}
+                  size={22}
+                  color={Colors.gold}
+                />
+              </View>
+              <View style={styles.matInfo}>
+                <Text style={styles.matTitulo}>{mat.titulo}</Text>
+                <Text style={styles.matDisc}>{mat.disciplina}</Text>
+                <Text style={styles.matData}>{new Date(mat.createdAt).toLocaleDateString('pt-PT')}</Text>
+              </View>
+              <Badge label={mat.tipo.toUpperCase()} color={Colors.info} />
+            </TouchableOpacity>
+          ))
+        )}
+
+        <View style={{ marginTop: 20 }}>
+          <SectionTitle title="Sumários / Matérias Leccionadas" icon="book" />
+          {sumariosAluno.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="book-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyStateText}>Sem sumários disponíveis</Text>
+            </View>
+          ) : (
+            sumariosAluno.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).map(sum => (
+              <View key={sum.id} style={styles.sumCard}>
+                <View style={styles.sumHeader}>
+                  <Text style={styles.sumDisc}>{sum.disciplina}</Text>
+                  <Text style={styles.sumData}>{sum.data}</Text>
+                </View>
+                <Text style={styles.sumProf}>Prof. {sum.professorNome} · Aula Nº {sum.numeroAula}</Text>
+                <Text style={styles.sumConteudo}>{sum.conteudo}</Text>
+                <View style={styles.sumMeta}>
+                  <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                  <Text style={styles.sumMetaText}>{sum.horaInicio} — {sum.horaFim}</Text>
+                </View>
+              </View>
+            ))
+          )}
+        </View>
+
+        <Modal visible={!!materialAberto} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>{materialAberto?.titulo}</Text>
+                <TouchableOpacity onPress={() => setMaterialAberto(null)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.matModalDisc}>{materialAberto?.disciplina}</Text>
+              <Text style={styles.matModalDesc}>{materialAberto?.descricao}</Text>
+              {materialAberto?.tipo === 'link' ? (
+                <Text style={[styles.matModalConteudo, { color: Colors.info }]}>{materialAberto?.conteudo}</Text>
+              ) : (
+                <ScrollView style={styles.matModalScroll}>
+                  <Text style={styles.matModalConteudo}>{materialAberto?.conteudo}</Text>
+                </ScrollView>
+              )}
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setMaterialAberto(null)}>
+                <Text style={styles.closeBtnText}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  function renderHorario() {
+    const aulasDia = horariosAluno.filter(h => h.diaSemana === diaHorario);
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.diasScroll}>
+          {DIAS.map((dia, idx) => (
+            <TouchableOpacity
+              key={dia}
+              style={[styles.diaBtn, diaHorario === idx && styles.diaBtnActive]}
+              onPress={() => setDiaHorario(idx)}
+            >
+              <Text style={[styles.diaBtnText, diaHorario === idx && styles.diaBtnTextActive]}>{dia}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <Text style={styles.diaFull}>{DIAS_FULL[diaHorario]}</Text>
+
+        {aulasDia.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="time-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem aulas programadas</Text>
+          </View>
+        ) : (
+          PERIODOS.map(periodo => {
+            const aula = aulasDia.find(h => h.periodo === periodo.numero);
+            return (
+              <View key={periodo.numero} style={styles.periodoRow}>
+                <View style={styles.periodoHora}>
+                  <Text style={styles.periodoNum}>P{periodo.numero}</Text>
+                  <Text style={styles.periodoTime}>{periodo.inicio}</Text>
+                </View>
+                {aula ? (
+                  <View style={styles.aulaCard}>
+                    <Text style={styles.aulaDisciplina}>{aula.disciplina}</Text>
+                    <Text style={styles.aulaProf}>{aula.professorNome}</Text>
+                    <View style={styles.aulaMeta}>
+                      <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                      <Text style={styles.aulaMetaText}>Sala {aula.sala}</Text>
+                      <Text style={styles.aulaMetaText}> · {aula.horaInicio}–{aula.horaFim}</Text>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={[styles.aulaCard, styles.aulaVazia]}>
+                    <Text style={styles.aulaVaziaText}>— Sem aula —</Text>
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    );
+  }
+
+  function renderFinanceiro() {
+    const propinasPagas = pagamentosAluno.filter(p => {
+      const taxa = taxas.find(t => t.id === p.taxaId);
+      return taxa?.tipo === 'propina' && p.status === 'pago';
+    });
+    const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);
+    const totalPendente = pagamentosAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
+
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.statsRow}>
+          <StatCard value={formatAOA(totalPago)} label="Total Pago" color={Colors.success} />
+          <StatCard value={formatAOA(totalPendente)} label="Pendente" color={Colors.warning} />
+        </View>
+
+        <SectionTitle title="Propina" icon="school" />
+        {taxasPropina.length === 0 ? (
+          <View style={[styles.emptyState, { marginBottom: 16 }]}>
+            <Text style={styles.emptyStateText}>Propina não configurada nesta escola</Text>
+          </View>
+        ) : (
+          <View style={styles.infoCard}>
+            {taxasPropina.map(taxa => (
+              <View key={taxa.id}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Descrição</Text>
+                  <Text style={styles.infoVal}>{taxa.descricao}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Valor</Text>
+                  <Text style={[styles.infoVal, { color: Colors.gold }]}>{formatAOA(taxa.valor)}</Text>
+                </View>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Frequência</Text>
+                  <Text style={styles.infoVal}>{taxa.frequencia}</Text>
+                </View>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.payBtn} onPress={() => setShowPagarPropina(true)}>
+              <Ionicons name="cash" size={18} color="#fff" />
+              <Text style={styles.payBtnText}>Pagar Propina</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <SectionTitle title="Pagamento de Documentos" icon="document" />
+        <View style={styles.infoCard}>
+          <Text style={styles.infoHint}>Selecione a rubrica e efetue o pagamento pelo RUPE ou Multicaixa Express</Text>
+          <TouchableOpacity style={styles.payBtn} onPress={() => setShowPagamentoModal(true)}>
+            <Ionicons name="card" size={18} color="#fff" />
+            <Text style={styles.payBtnText}>Pagar Documento</Text>
+          </TouchableOpacity>
+        </View>
+
+        <SectionTitle title="Reconfirmação de Matrícula" icon="refresh" />
+        <View style={styles.infoCard}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Estado</Text>
+            <Badge
+              label={reconfirmacaoAtual ? 'Confirmado' : 'Pendente'}
+              color={reconfirmacaoAtual ? Colors.success : Colors.warning}
+            />
+          </View>
+          {reconfirmacaoAtual && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Data</Text>
+              <Text style={styles.infoVal}>{new Date(reconfirmacaoAtual.data).toLocaleDateString('pt-PT')}</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            style={[styles.payBtn, reconfirmacaoAtual && { backgroundColor: Colors.success }]}
+            onPress={() => reconfirmacaoAtual ? Alert.alert('Já confirmado', 'A matrícula já está reconfirmada.') : setShowReconfirmacaoModal(true)}
+          >
+            <Ionicons name={reconfirmacaoAtual ? 'checkmark-circle' : 'refresh'} size={18} color="#fff" />
+            <Text style={styles.payBtnText}>{reconfirmacaoAtual ? 'Matrícula Confirmada' : 'Reconfirmar Matrícula'}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <SectionTitle title="Histórico de Pagamentos" icon="receipt" />
+        {pagamentosAluno.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem pagamentos registados</Text>
+          </View>
+        ) : (
+          pagamentosAluno.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(pag => {
+            const taxa = taxas.find(t => t.id === pag.taxaId);
+            return (
+              <View key={pag.id} style={styles.pagCard}>
+                <View style={styles.pagTop}>
+                  <Text style={styles.pagDesc}>{taxa?.descricao || pag.observacao || 'Pagamento'}</Text>
+                  <Badge
+                    label={pag.status === 'pago' ? 'Pago' : pag.status === 'pendente' ? 'Pendente' : 'Cancelado'}
+                    color={pag.status === 'pago' ? Colors.success : pag.status === 'pendente' ? Colors.warning : Colors.danger}
+                  />
+                </View>
+                <Text style={[styles.pagValor, { color: Colors.gold }]}>{formatAOA(pag.valor)}</Text>
+                <View style={styles.pagMeta}>
+                  <Text style={styles.pagMetaText}>{pag.data}</Text>
+                  {pag.referencia && <Text style={styles.pagMetaText}>Ref: {pag.referencia}</Text>}
+                </View>
+              </View>
+            );
+          })
+        )}
+
+        {/* Modal Pagar Propina */}
+        <Modal visible={showPagarPropina} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Pagar Propina</Text>
+                <TouchableOpacity onPress={() => setShowPagarPropina(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.formLabel}>Trimestre</Text>
+              <View style={styles.trimestreSelector}>
+                {([1, 2, 3] as const).map(t => (
+                  <TouchableOpacity key={t} style={[styles.trimBtn, propinaTrimestre === t && styles.trimBtnActive]} onPress={() => setPropinaTriestre(t)}>
+                    <Text style={[styles.trimBtnText, propinaTrimestre === t && styles.trimBtnTextActive]}>{t}º</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.formLabel}>Mês</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
+                    <TouchableOpacity key={m} style={[styles.trimBtn, propinaMes === m && styles.trimBtnActive]} onPress={() => setPropinaMs(m)}>
+                      <Text style={[styles.trimBtnText, propinaMes === m && styles.trimBtnTextActive]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              <Text style={styles.formLabel}>Método de Pagamento</Text>
+              <View style={styles.metodoRow}>
+                <TouchableOpacity style={[styles.metodoBtn, propMetodo === 'rupe' && styles.metodoBtnActive]} onPress={() => setPropMetodo('rupe')}>
+                  <Text style={[styles.metodoBtnText, propMetodo === 'rupe' && styles.metodoBtnTextActive]}>RUPE</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.metodoBtn, propMetodo === 'multicaixa' && styles.metodoBtnActive]} onPress={() => setPropMetodo('multicaixa')}>
+                  <Text style={[styles.metodoBtnText, propMetodo === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
+                </TouchableOpacity>
+              </View>
+              {taxasPropina[0] && (
+                <Text style={styles.valorText}>Valor: {formatAOA(taxasPropina[0].valor)}</Text>
+              )}
+              <TouchableOpacity style={styles.submitBtn} onPress={handlePagarPropina}>
+                <Text style={styles.submitBtnText}>Gerar Referência de Pagamento</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal Pagar Documento */}
+        <Modal visible={showPagamentoModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Pagamento de Documento</Text>
+                <TouchableOpacity onPress={() => setShowPagamentoModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.formLabel}>Rubrica</Text>
+              {RUBRICAS.map(r => (
+                <TouchableOpacity
+                  key={r.id}
+                  style={[styles.rubricaItem, pagForm.rubricaId === r.id && styles.rubricaItemActive]}
+                  onPress={() => setPagForm(f => ({ ...f, rubricaId: r.id }))}
+                >
+                  <Text style={[styles.rubricaText, pagForm.rubricaId === r.id && { color: Colors.gold }]}>{r.nome}</Text>
+                  <Text style={[styles.rubricaValor, pagForm.rubricaId === r.id && { color: Colors.gold }]}>{formatAOA(r.valor)}</Text>
+                </TouchableOpacity>
+              ))}
+              <Text style={styles.formLabel}>Método de Pagamento</Text>
+              <View style={styles.metodoRow}>
+                <TouchableOpacity style={[styles.metodoBtn, pagForm.metodo === 'rupe' && styles.metodoBtnActive]} onPress={() => setPagForm(f => ({ ...f, metodo: 'rupe' }))}>
+                  <Text style={[styles.metodoBtnText, pagForm.metodo === 'rupe' && styles.metodoBtnTextActive]}>RUPE</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.metodoBtn, pagForm.metodo === 'multicaixa' && styles.metodoBtnActive]} onPress={() => setPagForm(f => ({ ...f, metodo: 'multicaixa' }))}>
+                  <Text style={[styles.metodoBtnText, pagForm.metodo === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.submitBtn} onPress={handlePagarDocumento}>
+                <Text style={styles.submitBtnText}>Gerar Referência</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal Reconfirmação */}
+        <Modal visible={showReconfirmacaoModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Reconfirmação de Matrícula</Text>
+                <TouchableOpacity onPress={() => setShowReconfirmacaoModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.reconfText}>
+                Confirma a sua matrícula para o ano lectivo <Text style={{ color: Colors.gold }}>{anoLetivo}</Text> na turma <Text style={{ color: Colors.gold }}>{turmaAluno?.nome || '—'}</Text>?
+              </Text>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>N.º Matrícula</Text><Text style={styles.infoVal}>{aluno?.numeroMatricula}</Text></View>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Classe</Text><Text style={styles.infoVal}>{turmaAluno?.classe}ª Classe</Text></View>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Nível</Text><Text style={styles.infoVal}>{turmaAluno?.nivel}</Text></View>
+              <TouchableOpacity style={styles.submitBtn} onPress={handleReconfirmacao}>
+                <Text style={styles.submitBtnText}>Confirmar Matrícula</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  function renderHistorico() {
+    const trimestreGrupos = ([1, 2, 3] as const).map(t => ({
+      trimestre: t,
+      notas: notasAluno.filter(n => n.trimestre === t),
+    }));
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.infoCard}>
+          <SectionTitle title={`Ano Lectivo ${anoLetivo}`} icon="calendar" />
+          <View style={styles.statsRow}>
+            <StatCard value={aprovadas} label="Aprovadas" color={Colors.success} />
+            <StatCard value={reprovadas} label="Reprovadas" color={Colors.danger} />
+            <StatCard value={mediaGeral} label="Média" color={Colors.gold} />
+            <StatCard value={`${pctPresenca}%`} label="Presenças" color={Colors.info} />
+          </View>
+        </View>
+
+        {trimestreGrupos.map(({ trimestre, notas: notasTri }) => (
+          <View key={trimestre} style={styles.infoCard}>
+            <SectionTitle title={`${trimestre}º Trimestre`} icon="time" />
+            {notasTri.length === 0 ? (
+              <Text style={styles.emptyText}>Sem notas lançadas</Text>
+            ) : (
+              notasTri.map(n => {
+                const status = getStatusDisciplina(n.nf, n.trimestre);
+                return (
+                  <View key={n.id} style={styles.historicoRow}>
+                    <View style={styles.historicoLeft}>
+                      <Ionicons name={status.icon as any} size={16} color={status.color} />
+                      <Text style={styles.historicoDisc} numberOfLines={1}>{n.disciplina}</Text>
+                    </View>
+                    <View style={styles.historicoRight}>
+                      <Text style={styles.historicoLabel}>NF</Text>
+                      <Text style={[styles.historicoNF, { color: status.color }]}>{n.nf > 0 ? n.nf.toFixed(1) : '—'}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+            {notasTri.length > 0 && (
+              <View style={[styles.infoRow, { marginTop: 8 }]}>
+                <Text style={styles.infoLabel}>Média do Trimestre</Text>
+                <Text style={[styles.infoVal, { color: Colors.gold }]}>
+                  {(notasTri.reduce((s, n) => s + (n.nf || 0), 0) / notasTri.length).toFixed(1)}
+                </Text>
+              </View>
+            )}
+          </View>
+        ))}
+      </ScrollView>
+    );
+  }
+
+  function renderDocumentos() {
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Pedir Declaração / Documento" icon="document-text" />
+        <TouchableOpacity style={styles.payBtn} onPress={() => setShowSolicitacaoModal(true)}>
+          <Ionicons name="add-circle" size={18} color="#fff" />
+          <Text style={styles.payBtnText}>Nova Solicitação</Text>
+        </TouchableOpacity>
+
+        <View style={{ marginTop: 20 }}>
+          <SectionTitle title="Minhas Solicitações" icon="list" />
+          {solicitacoesAluno.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={48} color={Colors.textMuted} />
+              <Text style={styles.emptyStateText}>Sem solicitações de documentos</Text>
+            </View>
+          ) : (
+            solicitacoesAluno.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(sol => (
+              <View key={sol.id} style={styles.solCard}>
+                <View style={styles.solTop}>
+                  <Text style={styles.solTipo}>{sol.tipo}</Text>
+                  <Badge
+                    label={sol.status === 'pendente' ? 'Pendente' : sol.status === 'em_processamento' ? 'Em Processamento' : sol.status === 'pronto' ? 'Pronto' : 'Pendente'}
+                    color={sol.status === 'pronto' ? Colors.success : sol.status === 'em_processamento' ? Colors.info : Colors.warning}
+                  />
+                </View>
+                <Text style={styles.solMotivo}>Motivo: {sol.motivo}</Text>
+                {sol.observacao ? <Text style={styles.solObs}>{sol.observacao}</Text> : null}
+                <Text style={styles.solData}>{new Date(sol.createdAt).toLocaleDateString('pt-PT')}</Text>
+              </View>
+            ))
+          )}
+        </View>
+
+        <Modal visible={showSolicitacaoModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Nova Solicitação</Text>
+                <TouchableOpacity onPress={() => setShowSolicitacaoModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.formLabel}>Tipo de Documento</Text>
+              <ScrollView style={{ maxHeight: 160, marginBottom: 12 }}>
+                {TIPOS_DOC.map(tipo => (
+                  <TouchableOpacity
+                    key={tipo}
+                    style={[styles.rubricaItem, solForm.tipo === tipo && styles.rubricaItemActive]}
+                    onPress={() => setSolForm(f => ({ ...f, tipo }))}
+                  >
+                    <Text style={[styles.rubricaText, solForm.tipo === tipo && { color: Colors.gold }]}>{tipo}</Text>
+                    {solForm.tipo === tipo && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <Text style={styles.formLabel}>Motivo *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Indique o motivo da solicitação..."
+                placeholderTextColor={Colors.textMuted}
+                value={solForm.motivo}
+                onChangeText={v => setSolForm(f => ({ ...f, motivo: v }))}
+                multiline
+                numberOfLines={3}
+              />
+              <Text style={styles.formLabel}>Observação (opcional)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Informação adicional..."
+                placeholderTextColor={Colors.textMuted}
+                value={solForm.observacao}
+                onChangeText={v => setSolForm(f => ({ ...f, observacao: v }))}
+              />
+              <TouchableOpacity style={styles.submitBtn} onPress={handleSolicitarDocumento}>
+                <Text style={styles.submitBtnText}>Enviar Solicitação</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  function renderTabContent() {
+    switch (activeTab) {
+      case 'painel': return renderPainel();
+      case 'notas': return renderNotas();
+      case 'mensagens': return renderMensagens();
+      case 'materiais': return renderMateriais();
+      case 'horario': return renderHorario();
+      case 'financeiro': return renderFinanceiro();
+      case 'historico': return renderHistorico();
+      case 'documentos': return renderDocumentos();
+      default: return null;
+    }
+  }
+
+  const foto = (user as any)?.avatar || aluno?.foto;
+  const initials = user?.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AL';
+
+  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  return (
+    <View style={styles.container}>
+      <TopBar title="Portal do Estudante" subtitle={turmaAluno?.nome || 'Área do Aluno'} />
+
+      {/* Profile Header */}
+      <View style={styles.profileHeader}>
+        <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickPhoto} activeOpacity={0.8}>
+          {foto ? (
+            <Image source={{ uri: foto }} style={styles.avatar} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+          )}
+          <View style={styles.cameraBtn}>
+            <Ionicons name="camera" size={12} color="#fff" />
+          </View>
+        </TouchableOpacity>
+        <View style={styles.profileInfo}>
+          <Text style={styles.profileName}>{user?.nome}</Text>
+          <Text style={styles.profileMat}>{aluno?.numeroMatricula || 'Aluno'}</Text>
+          {turmaAluno && (
+            <View style={styles.profileBadgeRow}>
+              <Badge label={turmaAluno.nome} color={Colors.info} />
+              <Badge label={turmaAluno.nivel} color={Colors.gold} />
+              <Badge label={turmaAluno.turno} color={Colors.success} />
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Tab Bar */}
+      <View style={styles.tabBarWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
+          {TABS.map(tab => {
+            const isActive = activeTab === tab.key;
+            const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                onPress={() => setActiveTab(tab.key)}
+              >
+                <Ionicons name={tab.icon as any} size={16} color={isActive ? Colors.gold : Colors.textMuted} />
+                <Text style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}>{tab.label}</Text>
+                {hasBadge && <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{unreadMsgs}</Text></View>}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Content */}
+      <View style={[styles.content, { paddingBottom: bottomInset }]}>
+        {renderTabContent()}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  avatarWrapper: { position: 'relative' },
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.gold,
+  },
+  avatarText: { fontSize: 22, fontFamily: 'Inter_700Bold', color: '#fff' },
+  cameraBtn: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: Colors.background,
+  },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  profileMat: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
+  profileBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+
+  tabBarWrapper: { backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  tabBar: {},
+  tabBarContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
+  tabBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: Colors.surface + '66',
+    position: 'relative',
+  },
+  tabBtnActive: { backgroundColor: Colors.gold + '22', borderWidth: 1, borderColor: Colors.gold + '55' },
+  tabBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  tabBtnTextActive: { color: Colors.gold, fontFamily: 'Inter_700Bold' },
+  tabBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: Colors.danger,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  tabBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  content: { flex: 1 },
+  tabContent: { padding: 16, paddingBottom: 32 },
+
+  sectionTitle: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, marginTop: 4 },
+  sectionTitleText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1 },
+
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  statCard: { flex: 1, minWidth: '22%', backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  statValue: { fontSize: 16, fontFamily: 'Inter_700Bold', textAlign: 'center' },
+  statLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 3, textAlign: 'center' },
+
+  infoCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  infoLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoVal: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1, textAlign: 'right' },
+  infoHint: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 12 },
+
+  badge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
+  badgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+
+  alertCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.info + '18',
+    borderWidth: 1,
+    borderColor: Colors.info + '44',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+  },
+  alertText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.info },
+
+  discRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  discLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  discNome: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1 },
+
+  trimestreSelector: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  trimBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, backgroundColor: Colors.backgroundCard, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  trimBtnActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },
+  trimBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
+  trimBtnTextActive: { color: Colors.gold },
+
+  emptyState: { alignItems: 'center', padding: 32, gap: 12 },
+  emptyStateText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+  emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', paddingVertical: 12 },
+
+  notaCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
+  notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  notaDisc: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  notaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  notaItem: { alignItems: 'center', gap: 4 },
+  notaItemLabel: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  notaCell: { width: 36, height: 36, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface },
+  notaValue: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  nfRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, borderTopWidth: 1 },
+  nfLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  nfValue: { fontSize: 22, fontFamily: 'Inter_700Bold' },
+  pautaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+  pautaLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  filterRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  filterBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.backgroundCard, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  filterBtnActive: { backgroundColor: Colors.info + '22', borderColor: Colors.info + '66' },
+  filterBtnText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  filterBtnTextActive: { color: Colors.info },
+
+  msgCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  msgTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  msgLeft: { flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 },
+  msgRemetente: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.info },
+  msgAssunto: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 },
+  msgCorpo: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
+  msgData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  msgMeta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  msgMetaText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  msgScrollBody: { maxHeight: 280, marginBottom: 12 },
+  msgFullCorpo: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 22 },
+
+  matCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  matIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' },
+  matInfo: { flex: 1 },
+  matTitulo: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  matDisc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 2 },
+  matData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  matModalDisc: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 8 },
+  matModalDesc: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 12 },
+  matModalScroll: { maxHeight: 200, marginBottom: 12 },
+  matModalConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, lineHeight: 20 },
+
+  sumCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  sumHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  sumDisc: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  sumData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  sumProf: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
+  sumConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
+  sumMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sumMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  diasScroll: { marginBottom: 16 },
+  diaBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.backgroundCard, marginRight: 8, borderWidth: 1, borderColor: Colors.border },
+  diaBtnActive: { backgroundColor: Colors.info + '22', borderColor: Colors.info + '66' },
+  diaBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
+  diaBtnTextActive: { color: Colors.info },
+  diaFull: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.textSecondary, marginBottom: 12, textAlign: 'center' },
+  periodoRow: { flexDirection: 'row', gap: 10, marginBottom: 10, alignItems: 'stretch' },
+  periodoHora: { width: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.backgroundCard, borderRadius: 10, padding: 6, borderWidth: 1, borderColor: Colors.border },
+  periodoNum: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  periodoTime: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  aulaCard: { flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border },
+  aulaVazia: { justifyContent: 'center', alignItems: 'center', opacity: 0.4 },
+  aulaVaziaText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  aulaDisciplina: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  aulaProf: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 4 },
+  aulaMeta: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  aulaMetaText: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.accent, borderRadius: 12, padding: 13, marginTop: 14 },
+  payBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  pagCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  pagTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  pagDesc: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, flex: 1 },
+  pagValor: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 6 },
+  pagMeta: { flexDirection: 'row', justifyContent: 'space-between' },
+  pagMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  metodoRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  metodoBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.backgroundCard, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  metodoBtnActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },
+  metodoBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
+  metodoBtnTextActive: { color: Colors.gold },
+  valorText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.gold, textAlign: 'center', marginBottom: 14 },
+
+  rubricaItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10, backgroundColor: Colors.surface, marginBottom: 6, borderWidth: 1, borderColor: Colors.border },
+  rubricaItemActive: { borderColor: Colors.gold, backgroundColor: Colors.gold + '11' },
+  rubricaText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, flex: 1 },
+  rubricaValor: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
+
+  reconfText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 16, lineHeight: 22 },
+
+  historicoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  historicoLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  historicoDisc: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1 },
+  historicoRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  historicoLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textTransform: 'uppercase' },
+  historicoNF: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+
+  solCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
+  solTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  solTipo: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  solMotivo: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 4 },
+  solObs: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 4 },
+  solData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  closeBtn: { backgroundColor: Colors.surface, borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 12 },
+  closeBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+
+  formLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  textInput: {
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.text,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    marginBottom: 12,
+    textAlignVertical: 'top',
+  },
+  submitBtn: { backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
+  submitBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+});

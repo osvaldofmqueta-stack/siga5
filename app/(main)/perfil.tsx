@@ -6,6 +6,7 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -59,6 +60,7 @@ export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
   const { alunos, professores, turmas, notas, presencas } = useData();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [editField, setEditField] = useState<string | null>(null);
@@ -284,6 +286,14 @@ export default function PerfilScreen() {
               <InfoRow label="Nível" value={turmaAluno?.nivel || '—'} />
               <InfoRow label="Encarregado" value={aluno.nomeEncarregado} />
               <InfoRow label="Tel. Encarregado" value={aluno.telefoneEncarregado} />
+              <TouchableOpacity
+                style={styles.portalBtn}
+                onPress={() => router.push('/(main)/portal-estudante' as any)}
+              >
+                <Ionicons name="grid" size={18} color="#fff" />
+                <Text style={styles.portalBtnText}>Aceder ao Portal do Estudante</Text>
+                <Ionicons name="chevron-forward" size={16} color="#fff" />
+              </TouchableOpacity>
             </>
           )}
         </View>
@@ -430,6 +440,8 @@ const styles = StyleSheet.create({
   actionLabel: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text },
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 16, marginTop: 16, padding: 15, backgroundColor: Colors.accent + '22', borderRadius: 14, borderWidth: 1, borderColor: Colors.accent + '44' },
   logoutText: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.accent },
+  portalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, padding: 13, backgroundColor: Colors.accent, borderRadius: 12 },
+  portalBtnText: { flex: 1, fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff', textAlign: 'center' },
   editOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   editBox: { backgroundColor: Colors.backgroundCard, borderRadius: 16, padding: 20, width: '100%' },
   editTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 14 },

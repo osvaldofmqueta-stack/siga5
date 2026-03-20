@@ -73,7 +73,33 @@ export default function DrawerLeft() {
   const isCeo = user?.role === 'ceo';
 
   const isProf = user?.role === 'professor';
+  const isAluno = user?.role === 'aluno';
   const isRH = user?.role === 'secretaria' || user?.role === 'director' || user?.role === 'admin';
+
+  const ALUNO_SECTIONS: NavSection[] = [
+    {
+      title: 'Meu Portal',
+      items: [
+        { label: 'Portal do Estudante', route: '/(main)/portal-estudante', icon: <Ionicons name="grid" size={20} color="inherit" /> },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+      ],
+    },
+    {
+      title: 'Académico',
+      items: [
+        { label: 'Minhas Notas', route: '/(main)/portal-estudante', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
+        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
+        { label: 'Pagamentos', route: '/(main)/portal-estudante', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+      ],
+    },
+  ];
 
   const PROFESSOR_SECTIONS: NavSection[] = [
     {
@@ -126,7 +152,7 @@ export default function DrawerLeft() {
         { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> },
       ],
     },
-  ] : isProf ? PROFESSOR_SECTIONS : [
+  ] : isProf ? PROFESSOR_SECTIONS : isAluno ? ALUNO_SECTIONS : [
     {
       title: 'Principal',
       items: [

@@ -47,6 +47,7 @@ export default function MainLayout() {
       <Stack.Screen name="professor-materiais" />
       <Stack.Screen name="professor-sumario" />
       <Stack.Screen name="rh-controle" />
+      <Stack.Screen name="portal-estudante" />
     </Stack>
   );
 
