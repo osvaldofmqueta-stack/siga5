@@ -26,9 +26,19 @@ interface UsersContextValue {
 const UsersContext = createContext<UsersContextValue | null>(null);
 
 export const STORAGE_USERS = '@sgaa_users';
-const USERS_SEED_KEY = '@sgaa_users_seed_v1';
-const USERS_SEED_V2_KEY = '@sgaa_users_seed_v2';
-const USERS_SEED_V3_KEY = '@sgaa_users_seed_v3';
+const CLEANUP_DEMO_KEY = '@sgaa_cleanup_demo_users_v1';
+
+const DEMO_USER_IDS = new Set([
+  'usr_prof_demo_001',
+  'usr_rebeca_001',
+  'usr_financeiro_001',
+]);
+
+const DEMO_USER_EMAILS = new Set([
+  'antonio.mendes@sige.ao',
+  'rebeca.queta@sige.ao',
+  'financeiro@sige.ao',
+]);
 
 function genId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -38,76 +48,22 @@ function today(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-const SEED_PROFESSOR_USER: StoredUser = {
-  id: 'usr_prof_demo_001',
-  nome: 'António Mendes da Silva',
-  email: 'antonio.mendes@sige.ao',
-  senha: 'Prof@2025',
-  role: 'professor',
-  escola: 'Escola Secundária 1.º de Agosto',
-  ativo: true,
-  criadoEm: new Date().toISOString().split('T')[0],
-};
+async function cleanupDemoUsers(current: StoredUser[]): Promise<StoredUser[]> {
+  const done = await AsyncStorage.getItem(CLEANUP_DEMO_KEY);
+  if (done) return current;
 
-async function seedUsers(current: StoredUser[]): Promise<StoredUser[]> {
-  const seeded = await AsyncStorage.getItem(USERS_SEED_KEY);
-  if (seeded) return current;
+  const cleaned = current.filter(
+    u => !DEMO_USER_IDS.has(u.id) && !DEMO_USER_EMAILS.has(u.email.toLowerCase())
+  );
 
-  const exists = current.some(u => u.id === SEED_PROFESSOR_USER.id);
-  const updated = exists ? current : [...current, SEED_PROFESSOR_USER];
-  if (!exists) {
-    await AsyncStorage.setItem(STORAGE_USERS, JSON.stringify(updated));
-  }
-  await AsyncStorage.setItem(USERS_SEED_KEY, '1');
-  return updated;
-}
-
-const SEED_REBECA_USER: StoredUser = {
-  id: 'usr_rebeca_001',
-  nome: 'Rebeca Chinawandela Queta',
-  email: 'rebeca.queta@sige.ao',
-  senha: 'Aluno@2025',
-  role: 'aluno',
-  escola: 'Escola Secundária 1.º de Agosto',
-  ativo: true,
-  criadoEm: '2025-09-01',
-};
-
-async function seedUsersV2(current: StoredUser[]): Promise<StoredUser[]> {
-  const seeded = await AsyncStorage.getItem(USERS_SEED_V2_KEY);
-  if (seeded) return current;
-
-  const exists = current.some(u => u.id === SEED_REBECA_USER.id);
-  const updated = exists ? current : [...current, SEED_REBECA_USER];
-  if (!exists) {
-    await AsyncStorage.setItem(STORAGE_USERS, JSON.stringify(updated));
-  }
-  await AsyncStorage.setItem(USERS_SEED_V2_KEY, '1');
-  return updated;
-}
-
-const SEED_FINANCEIRO_USER: StoredUser = {
-  id: 'usr_financeiro_001',
-  nome: 'Carlos Financeiro',
-  email: 'financeiro@sige.ao',
-  senha: 'Fin@2025',
-  role: 'financeiro',
-  escola: 'Escola Secundária 1.º de Agosto',
-  ativo: true,
-  criadoEm: '2025-09-01',
-};
-
-async function seedUsersV3(current: StoredUser[]): Promise<StoredUser[]> {
-  const seeded = await AsyncStorage.getItem(USERS_SEED_V3_KEY);
-  if (seeded) return current;
-
-  const exists = current.some(u => u.id === SEED_FINANCEIRO_USER.id);
-  const updated = exists ? current : [...current, SEED_FINANCEIRO_USER];
-  if (!exists) {
-    await AsyncStorage.setItem(STORAGE_USERS, JSON.stringify(updated));
-  }
-  await AsyncStorage.setItem(USERS_SEED_V3_KEY, '1');
-  return updated;
+  await AsyncStorage.setItem(STORAGE_USERS, JSON.stringify(cleaned));
+  await AsyncStorage.multiRemove([
+    '@sgaa_users_seed_v1',
+    '@sgaa_users_seed_v2',
+    '@sgaa_users_seed_v3',
+  ]);
+  await AsyncStorage.setItem(CLEANUP_DEMO_KEY, '1');
+  return cleaned;
 }
 
 export function UsersProvider({ children }: { children: ReactNode }) {
@@ -120,10 +76,8 @@ export function UsersProvider({ children }: { children: ReactNode }) {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_USERS);
       const parsed: StoredUser[] = raw ? JSON.parse(raw) : [];
-      const seeded = await seedUsers(parsed);
-      const seededV2 = await seedUsersV2(seeded);
-      const seededV3 = await seedUsersV3(seededV2);
-      setUsers(seededV3);
+      const cleaned = await cleanupDemoUsers(parsed);
+      setUsers(cleaned);
     } catch (e) {
       console.error('UsersContext load error', e);
       setUsers([]);

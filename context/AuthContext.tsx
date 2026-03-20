@@ -62,8 +62,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    // Logout de verdade: limpa o usuário da sessão e também o "lastUser"
+    // para evitar re-login automático via biometria na tela de login.
+    await AsyncStorage.multiRemove([STORAGE_KEY, LAST_USER_KEY]);
     setUser(null);
+    setLastUser(null);
   }
 
   async function updateUser(updates: Partial<AuthUser>) {
