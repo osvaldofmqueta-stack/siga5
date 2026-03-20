@@ -79,6 +79,61 @@ const VARIABLE_GROUPS = [
       { tag: '{{ANO_ACTUAL}}', desc: 'Ano actual', exemplo: '2026' },
     ],
   },
+  {
+    grupo: 'Identificação',
+    icon: 'card',
+    cor: '#ec4899',
+    vars: [
+      { tag: '{{PAI}}', desc: 'Nome do pai', exemplo: 'Fernando Mpinge Kalute' },
+      { tag: '{{MAE}}', desc: 'Nome da mãe', exemplo: 'Fernanda João' },
+      { tag: '{{NATURALIDADE}}', desc: 'Local de nascimento', exemplo: 'Mucope Ombadja Xangongo' },
+      { tag: '{{BI_NUMERO}}', desc: 'Número do Bilhete de Identidade', exemplo: '005895569555CE049' },
+      { tag: '{{BI_DATA_EMISSAO}}', desc: 'Data de emissão do BI', exemplo: '03 de Janeiro de 2015' },
+      { tag: '{{BI_LOCAL_EMISSAO}}', desc: 'Arquivo de identificação onde o BI foi emitido', exemplo: 'Luanda' },
+    ],
+  },
+  {
+    grupo: 'Académico',
+    icon: 'ribbon',
+    cor: '#14b8a6',
+    vars: [
+      { tag: '{{AREA}}', desc: 'Área de estudos', exemplo: 'Ciências Económicas e Jurídicas' },
+      { tag: '{{CICLO}}', desc: 'Ciclo de ensino', exemplo: 'IIº Ciclo' },
+      { tag: '{{RESULTADO}}', desc: 'Resultado final', exemplo: 'APTO' },
+      { tag: '{{RESULTADO_LETRA}}', desc: 'Resultado abreviado', exemplo: 'A' },
+      { tag: '{{PAUTA_NUMERO}}', desc: 'Número da pauta', exemplo: '039' },
+      { tag: '{{PROCESSO_NUMERO}}', desc: 'Número do processo', exemplo: '858' },
+    ],
+  },
+  {
+    grupo: 'Notas',
+    icon: 'school',
+    cor: '#f97316',
+    vars: [
+      { tag: '{{NOTA_LP}}', desc: 'Língua Portuguesa', exemplo: '14' },
+      { tag: '{{NOTA_LE}}', desc: 'Língua Estrangeira', exemplo: '12' },
+      { tag: '{{NOTA_MAT}}', desc: 'Matemática', exemplo: '12' },
+      { tag: '{{NOTA_INF}}', desc: 'Informática', exemplo: '15' },
+      { tag: '{{NOTA_EF}}', desc: 'Educação Física', exemplo: '16' },
+      { tag: '{{NOTA_HIS}}', desc: 'História', exemplo: '11' },
+      { tag: '{{NOTA_GEO}}', desc: 'Geografia', exemplo: '11' },
+      { tag: '{{NOTA_INTRO_DIR}}', desc: 'Introdução ao Direito', exemplo: '14' },
+      { tag: '{{NOTA_INTRO_ECO}}', desc: 'Introdução à Economia', exemplo: '11' },
+      { tag: '{{NOTA_DIR}}', desc: 'Direito', exemplo: '13' },
+      { tag: '{{NOTA_ECO}}', desc: 'Economia', exemplo: '12' },
+      { tag: '{{NOTA_GEST}}', desc: 'Gestão de Empresas', exemplo: '13' },
+      { tag: '{{NOTA_CONT}}', desc: 'Contabilidade', exemplo: '14' },
+      { tag: '{{NOTA_FIL}}', desc: 'Filosofia', exemplo: '12' },
+      { tag: '{{NOTA_DIR_COM}}', desc: 'Direito Comercial', exemplo: '13' },
+      { tag: '{{NOTA_ECO_POL}}', desc: 'Economia Política', exemplo: '12' },
+      { tag: '{{NOTA_CONT_GEST}}', desc: 'Contabilidade e Gestão', exemplo: '14' },
+      { tag: '{{NOTA_EMPREEND}}', desc: 'Empreendedorismo', exemplo: '15' },
+      { tag: '{{NOTA_DIR_EMP}}', desc: 'Direito Empresarial', exemplo: '13' },
+      { tag: '{{NOTA_ECO_AV}}', desc: 'Economia Avançada', exemplo: '12' },
+      { tag: '{{NOTA_GEST_FIN}}', desc: 'Gestão Financeira', exemplo: '14' },
+      { tag: '{{NOTA_CONT_AV}}', desc: 'Contabilidade Avançada', exemplo: '13' },
+    ],
+  },
 ];
 
 const TIPO_LABELS: Record<DocTipo, string> = {
@@ -363,13 +418,186 @@ Pela veracidade e autenticidade, passamos a presente declaração que vai por mi
 {{MUNICIPIO}}, {{DATA_ACTUAL}}.`,
 };
 
+// ─── Declaração com Nota — II Ciclo (10ª, 11ª, 12ª, 13ª) ───────────────────
+
+const SEED_DECL_NOTA_10_ID = 'tpl_seed_decl_nota_10_v1';
+const SEED_DECL_NOTA_10: DocTemplate = {
+  id: SEED_DECL_NOTA_10_ID,
+  nome: 'Declaração com Nota — 10ª Classe (IIº Ciclo)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+ENSINO GERAL
+
+DECLARAÇÃO
+
+a) {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}.
+
+Declaro que {{NOME_COMPLETO}}, Filho (a) de {{PAI}} e de {{MAE}}, nascido (a) aos {{DATA_NASCIMENTO}}, natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, portador do B.I ou Cédula Pessoal nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, passado pelo arquivo de Identificação de {{BI_LOCAL_EMISSAO}}.
+
+Concluiu nesta Escola no Ano Lectivo de {{ANO_LECTIVO}} o {{CICLO}} do Ensino Secundário, 10ª Classe, na área de {{AREA}} com o resultado final de {{RESULTADO}} ({{RESULTADO_LETRA}}) no termo c, Pauta, nº {{PAUTA_NUMERO}}, A processa nº {{PROCESSO_NUMERO}} arquivada nesta Escola, com as seguintes classificações:
+
+Disciplinas                          | 10ª Classe
+-------------------------------------|-------------------
+Língua Portuguesa                    | {{NOTA_LP}} Valores
+Língua Estrangeira                   | {{NOTA_LE}} Valores
+Matemática                           | {{NOTA_MAT}} Valores
+Informática                          | {{NOTA_INF}} Valores
+Educação Física                      | {{NOTA_EF}} Valores
+História                             | {{NOTA_HIS}} Valores
+Geografia                            | {{NOTA_GEO}} Valores
+Introdução ao Direito                | {{NOTA_INTRO_DIR}} Valores
+Introdução à Economia                | {{NOTA_INTRO_ECO}} Valores
+
+Por ser verdade, passou-se o presente Declaração que vai assinado e autenticado com o carimbo a Óleo ou Branco, em uso nesta Escola.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
+const SEED_DECL_NOTA_11_ID = 'tpl_seed_decl_nota_11_v1';
+const SEED_DECL_NOTA_11: DocTemplate = {
+  id: SEED_DECL_NOTA_11_ID,
+  nome: 'Declaração com Nota — 11ª Classe (IIº Ciclo)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+ENSINO GERAL
+
+DECLARAÇÃO
+
+a) {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}.
+
+Declaro que {{NOME_COMPLETO}}, Filho (a) de {{PAI}} e de {{MAE}}, nascido (a) aos {{DATA_NASCIMENTO}}, natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, portador do B.I ou Cédula Pessoal nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, passado pelo arquivo de Identificação de {{BI_LOCAL_EMISSAO}}.
+
+Concluiu nesta Escola no Ano Lectivo de {{ANO_LECTIVO}} o {{CICLO}} do Ensino Secundário, 11ª Classe, na área de {{AREA}} com o resultado final de {{RESULTADO}} ({{RESULTADO_LETRA}}) no termo c, Pauta, nº {{PAUTA_NUMERO}}, A processa nº {{PROCESSO_NUMERO}} arquivada nesta Escola, com as seguintes classificações:
+
+Disciplinas                          | 11ª Classe
+-------------------------------------|-------------------
+Língua Portuguesa                    | {{NOTA_LP}} Valores
+Língua Estrangeira                   | {{NOTA_LE}} Valores
+Matemática                           | {{NOTA_MAT}} Valores
+Informática                          | {{NOTA_INF}} Valores
+Educação Física                      | {{NOTA_EF}} Valores
+Direito                              | {{NOTA_DIR}} Valores
+Economia                             | {{NOTA_ECO}} Valores
+Gestão de Empresas                   | {{NOTA_GEST}} Valores
+Contabilidade                        | {{NOTA_CONT}} Valores
+
+Por ser verdade, passou-se o presente Declaração que vai assinado e autenticado com o carimbo a Óleo ou Branco, em uso nesta Escola.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
+const SEED_DECL_NOTA_12_ID = 'tpl_seed_decl_nota_12_v1';
+const SEED_DECL_NOTA_12: DocTemplate = {
+  id: SEED_DECL_NOTA_12_ID,
+  nome: 'Declaração com Nota — 12ª Classe (IIº Ciclo)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+ENSINO GERAL
+
+DECLARAÇÃO
+
+a) {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}.
+
+Declaro que {{NOME_COMPLETO}}, Filho (a) de {{PAI}} e de {{MAE}}, nascido (a) aos {{DATA_NASCIMENTO}}, natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, portador do B.I ou Cédula Pessoal nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, passado pelo arquivo de Identificação de {{BI_LOCAL_EMISSAO}}.
+
+Concluiu nesta Escola no Ano Lectivo de {{ANO_LECTIVO}} o {{CICLO}} do Ensino Secundário, 12ª Classe, na área de {{AREA}} com o resultado final de {{RESULTADO}} ({{RESULTADO_LETRA}}) no termo c, Pauta, nº {{PAUTA_NUMERO}}, A processa nº {{PROCESSO_NUMERO}} arquivada nesta Escola, com as seguintes classificações:
+
+Disciplinas                          | 12ª Classe
+-------------------------------------|-------------------
+Língua Portuguesa                    | {{NOTA_LP}} Valores
+Língua Estrangeira                   | {{NOTA_LE}} Valores
+Matemática                           | {{NOTA_MAT}} Valores
+Filosofia                            | {{NOTA_FIL}} Valores
+Educação Física                      | {{NOTA_EF}} Valores
+Direito Comercial                    | {{NOTA_DIR_COM}} Valores
+Economia Política                    | {{NOTA_ECO_POL}} Valores
+Contabilidade e Gestão               | {{NOTA_CONT_GEST}} Valores
+Empreendedorismo                     | {{NOTA_EMPREEND}} Valores
+
+Por ser verdade, passou-se o presente Declaração que vai assinado e autenticado com o carimbo a Óleo ou Branco, em uso nesta Escola.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
+const SEED_DECL_NOTA_13_ID = 'tpl_seed_decl_nota_13_v1';
+const SEED_DECL_NOTA_13: DocTemplate = {
+  id: SEED_DECL_NOTA_13_ID,
+  nome: 'Declaração com Nota — 13ª Classe (Pré-Universitário)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+ENSINO GERAL
+
+DECLARAÇÃO
+
+a) {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}.
+
+Declaro que {{NOME_COMPLETO}}, Filho (a) de {{PAI}} e de {{MAE}}, nascido (a) aos {{DATA_NASCIMENTO}}, natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, portador do B.I ou Cédula Pessoal nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, passado pelo arquivo de Identificação de {{BI_LOCAL_EMISSAO}}.
+
+Concluiu nesta Escola no Ano Lectivo de {{ANO_LECTIVO}} o {{CICLO}} do Ensino Secundário, 13ª Classe, na área de {{AREA}} com o resultado final de {{RESULTADO}} ({{RESULTADO_LETRA}}) no termo c, Pauta, nº {{PAUTA_NUMERO}}, A processa nº {{PROCESSO_NUMERO}} arquivada nesta Escola, com as seguintes classificações:
+
+Disciplinas                          | 13ª Classe
+-------------------------------------|-------------------
+Língua Portuguesa                    | {{NOTA_LP}} Valores
+Língua Estrangeira                   | {{NOTA_LE}} Valores
+Matemática                           | {{NOTA_MAT}} Valores
+Filosofia                            | {{NOTA_FIL}} Valores
+Educação Física                      | {{NOTA_EF}} Valores
+Direito Empresarial                  | {{NOTA_DIR_EMP}} Valores
+Economia Avançada                    | {{NOTA_ECO_AV}} Valores
+Gestão Financeira                    | {{NOTA_GEST_FIN}} Valores
+Contabilidade Avançada               | {{NOTA_CONT_AV}} Valores
+
+Por ser verdade, passou-se o presente Declaração que vai assinado e autenticado com o carimbo a Óleo ou Branco, em uso nesta Escola.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
+// ─── Disciplina → Note variable mapping ────────────────────────────────────
+
+const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
+  '{{NOTA_LP}}': ['língua portuguesa', 'lingua portuguesa', 'português', 'portugues'],
+  '{{NOTA_LE}}': ['língua estrangeira', 'lingua estrangeira', 'inglês', 'ingles', 'francês', 'frances', 'língua inglesa', 'língua francesa'],
+  '{{NOTA_MAT}}': ['matemática', 'matematica'],
+  '{{NOTA_INF}}': ['informática', 'informatica'],
+  '{{NOTA_EF}}': ['educação física', 'educacao fisica', 'ed. física', 'ed. fisica'],
+  '{{NOTA_HIS}}': ['história', 'historia'],
+  '{{NOTA_GEO}}': ['geografia'],
+  '{{NOTA_INTRO_DIR}}': ['introdução ao direito', 'introducao ao direito', 'intro. ao direito'],
+  '{{NOTA_INTRO_ECO}}': ['introdução à economia', 'introducao a economia', 'intro. à economia', 'intro. a economia'],
+  '{{NOTA_DIR}}': ['direito'],
+  '{{NOTA_ECO}}': ['economia'],
+  '{{NOTA_GEST}}': ['gestão de empresas', 'gestao de empresas'],
+  '{{NOTA_CONT}}': ['contabilidade'],
+  '{{NOTA_FIL}}': ['filosofia'],
+  '{{NOTA_DIR_COM}}': ['direito comercial'],
+  '{{NOTA_ECO_POL}}': ['economia política', 'economia politica'],
+  '{{NOTA_CONT_GEST}}': ['contabilidade e gestão', 'contabilidade e gestao'],
+  '{{NOTA_EMPREEND}}': ['empreendedorismo'],
+  '{{NOTA_DIR_EMP}}': ['direito empresarial'],
+  '{{NOTA_ECO_AV}}': ['economia avançada', 'economia avancada'],
+  '{{NOTA_GEST_FIN}}': ['gestão financeira', 'gestao financeira'],
+  '{{NOTA_CONT_AV}}': ['contabilidade avançada', 'contabilidade avancada'],
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { alunos, turmas } = useData();
+  const { alunos, turmas, notas } = useData();
   const { config } = useConfig();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -403,7 +631,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -556,6 +784,30 @@ export default function EditorDocumentos() {
     const turma = turmas.find(t => t.id === aluno.turmaId);
     const now = new Date();
 
+    // Resolve cycle from nivel
+    const cicloMap: Record<string, string> = {
+      'Primário': 'Ensino Primário',
+      'I Ciclo': 'Iº Ciclo',
+      'II Ciclo': 'IIº Ciclo',
+    };
+
+    // Build nota lookup: disciplina (lowercase) → nf for this student
+    const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+    const notaByDisciplina: Record<string, number> = {};
+    for (const n of alunoNotas) {
+      notaByDisciplina[n.disciplina.toLowerCase().trim()] = n.nf;
+    }
+
+    // Helper: find nota by variable tag
+    function resolveNota(tag: string): string {
+      const candidates = DISCIPLINA_NOTA_MAP[tag] || [];
+      for (const candidate of candidates) {
+        const v = notaByDisciplina[candidate];
+        if (v !== undefined) return String(Math.round(v));
+      }
+      return '____';
+    }
+
     const map: Record<string, string> = {
       '{{NOME_COMPLETO}}': `${aluno.nome} ${aluno.apelido}`,
       '{{NOME}}': aluno.nome,
@@ -565,19 +817,54 @@ export default function EditorDocumentos() {
       '{{GENERO}}': aluno.genero === 'M' ? 'Masculino' : 'Feminino',
       '{{PROVINCIA}}': aluno.provincia || '',
       '{{MUNICIPIO}}': aluno.municipio || '',
+      '{{NATURALIDADE}}': aluno.municipio || '',
       '{{NUMERO_MATRICULA}}': aluno.numeroMatricula || '',
       '{{NOME_ENCARREGADO}}': aluno.nomeEncarregado || '',
+      '{{PAI}}': aluno.nomeEncarregado || '________________________',
+      '{{MAE}}': '________________________',
+      '{{BI_NUMERO}}': '________________________',
+      '{{BI_DATA_EMISSAO}}': '________________________',
+      '{{BI_LOCAL_EMISSAO}}': '________________________',
       '{{TELEFONE_ENCARREGADO}}': aluno.telefoneEncarregado || '',
       '{{TURMA}}': turma?.nome || '',
       '{{CLASSE}}': turma ? `${turma.classe} Classe` : '',
       '{{NIVEL}}': turma?.nivel || '',
+      '{{CICLO}}': turma ? (cicloMap[turma.nivel] || turma.nivel) : '',
       '{{TURNO}}': turma?.turno || '',
       '{{ANO_LECTIVO}}': turma?.anoLetivo || new Date().getFullYear().toString(),
+      '{{AREA}}': '________________________',
+      '{{RESULTADO}}': 'APTO',
+      '{{RESULTADO_LETRA}}': 'A',
+      '{{PAUTA_NUMERO}}': '____',
+      '{{PROCESSO_NUMERO}}': '____',
       '{{NOME_ESCOLA}}': config.nomeEscola || '',
       '{{NOME_DIRECTOR}}': user?.nome || '',
       '{{DATA_ACTUAL}}': `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`,
       '{{MES_ACTUAL}}': MESES[now.getMonth()],
       '{{ANO_ACTUAL}}': now.getFullYear().toString(),
+      // Grade variables — auto-resolved from notas, fallback to blank
+      '{{NOTA_LP}}': resolveNota('{{NOTA_LP}}'),
+      '{{NOTA_LE}}': resolveNota('{{NOTA_LE}}'),
+      '{{NOTA_MAT}}': resolveNota('{{NOTA_MAT}}'),
+      '{{NOTA_INF}}': resolveNota('{{NOTA_INF}}'),
+      '{{NOTA_EF}}': resolveNota('{{NOTA_EF}}'),
+      '{{NOTA_HIS}}': resolveNota('{{NOTA_HIS}}'),
+      '{{NOTA_GEO}}': resolveNota('{{NOTA_GEO}}'),
+      '{{NOTA_INTRO_DIR}}': resolveNota('{{NOTA_INTRO_DIR}}'),
+      '{{NOTA_INTRO_ECO}}': resolveNota('{{NOTA_INTRO_ECO}}'),
+      '{{NOTA_DIR}}': resolveNota('{{NOTA_DIR}}'),
+      '{{NOTA_ECO}}': resolveNota('{{NOTA_ECO}}'),
+      '{{NOTA_GEST}}': resolveNota('{{NOTA_GEST}}'),
+      '{{NOTA_CONT}}': resolveNota('{{NOTA_CONT}}'),
+      '{{NOTA_FIL}}': resolveNota('{{NOTA_FIL}}'),
+      '{{NOTA_DIR_COM}}': resolveNota('{{NOTA_DIR_COM}}'),
+      '{{NOTA_ECO_POL}}': resolveNota('{{NOTA_ECO_POL}}'),
+      '{{NOTA_CONT_GEST}}': resolveNota('{{NOTA_CONT_GEST}}'),
+      '{{NOTA_EMPREEND}}': resolveNota('{{NOTA_EMPREEND}}'),
+      '{{NOTA_DIR_EMP}}': resolveNota('{{NOTA_DIR_EMP}}'),
+      '{{NOTA_ECO_AV}}': resolveNota('{{NOTA_ECO_AV}}'),
+      '{{NOTA_GEST_FIN}}': resolveNota('{{NOTA_GEST_FIN}}'),
+      '{{NOTA_CONT_AV}}': resolveNota('{{NOTA_CONT_AV}}'),
     };
 
     let result = template.conteudo;
