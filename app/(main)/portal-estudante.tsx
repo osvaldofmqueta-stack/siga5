@@ -114,7 +114,7 @@ function NotaCell({ value, max = 20 }: { value: number; max?: number }) {
 
 export default function PortalEstudanteScreen() {
   const { user, updateUser } = useAuth();
-  const { alunos, turmas, notas, presencas, updateAluno } = useData();
+  const { alunos, turmas, notas, presencas, eventos, updateAluno } = useData();
   const { taxas, pagamentos, addPagamento, getPagamentosAluno, getTaxasByNivel } = useFinanceiro();
   const { mensagens, materiais, sumarios, pautas, marcarMensagemLida } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
@@ -139,6 +139,8 @@ export default function PortalEstudanteScreen() {
   const [propinaTrimestre, setPropinaTriestre] = useState<1 | 2 | 3>(1);
   const [propMetodo, setPropMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
   const [isLoading, setIsLoading] = useState(false);
+  const [taxaParaPagar, setTaxaParaPagar] = useState<any>(null);
+  const [metodoPagarTaxa, setMetodoPagarTaxa] = useState<'rupe' | 'multicaixa'>('rupe');
 
   const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
   const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
@@ -158,6 +160,15 @@ export default function PortalEstudanteScreen() {
   const horariosAluno = turmaAluno ? horarios.filter(h => h.turmaId === turmaAluno.id) : [];
   const taxasNivel = turmaAluno ? getTaxasByNivel(turmaAluno.nivel, anoLetivo) : [];
   const taxasPropina = taxasNivel.filter(t => t.tipo === 'propina');
+  const todasTaxasAluno = taxas.filter(t =>
+    t.ativo &&
+    (t.nivel === turmaAluno?.nivel || t.nivel === '' || t.nivel === 'todos' || !t.nivel) &&
+    (t.anoAcademico === anoLetivo || t.anoAcademico === '' || !t.anoAcademico)
+  );
+  const eventosAluno = turmaAluno
+    ? eventos.filter(e => e.turmasIds.includes(turmaAluno.id) || e.turmasIds.length === 0)
+        .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    : [];
 
   const notasTrimestre = notasAluno.filter(n => n.trimestre === trimestreNotas);
   const mediaGeral = notasAluno.length > 0
@@ -291,6 +302,28 @@ export default function PortalEstudanteScreen() {
     Alert.alert('Referência de Propina Gerada', `Método: ${propMetodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxa.valor)}\n\nEfetue o pagamento com esta referência.`);
   }
 
+  async function handlePagarTaxa() {
+    if (!aluno || !taxaParaPagar) return;
+    const prefix = metodoPagarTaxa === 'rupe' ? 'RUPE' : 'MCX';
+    const ref = `${prefix}-${Math.floor(Math.random() * 900000 + 100000)}`;
+    await addPagamento({
+      alunoId: aluno.id,
+      taxaId: taxaParaPagar.id,
+      valor: taxaParaPagar.valor,
+      data: new Date().toISOString().split('T')[0],
+      ano: anoLetivo,
+      status: 'pendente',
+      metodoPagamento: metodoPagarTaxa === 'multicaixa' ? 'multicaixa' : 'transferencia',
+      referencia: ref,
+      observacao: taxaParaPagar.descricao,
+    });
+    setTaxaParaPagar(null);
+    Alert.alert(
+      'Referência Gerada',
+      `Rubrica: ${taxaParaPagar.descricao}\nMétodo: ${metodoPagarTaxa === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxaParaPagar.valor)}\n\nEfetue o pagamento com esta referência.`
+    );
+  }
+
   async function handleReconfirmacao() {
     if (!aluno) return;
     const nova = {
@@ -379,6 +412,41 @@ export default function PortalEstudanteScreen() {
             <Text style={[styles.alertText, { color: Colors.warning }]}>{pagamentosAluno.filter(p => p.status === 'pendente').length} pagamento(s) pendente(s)</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.warning} />
           </TouchableOpacity>
+        )}
+
+        <SectionTitle title="Calendário Escolar" icon="calendar" />
+        {eventosAluno.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="calendar-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem eventos/marcos definidos</Text>
+          </View>
+        ) : (
+          eventosAluno.map(ev => {
+            const isPast = new Date(ev.data) < new Date();
+            return (
+              <View key={ev.id} style={[styles.eventoCard, isPast && { opacity: 0.6 }]}>
+                <View style={styles.eventoLeft}>
+                  <Ionicons
+                    name={ev.tipo === 'Exame' ? 'document-text' : ev.tipo === 'Feriado' ? 'flag' : ev.tipo === 'Reunião' ? 'people' : ev.tipo === 'Cultural' ? 'musical-notes' : ev.tipo === 'Desportivo' ? 'fitness' : 'school'}
+                    size={20}
+                    color={ev.tipo === 'Exame' ? Colors.danger : ev.tipo === 'Feriado' ? Colors.gold : ev.tipo === 'Cultural' ? Colors.info : Colors.success}
+                  />
+                  <View style={styles.eventoInfo}>
+                    <Text style={styles.eventoTitulo}>{ev.titulo}</Text>
+                    <Text style={styles.eventoDesc} numberOfLines={1}>{ev.descricao}</Text>
+                  </View>
+                </View>
+                <View style={styles.eventoRight}>
+                  <Text style={styles.eventoData}>{new Date(ev.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}</Text>
+                  <Text style={styles.eventoHora}>{ev.hora}</Text>
+                  <Badge
+                    label={ev.tipo}
+                    color={ev.tipo === 'Exame' ? Colors.danger : ev.tipo === 'Feriado' ? Colors.gold : Colors.info}
+                  />
+                </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
     );
@@ -559,80 +627,95 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderMateriais() {
+    const TIPO_ICON: Record<string, string> = {
+      pdf: 'document', link: 'link', resumo: 'book', video: 'videocam', imagem: 'image',
+    };
+    const TIPO_COLOR: Record<string, string> = {
+      pdf: Colors.danger, link: Colors.info, resumo: Colors.gold, video: Colors.success, imagem: Colors.warning,
+    };
+    const sorted = [...materiaisAluno].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
-        <SectionTitle title="Materiais do Professor" icon="folder-open" />
-        {materiaisAluno.length === 0 ? (
+        <SectionTitle title="Materiais Disponíveis" icon="folder-open" />
+        <Text style={styles.infoHint}>Ordenados por data de envio — clique para visualizar o conteúdo</Text>
+
+        {sorted.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="folder-open-outline" size={48} color={Colors.textMuted} />
             <Text style={styles.emptyStateText}>Sem materiais disponíveis</Text>
           </View>
         ) : (
-          materiaisAluno.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(mat => (
-            <TouchableOpacity key={mat.id} style={styles.matCard} onPress={() => setMaterialAberto(mat)}>
-              <View style={styles.matIcon}>
-                <Ionicons
-                  name={mat.tipo === 'pdf' ? 'document' : mat.tipo === 'link' ? 'link' : mat.tipo === 'resumo' ? 'book' : 'document-text'}
-                  size={22}
-                  color={Colors.gold}
-                />
-              </View>
-              <View style={styles.matInfo}>
-                <Text style={styles.matTitulo}>{mat.titulo}</Text>
-                <Text style={styles.matDisc}>{mat.disciplina}</Text>
-                <Text style={styles.matData}>{new Date(mat.createdAt).toLocaleDateString('pt-PT')}</Text>
-              </View>
-              <Badge label={mat.tipo.toUpperCase()} color={Colors.info} />
-            </TouchableOpacity>
-          ))
+          sorted.map(mat => {
+            const iconName = TIPO_ICON[mat.tipo] || 'document-text';
+            const iconColor = TIPO_COLOR[mat.tipo] || Colors.info;
+            return (
+              <TouchableOpacity key={mat.id} style={styles.matCard} onPress={() => setMaterialAberto(mat)} activeOpacity={0.8}>
+                <View style={[styles.matIcon, { backgroundColor: iconColor + '22' }]}>
+                  <Ionicons name={iconName as any} size={22} color={iconColor} />
+                </View>
+                <View style={styles.matInfo}>
+                  <Text style={styles.matTitulo}>{mat.titulo}</Text>
+                  <Text style={styles.matDisc}>{mat.disciplina}</Text>
+                  <Text style={styles.matData}>{new Date(mat.createdAt).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+                  {mat.descricao ? <Text style={styles.matDesc} numberOfLines={1}>{mat.descricao}</Text> : null}
+                </View>
+                <View style={styles.matActions}>
+                  <Badge label={mat.tipo.charAt(0).toUpperCase() + mat.tipo.slice(1)} color={iconColor} />
+                  <View style={styles.matActionBtn}>
+                    <Ionicons name="eye-outline" size={14} color={Colors.textMuted} />
+                    <Text style={styles.matActionText}>Ver</Text>
+                  </View>
+                  {(mat.tipo === 'pdf' || mat.tipo === 'link') && (
+                    <View style={styles.matActionBtn}>
+                      <Ionicons name="download-outline" size={14} color={Colors.info} />
+                      <Text style={[styles.matActionText, { color: Colors.info }]}>Baixar</Text>
+                    </View>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })
         )}
-
-        <View style={{ marginTop: 20 }}>
-          <SectionTitle title="Sumários / Matérias Leccionadas" icon="book" />
-          {sumariosAluno.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="book-outline" size={48} color={Colors.textMuted} />
-              <Text style={styles.emptyStateText}>Sem sumários disponíveis</Text>
-            </View>
-          ) : (
-            sumariosAluno.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()).map(sum => (
-              <View key={sum.id} style={styles.sumCard}>
-                <View style={styles.sumHeader}>
-                  <Text style={styles.sumDisc}>{sum.disciplina}</Text>
-                  <Text style={styles.sumData}>{sum.data}</Text>
-                </View>
-                <Text style={styles.sumProf}>Prof. {sum.professorNome} · Aula Nº {sum.numeroAula}</Text>
-                <Text style={styles.sumConteudo}>{sum.conteudo}</Text>
-                <View style={styles.sumMeta}>
-                  <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
-                  <Text style={styles.sumMetaText}>{sum.horaInicio} — {sum.horaFim}</Text>
-                </View>
-              </View>
-            ))
-          )}
-        </View>
 
         <Modal visible={!!materialAberto} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{materialAberto?.titulo}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalTitle}>{materialAberto?.titulo}</Text>
+                  <Text style={styles.matModalDisc}>{materialAberto?.disciplina}</Text>
+                </View>
                 <TouchableOpacity onPress={() => setMaterialAberto(null)}>
                   <Ionicons name="close" size={22} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.matModalDisc}>{materialAberto?.disciplina}</Text>
-              <Text style={styles.matModalDesc}>{materialAberto?.descricao}</Text>
+              <View style={styles.matModalMeta}>
+                <Ionicons name="calendar-outline" size={13} color={Colors.textMuted} />
+                <Text style={styles.matMetaText}>{materialAberto?.createdAt ? new Date(materialAberto.createdAt).toLocaleDateString('pt-PT') : ''}</Text>
+                <Badge label={materialAberto?.tipo || ''} color={TIPO_COLOR[materialAberto?.tipo] || Colors.info} />
+              </View>
+              {materialAberto?.descricao ? <Text style={styles.matModalDesc}>{materialAberto.descricao}</Text> : null}
               {materialAberto?.tipo === 'link' ? (
-                <Text style={[styles.matModalConteudo, { color: Colors.info }]}>{materialAberto?.conteudo}</Text>
+                <View style={styles.matLinkBox}>
+                  <Ionicons name="link" size={16} color={Colors.info} />
+                  <Text style={styles.matLinkText} numberOfLines={2}>{materialAberto?.conteudo}</Text>
+                </View>
               ) : (
                 <ScrollView style={styles.matModalScroll}>
                   <Text style={styles.matModalConteudo}>{materialAberto?.conteudo}</Text>
                 </ScrollView>
               )}
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setMaterialAberto(null)}>
-                <Text style={styles.closeBtnText}>Fechar</Text>
-              </TouchableOpacity>
+              <View style={styles.matModalFooter}>
+                {(materialAberto?.tipo === 'pdf' || materialAberto?.tipo === 'link') && (
+                  <TouchableOpacity style={[styles.payBtn, { flex: 1, marginRight: 8 }]}>
+                    <Ionicons name="download-outline" size={16} color="#fff" />
+                    <Text style={styles.payBtnText}>Descarregar</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.closeBtn, { flex: 1 }]} onPress={() => setMaterialAberto(null)}>
+                  <Text style={styles.closeBtnText}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -696,57 +779,16 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderFinanceiro() {
-    const propinasPagas = pagamentosAluno.filter(p => {
-      const taxa = taxas.find(t => t.id === p.taxaId);
-      return taxa?.tipo === 'propina' && p.status === 'pago';
-    });
     const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);
     const totalPendente = pagamentosAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
+    const historicoOrdenado = [...pagamentosAluno].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statsRow}>
           <StatCard value={formatAOA(totalPago)} label="Total Pago" color={Colors.success} />
           <StatCard value={formatAOA(totalPendente)} label="Pendente" color={Colors.warning} />
-        </View>
-
-        <SectionTitle title="Propina" icon="school" />
-        {taxasPropina.length === 0 ? (
-          <View style={[styles.emptyState, { marginBottom: 16 }]}>
-            <Text style={styles.emptyStateText}>Propina não configurada nesta escola</Text>
-          </View>
-        ) : (
-          <View style={styles.infoCard}>
-            {taxasPropina.map(taxa => (
-              <View key={taxa.id}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Descrição</Text>
-                  <Text style={styles.infoVal}>{taxa.descricao}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Valor</Text>
-                  <Text style={[styles.infoVal, { color: Colors.gold }]}>{formatAOA(taxa.valor)}</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Frequência</Text>
-                  <Text style={styles.infoVal}>{taxa.frequencia}</Text>
-                </View>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.payBtn} onPress={() => setShowPagarPropina(true)}>
-              <Ionicons name="cash" size={18} color="#fff" />
-              <Text style={styles.payBtnText}>Pagar Propina</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <SectionTitle title="Pagamento de Documentos" icon="document" />
-        <View style={styles.infoCard}>
-          <Text style={styles.infoHint}>Selecione a rubrica e efetue o pagamento pelo RUPE ou Multicaixa Express</Text>
-          <TouchableOpacity style={styles.payBtn} onPress={() => setShowPagamentoModal(true)}>
-            <Ionicons name="card" size={18} color="#fff" />
-            <Text style={styles.payBtnText}>Pagar Documento</Text>
-          </TouchableOpacity>
+          <StatCard value={String(pagamentosAluno.length)} label="Transacções" color={Colors.info} />
         </View>
 
         <SectionTitle title="Reconfirmação de Matrícula" icon="refresh" />
@@ -773,114 +815,118 @@ export default function PortalEstudanteScreen() {
           </TouchableOpacity>
         </View>
 
-        <SectionTitle title="Histórico de Pagamentos" icon="receipt" />
-        {pagamentosAluno.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
-            <Text style={styles.emptyStateText}>Sem pagamentos registados</Text>
+        <SectionTitle title="Rubricas Disponíveis" icon="pricetag" />
+        <Text style={styles.infoHint}>Todas as rubricas activas para o ano lectivo {anoLetivo}. Clique em "Pagar" para gerar uma referência.</Text>
+
+        {todasTaxasAluno.length === 0 ? (
+          <View style={[styles.emptyState, { marginBottom: 16 }]}>
+            <Ionicons name="pricetag-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem rubricas configuradas para este ano</Text>
           </View>
         ) : (
-          pagamentosAluno.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(pag => {
-            const taxa = taxas.find(t => t.id === pag.taxaId);
+          todasTaxasAluno.map(taxa => {
+            const jaTemPendente = pagamentosAluno.some(p => p.taxaId === taxa.id && p.status === 'pendente');
+            const TIPO_ICON_MAP: Record<string, string> = { propina: 'school', matricula: 'document', material: 'book', exame: 'document-text', outro: 'cash' };
+            const TIPO_COLOR_MAP: Record<string, string> = { propina: Colors.info, matricula: Colors.gold, material: Colors.success, exame: Colors.warning, outro: Colors.textMuted };
+            const taxaIcon = TIPO_ICON_MAP[taxa.tipo] || 'cash';
+            const taxaColor = TIPO_COLOR_MAP[taxa.tipo] || Colors.info;
             return (
-              <View key={pag.id} style={styles.pagCard}>
-                <View style={styles.pagTop}>
-                  <Text style={styles.pagDesc}>{taxa?.descricao || pag.observacao || 'Pagamento'}</Text>
-                  <Badge
-                    label={pag.status === 'pago' ? 'Pago' : pag.status === 'pendente' ? 'Pendente' : 'Cancelado'}
-                    color={pag.status === 'pago' ? Colors.success : pag.status === 'pendente' ? Colors.warning : Colors.danger}
-                  />
+              <View key={taxa.id} style={styles.taxaCard}>
+                <View style={styles.taxaLeft}>
+                  <View style={[styles.taxaIconBox, { backgroundColor: taxaColor + '22' }]}>
+                    <Ionicons name={taxaIcon as any} size={20} color={taxaColor} />
+                  </View>
+                  <View style={styles.taxaInfo}>
+                    <Text style={styles.taxaTitulo}>{taxa.descricao}</Text>
+                    <Text style={styles.taxaMeta}>{taxa.frequencia} · {taxa.nivel || 'Todos os níveis'}</Text>
+                    {jaTemPendente && <Badge label="Referência Gerada" color={Colors.warning} />}
+                  </View>
                 </View>
-                <Text style={[styles.pagValor, { color: Colors.gold }]}>{formatAOA(pag.valor)}</Text>
-                <View style={styles.pagMeta}>
-                  <Text style={styles.pagMetaText}>{pag.data}</Text>
-                  {pag.referencia && <Text style={styles.pagMetaText}>Ref: {pag.referencia}</Text>}
+                <View style={styles.taxaRight}>
+                  <Text style={[styles.taxaValor, { color: Colors.gold }]}>{formatAOA(taxa.valor)}</Text>
+                  <TouchableOpacity
+                    style={[styles.payBtnSmall, jaTemPendente && { backgroundColor: Colors.warning + '44' }]}
+                    onPress={() => { setTaxaParaPagar(taxa); setMetodoPagarTaxa('rupe'); }}
+                  >
+                    <Text style={styles.payBtnSmallText}>{jaTemPendente ? 'Pagar novamente' : 'Pagar'}</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             );
           })
         )}
 
-        {/* Modal Pagar Propina */}
-        <Modal visible={showPagarPropina} transparent animationType="slide">
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Pagar Propina</Text>
-                <TouchableOpacity onPress={() => setShowPagarPropina(false)}>
-                  <Ionicons name="close" size={22} color={Colors.textMuted} />
-                </TouchableOpacity>
-              </View>
-              <Text style={styles.formLabel}>Trimestre</Text>
-              <View style={styles.trimestreSelector}>
-                {([1, 2, 3] as const).map(t => (
-                  <TouchableOpacity key={t} style={[styles.trimBtn, propinaTrimestre === t && styles.trimBtnActive]} onPress={() => setPropinaTriestre(t)}>
-                    <Text style={[styles.trimBtnText, propinaTrimestre === t && styles.trimBtnTextActive]}>{t}º</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={styles.formLabel}>Mês</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map(m => (
-                    <TouchableOpacity key={m} style={[styles.trimBtn, propinaMes === m && styles.trimBtnActive]} onPress={() => setPropinaMs(m)}>
-                      <Text style={[styles.trimBtnText, propinaMes === m && styles.trimBtnTextActive]}>{m}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-              <Text style={styles.formLabel}>Método de Pagamento</Text>
-              <View style={styles.metodoRow}>
-                <TouchableOpacity style={[styles.metodoBtn, propMetodo === 'rupe' && styles.metodoBtnActive]} onPress={() => setPropMetodo('rupe')}>
-                  <Text style={[styles.metodoBtnText, propMetodo === 'rupe' && styles.metodoBtnTextActive]}>RUPE</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.metodoBtn, propMetodo === 'multicaixa' && styles.metodoBtnActive]} onPress={() => setPropMetodo('multicaixa')}>
-                  <Text style={[styles.metodoBtnText, propMetodo === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
-                </TouchableOpacity>
-              </View>
-              {taxasPropina[0] && (
-                <Text style={styles.valorText}>Valor: {formatAOA(taxasPropina[0].valor)}</Text>
-              )}
-              <TouchableOpacity style={styles.submitBtn} onPress={handlePagarPropina}>
-                <Text style={styles.submitBtnText}>Gerar Referência de Pagamento</Text>
-              </TouchableOpacity>
-            </View>
+        <SectionTitle title="Histórico Financeiro" icon="receipt" />
+        {historicoOrdenado.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="receipt-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem transacções registadas</Text>
           </View>
-        </Modal>
+        ) : (
+          historicoOrdenado.map(pag => {
+            const taxa = taxas.find(t => t.id === pag.taxaId);
+            const statusColor = pag.status === 'pago' ? Colors.success : pag.status === 'pendente' ? Colors.warning : Colors.danger;
+            const statusLabel = pag.status === 'pago' ? 'Pago' : pag.status === 'pendente' ? 'Pendente' : 'Cancelado';
+            return (
+              <View key={pag.id} style={styles.pagCard}>
+                <View style={styles.pagTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.pagDesc}>{taxa?.descricao || pag.observacao || 'Pagamento'}</Text>
+                    <Text style={styles.pagMetaText}>{pag.data} {pag.mes ? `· Mês ${pag.mes}` : ''}</Text>
+                  </View>
+                  <Badge label={statusLabel} color={statusColor} />
+                </View>
+                <View style={styles.pagBottom}>
+                  <Text style={[styles.pagValor, { color: Colors.gold }]}>{formatAOA(pag.valor)}</Text>
+                  {pag.referencia ? (
+                    <View style={styles.pagRefBox}>
+                      <Ionicons name="barcode-outline" size={12} color={Colors.textMuted} />
+                      <Text style={styles.pagRef}>{pag.referencia}</Text>
+                    </View>
+                  ) : null}
+                  {pag.metodoPagamento && (
+                    <Badge
+                      label={pag.metodoPagamento === 'multicaixa' ? 'Multicaixa' : 'RUPE/Transfer.'}
+                      color={pag.metodoPagamento === 'multicaixa' ? Colors.success : Colors.info}
+                    />
+                  )}
+                </View>
+              </View>
+            );
+          })
+        )}
 
-        {/* Modal Pagar Documento */}
-        <Modal visible={showPagamentoModal} transparent animationType="slide">
+        {/* Modal Pagar Taxa */}
+        <Modal visible={!!taxaParaPagar} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Pagamento de Documento</Text>
-                <TouchableOpacity onPress={() => setShowPagamentoModal(false)}>
+                <Text style={styles.modalTitle}>Gerar Referência de Pagamento</Text>
+                <TouchableOpacity onPress={() => setTaxaParaPagar(null)}>
                   <Ionicons name="close" size={22} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.formLabel}>Rubrica</Text>
-              {RUBRICAS.map(r => (
-                <TouchableOpacity
-                  key={r.id}
-                  style={[styles.rubricaItem, pagForm.rubricaId === r.id && styles.rubricaItemActive]}
-                  onPress={() => setPagForm(f => ({ ...f, rubricaId: r.id }))}
-                >
-                  <Text style={[styles.rubricaText, pagForm.rubricaId === r.id && { color: Colors.gold }]}>{r.nome}</Text>
-                  <Text style={[styles.rubricaValor, pagForm.rubricaId === r.id && { color: Colors.gold }]}>{formatAOA(r.valor)}</Text>
-                </TouchableOpacity>
-              ))}
-              <Text style={styles.formLabel}>Método de Pagamento</Text>
-              <View style={styles.metodoRow}>
-                <TouchableOpacity style={[styles.metodoBtn, pagForm.metodo === 'rupe' && styles.metodoBtnActive]} onPress={() => setPagForm(f => ({ ...f, metodo: 'rupe' }))}>
-                  <Text style={[styles.metodoBtnText, pagForm.metodo === 'rupe' && styles.metodoBtnTextActive]}>RUPE</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.metodoBtn, pagForm.metodo === 'multicaixa' && styles.metodoBtnActive]} onPress={() => setPagForm(f => ({ ...f, metodo: 'multicaixa' }))}>
-                  <Text style={[styles.metodoBtnText, pagForm.metodo === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity style={styles.submitBtn} onPress={handlePagarDocumento}>
-                <Text style={styles.submitBtnText}>Gerar Referência</Text>
-              </TouchableOpacity>
+              {taxaParaPagar && (
+                <>
+                  <View style={styles.infoCard}>
+                    <View style={styles.infoRow}><Text style={styles.infoLabel}>Rubrica</Text><Text style={styles.infoVal}>{taxaParaPagar.descricao}</Text></View>
+                    <View style={styles.infoRow}><Text style={styles.infoLabel}>Valor</Text><Text style={[styles.infoVal, { color: Colors.gold }]}>{formatAOA(taxaParaPagar.valor)}</Text></View>
+                    <View style={styles.infoRow}><Text style={styles.infoLabel}>Frequência</Text><Text style={styles.infoVal}>{taxaParaPagar.frequencia}</Text></View>
+                  </View>
+                  <Text style={styles.formLabel}>Método de Pagamento</Text>
+                  <View style={styles.metodoRow}>
+                    <TouchableOpacity style={[styles.metodoBtn, metodoPagarTaxa === 'rupe' && styles.metodoBtnActive]} onPress={() => setMetodoPagarTaxa('rupe')}>
+                      <Text style={[styles.metodoBtnText, metodoPagarTaxa === 'rupe' && styles.metodoBtnTextActive]}>RUPE</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.metodoBtn, metodoPagarTaxa === 'multicaixa' && styles.metodoBtnActive]} onPress={() => setMetodoPagarTaxa('multicaixa')}>
+                      <Text style={[styles.metodoBtnText, metodoPagarTaxa === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <TouchableOpacity style={styles.submitBtn} onPress={handlePagarTaxa}>
+                    <Text style={styles.submitBtnText}>Gerar Referência</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </Modal>

@@ -118,6 +118,8 @@ interface DataContextValue {
   addNota: (n: Omit<Nota, 'id'>) => Promise<void>;
   updateNota: (id: string, n: Partial<Nota>) => Promise<void>;
   addPresenca: (p: Omit<Presenca, 'id'>) => Promise<void>;
+  updatePresenca: (id: string, p: Partial<Presenca>) => Promise<void>;
+  deletePresenca: (id: string) => Promise<void>;
   addEvento: (e: Omit<Evento, 'id' | 'createdAt'>) => Promise<void>;
   updateEvento: (id: string, e: Partial<Evento>) => Promise<void>;
   deleteEvento: (id: string) => Promise<void>;
@@ -610,6 +612,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
     await persist(STORAGE_KEYS.presencas, updated);
   }
 
+  async function updatePresenca(id: string, p: Partial<Presenca>) {
+    const updated = presencas.map(x => x.id === id ? { ...x, ...p } : x);
+    setPresencas(updated);
+    await persist(STORAGE_KEYS.presencas, updated);
+  }
+
+  async function deletePresenca(id: string) {
+    const updated = presencas.filter(x => x.id !== id);
+    setPresencas(updated);
+    await persist(STORAGE_KEYS.presencas, updated);
+  }
+
   async function addEvento(e: Omit<Evento, 'id' | 'createdAt'>) {
     const novo: Evento = { ...e, id: genId(), createdAt: new Date().toISOString() };
     const updated = [...eventos, novo];
@@ -635,7 +649,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     addProfessor, updateProfessor, deleteProfessor,
     addTurma, updateTurma, deleteTurma,
     addNota, updateNota,
-    addPresenca,
+    addPresenca, updatePresenca, deletePresenca,
     addEvento, updateEvento, deleteEvento,
   }), [alunos, professores, turmas, notas, presencas, eventos, isLoading]);
 
