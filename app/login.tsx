@@ -25,6 +25,15 @@ const CEO_ACCOUNT = {
   escola: 'SIGE — Sistema Integral de Gestão Escolar',
 };
 
+const FINANCEIRO_ACCOUNT = {
+  email: 'financeiro@sige.ao',
+  senha: 'Financeiro@2025',
+  role: 'financeiro' as const,
+  nome: 'Gestor Financeiro',
+  id: 'usr_financeiro_001',
+  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+};
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -192,6 +201,9 @@ export default function LoginScreen() {
         if (emailTrimmed === CEO_ACCOUNT.email) {
           await login({ id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
           router.replace('/(main)/ceo');
+        } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email) {
+          await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
+          router.replace('/(main)/dashboard');
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
@@ -223,6 +235,10 @@ export default function LoginScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await login({ id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
       router.replace('/(main)/ceo');
+    } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email && senha === FINANCEIRO_ACCOUNT.senha) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
+      router.replace('/(main)/dashboard');
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
@@ -265,6 +281,7 @@ export default function LoginScreen() {
       secretaria: 'Secretaria',
       professor: 'Professor',
       aluno: 'Aluno',
+      financeiro: 'Gestor Financeiro',
     };
     return labels[role] || role;
   };
