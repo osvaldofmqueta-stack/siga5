@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -87,9 +87,16 @@ const VARIABLE_GROUPS = [
       { tag: '{{PAI}}', desc: 'Nome do pai', exemplo: 'Fernando Mpinge Kalute' },
       { tag: '{{MAE}}', desc: 'Nome da mãe', exemplo: 'Fernanda João' },
       { tag: '{{NATURALIDADE}}', desc: 'Local de nascimento', exemplo: 'Mucope Ombadja Xangongo' },
+      { tag: '{{DIA_NASC}}', desc: 'Dia de nascimento', exemplo: '15' },
+      { tag: '{{MES_NASC}}', desc: 'Mês de nascimento por extenso', exemplo: 'Março' },
+      { tag: '{{ANO_NASC}}', desc: 'Ano de nascimento', exemplo: '2005' },
       { tag: '{{BI_NUMERO}}', desc: 'Número do Bilhete de Identidade', exemplo: '005895569555CE049' },
       { tag: '{{BI_DATA_EMISSAO}}', desc: 'Data de emissão do BI', exemplo: '03 de Janeiro de 2015' },
       { tag: '{{BI_LOCAL_EMISSAO}}', desc: 'Arquivo de identificação onde o BI foi emitido', exemplo: 'Luanda' },
+      { tag: '{{ENCARREGADO_PROFISSAO}}', desc: 'Profissão do encarregado', exemplo: 'Professor' },
+      { tag: '{{ENCARREGADO_LOCAL_TRABALHO}}', desc: 'Local de trabalho do encarregado', exemplo: 'Escola Primária N.º 5' },
+      { tag: '{{ENCARREGADO_RESIDENCIA}}', desc: 'Residência do encarregado', exemplo: 'Rangel, Luanda' },
+      { tag: '{{ENCARREGADO_CONTACTO2}}', desc: 'Segundo contacto do encarregado', exemplo: '+244 912 345 678' },
     ],
   },
   {
@@ -143,6 +150,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   oficio: 'Ofício',
   pauta: 'Mini-Pauta',
   pauta_final: 'Pauta Final',
+  ficha_matricula: 'Ficha de Matrícula',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -152,6 +160,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   oficio: Colors.warning,
   pauta: '#8b5cf6',
   pauta_final: '#dc2626',
+  ficha_matricula: '#0891b2',
   outro: Colors.textMuted,
 };
 
@@ -619,6 +628,39 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
   '{{NOTA_CONT_AV}}': ['contabilidade avançada', 'contabilidade avancada'],
 };
 
+// ─── Ficha de Matrícula Seed ─────────────────────────────────────────────────
+
+const SEED_FICHA_MATRICULA_ID = 'tpl_seed_ficha_matricula_v1';
+
+const SEED_FICHA_MATRICULA: DocTemplate = {
+  id: SEED_FICHA_MATRICULA_ID,
+  nome: 'Ficha de Reconfirmação de Matrícula',
+  tipo: 'ficha_matricula',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `FICHA DE RECONFIRMAÇÃO DE MATRÍCULA
+
+Nome do Aluno: {{NOME_COMPLETO}}
+Filho(a) de {{PAI}} e de {{MAE}}
+Nascido(a) aos {{DIA_NASC}} de {{MES_NASC}} de {{ANO_NASC}} Natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}
+Província de {{PROVINCIA}} portador(a) do B.I ou Cédula pessoal nº {{BI_NUMERO}}
+emitido aos {{BI_DATA_EMISSAO}} pela direcção nacional de identificação
+ou conservatória de registo civil de {{BI_LOCAL_EMISSAO}}.
+
+Nome do encarregado: {{NOME_ENCARREGADO}}
+Profissão: {{ENCARREGADO_PROFISSAO}}    Local de trabalho: {{ENCARREGADO_LOCAL_TRABALHO}}
+Residência: {{ENCARREGADO_RESIDENCIA}}
+Contactos: {{TELEFONE_ENCARREGADO}} ou {{ENCARREGADO_CONTACTO2}}
+
+Classe actual: {{CLASSE}}   Turma: {{TURMA}}   Ano Lectivo: {{ANO_LECTIVO}}
+
+──────────────────────────────────────────────
+FREQUÊNCIA ESCOLAR DO ALUNO
+──────────────────────────────────────────────
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}`,
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
@@ -662,7 +704,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1053,9 +1095,16 @@ export default function EditorDocumentos() {
       '{{NOME_ENCARREGADO}}': aluno.nomeEncarregado || '',
       '{{PAI}}': aluno.nomeEncarregado || '________________________',
       '{{MAE}}': '________________________',
+      '{{DIA_NASC}}': aluno.dataNascimento ? String(new Date(aluno.dataNascimento).getDate()) : '__',
+      '{{MES_NASC}}': aluno.dataNascimento ? MESES[new Date(aluno.dataNascimento).getMonth()] : '__________',
+      '{{ANO_NASC}}': aluno.dataNascimento ? String(new Date(aluno.dataNascimento).getFullYear()) : '____',
       '{{BI_NUMERO}}': '________________________',
       '{{BI_DATA_EMISSAO}}': '________________________',
       '{{BI_LOCAL_EMISSAO}}': '________________________',
+      '{{ENCARREGADO_PROFISSAO}}': '________________________',
+      '{{ENCARREGADO_LOCAL_TRABALHO}}': '________________________',
+      '{{ENCARREGADO_RESIDENCIA}}': '________________________',
+      '{{ENCARREGADO_CONTACTO2}}': '________________________',
       '{{TELEFONE_ENCARREGADO}}': aluno.telefoneEncarregado || '',
       '{{TURMA}}': turma?.nome || '',
       '{{CLASSE}}': turma ? `${turma.classe} Classe` : '',
@@ -1111,6 +1160,166 @@ export default function EditorDocumentos() {
     setAlunoSearch('');
   }
 
+  // ─── Ficha de Matrícula HTML Builder ──────────────────────────────────────
+
+  function buildFichaMatriculaHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+    const turma = turmas.find(t => t.id === aluno.turmaId);
+    const escola = config.nomeEscola || 'Escola';
+    const now = new Date();
+
+    const nome = `${aluno.nome.toUpperCase()} ${aluno.apelido.toUpperCase()}`;
+    const diaNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getDate() : '__';
+    const mesNasc = aluno.dataNascimento ? MESES[new Date(aluno.dataNascimento).getMonth()] : '__________';
+    const anoNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getFullYear() : '____';
+    const municipio = aluno.municipio || '____________________';
+    const provincia = aluno.provincia || '____________________';
+    const encarregado = aluno.nomeEncarregado || '____________________________________________';
+    const telefone = aluno.telefoneEncarregado || '_______________________';
+    const classeActual = turma ? turma.classe : '____';
+    const turmaNome = turma ? turma.nome : '____';
+    const anoLetivo = turma ? turma.anoLetivo : String(now.getFullYear());
+
+    // Class history table columns
+    const classes = ['Iniciação', '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe'];
+    const classeHeaders = classes.map(c => `<th>${c.replace(' Classe', '<br/>Classe')}</th>`).join('');
+    const classeCells = classes.map(() => `<td>&nbsp;</td>`).join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Ficha de Reconfirmação de Matrícula — ${nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; padding: 20px 30px; }
+    .header { text-align: center; margin-bottom: 16px; }
+    .header .escola { font-size: 14px; font-weight: bold; text-transform: uppercase; }
+    .header .sub { font-size: 11px; text-transform: uppercase; }
+    .titulo { text-align: center; font-size: 16px; font-weight: bold; text-transform: uppercase; margin: 18px 0 20px; letter-spacing: 1px; border-top: 2px solid #000; border-bottom: 2px solid #000; padding: 8px 0; }
+    .field { margin-bottom: 10px; line-height: 1.8; }
+    .line { display: inline-block; border-bottom: 1px solid #000; min-width: 200px; vertical-align: bottom; margin: 0 2px; }
+    .line-sm { min-width: 60px; }
+    .line-md { min-width: 120px; }
+    .line-lg { min-width: 260px; }
+    .line-xl { min-width: 360px; }
+    .row { display: flex; gap: 24px; align-items: flex-end; margin-bottom: 10px; }
+    .row > * { flex: 1; }
+    table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 10px; }
+    table th, table td { border: 1px solid #000; padding: 5px 3px; text-align: center; }
+    table th { background: #f0f0f0; font-weight: bold; font-size: 9px; }
+    .section-title { font-size: 13px; font-weight: bold; text-align: center; text-transform: uppercase; margin: 16px 0 8px; letter-spacing: 2px; }
+    .frequencia-box { border: 1px solid #000; min-height: 80px; padding: 8px; margin-bottom: 16px; font-size: 10px; color: #aaa; font-style: italic; }
+    .date-line { margin: 16px 0; font-size: 11px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 28px; }
+    .sig-block { text-align: center; min-width: 220px; }
+    .sig-label { font-size: 11px; margin-bottom: 28px; }
+    .sig-line { width: 200px; border-top: 1px solid #000; margin: 0 auto 4px; }
+    .comprovativo { border: 1px solid #aaa; background: #f7f7f7; padding: 8px 12px; margin-top: 20px; font-size: 9px; }
+    .comp-title { font-size: 9px; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 6px; letter-spacing: 1px; }
+    .comp-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .comp-field { flex: 1; min-width: 120px; }
+    @media print { @page { size: A4; margin: 15mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="sub">Ensino Particular</div>
+    <div class="escola">${escola}</div>
+    <div class="sub">Ensino Primário, Iº e IIº Ciclo</div>
+  </div>
+
+  <div class="titulo">Ficha de Reconfirmação de Matrícula</div>
+
+  <div class="field">Nome do Aluno <span class="line line-xl">${nome}</span></div>
+
+  <div class="field">
+    Filho(a) de <span class="line line-lg">________________________</span>
+    &nbsp;e de <span class="line line-md">________________________</span>
+  </div>
+
+  <div class="field">
+    Nascido(a) aos <span class="line line-sm">${diaNasc}</span>
+    de <span class="line line-md">${mesNasc}</span>
+    de 20<span class="line line-sm">${String(anoNasc).slice(-2)}</span>
+    &nbsp;Natural de <span class="line line-md">${municipio}</span>
+    &nbsp;Município de <span class="line line-md">${municipio}</span>
+  </div>
+
+  <div class="field">
+    Província de <span class="line line-md">${provincia}</span>
+    portador(a) do B.I ou Cédula pessoal nº <span class="line line-md">_____________________</span>
+    emitido aos <span class="line line-sm">____</span>
+    de <span class="line line-md">________________</span>
+    de 20<span class="line line-sm">____</span>
+    pela direcção nacional de identificação ou conservatória de registo civil de
+    <span class="line line-lg">________________________</span>.
+  </div>
+
+  <div class="field">Nome do encarregado <span class="line line-xl">${encarregado}</span></div>
+
+  <div class="row">
+    <div>Profissão <span class="line line-md">________________________</span></div>
+    <div>Local de trabalho <span class="line line-md">_______________________________</span></div>
+  </div>
+
+  <div class="row">
+    <div>Residência <span class="line line-md">________________________</span></div>
+    <div>Contactos <span class="line line-md">${telefone}</span></div>
+    <div>ou <span class="line line-md">_______________________</span></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:70px;">Classes</th>
+        ${classeHeaders}
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>Ano lectivo</th>
+        ${classeCells}
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="section-title">Frequência Escolar do Aluno</div>
+  <div class="frequencia-box">— espaço para observações —</div>
+
+  <div class="date-line">Luanda aos, ______ de ____________________ de 20____</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">O encarregado de educação</div>
+      <div class="sig-line"></div>
+      <div>${encarregado}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O(a) Responsável da Secretaria</div>
+      <div class="sig-line"></div>
+      <div>&nbsp;</div>
+    </div>
+  </div>
+
+  <div class="comprovativo">
+    <div class="comp-title">Comprovativo de Matrícula — Ano Lectivo 20____</div>
+    <div class="comp-row">
+      <div class="comp-field">Nome: <strong>${nome}</strong></div>
+      <div class="comp-field">Fez a matrícula na Classe: <strong>${classeActual}</strong></div>
+      <div class="comp-field">Período: __________</div>
+    </div>
+    <div class="comp-row" style="margin-top:4px;">
+      <div class="comp-field">O Encarregado: ______________________</div>
+      <div class="comp-field">A Secretária: ________________________</div>
+      <div class="comp-field">Luanda aos ______ de ______ de 20____</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
@@ -1119,6 +1328,15 @@ export default function EditorDocumentos() {
     // ── Pauta Final: use generated HTML directly ──────────────────────────────
     if (emitTemplate?.tipo === 'pauta_final' && emitTurmaId) {
       const html = buildPautaFinalHtml(emitTurmaId);
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      return;
+    }
+
+    // ── Ficha de Matrícula: use dedicated form HTML builder ───────────────────
+    if (emitTemplate?.tipo === 'ficha_matricula' && emitAlunoId) {
+      const html = buildFichaMatriculaHtml(emitAlunoId);
       win.document.write(html);
       win.document.close();
       win.print();
