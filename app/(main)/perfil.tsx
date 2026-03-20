@@ -129,7 +129,12 @@ export default function PerfilScreen() {
   async function handleLogout() {
     Alert.alert('Terminar Sessão', 'Tem a certeza que deseja sair?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Sair', style: 'destructive', onPress: logout },
+      {
+        text: 'Sair', style: 'destructive', onPress: async () => {
+          await logout();
+          router.replace('/login' as any);
+        }
+      },
     ]);
   }
 

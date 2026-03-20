@@ -67,12 +67,21 @@ export default function DrawerRight() {
       {
         text: 'Sair', style: 'destructive', onPress: async () => {
           await logout();
+          router.replace('/login' as any);
         }
       },
     ]);
   }
 
-  const roleColor = user?.role === 'director' ? Colors.gold : user?.role === 'secretaria' ? Colors.info : Colors.success;
+  const roleColors: Record<string, string> = {
+    ceo: '#8B5CF6', pca: Colors.gold, admin: Colors.info, director: Colors.gold,
+    secretaria: Colors.info, professor: Colors.success, aluno: Colors.success, financeiro: Colors.warning,
+  };
+  const roleLabels: Record<string, string> = {
+    ceo: 'CEO', pca: 'Presidente', admin: 'Administrador', director: 'Director',
+    secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno', financeiro: 'Gestor Financeiro',
+  };
+  const roleColor = roleColors[user?.role ?? ''] ?? Colors.success;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents={rightOpen ? 'auto' : 'none'}>
@@ -95,7 +104,7 @@ export default function DrawerRight() {
           <Text style={styles.userEmail}>{user?.email}</Text>
           <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>
             <Text style={[styles.roleText, { color: roleColor }]}>
-              {user?.role === 'director' ? 'Director' : user?.role === 'secretaria' ? 'Secretaria' : user?.role === 'professor' ? 'Professor' : 'Aluno'}
+              {roleLabels[user?.role ?? ''] ?? user?.role}
             </Text>
           </View>
         </View>

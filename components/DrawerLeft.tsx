@@ -75,7 +75,8 @@ export default function DrawerLeft() {
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
   const isFinanceiro = user?.role === 'financeiro';
-  const isRH = user?.role === 'secretaria' || user?.role === 'director' || user?.role === 'admin';
+  const isSecretaria = user?.role === 'secretaria';
+  const isRH = user?.role === 'director' || user?.role === 'admin';
 
   const ALUNO_SECTIONS: NavSection[] = [
     {
@@ -147,7 +148,44 @@ export default function DrawerLeft() {
     },
   ];
 
-  const NAV_SECTIONS: NavSection[] = isCeo ? [
+  const SECRETARIA_SECTIONS: NavSection[] = [
+    {
+      title: 'Secretaria',
+      items: [
+        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" /> },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+      ],
+    },
+    {
+      title: 'Gestão Académica',
+      items: [
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" /> },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" /> },
+        { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
+      ],
+    },
+    {
+      title: 'Planeamento',
+      items: [
+        { label: 'Calendário Escolar', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
+        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" /> },
+      ],
+    },
+    {
+      title: 'Análise',
+      items: [
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" /> },
+        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" /> },
+        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+      ],
+    },
+  ];
+
+  const NAV_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS : isCeo ? [
     {
       title: 'Painel CEO',
       items: [
@@ -187,7 +225,7 @@ export default function DrawerLeft() {
         { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
         { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
         { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Presenças', route: '/(main)/presencas', icon: <MaterialCommunityIcons name="calendar-check" size={20} color="inherit" /> },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" /> },
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
         { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
       ],

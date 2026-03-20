@@ -34,6 +34,15 @@ const FINANCEIRO_ACCOUNT = {
   escola: 'SIGE — Sistema Integral de Gestão Escolar',
 };
 
+const SECRETARIA_ACCOUNT = {
+  email: 'secretaria@sige.ao',
+  senha: 'Secretaria@2025',
+  role: 'secretaria' as const,
+  nome: 'Secretária Académica',
+  id: 'usr_secretaria_001',
+  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+};
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -67,6 +76,8 @@ export default function LoginScreen() {
     if (!authLoading && user) {
       if (user.role === 'ceo') {
         router.replace('/(main)/ceo');
+      } else if (user.role === 'secretaria') {
+        router.replace('/(main)/secretaria-hub');
       } else {
         router.replace('/(main)/dashboard');
       }
@@ -161,6 +172,8 @@ export default function LoginScreen() {
         await login({ ...lastUser, biometricEnabled: true, avatar: lastUser.avatar });
         if (lastUser.role === 'ceo') {
           router.replace('/(main)/ceo');
+        } else if (lastUser.role === 'secretaria') {
+          router.replace('/(main)/secretaria-hub');
         } else {
           router.replace('/(main)/dashboard');
         }
@@ -204,6 +217,9 @@ export default function LoginScreen() {
         } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email) {
           await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
           router.replace('/(main)/dashboard');
+        } else if (emailTrimmed === SECRETARIA_ACCOUNT.email) {
+          await login({ id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
+          router.replace('/(main)/secretaria-hub');
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
@@ -239,6 +255,10 @@ export default function LoginScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
       router.replace('/(main)/dashboard');
+    } else if (emailTrimmed === SECRETARIA_ACCOUNT.email && senha === SECRETARIA_ACCOUNT.senha) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await login({ id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
+      router.replace('/(main)/secretaria-hub');
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
