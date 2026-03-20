@@ -1,0 +1,24 @@
+[1] 116
+[1G[0K⠙[1G[0K⠙[1G[0K
+> siga-v3@3.0.0 server:dev
+> NODE_ENV=development tsx server/index.ts
+
+[1G[0K⠙[1G[0K[1G[0K
+> siga-v3@3.0.0 web:dev
+> CI=1 npx expo start --web --port 8000
+
+[1G[0K⠙[1G[0Ksh: 1: tsx: not found
+[1G[0K⠙[1G[0K[1mnpm[22m [33mwarn[39m [94mexec[39m The following package was not found and will be installed: expo@55.0.8
+[1mnpm[22m [33mwarn[39m [94mdeprecated[39m inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+[1mnpm[22m [33mwarn[39m [94mdeprecated[39m rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+[1mnpm[22m [33mwarn[39m [94mdeprecated[39m glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[1mnpm[22m [33mwarn[39m [94mdeprecated[39m glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+[1mnpm[22m [33mwarn[39m [94mdeprecated[39m glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+Starting project at /home/runner/workspace
+ConfigError: Cannot determine the project's Expo SDK version because the module `expo` is not installed. Install it with `npm install expo` and try again.
+[1G[0K⠙[1G[0K[1mnpm[22m [96mnotice[39m
+[1mnpm[22m [96mnotice[39m New [31mmajor[39m version of npm available! [31m10.8.2[39m -> [34m11.12.0[39m
+[1mnpm[22m [96mnotice[39m Changelog: [34mhttps://github.com/npm/cli/releases/tag/v11.12.0[39m
+[1mnpm[22m [96mnotice[39m To update run: [4mnpm install -g npm@11.12.0[24m
+[1mnpm[22m [96mnotice[39m
+[1G[0K⠙[1G[0K
