@@ -34,6 +34,9 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Cursor/local artifacts
+.local/
+
 # typescript
 *.tsbuildinfo
 .vercel
