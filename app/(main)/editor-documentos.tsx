@@ -171,6 +171,43 @@ Por ser verdade, passou-se a presente DECLARAÇÃO que vai por mim assinado e au
 {{NOME_ESCOLA}} — {{MUNICIPIO}}, {{DATA_ACTUAL}}.`,
 };
 
+const SEED_DECLARACAO_HABILITACOES_PRIMARIO_ID = 'tpl_seed_declaracao_habilitacoes_primario_v1';
+
+const SEED_DECLARACAO_HABILITACOES_PRIMARIO: DocTemplate = {
+  id: SEED_DECLARACAO_HABILITACOES_PRIMARIO_ID,
+  nome: 'Declaração de Habilitações (Ensino Primário)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `República de Angola
+Ministério da Educação
+{{NOME_ESCOLA}}
+
+Declaração de Habilitações
+
+Eu, {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}} Declaro que: {{NOME_COMPLETO}},
+Filho (a) de {{NOME_ENCARREGADO}} E de ________________________________,
+Natural de {{MUNICIPIO}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}},
+Nascido (a) aos {{DATA_NASCIMENTO}},
+portador (a) do bilhete de identificação ou cédula nº ________________________________ passado pelos arquivos de identificação de _________________ aos ___/___/_____
+
+Frequentou o ano lectivo de {{ANO_LECTIVO}} E concluiu a {{CLASSE}} classe do Ensino Primário de Educação nesta Escola, conforme consta na Pauta _________________ livro nº _____________,
+Sala _____________ Turma {{TURMA}} com a média final de _________________ obtidas nas seguintes classificações:
+
+Língua Portuguesa ..............................................................................
+Matemática .........................................................................................
+Estudo do Meio ....................................................................................
+Educação Manual e Plástica ..................................................................
+Educação Musical .................................................................................
+Educação Física ....................................................................................
+
+Esta declaração é para efeito de matrícula.
+
+Pela veracidade e autenticidade, passamos a presente declaração que vai por mim assinado e autenticado com carimbos a óleo em uso neste estabelecimento de ensino {{NOME_ESCOLA}}.
+
+{{MUNICIPIO}}, {{DATA_ACTUAL}}.`,
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
@@ -211,7 +248,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
