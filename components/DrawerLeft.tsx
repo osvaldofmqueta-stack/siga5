@@ -153,6 +153,7 @@ export default function DrawerLeft() {
       title: 'Secretaria',
       items: [
         { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" /> },
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" /> },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
       ],
     },
