@@ -105,6 +105,37 @@ function fmtDate(iso: string) {
   return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+// ─── Default / Seed Templates ────────────────────────────────────────────────
+
+const SEED_GUIA_TRANSFERENCIA_ID = 'tpl_seed_guia_transferencia_v1';
+
+const SEED_GUIA_TRANSFERENCIA: DocTemplate = {
+  id: SEED_GUIA_TRANSFERENCIA_ID,
+  nome: 'Guia de Transferência',
+  tipo: 'outro',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `GUIA DE TRANSFERÊNCIA Nº ____/________
+
+A pedido do seu encarregado de educação, eu {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}, venho por meio desta transferir o (a) aluno (a) {{NOME_COMPLETO}}, nascido(a) aos {{DATA_NASCIMENTO}}, filho(a) de {{NOME_ENCARREGADO}} e de ________________________________,
+
+{{MUNICIPIO}}, Natural de {{MUNICIPIO}}, província de {{PROVINCIA}}, matriculado(a) na {{CLASSE}}.
+
+É transferido(a) para ________________________________________________, município de __________________, província de __________________, com os seguintes documentos:
+
+  › ___ Cópia (s) do bilhete, Cédula ou Certidão de nascimento.
+  › ___ Fotografia (s).
+  › ___ Certificado da 6ª Classe ou ficha de encaminhamento.
+  › ___ Atestado Médico.
+  › ___ Cartão de Vacina.
+  › ___ Pauta / Declaração da 7ª Classe.
+  › ___ Pauta / Declaração da 8ª Classe.
+
+Por me ter solicitado, passou-se a presente guia de transferência que por mim vai assinado e autenticado com carimbo a óleo em uso nesta instituição Escolar.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
@@ -139,10 +170,25 @@ export default function EditorDocumentos() {
 
   const inputRef = useRef<TextInput>(null);
 
-  // Load templates
+  // Load templates + seed defaults
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(raw => {
-      if (raw) setTemplates(JSON.parse(raw));
+    AsyncStorage.getItem(STORAGE_KEY).then(async raw => {
+      let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
+
+      // Inject seed templates if not yet present
+      const seeds = [SEED_GUIA_TRANSFERENCIA];
+      let changed = false;
+      for (const seed of seeds) {
+        if (!list.find(t => t.id === seed.id)) {
+          list = [seed, ...list];
+          changed = true;
+        }
+      }
+      if (changed) {
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      }
+
+      setTemplates(list);
       setIsLoading(false);
     }).catch(() => setIsLoading(false));
   }, []);
