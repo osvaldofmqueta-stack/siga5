@@ -270,6 +270,10 @@ export default function EditorDocumentos() {
       const win = window.open('', '_blank');
       if (!win) return;
       const aluno = alunos.find(a => a.id === emitAlunoId);
+      const logoHtml = config.logoUrl
+        ? `<img src="${config.logoUrl}" alt="Insígnia" style="height:80px;width:80px;object-fit:contain;margin-bottom:8px;" />`
+        : `<div style="width:80px;height:80px;border-radius:50%;background:#e8e8e8;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:28px;font-weight:bold;color:#555;line-height:80px;text-align:center;">${(config.nomeEscola || 'E').charAt(0).toUpperCase()}</div>`;
+      const watermarkText = config.nomeEscola || 'SIGA';
       win.document.write(`
         <!DOCTYPE html>
         <html>
@@ -277,17 +281,53 @@ export default function EditorDocumentos() {
           <meta charset="UTF-8" />
           <title>${emitTemplate?.nome || 'Documento'}</title>
           <style>
-            body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; }
-            h1 { text-align: center; font-size: 18px; margin-bottom: 8px; }
-            .meta { text-align: center; color: #555; font-size: 12px; margin-bottom: 40px; }
-            pre { white-space: pre-wrap; font-family: inherit; }
-            @media print { body { margin: 30px 50px; } }
+            * { box-sizing: border-box; }
+            body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; position: relative; }
+            .watermark {
+              position: fixed; top: 50%; left: 50%;
+              transform: translate(-50%, -50%) rotate(-45deg);
+              font-size: 72px; font-weight: bold;
+              color: rgba(0,0,0,0.04); white-space: nowrap;
+              pointer-events: none; z-index: 0;
+              font-family: 'Times New Roman', serif;
+              letter-spacing: 8px;
+            }
+            .content { position: relative; z-index: 1; }
+            .doc-header { text-align: center; margin-bottom: 32px; }
+            .insignia { display: block; margin: 0 auto 8px; }
+            h1 { font-size: 16px; margin: 4px 0; font-family: 'Times New Roman', serif; }
+            .republika { font-size: 11px; color: #555; margin-bottom: 2px; }
+            .divider { width: 80px; height: 2px; background: #000; margin: 12px auto; }
+            .doc-tipo { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin: 8px 0; }
+            .doc-meta { font-size: 11px; color: #555; margin-bottom: 32px; }
+            pre { white-space: pre-wrap; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.9; text-align: justify; }
+            .signature { margin-top: 60px; text-align: center; }
+            .sig-line { width: 200px; height: 1px; background: #333; margin: 40px auto 6px; }
+            @media print {
+              body { margin: 30px 50px; }
+              .watermark { position: fixed; }
+            }
           </style>
         </head>
         <body>
-          <h1>${config.nomeEscola}</h1>
-          <div class="meta">${emitTemplate?.nome || ''} — ${aluno ? aluno.nome + ' ' + aluno.apelido : ''}</div>
-          <pre>${emitPreview}</pre>
+          <div class="watermark">${watermarkText}</div>
+          <div class="content">
+            <div class="doc-header">
+              ${logoHtml}
+              <div class="republika">República de Angola</div>
+              <h1>${config.nomeEscola}</h1>
+              <div class="divider"></div>
+              <div class="doc-tipo">${emitTemplate?.nome || ''}</div>
+              ${aluno ? `<div class="doc-meta">${aluno.nome} ${aluno.apelido}</div>` : ''}
+            </div>
+            <pre>${emitPreview}</pre>
+            <div class="signature">
+              <div style="font-size:13px;color:#444;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+              <div class="sig-line"></div>
+              <div style="font-weight:bold;font-size:13px;">${user?.nome || ''}</div>
+              <div style="font-size:12px;color:#555;">Director(a)</div>
+            </div>
+          </div>
         </body>
         </html>
       `);
@@ -600,23 +640,37 @@ export default function EditorDocumentos() {
                 <Text style={styles.previewEmptyText}>Seleccione um aluno para pré-visualizar o documento com os dados preenchidos</Text>
               </View>
             ) : (
-              <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>
-                {/* Document header */}
-                <View style={styles.docHeader}>
-                  <Text style={styles.docEscola}>{config.nomeEscola}</Text>
-                  <Text style={styles.docTipo}>{TIPO_LABELS[emitTemplate!.tipo]}</Text>
-                  <View style={styles.docDivider} />
+              <View style={styles.previewOuter}>
+                {/* Watermark layer */}
+                <View style={styles.watermarkContainer} pointerEvents="none">
+                  <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
                 </View>
-                {/* Document body */}
-                <Text style={styles.docBody}>{emitPreview}</Text>
-                {/* Signature area */}
-                <View style={styles.docSignature}>
-                  <Text style={styles.docSignatureDate}>Luanda, {new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
-                  <View style={styles.docSignatureLine} />
-                  <Text style={styles.docSignatureName}>{user?.nome}</Text>
-                  <Text style={styles.docSignatureRole}>Director(a)</Text>
-                </View>
-              </ScrollView>
+                <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>
+                  {/* Insignia + header */}
+                  <View style={styles.docHeader}>
+                    {config.logoUrl ? (
+                      <Image source={{ uri: config.logoUrl }} style={styles.docInsignia} resizeMode="contain" />
+                    ) : (
+                      <View style={styles.docInsigniaPlaceholder}>
+                        <Text style={styles.docInsigniaLetter}>{(config.nomeEscola || 'E').charAt(0).toUpperCase()}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.docRepublika}>República de Angola</Text>
+                    <Text style={styles.docEscola}>{config.nomeEscola}</Text>
+                    <View style={styles.docDivider} />
+                    <Text style={styles.docTipo}>{TIPO_LABELS[emitTemplate!.tipo]}</Text>
+                  </View>
+                  {/* Document body */}
+                  <Text style={styles.docBody}>{emitPreview}</Text>
+                  {/* Signature area */}
+                  <View style={styles.docSignature}>
+                    <Text style={styles.docSignatureDate}>Luanda, {new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+                    <View style={styles.docSignatureLine} />
+                    <Text style={styles.docSignatureName}>{user?.nome}</Text>
+                    <Text style={styles.docSignatureRole}>Director(a)</Text>
+                  </View>
+                </ScrollView>
+              </View>
             )}
           </View>
         </View>
@@ -809,11 +863,32 @@ const styles = StyleSheet.create({
   // Preview
   previewEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 30 },
   previewEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', maxWidth: 300 },
+  previewOuter: { flex: 1, borderRadius: 12, overflow: 'hidden', position: 'relative' },
+  watermarkContainer: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', zIndex: 0,
+    transform: [{ rotate: '-40deg' }],
+  },
+  watermarkText: {
+    fontSize: Platform.OS === 'web' ? 52 : 36,
+    fontFamily: 'Inter_700Bold',
+    color: 'rgba(0,0,0,0.04)',
+    letterSpacing: 6,
+    textAlign: 'center',
+  },
   previewScroll: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 24 },
   docHeader: { alignItems: 'center', marginBottom: 24 },
-  docEscola: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#1a1a1a', textAlign: 'center' },
-  docTipo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#444', marginTop: 4, textTransform: 'uppercase', letterSpacing: 1 },
-  docDivider: { height: 2, backgroundColor: '#1a1a1a', width: 60, marginTop: 10 },
+  docInsignia: { width: 72, height: 72, marginBottom: 8 },
+  docInsigniaPlaceholder: {
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#e8e8e8', alignItems: 'center', justifyContent: 'center',
+    marginBottom: 8, borderWidth: 2, borderColor: '#ccc',
+  },
+  docInsigniaLetter: { fontSize: 30, fontFamily: 'Inter_700Bold', color: '#555' },
+  docRepublika: { fontSize: 10, fontFamily: 'Inter_400Regular', color: '#888', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 },
+  docEscola: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#1a1a1a', textAlign: 'center' },
+  docTipo: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#444', marginTop: 6, textTransform: 'uppercase', letterSpacing: 1.5 },
+  docDivider: { height: 2, backgroundColor: '#1a1a1a', width: 60, marginTop: 10, marginBottom: 2 },
   docBody: { fontSize: 14, fontFamily: Platform.OS === 'web' ? 'Georgia, serif' : 'Inter_400Regular', color: '#1a1a1a', lineHeight: 26, textAlign: 'justify' },
   docSignature: { marginTop: 48, alignItems: 'center', gap: 4 },
   docSignatureDate: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#444' },
