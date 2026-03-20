@@ -67,7 +67,6 @@ export default function DrawerRight() {
       {
         text: 'Sair', style: 'destructive', onPress: async () => {
           await logout();
-          router.replace('/login');
         }
       },
     ]);

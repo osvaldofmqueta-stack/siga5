@@ -9,18 +9,26 @@ import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 export default function MainLayout() {
-  const { user } = useAuth();
-  const { isLicencaValida, diasRestantes, isLoading } = useLicense();
+  const { user, isLoading: authLoading } = useAuth();
+  const { isLicencaValida, diasRestantes, isLoading: licLoading } = useLicense();
   const router = useRouter();
   const { isDesktop } = useBreakpoint();
 
   useEffect(() => {
-    if (isLoading) return;
+    if (authLoading) return;
+    if (!user) {
+      router.replace('/login' as any);
+      return;
+    }
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (licLoading) return;
     if (user?.role === 'ceo') return;
     if (!isLicencaValida || diasRestantes < 0) {
       router.replace('/licenca' as any);
     }
-  }, [isLicencaValida, diasRestantes, isLoading, user]);
+  }, [isLicencaValida, diasRestantes, licLoading, user]);
 
   const stackScreens = (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
