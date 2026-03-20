@@ -120,7 +120,11 @@ function NotaCell({ value, max = 20 }: { value: number; max?: number }) {
 export default function PortalEstudanteScreen() {
   const { user, updateUser } = useAuth();
   const { alunos, turmas, notas, presencas, eventos, updateAluno } = useData();
-  const { taxas, pagamentos, addPagamento, getPagamentosAluno, getTaxasByNivel } = useFinanceiro();
+  const {
+    taxas, pagamentos, addPagamento, getPagamentosAluno, getTaxasByNivel,
+    isAlunoBloqueado, getMensagensAluno, marcarMensagemLida: marcarMsgFinLida,
+    getRUPEsAluno, getMesesEmAtraso, calcularMulta, multaConfig,
+  } = useFinanceiro();
   const { mensagens, materiais, sumarios, pautas, marcarMensagemLida } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
@@ -156,6 +160,12 @@ export default function PortalEstudanteScreen() {
   const notasAluno = aluno ? notas.filter(n => n.alunoId === aluno.id && n.anoLetivo === anoLetivo) : [];
   const presAluno = aluno ? presencas.filter(p => p.alunoId === aluno.id) : [];
   const pagamentosAluno = aluno ? getPagamentosAluno(aluno.id) : [];
+  const isBloqueado   = aluno ? isAlunoBloqueado(aluno.id) : false;
+  const msgsFinanceiro = aluno ? getMensagensAluno(aluno.id) : [];
+  const rupesAluno    = aluno ? getRUPEsAluno(aluno.id) : [];
+  const mesesAtraso   = aluno ? getMesesEmAtraso(aluno.id, anoLetivo) : 0;
+  const taxaPropina   = taxas.find(t => t.tipo === 'propina' && t.ativo);
+  const multaEstimada = aluno ? calcularMulta(taxaPropina?.valor || 0, mesesAtraso) : 0;
   const mensagensAluno = turmaAluno
     ? mensagens.filter(m =>
         (m.tipo === 'turma' && m.turmaId === turmaAluno.id) ||
@@ -169,7 +179,7 @@ export default function PortalEstudanteScreen() {
   const taxasPropina = taxasNivel.filter(t => t.tipo === 'propina');
   const todasTaxasAluno = taxas.filter(t =>
     t.ativo &&
-    (t.nivel === turmaAluno?.nivel || t.nivel === '' || t.nivel === 'todos' || !t.nivel) &&
+    (t.nivel === turmaAluno?.nivel || t.nivel === '' || t.nivel === 'todos' || t.nivel === 'Todos' || !t.nivel) &&
     (t.anoAcademico === anoLetivo || t.anoAcademico === '' || !t.anoAcademico)
   );
   const eventosAluno = turmaAluno
@@ -1020,9 +1030,64 @@ export default function PortalEstudanteScreen() {
     const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);
     const totalPendente = pagamentosAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
     const historicoOrdenado = [...pagamentosAluno].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    const unreadFinMsg = msgsFinanceiro.filter(m => !m.lida).length;
 
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        {/* Bloqueio Banner */}
+        {isBloqueado && (
+          <View style={[styles.readonlyBanner, { backgroundColor: Colors.danger + '18', borderColor: Colors.danger + '44', borderWidth: 1 }]}>
+            <Ionicons name="lock-closed" size={18} color={Colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.readonlyText, { color: Colors.danger, fontFamily: 'Inter_700Bold', fontSize: 13 }]}>Acesso Bloqueado</Text>
+              <Text style={[styles.readonlyText, { color: Colors.danger }]}>O seu acesso foi temporariamente suspenso por falta de pagamento. Contacte o departamento financeiro para regularizar a situação.</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Atraso Banner */}
+        {!isBloqueado && mesesAtraso > 0 && (
+          <View style={[styles.readonlyBanner, { backgroundColor: Colors.warning + '18', borderColor: Colors.warning + '44', borderWidth: 1 }]}>
+            <Ionicons name="time" size={18} color={Colors.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.readonlyText, { color: Colors.warning, fontFamily: 'Inter_700Bold', fontSize: 13 }]}>{mesesAtraso} mês(es) de propina em atraso</Text>
+              {multaConfig.ativo && multaEstimada > 0 && (
+                <Text style={[styles.readonlyText, { color: Colors.warning }]}>Multa por atraso estimada: {formatAOA(multaEstimada)} ({multaConfig.percentagem}% por mês)</Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Financial Messages */}
+        {msgsFinanceiro.length > 0 && (
+          <>
+            <SectionTitle title={`Mensagens Financeiras${unreadFinMsg > 0 ? ` (${unreadFinMsg} nova${unreadFinMsg > 1 ? 's' : ''})` : ''}`} icon="chatbubble" />
+            {msgsFinanceiro.slice(0, 3).map(msg => {
+              const TIPO_COLOR_MAP: Record<string, string> = { aviso: Colors.warning, bloqueio: Colors.danger, rupe: Colors.gold, geral: Colors.info };
+              const msgColor = TIPO_COLOR_MAP[msg.tipo] || Colors.info;
+              return (
+                <TouchableOpacity key={msg.id} style={[styles.msgCard, !msg.lida && { borderLeftWidth: 3, borderLeftColor: msgColor }]}
+                  onPress={() => marcarMsgFinLida(msg.id)}>
+                  <View style={styles.msgTop}>
+                    <View style={styles.msgLeft}>
+                      <Ionicons name="chatbubble" size={14} color={msgColor} />
+                      <Text style={styles.msgRemetente}>{msg.remetente}</Text>
+                      <View style={{ backgroundColor: msgColor + '22', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 10, color: msgColor, fontFamily: 'Inter_600SemiBold' }}>
+                          {msg.tipo === 'aviso' ? 'Aviso' : msg.tipo === 'bloqueio' ? 'Bloqueio' : msg.tipo === 'rupe' ? 'RUPE' : 'Geral'}
+                        </Text>
+                      </View>
+                    </View>
+                    {!msg.lida && <View style={styles.unreadDot} />}
+                  </View>
+                  <Text style={styles.msgCorpo}>{msg.texto}</Text>
+                  <Text style={styles.msgData}>{new Date(msg.data).toLocaleDateString('pt-PT')}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
         <View style={styles.statsRow}>
           <StatCard value={formatAOA(totalPago)} label="Total Pago" color={Colors.success} />
           <StatCard value={formatAOA(totalPendente)} label="Pendente" color={Colors.warning} />
@@ -1092,6 +1157,34 @@ export default function PortalEstudanteScreen() {
               </View>
             );
           })
+        )}
+
+        {/* RUPEs Gerados */}
+        {rupesAluno.length > 0 && (
+          <>
+            <SectionTitle title="Referências RUPE" icon="receipt" />
+            {rupesAluno.map(r => {
+              const t = taxas.find(x => x.id === r.taxaId);
+              const expirado = new Date(r.dataValidade) < new Date();
+              return (
+                <View key={r.id} style={[styles.pagCard, { borderLeftWidth: 2, borderLeftColor: Colors.gold }]}>
+                  <View style={styles.pagTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pagDesc}>{t?.descricao || 'Rubrica'}</Text>
+                      <Text style={[styles.pagRef, { color: Colors.gold }]}>{r.referencia}</Text>
+                      <Text style={styles.pagMetaText}>Válido até: {new Date(r.dataValidade).toLocaleDateString('pt-PT')}</Text>
+                    </View>
+                    <View style={{ backgroundColor: (expirado ? Colors.danger : Colors.gold) + '22', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10, color: expirado ? Colors.danger : Colors.gold, fontFamily: 'Inter_600SemiBold' }}>{expirado ? 'Expirado' : 'Activo'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.pagBottom}>
+                    <Text style={[styles.pagValor, { color: Colors.gold }]}>{formatAOA(r.valor)}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </>
         )}
 
         <SectionTitle title="Histórico Financeiro" icon="receipt" />

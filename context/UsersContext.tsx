@@ -28,6 +28,7 @@ const UsersContext = createContext<UsersContextValue | null>(null);
 export const STORAGE_USERS = '@sgaa_users';
 const USERS_SEED_KEY = '@sgaa_users_seed_v1';
 const USERS_SEED_V2_KEY = '@sgaa_users_seed_v2';
+const USERS_SEED_V3_KEY = '@sgaa_users_seed_v3';
 
 function genId(): string {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -85,6 +86,30 @@ async function seedUsersV2(current: StoredUser[]): Promise<StoredUser[]> {
   return updated;
 }
 
+const SEED_FINANCEIRO_USER: StoredUser = {
+  id: 'usr_financeiro_001',
+  nome: 'Carlos Financeiro',
+  email: 'financeiro@sige.ao',
+  senha: 'Fin@2025',
+  role: 'financeiro',
+  escola: 'Escola Secundária 1.º de Agosto',
+  ativo: true,
+  criadoEm: '2025-09-01',
+};
+
+async function seedUsersV3(current: StoredUser[]): Promise<StoredUser[]> {
+  const seeded = await AsyncStorage.getItem(USERS_SEED_V3_KEY);
+  if (seeded) return current;
+
+  const exists = current.some(u => u.id === SEED_FINANCEIRO_USER.id);
+  const updated = exists ? current : [...current, SEED_FINANCEIRO_USER];
+  if (!exists) {
+    await AsyncStorage.setItem(STORAGE_USERS, JSON.stringify(updated));
+  }
+  await AsyncStorage.setItem(USERS_SEED_V3_KEY, '1');
+  return updated;
+}
+
 export function UsersProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -97,7 +122,8 @@ export function UsersProvider({ children }: { children: ReactNode }) {
       const parsed: StoredUser[] = raw ? JSON.parse(raw) : [];
       const seeded = await seedUsers(parsed);
       const seededV2 = await seedUsersV2(seeded);
-      setUsers(seededV2);
+      const seededV3 = await seedUsersV3(seededV2);
+      setUsers(seededV3);
     } catch (e) {
       console.error('UsersContext load error', e);
       setUsers([]);

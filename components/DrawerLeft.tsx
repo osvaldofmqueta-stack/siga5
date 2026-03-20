@@ -74,6 +74,7 @@ export default function DrawerLeft() {
 
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
+  const isFinanceiro = user?.role === 'financeiro';
   const isRH = user?.role === 'secretaria' || user?.role === 'director' || user?.role === 'admin';
 
   const ALUNO_SECTIONS: NavSection[] = [
@@ -128,6 +129,24 @@ export default function DrawerLeft() {
     },
   ];
 
+  const FINANCEIRO_SECTIONS: NavSection[] = [
+    {
+      title: 'Painel Financeiro',
+      items: [
+        { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+      ],
+    },
+    {
+      title: 'Operações',
+      items: [
+        { label: 'Propinas em Atraso', route: '/(main)/financeiro', icon: <Ionicons name="alert-circle" size={20} color="inherit" /> },
+        { label: 'Rubricas e Multas', route: '/(main)/financeiro', icon: <Ionicons name="pricetag" size={20} color="inherit" /> },
+        { label: 'Mensagens', route: '/(main)/financeiro', icon: <Ionicons name="chatbubbles" size={20} color="inherit" /> },
+      ],
+    },
+  ];
+
   const NAV_SECTIONS: NavSection[] = isCeo ? [
     {
       title: 'Painel CEO',
@@ -152,7 +171,7 @@ export default function DrawerLeft() {
         { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> },
       ],
     },
-  ] : isProf ? PROFESSOR_SECTIONS : isAluno ? ALUNO_SECTIONS : [
+  ] : isProf ? PROFESSOR_SECTIONS : isAluno ? ALUNO_SECTIONS : isFinanceiro ? FINANCEIRO_SECTIONS : [
     {
       title: 'Principal',
       items: [
