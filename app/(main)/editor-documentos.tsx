@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -141,7 +141,8 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   certificado: 'Certificado',
   atestado: 'Atestado',
   oficio: 'Ofício',
-  pauta: 'Pauta',
+  pauta: 'Mini-Pauta',
+  pauta_final: 'Pauta Final',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -150,6 +151,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   atestado: Colors.success,
   oficio: Colors.warning,
   pauta: '#8b5cf6',
+  pauta_final: '#dc2626',
   outro: Colors.textMuted,
 };
 
@@ -343,6 +345,32 @@ Legenda: MAC = Média Avaliações Contínuas | NPP = Nota Prova Parcial | NPT =
 O PROFESSOR
 _______________________________
 {{NOME_PROFESSOR}}`,
+};
+
+const SEED_PAUTA_FINAL_ID = 'tpl_seed_pauta_final_v1';
+const SEED_PAUTA_FINAL: DocTemplate = {
+  id: SEED_PAUTA_FINAL_ID,
+  nome: 'Pauta Final (por Turma)',
+  tipo: 'pauta_final',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `[PAUTA FINAL GERADA AUTOMATICAMENTE]
+
+Este modelo gera automaticamente a Pauta Final completa com todos os alunos da turma seleccionada e as respectivas notas por disciplina e trimestre.
+
+Ao emitir, seleccione a turma e o sistema irá:
+• Listar todos os alunos ordenados por nome
+• Preencher as notas por disciplina (MT1, MT2, MT3, MFD)
+• Calcular a Média Final do Ano (MFD)
+• Gerar o documento oficial em formato A3 paisagem
+
+Cabeçalho: REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO
+           PAUTA FINAL — {{CICLO}} DO ENSINO SECUNDÁRIO
+
+Escola: {{NOME_ESCOLA}}  |  Classe: {{CLASSE}}  |  Turma: {{TURMA}}
+Ano Lectivo: {{ANO_LECTIVO}}  |  Turno: {{TURNO}}
+
+Assinado: {{NOME_DIRECTOR}} — Director(a)`,
 };
 
 const SEED_DECLARACAO_COM_NOTA_ID = 'tpl_seed_declaracao_com_nota_v1';
@@ -622,6 +650,9 @@ export default function EditorDocumentos() {
   const [emitAlunoId, setEmitAlunoId] = useState('');
   const [emitPreview, setEmitPreview] = useState('');
   const [alunoSearch, setAlunoSearch] = useState('');
+  // Pauta Final emit state (turma-level)
+  const [emitTurmaId, setEmitTurmaId] = useState('');
+  const [turmaSearch, setTurmaSearch] = useState('');
 
   const inputRef = useRef<TextInput>(null);
 
@@ -631,7 +662,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -754,7 +785,207 @@ export default function EditorDocumentos() {
     setEmitAlunoId('');
     setEmitPreview('');
     setAlunoSearch('');
+    setEmitTurmaId('');
+    setTurmaSearch('');
     setMode('emit');
+  }
+
+  // Helper: checks if this template uses turma-level emit (pauta types)
+  function isPautaType(t: DocTemplate | null) {
+    return t?.tipo === 'pauta' || t?.tipo === 'pauta_final';
+  }
+
+  // ─── Pauta Final HTML Builder ──────────────────────────────────────────────
+
+  function buildPautaFinalHtml(turmaId: string): string {
+    const turma = turmas.find(t => t.id === turmaId);
+    if (!turma) return '';
+
+    const now = new Date();
+    const alunosDaTurma = alunos
+      .filter(a => a.ativo && a.turmaId === turmaId)
+      .sort((a, b) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`));
+
+    const notasDaTurma = notas.filter(n => n.turmaId === turmaId);
+
+    // Collect all unique disciplines (preserving order of first occurrence)
+    const disciplinasSet: string[] = [];
+    for (const n of notasDaTurma) {
+      if (!disciplinasSet.includes(n.disciplina)) disciplinasSet.push(n.disciplina);
+    }
+    const disciplinas = disciplinasSet.sort((a, b) => a.localeCompare(b));
+
+    // Helper: get nota for student × disciplina × trimestre
+    function getMT(alunoId: string, disc: string, trim: number): string {
+      const n = notasDaTurma.find(x => x.alunoId === alunoId && x.disciplina === disc && x.trimestre === trim);
+      return n ? String(Math.round(n.mt1)) : '';
+    }
+    function getMFD(alunoId: string, disc: string): string {
+      const ns = notasDaTurma.filter(x => x.alunoId === alunoId && x.disciplina === disc);
+      if (ns.length === 0) return '';
+      // Use nf from any record (should be same) or calculate average MT
+      const withNf = ns.find(x => x.nf);
+      if (withNf) return String(Math.round(withNf.nf));
+      const mts = ns.map(x => x.mt1).filter(v => v > 0);
+      if (mts.length === 0) return '';
+      return String(Math.round(mts.reduce((a, b) => a + b, 0) / mts.length));
+    }
+
+    const cicloMap: Record<string, string> = {
+      'Primário': 'ENSINO PRIMÁRIO',
+      'I Ciclo': 'Iº CICLO',
+      'II Ciclo': 'IIº CICLO',
+    };
+    const ciclo = cicloMap[turma.nivel] || turma.nivel.toUpperCase();
+    const escola = config.nomeEscola || '___________________________';
+    const director = user?.nome || '___________________________';
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+
+    // Build discipline header columns
+    const disciplinaHeaders = disciplinas
+      .map(d => `<th colspan="4" style="background:#f0f0f0;font-weight:bold;white-space:nowrap;">${d}</th>`)
+      .join('');
+    const subHeaders = disciplinas
+      .map(() => `<th>MT1</th><th>MT2</th><th>MT3</th><th style="background:#fffde7;font-weight:bold;">MFD</th>`)
+      .join('');
+
+    // Build student rows
+    const studentRows = alunosDaTurma.map((aluno, idx) => {
+      const gradeCells = disciplinas.map(disc => {
+        const mt1 = getMT(aluno.id, disc, 1);
+        const mt2 = getMT(aluno.id, disc, 2);
+        const mt3 = getMT(aluno.id, disc, 3);
+        const mfd = getMFD(aluno.id, disc);
+        const mfdNum = parseFloat(mfd);
+        const mfdColor = mfdNum > 0 ? (mfdNum >= 10 ? '#1a7a1a' : '#c00000') : '#000';
+        return `<td>${mt1}</td><td>${mt2}</td><td>${mt3}</td><td style="font-weight:bold;color:${mfdColor};">${mfd}</td>`;
+      }).join('');
+      return `<tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td style="text-align:left;padding-left:4px;white-space:nowrap;">${aluno.nome.toUpperCase()} ${aluno.apelido.toUpperCase()}</td>
+        ${gradeCells}
+        <td></td>
+      </tr>`;
+    }).join('');
+
+    // Filler rows (up to at least 45 lines or the number of students, whichever is bigger)
+    const fillerCount = Math.max(0, 45 - alunosDaTurma.length);
+    const fillerRows = Array.from({ length: fillerCount }, (_, i) => {
+      const emptyCells = disciplinas.map(() => `<td></td><td></td><td></td><td></td>`).join('');
+      return `<tr style="height:18px;">
+        <td style="text-align:center;">${alunosDaTurma.length + i + 1}</td>
+        <td></td>
+        ${emptyCells}
+        <td></td>
+      </tr>`;
+    }).join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Pauta Final — ${turma.classe} ${turma.nome} ${turma.anoLetivo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 7.5px; margin: 10px; color: #000; }
+    .page-header { text-align: center; margin-bottom: 6px; }
+    .page-header p { margin: 1px 0; }
+    .page-header .title { font-size: 9px; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; margin-bottom: 6px; font-size: 7.5px; border: 1px solid #000; }
+    .info-row { display: flex; gap: 4px; padding: 2px 4px; border-bottom: 1px solid #ccc; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { font-weight: bold; white-space: nowrap; }
+    .info-line { flex: 1; border-bottom: 1px solid #333; min-width: 40px; }
+    .visto-block { position: absolute; top: 10px; left: 10px; font-size: 7px; border: 1px solid #000; padding: 4px 8px; min-width: 120px; text-align: center; }
+    .main-table { border-collapse: collapse; width: 100%; font-size: 6.5px; }
+    .main-table th, .main-table td { border: 1px solid #000; padding: 1px 2px; text-align: center; }
+    .main-table .name-col { text-align: left; min-width: 110px; max-width: 140px; }
+    .main-table .num-col { width: 18px; }
+    .disc-section { font-size: 9px; font-weight: bold; text-align: center; margin: 3px 0 2px; text-transform: uppercase; letter-spacing: 1px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 16px; font-size: 7px; }
+    .sig-block { text-align: center; min-width: 180px; }
+    .sig-line { width: 160px; border-top: 1px solid #000; margin: 20px auto 3px; }
+    @media print { @page { size: A3 landscape; margin: 8mm; } body { margin: 0; font-size: 7px; } }
+  </style>
+</head>
+<body>
+  <div style="position:relative;">
+    <div class="visto-block">
+      <p><strong>VISTO</strong></p>
+      <p>Data ___/___/______</p>
+      <br/>
+      <p>A Chefe de Repartição e Ensino</p>
+      <br/>
+      <p>_________________________</p>
+    </div>
+    <div class="page-header" style="margin-left:130px;">
+      <p>REPÚBLICA DE ANGOLA</p>
+      <p>MINISTÉRIO DA EDUCAÇÃO</p>
+      <p class="title">PAUTA FINAL PARA A CLASSE DE EXAME DO ${ciclo} DO ENSINO SECUNDÁRIO</p>
+    </div>
+  </div>
+
+  <div style="border:1px solid #000;padding:4px 6px;margin-bottom:4px;font-size:7.5px;">
+    <div style="display:flex;gap:16px;margin-bottom:3px;">
+      <span><strong>ESCOLA:</strong> ${escola}</span>
+      <span><strong>MUNICÍPIO DE:</strong> ______________________</span>
+      <span><strong>PROVÍNCIA DE:</strong> ______________________</span>
+    </div>
+    <div style="display:flex;gap:16px;">
+      <span><strong>PAUTA N.º</strong> ________ / ${now.getFullYear()}</span>
+      <span><strong>ANO LECTIVO:</strong> ${turma.anoLetivo}</span>
+      <span><strong>CLASSE:</strong> ${turma.classe}</span>
+      <span><strong>TURMA:</strong> ${turma.nome}</span>
+      <span><strong>SALA:</strong> _____</span>
+      <span><strong>TURNO:</strong> ${turma.turno}</span>
+    </div>
+  </div>
+
+  <div class="disc-section">DISCIPLINAS</div>
+
+  <table class="main-table">
+    <thead>
+      <tr>
+        <th class="num-col" rowspan="2">Nº</th>
+        <th class="name-col" rowspan="2">NOME DO ALUNO</th>
+        ${disciplinaHeaders}
+        <th rowspan="2">OBS</th>
+      </tr>
+      <tr>
+        ${subHeaders}
+      </tr>
+    </thead>
+    <tbody>
+      ${studentRows}
+      ${fillerRows}
+    </tbody>
+  </table>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div>O CONSELHO DE NOTAS</div>
+      <div class="sig-line"></div>
+      <div>1 ___________________________</div>
+    </div>
+    <div class="sig-block">
+      <div>DATA: ${dataActual}</div>
+      <div class="sig-line"></div>
+      <div>O(A) SUB-DIRECTOR(A) PEDAGÓGICO</div>
+    </div>
+    <div class="sig-block">
+      <div>DATA: ${dataActual}</div>
+      <div class="sig-line"></div>
+      <div style="font-weight:bold;">${director}</div>
+      <div>O(A) DIRECTOR(A) DA ESCOLA</div>
+    </div>
+  </div>
+
+  <div style="font-size:6.5px;margin-top:4px;color:#555;">
+    Legenda: MT1 = Média 1º Trimestre | MT2 = Média 2º Trimestre | MT3 = Média 3º Trimestre | MFD = Média Final do Ano
+    | Classificação: ≥10 = Apto (A) | &lt;10 = Não Apto (NA)
+  </div>
+</body>
+</html>`;
   }
 
   // Insert variable into editor at cursor (web-aware)
@@ -881,70 +1112,78 @@ export default function EditorDocumentos() {
   }
 
   function handlePrint() {
-    if (Platform.OS === 'web') {
-      const win = window.open('', '_blank');
-      if (!win) return;
-      const aluno = alunos.find(a => a.id === emitAlunoId);
-      const tplInsignia = emitTemplate?.insigniaBase64;
-      const tplMarcaAgua = emitTemplate?.marcaAguaBase64;
+    if (Platform.OS !== 'web') return;
+    const win = window.open('', '_blank');
+    if (!win) return;
 
-      const logoHtml = tplInsignia
-        ? `<img src="${tplInsignia}" alt="Insígnia" style="height:90px;width:90px;object-fit:contain;margin-bottom:8px;" />`
-        : `<div style="width:72px;height:72px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:26px;font-weight:bold;color:#666;line-height:72px;text-align:center;border:2px solid #ccc;">${(config.nomeEscola || 'E').charAt(0).toUpperCase()}</div>`;
-
-      const watermarkHtml = tplMarcaAgua
-        ? `<img src="${tplMarcaAgua}" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.05;pointer-events:none;z-index:0;" />`
-        : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${config.nomeEscola || 'SIGA'}</div>`;
-
-      win.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="UTF-8" />
-          <title>${emitTemplate?.nome || 'Documento'}</title>
-          <style>
-            * { box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; position: relative; }
-            .content { position: relative; z-index: 1; }
-            .doc-header { text-align: center; margin-bottom: 32px; }
-            h1 { font-size: 16px; margin: 4px 0; font-family: 'Times New Roman', serif; }
-            .republika { font-size: 11px; color: #555; margin-bottom: 2px; letter-spacing: 1px; text-transform: uppercase; }
-            .divider { width: 80px; height: 2px; background: #000; margin: 12px auto; }
-            .doc-tipo { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin: 8px 0; }
-            .doc-meta { font-size: 11px; color: #555; margin-bottom: 32px; }
-            pre { white-space: pre-wrap; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.9; text-align: justify; }
-            .signature { margin-top: 60px; text-align: center; }
-            .sig-line { width: 200px; height: 1px; background: #333; margin: 40px auto 6px; }
-            @media print {
-              body { margin: 30px 50px; }
-            }
-          </style>
-        </head>
-        <body>
-          ${watermarkHtml}
-          <div class="content">
-            <div class="doc-header">
-              ${logoHtml}
-              <div class="republika">República de Angola</div>
-              <h1>${config.nomeEscola}</h1>
-              <div class="divider"></div>
-              <div class="doc-tipo">${emitTemplate?.nome || ''}</div>
-              ${aluno ? `<div class="doc-meta">${aluno.nome} ${aluno.apelido}</div>` : ''}
-            </div>
-            <pre>${emitPreview}</pre>
-            <div class="signature">
-              <div style="font-size:13px;color:#444;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-              <div class="sig-line"></div>
-              <div style="font-weight:bold;font-size:13px;">${user?.nome || ''}</div>
-              <div style="font-size:12px;color:#555;">Director(a)</div>
-            </div>
-          </div>
-        </body>
-        </html>
-      `);
+    // ── Pauta Final: use generated HTML directly ──────────────────────────────
+    if (emitTemplate?.tipo === 'pauta_final' && emitTurmaId) {
+      const html = buildPautaFinalHtml(emitTurmaId);
+      win.document.write(html);
       win.document.close();
       win.print();
+      return;
     }
+
+    // ── Standard document: use template preview text ──────────────────────────
+    const aluno = alunos.find(a => a.id === emitAlunoId);
+    const tplInsignia = emitTemplate?.insigniaBase64;
+    const tplMarcaAgua = emitTemplate?.marcaAguaBase64;
+
+    const logoHtml = tplInsignia
+      ? `<img src="${tplInsignia}" alt="Insígnia" style="height:90px;width:90px;object-fit:contain;margin-bottom:8px;" />`
+      : `<div style="width:72px;height:72px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:26px;font-weight:bold;color:#666;line-height:72px;text-align:center;border:2px solid #ccc;">${(config.nomeEscola || 'E').charAt(0).toUpperCase()}</div>`;
+
+    const watermarkHtml = tplMarcaAgua
+      ? `<img src="${tplMarcaAgua}" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.05;pointer-events:none;z-index:0;" />`
+      : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${config.nomeEscola || 'SIGA'}</div>`;
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8" />
+        <title>${emitTemplate?.nome || 'Documento'}</title>
+        <style>
+          * { box-sizing: border-box; }
+          body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; position: relative; }
+          .content { position: relative; z-index: 1; }
+          .doc-header { text-align: center; margin-bottom: 32px; }
+          h1 { font-size: 16px; margin: 4px 0; font-family: 'Times New Roman', serif; }
+          .republika { font-size: 11px; color: #555; margin-bottom: 2px; letter-spacing: 1px; text-transform: uppercase; }
+          .divider { width: 80px; height: 2px; background: #000; margin: 12px auto; }
+          .doc-tipo { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin: 8px 0; }
+          .doc-meta { font-size: 11px; color: #555; margin-bottom: 32px; }
+          pre { white-space: pre-wrap; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.9; text-align: justify; }
+          .signature { margin-top: 60px; text-align: center; }
+          .sig-line { width: 200px; height: 1px; background: #333; margin: 40px auto 6px; }
+          @media print { body { margin: 30px 50px; } }
+        </style>
+      </head>
+      <body>
+        ${watermarkHtml}
+        <div class="content">
+          <div class="doc-header">
+            ${logoHtml}
+            <div class="republika">República de Angola</div>
+            <h1>${config.nomeEscola}</h1>
+            <div class="divider"></div>
+            <div class="doc-tipo">${emitTemplate?.nome || ''}</div>
+            ${aluno ? `<div class="doc-meta">${aluno.nome} ${aluno.apelido}</div>` : ''}
+          </div>
+          <pre>${emitPreview}</pre>
+          <div class="signature">
+            <div style="font-size:13px;color:#444;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+            <div class="sig-line"></div>
+            <div style="font-weight:bold;font-size:13px;">${user?.nome || ''}</div>
+            <div style="font-size:12px;color:#555;">Director(a)</div>
+          </div>
+        </div>
+      </body>
+      </html>
+    `);
+    win.document.close();
+    win.print();
   }
 
   const screenWidth = Dimensions.get('window').width;
@@ -1237,15 +1476,32 @@ export default function EditorDocumentos() {
   // ─── EMIT ─────────────────────────────────────────────────────────────────
 
   function EmitScreen() {
+    const isPauta = isPautaType(emitTemplate);
+
+    // ── Turma-level (pauta) variables ─────────────────────────────────────
+    const turmasAtivas = turmas.filter(t => t.ativo);
+    const filteredTurmas = turmaSearch.trim()
+      ? turmasAtivas.filter(t =>
+          `${t.classe} ${t.nome} ${t.anoLetivo}`.toLowerCase().includes(turmaSearch.toLowerCase())
+        )
+      : turmasAtivas;
+    const selectedTurmaObj = turmas.find(t => t.id === emitTurmaId);
+    const alunosDaTurma = emitTurmaId ? alunos.filter(a => a.ativo && a.turmaId === emitTurmaId) : [];
+    const disciplinasDaTurma = emitTurmaId
+      ? [...new Set(notas.filter(n => n.turmaId === emitTurmaId).map(n => n.disciplina))].sort()
+      : [];
+
+    // ── Student-level (document) variables ────────────────────────────────
     const alunosAtivos = alunos.filter(a => a.ativo);
     const filteredAlunos = alunoSearch.trim()
       ? alunosAtivos.filter(a =>
           `${a.nome} ${a.apelido} ${a.numeroMatricula}`.toLowerCase().includes(alunoSearch.toLowerCase())
         )
       : alunosAtivos;
-
     const selectedAluno = alunos.find(a => a.id === emitAlunoId);
-    const selectedTurma = selectedAluno ? turmas.find(t => t.id === selectedAluno.turmaId) : null;
+    const selectedTurmaForAluno = selectedAluno ? turmas.find(t => t.id === selectedAluno.turmaId) : null;
+
+    const canPrint = isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview);
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -1258,7 +1514,7 @@ export default function EditorDocumentos() {
             <Text style={styles.headerTitle}>Emitir Documento</Text>
             <Text style={styles.headerSub} numberOfLines={1}>{emitTemplate?.nome}</Text>
           </View>
-          {emitAlunoId && emitPreview ? (
+          {canPrint ? (
             <TouchableOpacity style={styles.printBtn} onPress={handlePrint} activeOpacity={0.8}>
               <Ionicons name="print" size={16} color="#fff" />
               <Text style={styles.printBtnText}>Imprimir</Text>
@@ -1267,103 +1523,198 @@ export default function EditorDocumentos() {
         </View>
 
         <View style={[styles.emitBody, isWide && { flexDirection: 'row' }]}>
-          {/* Left: Student selector */}
+          {/* Left: Turma selector (pauta) or Student selector (documents) */}
           <View style={[styles.emitLeft, isWide && { width: 300 }]}>
-            <Text style={styles.emitSectionTitle}>1. Seleccionar Aluno</Text>
-
-            <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
-              <TextInput
-                style={styles.searchInput}
-                value={alunoSearch}
-                onChangeText={setAlunoSearch}
-                placeholder="Pesquisar aluno..."
-                placeholderTextColor={Colors.textMuted}
-              />
-            </View>
-
-            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-              {filteredAlunos.slice(0, 50).map(aluno => {
-                const t = turmas.find(tr => tr.id === aluno.turmaId);
-                const sel = emitAlunoId === aluno.id;
-                return (
-                  <TouchableOpacity
-                    key={aluno.id}
-                    style={[styles.alunoItem, sel && styles.alunoItemSel]}
-                    onPress={() => handleSelectAluno(aluno.id)}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[styles.alunoAvatar, sel && { backgroundColor: Colors.info }]}>
-                      <Text style={styles.alunoAvatarText}>{aluno.nome.charAt(0)}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.alunoNome, sel && { color: Colors.info }]}>{aluno.nome} {aluno.apelido}</Text>
-                      <Text style={styles.alunoMeta}>{t ? `${t.classe} · ${t.nome}` : 'Sem turma'} · Nº {aluno.numeroMatricula}</Text>
-                    </View>
-                    {sel && <Ionicons name="checkmark-circle" size={18} color={Colors.info} />}
-                  </TouchableOpacity>
-                );
-              })}
-              {filteredAlunos.length === 0 && (
-                <Text style={styles.noAlunos}>Nenhum aluno encontrado</Text>
-              )}
-            </ScrollView>
-
-            {selectedAluno && (
-              <View style={styles.selectedInfo}>
-                <Text style={styles.selectedInfoTitle}>Aluno seleccionado:</Text>
-                <Text style={styles.selectedInfoName}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
-                <Text style={styles.selectedInfoMeta}>{selectedTurma?.classe} · {selectedTurma?.nome} · {selectedAluno.provincia}</Text>
-              </View>
+            {isPauta ? (
+              <>
+                <Text style={styles.emitSectionTitle}>1. Seleccionar Turma</Text>
+                <View style={styles.searchBox}>
+                  <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={turmaSearch}
+                    onChangeText={setTurmaSearch}
+                    placeholder="Pesquisar turma..."
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {filteredTurmas.map(turma => {
+                    const sel = emitTurmaId === turma.id;
+                    const count = alunos.filter(a => a.ativo && a.turmaId === turma.id).length;
+                    return (
+                      <TouchableOpacity
+                        key={turma.id}
+                        style={[styles.alunoItem, sel && styles.alunoItemSel]}
+                        onPress={() => { setEmitTurmaId(turma.id); setTurmaSearch(''); }}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.alunoAvatar, sel && { backgroundColor: '#dc2626' }]}>
+                          <Text style={styles.alunoAvatarText}>{turma.classe.charAt(0)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.alunoNome, sel && { color: '#dc2626' }]}>{turma.classe} — {turma.nome}</Text>
+                          <Text style={styles.alunoMeta}>{turma.anoLetivo} · {turma.turno} · {count} alunos</Text>
+                        </View>
+                        {sel && <Ionicons name="checkmark-circle" size={18} color="#dc2626" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {filteredTurmas.length === 0 && (
+                    <Text style={styles.noAlunos}>Nenhuma turma encontrada</Text>
+                  )}
+                </ScrollView>
+                {selectedTurmaObj && (
+                  <View style={styles.selectedInfo}>
+                    <Text style={styles.selectedInfoTitle}>Turma seleccionada:</Text>
+                    <Text style={styles.selectedInfoName}>{selectedTurmaObj.classe} — {selectedTurmaObj.nome}</Text>
+                    <Text style={styles.selectedInfoMeta}>{selectedTurmaObj.nivel} · {selectedTurmaObj.anoLetivo} · {selectedTurmaObj.turno}</Text>
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.emitSectionTitle}>1. Seleccionar Aluno</Text>
+                <View style={styles.searchBox}>
+                  <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={alunoSearch}
+                    onChangeText={setAlunoSearch}
+                    placeholder="Pesquisar aluno..."
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+                  {filteredAlunos.slice(0, 50).map(aluno => {
+                    const t = turmas.find(tr => tr.id === aluno.turmaId);
+                    const sel = emitAlunoId === aluno.id;
+                    return (
+                      <TouchableOpacity
+                        key={aluno.id}
+                        style={[styles.alunoItem, sel && styles.alunoItemSel]}
+                        onPress={() => handleSelectAluno(aluno.id)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.alunoAvatar, sel && { backgroundColor: Colors.info }]}>
+                          <Text style={styles.alunoAvatarText}>{aluno.nome.charAt(0)}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.alunoNome, sel && { color: Colors.info }]}>{aluno.nome} {aluno.apelido}</Text>
+                          <Text style={styles.alunoMeta}>{t ? `${t.classe} · ${t.nome}` : 'Sem turma'} · Nº {aluno.numeroMatricula}</Text>
+                        </View>
+                        {sel && <Ionicons name="checkmark-circle" size={18} color={Colors.info} />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                  {filteredAlunos.length === 0 && (
+                    <Text style={styles.noAlunos}>Nenhum aluno encontrado</Text>
+                  )}
+                </ScrollView>
+                {selectedAluno && (
+                  <View style={styles.selectedInfo}>
+                    <Text style={styles.selectedInfoTitle}>Aluno seleccionado:</Text>
+                    <Text style={styles.selectedInfoName}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
+                    <Text style={styles.selectedInfoMeta}>{selectedTurmaForAluno?.classe} · {selectedTurmaForAluno?.nome} · {selectedAluno.provincia}</Text>
+                  </View>
+                )}
+              </>
             )}
           </View>
 
-          {/* Right: Preview */}
+          {/* Right: Pauta summary or Document preview */}
           <View style={[styles.emitRight, isWide && { flex: 1 }]}>
-            <Text style={styles.emitSectionTitle}>2. Pré-visualização do Documento</Text>
-            {!emitPreview ? (
-              <View style={styles.previewEmpty}>
-                <Ionicons name="document-outline" size={48} color={Colors.textMuted} />
-                <Text style={styles.previewEmptyText}>Seleccione um aluno para pré-visualizar o documento com os dados preenchidos</Text>
-              </View>
-            ) : (
-              <View style={styles.previewOuter}>
-                {/* Watermark layer */}
-                {emitTemplate?.marcaAguaBase64 ? (
-                  <View style={styles.watermarkContainer} pointerEvents="none">
-                    <Image source={{ uri: emitTemplate.marcaAguaBase64 }} style={styles.watermarkImage} resizeMode="contain" />
+            {isPauta ? (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Resumo da Pauta</Text>
+                {!selectedTurmaObj ? (
+                  <View style={styles.previewEmpty}>
+                    <Ionicons name="list-outline" size={48} color={Colors.textMuted} />
+                    <Text style={styles.previewEmptyText}>Seleccione uma turma para gerar a Pauta Final</Text>
                   </View>
                 ) : (
-                  <View style={styles.watermarkContainer} pointerEvents="none">
-                    <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
-                  </View>
-                )}
-                <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>
-                  {/* Insignia + header */}
-                  <View style={styles.docHeader}>
-                    {emitTemplate?.insigniaBase64 ? (
-                      <Image source={{ uri: emitTemplate.insigniaBase64 }} style={styles.docInsignia} resizeMode="contain" />
-                    ) : (
-                      <View style={styles.docInsigniaPlaceholder}>
-                        <Text style={styles.docInsigniaLetter}>{(config.nomeEscola || 'E').charAt(0).toUpperCase()}</Text>
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    <View style={{ backgroundColor: '#1e2a3a', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#dc2626' }}>
+                      <Text style={{ color: '#dc2626', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>PAUTA FINAL — A3 PAISAGEM</Text>
+                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedTurmaObj.classe} — {selectedTurmaObj.nome}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{selectedTurmaObj.nivel} · Ano Lectivo {selectedTurmaObj.anoLetivo} · Turno {selectedTurmaObj.turno}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="people-outline" size={22} color={Colors.info} />
+                        <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{alunosDaTurma.length}</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Alunos</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="book-outline" size={22} color={Colors.success} />
+                        <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{disciplinasDaTurma.length}</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Disciplinas</Text>
+                      </View>
+                    </View>
+                    {disciplinasDaTurma.length > 0 && (
+                      <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>DISCIPLINAS INCLUÍDAS</Text>
+                        {disciplinasDaTurma.map(d => (
+                          <View key={d} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="checkmark-circle-outline" size={14} color={Colors.success} />
+                            <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{d}</Text>
+                          </View>
+                        ))}
                       </View>
                     )}
-                    <Text style={styles.docRepublika}>República de Angola</Text>
-                    <Text style={styles.docEscola}>{config.nomeEscola}</Text>
-                    <View style={styles.docDivider} />
-                    <Text style={styles.docTipo}>{TIPO_LABELS[emitTemplate!.tipo]}</Text>
+                    <View style={{ backgroundColor: '#1a2e1a', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.success, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="information-circle-outline" size={18} color={Colors.success} />
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                        A pauta será gerada em formato A3 paisagem com colunas MT1, MT2, MT3 e MFD por disciplina. Clique em Imprimir para abrir o documento.
+                      </Text>
+                    </View>
+                  </ScrollView>
+                )}
+              </>
+            ) : (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Pré-visualização do Documento</Text>
+                {!emitPreview ? (
+                  <View style={styles.previewEmpty}>
+                    <Ionicons name="document-outline" size={48} color={Colors.textMuted} />
+                    <Text style={styles.previewEmptyText}>Seleccione um aluno para pré-visualizar o documento com os dados preenchidos</Text>
                   </View>
-                  {/* Document body */}
-                  <Text style={styles.docBody}>{emitPreview}</Text>
-                  {/* Signature area */}
-                  <View style={styles.docSignature}>
-                    <Text style={styles.docSignatureDate}>Luanda, {new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
-                    <View style={styles.docSignatureLine} />
-                    <Text style={styles.docSignatureName}>{user?.nome}</Text>
-                    <Text style={styles.docSignatureRole}>Director(a)</Text>
+                ) : (
+                  <View style={styles.previewOuter}>
+                    {emitTemplate?.marcaAguaBase64 ? (
+                      <View style={styles.watermarkContainer} pointerEvents="none">
+                        <Image source={{ uri: emitTemplate.marcaAguaBase64 }} style={styles.watermarkImage} resizeMode="contain" />
+                      </View>
+                    ) : (
+                      <View style={styles.watermarkContainer} pointerEvents="none">
+                        <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
+                      </View>
+                    )}
+                    <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>
+                      <View style={styles.docHeader}>
+                        {emitTemplate?.insigniaBase64 ? (
+                          <Image source={{ uri: emitTemplate.insigniaBase64 }} style={styles.docInsignia} resizeMode="contain" />
+                        ) : (
+                          <View style={styles.docInsigniaPlaceholder}>
+                            <Text style={styles.docInsigniaLetter}>{(config.nomeEscola || 'E').charAt(0).toUpperCase()}</Text>
+                          </View>
+                        )}
+                        <Text style={styles.docRepublika}>República de Angola</Text>
+                        <Text style={styles.docEscola}>{config.nomeEscola}</Text>
+                        <View style={styles.docDivider} />
+                        <Text style={styles.docTipo}>{TIPO_LABELS[emitTemplate!.tipo]}</Text>
+                      </View>
+                      <Text style={styles.docBody}>{emitPreview}</Text>
+                      <View style={styles.docSignature}>
+                        <Text style={styles.docSignatureDate}>Luanda, {new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</Text>
+                        <View style={styles.docSignatureLine} />
+                        <Text style={styles.docSignatureName}>{user?.nome}</Text>
+                        <Text style={styles.docSignatureRole}>Director(a)</Text>
+                      </View>
+                    </ScrollView>
                   </View>
-                </ScrollView>
-              </View>
+                )}
+              </>
             )}
           </View>
         </View>
