@@ -212,6 +212,42 @@ Para efeitos legais lhe é passado o presente CERTIFICADO, que consta no livro d
 {{NOME_ESCOLA}} em {{MUNICIPIO}} aos, {{DATA_ACTUAL}}.`,
 };
 
+const SEED_DECLARACAO_COM_NOTA_ID = 'tpl_seed_declaracao_com_nota_v1';
+
+const SEED_DECLARACAO_COM_NOTA: DocTemplate = {
+  id: SEED_DECLARACAO_COM_NOTA_ID,
+  nome: 'Declaração com Nota (Ensino Primário)',
+  tipo: 'declaracao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+ENSINO GERAL
+
+{{NOME_ESCOLA}}
+
+DECLARAÇÃO
+
+{{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}} em {{MUNICIPIO}}, {{PROVINCIA}}. Declara que {{NOME_COMPLETO}}, filho (a) de {{NOME_ENCARREGADO}} e de ________________________________, natural de {{MUNICIPIO}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, nascido (a) aos {{DATA_NASCIMENTO}}, portador (a) do B.I nº _________________, passado pelo arquivo de Identificação de _________________ aos _________.
+
+Frequentou a {{CLASSE}} durante o ano lectivo de {{ANO_LECTIVO}} no Ensino Primário com o resultado final _________________ sob o processo nº _______ pauta nº _______ obtendo as seguintes notas descriminadas:
+
+Disciplinas                   | Notas | Valores
+------------------------------|-------|-------------------
+Língua Portuguesa             |       | (          ) Valores
+Matemática                    |       | (          ) Valores
+Ciências da Natureza          |       | (          ) Valores
+Educação Manual e Plástica    |       | (          ) Valores
+Educação Músical              |       | (          ) Valores
+Educação Moral e Cívica       |       | (          ) Valores
+História                      |       | (          ) Valores
+Geografia                     |       | (          ) Valores
+
+OBS: Por ser verdade e assim constar, passou-se a presente Declaração, que vai por mim assinado e autenticado com o carimbo a óleo em uso nesta Instituição.
+
+{{NOME_ESCOLA}} em {{MUNICIPIO}}, {{DATA_ACTUAL}}.`,
+};
+
 const SEED_DECLARACAO_HABILITACOES_PRIMARIO_ID = 'tpl_seed_declaracao_habilitacoes_primario_v1';
 
 const SEED_DECLARACAO_HABILITACOES_PRIMARIO: DocTemplate = {
@@ -289,7 +325,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
