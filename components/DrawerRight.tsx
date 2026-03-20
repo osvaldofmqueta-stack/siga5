@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions,
-  Platform, ScrollView, Switch, Alert
+  Platform, ScrollView, Switch,
 } from 'react-native';
-import { Ionicons, MaterialIcons, Feather } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -15,6 +15,15 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(width * 0.75, 290);
 
+const roleColors: Record<string, string> = {
+  ceo: '#8B5CF6', pca: Colors.gold, admin: Colors.info, director: Colors.gold,
+  secretaria: Colors.info, professor: Colors.success, aluno: Colors.success, financeiro: Colors.warning,
+};
+const roleLabels: Record<string, string> = {
+  ceo: 'CEO', pca: 'Presidente', admin: 'Administrador', director: 'Director',
+  secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno', financeiro: 'Gestor Financeiro',
+};
+
 export default function DrawerRight() {
   const { rightOpen, closeRight } = useDrawer();
   const insets = useSafeAreaInsets();
@@ -22,8 +31,12 @@ export default function DrawerRight() {
   const router = useRouter();
   const { isDesktop } = useBreakpoint();
 
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
   const translateX = useRef(new Animated.Value(DRAWER_WIDTH)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const confirmAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -39,7 +52,20 @@ export default function DrawerRight() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    if (!rightOpen) {
+      setConfirmLogout(false);
+    }
   }, [rightOpen]);
+
+  useEffect(() => {
+    Animated.spring(confirmAnim, {
+      toValue: confirmLogout ? 1 : 0,
+      useNativeDriver: true,
+      damping: 18,
+      stiffness: 200,
+    }).start();
+  }, [confirmLogout]);
 
   const topInset = isDesktop ? 0 : Platform.OS === 'web' ? 67 : insets.top;
   const bottomInset = isDesktop ? 0 : Platform.OS === 'web' ? 34 : insets.bottom;
@@ -47,40 +73,25 @@ export default function DrawerRight() {
   async function toggleBiometric(val: boolean) {
     if (val) {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      if (!hasHardware) {
-        Alert.alert('Não Disponível', 'O seu dispositivo não suporta autenticação biométrica.');
-        return;
-      }
+      if (!hasHardware) return;
       const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!enrolled) {
-        Alert.alert('Sem Biometria', 'Configure a impressão digital ou Face ID nas definições do dispositivo.');
-        return;
-      }
+      if (!enrolled) return;
     }
     await setBiometric(val);
   }
 
-  async function handleLogout() {
-    closeRight();
-    Alert.alert('Terminar Sessão', 'Tem a certeza que deseja sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair', style: 'destructive', onPress: async () => {
-          await logout();
-          router.replace('/login' as any);
-        }
-      },
-    ]);
+  async function doLogout() {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      closeRight();
+      router.replace('/login' as any);
+    } catch {
+      setIsLoggingOut(false);
+      setConfirmLogout(false);
+    }
   }
 
-  const roleColors: Record<string, string> = {
-    ceo: '#8B5CF6', pca: Colors.gold, admin: Colors.info, director: Colors.gold,
-    secretaria: Colors.info, professor: Colors.success, aluno: Colors.success, financeiro: Colors.warning,
-  };
-  const roleLabels: Record<string, string> = {
-    ceo: 'CEO', pca: 'Presidente', admin: 'Administrador', director: 'Director',
-    secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno', financeiro: 'Gestor Financeiro',
-  };
   const roleColor = roleColors[user?.role ?? ''] ?? Colors.success;
 
   return (
@@ -88,7 +99,9 @@ export default function DrawerRight() {
       <Animated.View style={[styles.overlay, { opacity }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeRight} activeOpacity={1} />
       </Animated.View>
+
       <Animated.View style={[styles.drawer, { transform: [{ translateX }], paddingTop: topInset + 12, paddingBottom: bottomInset }]}>
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={closeRight} style={styles.closeBtn}>
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
@@ -96,6 +109,7 @@ export default function DrawerRight() {
           <Text style={styles.headerTitle}>Perfil</Text>
         </View>
 
+        {/* Avatar */}
         <View style={styles.avatarSection}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{user?.nome?.charAt(0) ?? 'U'}</Text>
@@ -166,10 +180,42 @@ export default function DrawerRight() {
           </View>
         </ScrollView>
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
-          <Text style={styles.logoutText}>Terminar Sessão</Text>
-        </TouchableOpacity>
+        {/* Logout area */}
+        {!confirmLogout ? (
+          <TouchableOpacity
+            style={styles.logoutBtn}
+            onPress={() => setConfirmLogout(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={18} color={Colors.danger} />
+            <Text style={styles.logoutText}>Terminar Sessão</Text>
+          </TouchableOpacity>
+        ) : (
+          <Animated.View style={[styles.confirmBox, { opacity: confirmAnim, transform: [{ scale: confirmAnim.interpolate({ inputRange: [0, 1], outputRange: [0.95, 1] }) }] }]}>
+            <View style={styles.confirmIconWrap}>
+              <Ionicons name="log-out" size={24} color={Colors.danger} />
+            </View>
+            <Text style={styles.confirmTitle}>Terminar Sessão?</Text>
+            <Text style={styles.confirmSub}>A sua sessão será encerrada.</Text>
+            <View style={styles.confirmBtns}>
+              <TouchableOpacity
+                style={styles.confirmCancelBtn}
+                onPress={() => setConfirmLogout(false)}
+                disabled={isLoggingOut}
+              >
+                <Text style={styles.confirmCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmSairBtn, isLoggingOut && { opacity: 0.6 }]}
+                onPress={doLogout}
+                disabled={isLoggingOut}
+              >
+                <Ionicons name={isLoggingOut ? 'ellipsis-horizontal' : 'log-out'} size={15} color="#fff" />
+                <Text style={styles.confirmSairText}>{isLoggingOut ? 'A sair...' : 'Sair'}</Text>
+              </TouchableOpacity>
+            </View>
+          </Animated.View>
+        )}
       </Animated.View>
     </View>
   );
@@ -198,9 +244,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  closeBtn: {
-    padding: 4,
-  },
+  closeBtn: { padding: 4 },
   headerTitle: {
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
@@ -279,9 +323,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingText: {
-    flex: 1,
-  },
+  settingText: { flex: 1 },
   settingLabel: {
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
@@ -299,9 +341,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 12,
   },
-  infoContent: {
-    flex: 1,
-  },
+  infoContent: { flex: 1 },
   infoLabel: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
@@ -329,5 +369,69 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.danger,
+  },
+
+  confirmBox: {
+    marginHorizontal: 16,
+    padding: 16,
+    backgroundColor: Colors.backgroundCard,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(231,76,60,0.35)',
+    alignItems: 'center',
+    gap: 6,
+  },
+  confirmIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(231,76,60,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  confirmTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  confirmSub: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+  },
+  confirmCancelBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    alignItems: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.textSecondary,
+  },
+  confirmSairBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: Colors.danger,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  confirmSairText: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
   },
 });

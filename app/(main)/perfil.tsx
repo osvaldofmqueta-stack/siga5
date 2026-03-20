@@ -66,6 +66,8 @@ export default function PerfilScreen() {
   const [editField, setEditField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [biometricEnabled, setBiometricState] = useState(user?.biometricEnabled || false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   if (!user) return null;
 
@@ -126,16 +128,15 @@ export default function PerfilScreen() {
     }
   }
 
-  async function handleLogout() {
-    Alert.alert('Terminar Sessão', 'Tem a certeza que deseja sair?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Sair', style: 'destructive', onPress: async () => {
-          await logout();
-          router.replace('/login' as any);
-        }
-      },
-    ]);
+  async function doLogout() {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      router.replace('/login' as any);
+    } catch {
+      setIsLoggingOut(false);
+      setConfirmLogout(false);
+    }
   }
 
   // Role-specific stats
@@ -379,11 +380,42 @@ export default function PerfilScreen() {
         </View>
 
         {/* Logout */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+        <TouchableOpacity style={styles.logoutBtn} onPress={() => setConfirmLogout(true)}>
           <Ionicons name="log-out-outline" size={20} color={Colors.accent} />
           <Text style={styles.logoutText}>Terminar Sessão</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Logout Confirm Modal */}
+      {confirmLogout && (
+        <View style={styles.editOverlay}>
+          <View style={[styles.editBox, { alignItems: 'center', gap: 6 }]}>
+            <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(231,76,60,0.12)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <Ionicons name="log-out" size={26} color={Colors.danger} />
+            </View>
+            <Text style={[styles.editTitle, { textAlign: 'center' }]}>Terminar Sessão?</Text>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', marginBottom: 12 }}>
+              A sua sessão será encerrada.
+            </Text>
+            <View style={styles.editActions}>
+              <TouchableOpacity
+                style={styles.editCancelBtn}
+                onPress={() => setConfirmLogout(false)}
+                disabled={isLoggingOut}
+              >
+                <Text style={styles.editCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.editSaveBtn, { backgroundColor: Colors.danger, opacity: isLoggingOut ? 0.6 : 1 }]}
+                onPress={doLogout}
+                disabled={isLoggingOut}
+              >
+                <Text style={styles.editSaveText}>{isLoggingOut ? 'A sair...' : 'Sair'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Edit Modal */}
       {editField && (
