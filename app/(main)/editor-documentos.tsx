@@ -171,6 +171,47 @@ Por ser verdade, passou-se a presente DECLARAÇÃO que vai por mim assinado e au
 {{NOME_ESCOLA}} — {{MUNICIPIO}}, {{DATA_ACTUAL}}.`,
 };
 
+const SEED_CERTIFICADO_I_CICLO_ID = 'tpl_seed_certificado_i_ciclo_v1';
+
+const SEED_CERTIFICADO_I_CICLO: DocTemplate = {
+  id: SEED_CERTIFICADO_I_CICLO_ID,
+  nome: 'Certificado — Iº Ciclo do Ensino Secundário',
+  tipo: 'certificado',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+Iº CÍCLO DO ENSINO SECUNDÁRIO
+
+CERTIFICADO
+
+a) {{NOME_DIRECTOR}}, Director(a) do {{NOME_ESCOLA}}, criado(a) sob Decreto Executivo nº _______ de _________________
+Certifico que: {{NOME_COMPLETO}}, filho (a) de {{NOME_ENCARREGADO}} e de ________________________________, Nascido (a) aos {{DATA_NASCIMENTO}}, natural de {{MUNICIPIO}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}, portador (a) do B.I nº _________________, emitido aos _________________ pelo Arquivo de Identificação de _________________.
+
+Concluiu no ano lectivo de {{ANO_LECTIVO}} o Iº CÍCLO DO ENSINO SECUNDÁRIO GERAL, {{NOME_ESCOLA}} sob o processo nº _______, Pauta nº _______, conforme o disposto na alínea (c) do artigo 109º da LBSEE 17/16, de 7 de Outubro, com a Média Final de _______ valores obtido nas seguintes classificações:
+
+DISCIPLINA               | 7ª Cl. | 8ª Cl. | 9ª Cl. | Média | Por Extenso
+-------------------------|--------|--------|--------|-------|------------------
+Língua Portuguesa        |        |        |        |       |
+Língua Inglesa           |        |        |        |       |
+Língua Francesa          |        |        |        |       |
+Matemática               |        |        |        |       |
+Biologia                 |        |        |        |       |
+Física                   |        |        |        |       |
+Química                  |        |        |        |       |
+Geografia                |        |        |        |       |
+História                 |        |        |        |       |
+Educação Física          |        |        |        |       |
+Educação Moral e Cívica  |        |        |        |       |
+Educação Visual e Plást. |        |        |        |       |
+Educação Laboral         |        |        |        |       |
+Emprendedorismo          |        |        |        |       |
+
+Para efeitos legais lhe é passado o presente CERTIFICADO, que consta no livro de registo nº _______ Folha _______, assinado por mim e autenticado com o carimbo a óleo/selo branco em uso neste estabelecimento de ensino.
+
+{{NOME_ESCOLA}} em {{MUNICIPIO}} aos, {{DATA_ACTUAL}}.`,
+};
+
 const SEED_DECLARACAO_HABILITACOES_PRIMARIO_ID = 'tpl_seed_declaracao_habilitacoes_primario_v1';
 
 const SEED_DECLARACAO_HABILITACOES_PRIMARIO: DocTemplate = {
@@ -248,7 +289,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
