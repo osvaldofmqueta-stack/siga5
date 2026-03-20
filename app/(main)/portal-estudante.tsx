@@ -15,6 +15,7 @@ import { useData } from '@/context/DataContext';
 import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 
 const { width } = Dimensions.get('window');
@@ -127,6 +128,7 @@ export default function PortalEstudanteScreen() {
   } = useFinanceiro();
   const { mensagens, materiais, sumarios, pautas, marcarMensagemLida } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
+  const { config } = useConfig();
   const insets = useSafeAreaInsets();
 
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
@@ -696,7 +698,156 @@ export default function PortalEstudanteScreen() {
     );
   }
 
+  function gerarHtmlMiniPautaAluno(trimestre: 1 | 2 | 3) {
+    const nomeEscola = config?.nomeEscola || 'Escola';
+    const logoUrl = config?.logoUrl || '';
+    const anoLetivo = anoSelecionado?.ano || '—';
+    const nomeAluno = aluno ? `${aluno.nome} ${aluno.apelido}` : '—';
+    const numMatricula = aluno?.numeroMatricula || '—';
+    const turmaNome = turmaAluno?.nome || '—';
+    const classe = turmaAluno?.classe || '—';
+    const nivel = turmaAluno?.nivel || '—';
+    const notasTr = aluno ? notas.filter(n => n.alunoId === aluno.id && n.trimestre === trimestre && n.anoLetivo === anoLetivo) : [];
+    const dataHoje = new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const linhas = notasTr.map((nota, i) => {
+      const nfColor = nota.nf >= 10 ? '#155724' : nota.nf > 0 ? '#721c24' : '#555';
+      const status = nota.nf >= 10 ? 'Aprovado' : nota.nf > 0 ? 'Reprovado' : '—';
+      return `<tr style="background:${i%2===0?'#f9f9f0':'#fff'}">
+        <td style="text-align:center">${String(i+1).padStart(2,'0')}</td>
+        <td style="padding-left:6px">${nota.disciplina}</td>
+        <td class="nc">${nota.mac1||nota.mac||0 ? (nota.mac1||nota.mac).toFixed(1) : '—'}</td>
+        <td class="nc">${nota.pp1 > 0 ? nota.pp1.toFixed(1) : '—'}</td>
+        <td class="nc">${nota.ppt > 0 ? nota.ppt.toFixed(1) : '—'}</td>
+        <td class="nc" style="font-weight:bold">${nota.mt1 > 0 ? nota.mt1.toFixed(1) : '—'}</td>
+        <td class="nc" style="font-weight:bold;color:${nfColor}">${nota.nf > 0 ? nota.nf.toFixed(1) : '—'}</td>
+        <td style="text-align:center;font-size:10px;color:${nfColor}">${status}</td>
+      </tr>`;
+    });
+
+    if (linhas.length === 0) {
+      return null;
+    }
+
+    return `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"/>
+<title>Mini-Pauta · ${nomeAluno} · ${trimestre}º Trimestre</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Times New Roman',serif;background:#fff;color:#000;padding:20px 24px;}
+  .header{text-align:center;margin-bottom:12px;}
+  .header img{width:70px;height:70px;object-fit:contain;margin-bottom:4px;}
+  .header p{font-size:12px;line-height:1.6;}
+  .header .title{font-size:17px;font-weight:bold;margin:6px 0 2px;}
+  .header .escola{font-size:13px;font-weight:bold;text-transform:uppercase;}
+  .aluno-box{border:1px solid #333;border-radius:4px;padding:10px 14px;margin:10px 0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;font-size:12px;}
+  .aluno-field{display:flex;flex-direction:column;}
+  .aluno-label{font-size:10px;font-weight:bold;color:#666;text-transform:uppercase;letter-spacing:0.5px;}
+  .aluno-value{font-size:13px;font-weight:bold;color:#000;margin-top:1px;}
+  .tri-badge{display:inline-block;background:#1a6b3c;color:#fff;font-size:13px;font-weight:bold;padding:3px 14px;border-radius:20px;margin-bottom:10px;}
+  table{width:100%;border-collapse:collapse;font-size:11px;}
+  th,td{border:1px solid #555;padding:3px 5px;}
+  th{background:#1a6b3c;color:#fff;font-size:10px;font-weight:bold;text-align:center;}
+  td.nc{text-align:center;}
+  tfoot td{font-weight:bold;background:#f0f0e0;}
+  .obs{margin-top:14px;font-size:11px;color:#444;font-style:italic;}
+  .footer{margin-top:20px;display:flex;justify-content:space-between;align-items:flex-end;font-size:11px;}
+  .sig-line{border-top:1px solid #000;margin-top:36px;padding-top:4px;min-width:200px;text-align:center;}
+  @media print{body{padding:8px 10px;}@page{size:A4 portrait;margin:10mm;}.no-print{display:none;}}
+</style>
+</head><body>
+<div class="header">
+  ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
+  <p>REPÚBLICA DE ANGOLA</p>
+  <p>MINISTÉRIO DA EDUCAÇÃO</p>
+  <p class="escola">${nomeEscola}</p>
+  <p class="title">MINI-PAUTA INDIVIDUAL</p>
+</div>
+
+<div style="text-align:center;margin-bottom:10px;">
+  <span class="tri-badge">${trimestre}º TRIMESTRE · ${anoLetivo}</span>
+</div>
+
+<div class="aluno-box">
+  <div class="aluno-field">
+    <span class="aluno-label">Nome Completo</span>
+    <span class="aluno-value">${nomeAluno}</span>
+  </div>
+  <div class="aluno-field">
+    <span class="aluno-label">N.º Matrícula</span>
+    <span class="aluno-value">${numMatricula}</span>
+  </div>
+  <div class="aluno-field">
+    <span class="aluno-label">Turma / Classe</span>
+    <span class="aluno-value">${turmaNome} · ${classe}ª (${nivel})</span>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width:28px">Nº</th>
+      <th style="text-align:left">DISCIPLINA</th>
+      <th>MAC</th>
+      <th>NPP</th>
+      <th>NPT</th>
+      <th>MT</th>
+      <th>NF</th>
+      <th>OBSERVAÇÃO</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${linhas.join('\n')}
+  </tbody>
+</table>
+
+<p class="obs">MAC = Média das Avaliações Contínuas &nbsp;|&nbsp; NPP = Nota da Prova Parcial &nbsp;|&nbsp; NPT = Nota da Prova Trimestral &nbsp;|&nbsp; MT = Média Trimestral &nbsp;|&nbsp; NF = Nota Final</p>
+
+<div class="footer">
+  <span>${nomeEscola}, ${dataHoje}.</span>
+  <div class="sig-line">O DIRECTOR(A) DA ESCOLA</div>
+</div>
+
+<div class="no-print" style="text-align:center;margin-top:20px;">
+  <button onclick="window.print()" style="padding:10px 32px;font-size:14px;background:#1a6b3c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-family:serif">
+    Imprimir / Guardar PDF
+  </button>
+</div>
+</body></html>`;
+  }
+
+  function verMiniPauta() {
+    const notasTr = aluno ? notas.filter(n => n.alunoId === aluno.id && n.trimestre === trimestreNotas && n.anoLetivo === anoLetivo) : [];
+    const pautasFechadas = notasTr.filter(nota => {
+      const p = pautas.find(p => p.turmaId === nota.turmaId && p.disciplina === nota.disciplina && p.trimestre === nota.trimestre);
+      return p?.status === 'fechada';
+    });
+    if (pautasFechadas.length === 0) {
+      Alert.alert('Mini-Pauta Indisponível', 'A mini-pauta ainda não foi publicada pelo professor. Aguarde o fecho oficial da pauta.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Alert.alert('Indisponível', 'A visualização da mini-pauta está disponível na versão web do sistema.');
+      return;
+    }
+    const html = gerarHtmlMiniPautaAluno(trimestreNotas);
+    if (!html) {
+      Alert.alert('Sem Notas', 'Não existem notas publicadas para este trimestre.');
+      return;
+    }
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+    }
+  }
+
   function renderNotas() {
+    const notasTr = aluno ? notas.filter(n => n.alunoId === aluno.id && n.trimestre === trimestreNotas && n.anoLetivo === anoLetivo) : [];
+    const temPautaFechada = notasTr.some(nota => {
+      const p = pautas.find(p => p.turmaId === nota.turmaId && p.disciplina === nota.disciplina && p.trimestre === nota.trimestre);
+      return p?.status === 'fechada';
+    });
+
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <View style={styles.trimestreSelector}>
@@ -712,6 +863,17 @@ export default function PortalEstudanteScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        <TouchableOpacity
+          style={[styles.miniPautaBtn, !temPautaFechada && styles.miniPautaBtnDisabled]}
+          onPress={verMiniPauta}
+        >
+          <Ionicons name="print-outline" size={16} color={temPautaFechada ? '#fff' : Colors.textMuted} />
+          <Text style={[styles.miniPautaBtnText, !temPautaFechada && { color: Colors.textMuted }]}>
+            {temPautaFechada ? 'Ver / Imprimir Mini-Pauta' : 'Mini-Pauta (aguarda publicação)'}
+          </Text>
+          {temPautaFechada && <Ionicons name="chevron-forward" size={14} color="#fff" />}
+        </TouchableOpacity>
 
         {notasTrimestre.length === 0 ? (
           <View style={styles.emptyState}>
@@ -1699,6 +1861,9 @@ const styles = StyleSheet.create({
   trimBtnActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '88' },
   trimBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
   trimBtnTextActive: { color: Colors.gold },
+  miniPautaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1a6b3c', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16 },
+  miniPautaBtnDisabled: { backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border },
+  miniPautaBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff', flex: 1, textAlign: 'center' },
 
   emptyState: { alignItems: 'center', padding: 32, gap: 12 },
   emptyStateText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
