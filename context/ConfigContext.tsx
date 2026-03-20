@@ -14,6 +14,7 @@ export interface FlashScreenConfig {
 
 export interface ConfigGeral {
   nomeEscola: string;
+  logoUrl?: string;
   pp1Habilitado: boolean;
   pptHabilitado: boolean;
   notaMinimaAprovacao: number;
