@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -86,6 +86,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   certificado: 'Certificado',
   atestado: 'Atestado',
   oficio: 'Ofício',
+  pauta: 'Pauta',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -93,6 +94,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   certificado: Colors.gold,
   atestado: Colors.success,
   oficio: Colors.warning,
+  pauta: '#8b5cf6',
   outro: Colors.textMuted,
 };
 
@@ -212,6 +214,82 @@ Para efeitos legais lhe é passado o presente CERTIFICADO, que consta no livro d
 {{NOME_ESCOLA}} em {{MUNICIPIO}} aos, {{DATA_ACTUAL}}.`,
 };
 
+const SEED_MINI_PAUTA_ID = 'tpl_seed_mini_pauta_v1';
+
+const SEED_MINI_PAUTA: DocTemplate = {
+  id: SEED_MINI_PAUTA_ID,
+  nome: 'Mini-Pauta (Modelo Manual)',
+  tipo: 'pauta',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `REPÚBLICA DE ANGOLA
+MINISTÉRIO DA EDUCAÇÃO
+{{NIVEL_ENSINO}}
+
+{{NOME_ESCOLA}}
+MINI-PAUTA
+
+DISCIPLINA: {{DISCIPLINA}}        {{CLASSE}}ª CLASSE        TURMA: {{TURMA}}        ANO LECTIVO: {{ANO_LECTIVO}}
+
+Nº | NOME COMPLETO                  | 1º TRIM.              | 2º TRIM.              | 3º TRIM.              | MFD | OBSERVAÇÃO
+   |                                | MAC | NPP | NPT | MT1 | MAC | NPP | NPT | MT2 | MAC | NPP | NPT | MT3 |     |
+---|--------------------------------|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|-----|------------
+01 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+02 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+03 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+04 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+05 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+06 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+07 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+08 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+09 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+10 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+11 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+12 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+13 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+14 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+15 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+16 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+17 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+18 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+19 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+20 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+21 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+22 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+23 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+24 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+25 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+26 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+27 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+28 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+29 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+30 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+31 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+32 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+33 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+34 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+35 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+36 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+37 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+38 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+39 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+40 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+41 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+42 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+43 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+44 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+45 |                                |     |     |     |     |     |     |     |     |     |     |     |     |     |
+
+Legenda: MAC = Média Avaliações Contínuas | NPP = Nota Prova Parcial | NPT = Nota Prova Trimestral
+         MT = Média Trimestral | MFD = Média Final do Ano
+
+{{NOME_ESCOLA}}, {{MUNICIPIO}}, {{DATA_ACTUAL}}.
+
+O PROFESSOR
+_______________________________
+{{NOME_PROFESSOR}}`,
+};
+
 const SEED_DECLARACAO_COM_NOTA_ID = 'tpl_seed_declaracao_com_nota_v1';
 
 const SEED_DECLARACAO_COM_NOTA: DocTemplate = {
@@ -325,7 +403,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {

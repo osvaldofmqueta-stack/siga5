@@ -4,6 +4,7 @@ import {
   TextInput, Platform, Alert, Modal, FlatList, ActivityIndicator,
   BackHandler,
 } from 'react-native';
+import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -52,6 +53,7 @@ export default function ProfessorPautaScreen() {
   const { pautas, solicitacoes, addPauta, updatePauta, getPautaByKey, addSolicitacao } = useProfessor();
   const { addNotificacao } = useNotificacoes();
   const { anoSelecionado } = useAnoAcademico();
+  const { config } = useConfig();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -255,6 +257,142 @@ export default function ProfessorPautaScreen() {
     Alert.alert('Pedido Enviado', 'A sua solicitação de reabertura foi enviada. Aguarde a aprovação.');
   }
 
+  function gerarHtmlMiniPauta(): string {
+    const nomeEscola = config?.nomeEscola || 'Escola';
+    const logoUrl = config?.logoUrl || '';
+    const anoLetivo = anoSelecionado?.ano || '20__/20__';
+    const profNome = prof ? `${prof.nome} ${prof.apelido}` : '____________________';
+    const turmaObj = minhasTurmas.find(t => t.id === turmaId);
+    const turmaNome = turmaObj?.nome || '—';
+    const nivelClasse = turmaObj?.classe || '—';
+
+    const rows = alunosDaTurma.map((aluno, idx) => {
+      const get = (tr: number) => {
+        const n = notas.find(n => n.alunoId === aluno.id && n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === tr);
+        return n ? { mac: n.mac ?? n.mac1 ?? 0, npp: n.pp1 ?? 0, npt: n.ppt ?? 0, mt: n.mt1 ?? 0 } : null;
+      };
+      const t1 = get(1); const t2 = get(2); const t3 = get(3);
+      const mts = [t1?.mt, t2?.mt, t3?.mt].filter((v): v is number => !!v && v > 0);
+      const mfd = mts.length ? Math.round((mts.reduce((a, b) => a + b, 0) / mts.length) * 10) / 10 : null;
+      const aprovado = mfd !== null ? (mfd >= (config?.notaMinimaAprovacao ?? 10) ? 'Aprovado' : 'Reprovado') : '';
+      const fmt = (v: number | null | undefined) => v && v > 0 ? v.toFixed(1) : '';
+      const bgEven = idx % 2 === 0 ? '#f9f9f0' : '#ffffff';
+      return `<tr style="background:${bgEven}">
+        <td style="text-align:center;font-size:11px;">${String(idx + 1).padStart(2, '0')}</td>
+        <td style="font-size:11px;padding-left:4px;">${aluno.nome} ${aluno.apelido}</td>
+        <td class="nc">${fmt(t1?.mac)}</td><td class="nc">${fmt(t1?.npp)}</td><td class="nc">${fmt(t1?.npt)}</td><td class="nc bold">${fmt(t1?.mt)}</td>
+        <td class="nc">${fmt(t2?.mac)}</td><td class="nc">${fmt(t2?.npp)}</td><td class="nc">${fmt(t2?.npt)}</td><td class="nc bold">${fmt(t2?.mt)}</td>
+        <td class="nc">${fmt(t3?.mac)}</td><td class="nc">${fmt(t3?.npp)}</td><td class="nc">${fmt(t3?.npt)}</td><td class="nc bold">${fmt(t3?.mt)}</td>
+        <td class="nc bold" style="color:${mfd !== null && mfd >= (config?.notaMinimaAprovacao ?? 10) ? '#155724' : mfd !== null ? '#721c24' : '#000'};">${mfd !== null ? mfd.toFixed(1) : ''}</td>
+        <td style="font-size:10px;text-align:center;">${aprovado}</td>
+      </tr>`;
+    });
+
+    const emptyRows = Array.from({ length: Math.max(0, 45 - alunosDaTurma.length) }, (_, i) => {
+      const bg = (alunosDaTurma.length + i) % 2 === 0 ? '#f9f9f0' : '#ffffff';
+      return `<tr style="background:${bg};height:22px;"><td></td><td></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td></tr>`;
+    });
+
+    const dataHoje = new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    return `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"/>
+<title>Mini-Pauta · ${disciplina} · ${turmaNome}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Times New Roman',serif;background:#fff;color:#000;padding:16px 20px;font-size:12px;}
+  .header{text-align:center;margin-bottom:10px;}
+  .header img{width:70px;height:70px;object-fit:contain;margin-bottom:4px;}
+  .header p{font-size:12px;line-height:1.5;}
+  .header .title{font-size:16px;font-weight:bold;margin:4px 0;}
+  .header .escola{font-size:13px;font-weight:bold;text-transform:uppercase;margin:2px 0;}
+  .meta{display:flex;gap:16px;font-size:11px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:4px 0;margin-bottom:0;}
+  table{width:100%;border-collapse:collapse;font-size:10px;}
+  th,td{border:1px solid #333;padding:2px 3px;}
+  th{background:#c6efce;font-size:9px;font-weight:bold;text-align:center;white-space:nowrap;}
+  th.hdr-tri{background:#1a6b3c;color:#fff;font-size:10px;}
+  td.nc{text-align:center;font-size:10px;}
+  td.bold{font-weight:bold;}
+  .footer{margin-top:20px;display:flex;justify-content:space-between;align-items:flex-end;}
+  .sig{text-align:center;}
+  .sig-line{border-top:1px solid #000;margin-top:40px;padding-top:4px;font-size:11px;min-width:200px;}
+  @media print{
+    body{padding:8px 12px;}
+    @page{size:A4 landscape;margin:8mm;}
+    .no-print{display:none;}
+  }
+</style>
+</head><body>
+<div class="header">
+  ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
+  <p>REPÚBLICA DE ANGOLA</p>
+  <p>MINISTÉRIO DA EDUCAÇÃO</p>
+  <p class="title">MINI-PAUTA</p>
+  <p class="escola">${nomeEscola}</p>
+</div>
+<div class="meta">
+  <span>DISCIPLINA: <u>${disciplina}</u></span>
+  <span>${nivelClasse}ª CLASSE</span>
+  <span>TURMA: <u>${turmaNome}</u></span>
+  <span>ANO LECTIVO: <u style="color:#c00;">${anoLetivo}</u></span>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2" style="width:28px;">Nº</th>
+      <th rowspan="2" style="min-width:120px;text-align:left;">NOME COMPLETO</th>
+      <th colspan="4" class="hdr-tri">1º TRIMESTRE</th>
+      <th colspan="4" class="hdr-tri">2º TRIMESTRE</th>
+      <th colspan="4" class="hdr-tri">3º TRIMESTRE</th>
+      <th rowspan="2" style="width:32px;">MFD</th>
+      <th rowspan="2" style="width:60px;">OBSERVAÇÃO</th>
+    </tr>
+    <tr>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT1</th>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT2</th>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT3</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.join('\n')}
+    ${emptyRows.join('\n')}
+  </tbody>
+</table>
+<div class="footer">
+  <span style="font-size:11px;">${nomeEscola}, ${dataHoje}.</span>
+  <div class="sig">
+    <div class="sig-line">O PROFESSOR<br/><strong>${profNome}</strong></div>
+  </div>
+</div>
+<div class="no-print" style="text-align:center;margin-top:16px;">
+  <button onclick="window.print()" style="padding:10px 32px;font-size:14px;background:#1a6b3c;color:#fff;border:none;border-radius:6px;cursor:pointer;">Imprimir / Guardar PDF</button>
+</div>
+</body></html>`;
+  }
+
+  async function enviarMiniPauta() {
+    if (!turmaId || !disciplina) {
+      Alert.alert('Atenção', 'Selecione a turma e disciplina antes de enviar a mini-pauta.');
+      return;
+    }
+    if (Platform.OS === 'web') {
+      const html = gerarHtmlMiniPauta();
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+      }
+    } else {
+      Alert.alert('Indisponível', 'A impressão da mini-pauta está disponível na versão web do sistema.');
+    }
+    const turmaObj = minhasTurmas.find(t => t.id === turmaId);
+    await addNotificacao({
+      titulo: 'Mini-Pauta Enviada para Revisão',
+      mensagem: `Prof. ${prof ? `${prof.nome} ${prof.apelido}` : ''} enviou a Mini-Pauta de ${disciplina} (${turmaObj?.nome || turmaId}) — pronta para visualizar e imprimir.`,
+      tipo: 'info',
+      data: new Date().toISOString(),
+    });
+  }
+
   const pautaStatusColor = isPautaFechada ? Colors.danger : isPendente ? Colors.warning : pautaAtual ? Colors.success : Colors.textMuted;
   const pautaStatusLabel = isPautaFechada ? 'Fechada' : isPendente ? 'Aguarda Reabertura' : pautaAtual ? 'Aberta' : 'Não Lançada';
 
@@ -422,6 +560,10 @@ export default function ProfessorPautaScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={styles.miniPautaBtn} onPress={enviarMiniPauta}>
+          <Ionicons name="print-outline" size={14} color={Colors.info} />
+          <Text style={styles.miniPautaBtnText}>Enviar Mini-Pauta</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={() => {
           if (pautaAtual?.status === 'aberta') {
             Alert.alert('Pauta Aberta', 'A pauta está em edição. Deseja sair?', [
@@ -615,6 +757,8 @@ const styles = StyleSheet.create({
   pautaStatusText: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
   reaberturaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.warning + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   reaberturaBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.warning },
+  miniPautaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.info + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  miniPautaBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info },
   backBtn: { padding: 6 },
   legendaBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
   legendaCol: { width: CELL_W, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' },
