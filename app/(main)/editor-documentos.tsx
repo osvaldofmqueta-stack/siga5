@@ -24,6 +24,8 @@ interface DocTemplate {
   conteudo: string;
   criadoEm: string;
   atualizadoEm: string;
+  insigniaBase64?: string;
+  marcaAguaBase64?: string;
 }
 
 // ─── Variables definition ───────────────────────────────────────────────────
@@ -122,7 +124,10 @@ export default function EditorDocumentos() {
   const [editorNome, setEditorNome] = useState('');
   const [editorTipo, setEditorTipo] = useState<DocTipo>('declaracao');
   const [editorContent, setEditorContent] = useState('');
+  const [editorInsignia, setEditorInsignia] = useState<string | undefined>(undefined);
+  const [editorMarcaAgua, setEditorMarcaAgua] = useState<string | undefined>(undefined);
   const [showVarsPanel, setShowVarsPanel] = useState(true);
+  const [showAppearPanel, setShowAppearPanel] = useState(true);
   const [activeVarGroup, setActiveVarGroup] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -152,7 +157,10 @@ export default function EditorDocumentos() {
     setEditorNome('Novo Documento');
     setEditorTipo('declaracao');
     setEditorContent('');
+    setEditorInsignia(undefined);
+    setEditorMarcaAgua(undefined);
     setShowVarsPanel(true);
+    setShowAppearPanel(true);
     setMode('editor');
   }
 
@@ -161,7 +169,10 @@ export default function EditorDocumentos() {
     setEditorNome(t.nome);
     setEditorTipo(t.tipo);
     setEditorContent(t.conteudo);
+    setEditorInsignia(t.insigniaBase64);
+    setEditorMarcaAgua(t.marcaAguaBase64);
     setShowVarsPanel(true);
+    setShowAppearPanel(true);
     setMode('editor');
   }
 
@@ -173,19 +184,63 @@ export default function EditorDocumentos() {
     if (editingTemplate) {
       updated = templates.map(t =>
         t.id === editingTemplate.id
-          ? { ...t, nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent, atualizadoEm: now }
+          ? { ...t, nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent, atualizadoEm: now, insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua }
           : t
       );
     } else {
       const novo: DocTemplate = {
         id: genId(), nome: editorNome.trim(), tipo: editorTipo,
         conteudo: editorContent, criadoEm: now, atualizadoEm: now,
+        insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua,
       };
       updated = [novo, ...templates];
     }
     await saveTemplates(updated);
     setIsSaving(false);
     setMode('list');
+  }
+
+  // ─── Image picker (web: file input; native: expo-image-picker) ──────────────
+  function pickImageWeb(onPick: (base64: string) => void) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        onPick(result);
+      };
+      reader.readAsDataURL(file);
+    };
+    input.click();
+  }
+
+  async function pickImageNative(onPick: (base64: string) => void) {
+    try {
+      const ImagePicker = await import('expo-image-picker');
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) return;
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: 'images',
+        allowsEditing: true,
+        quality: 0.7,
+        base64: true,
+      });
+      if (!result.canceled && result.assets[0]?.base64) {
+        onPick(`data:image/jpeg;base64,${result.assets[0].base64}`);
+      }
+    } catch {}
+  }
+
+  function pickImage(onPick: (base64: string) => void) {
+    if (Platform.OS === 'web') {
+      pickImageWeb(onPick);
+    } else {
+      pickImageNative(onPick);
+    }
   }
 
   async function deleteTemplate(id: string) {
@@ -270,10 +325,17 @@ export default function EditorDocumentos() {
       const win = window.open('', '_blank');
       if (!win) return;
       const aluno = alunos.find(a => a.id === emitAlunoId);
-      const logoHtml = config.logoUrl
-        ? `<img src="${config.logoUrl}" alt="Insígnia" style="height:80px;width:80px;object-fit:contain;margin-bottom:8px;" />`
-        : `<div style="width:80px;height:80px;border-radius:50%;background:#e8e8e8;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-size:28px;font-weight:bold;color:#555;line-height:80px;text-align:center;">${(config.nomeEscola || 'E').charAt(0).toUpperCase()}</div>`;
-      const watermarkText = config.nomeEscola || 'SIGA';
+      const tplInsignia = emitTemplate?.insigniaBase64;
+      const tplMarcaAgua = emitTemplate?.marcaAguaBase64;
+
+      const logoHtml = tplInsignia
+        ? `<img src="${tplInsignia}" alt="Insígnia" style="height:90px;width:90px;object-fit:contain;margin-bottom:8px;" />`
+        : `<div style="width:72px;height:72px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:26px;font-weight:bold;color:#666;line-height:72px;text-align:center;border:2px solid #ccc;">${(config.nomeEscola || 'E').charAt(0).toUpperCase()}</div>`;
+
+      const watermarkHtml = tplMarcaAgua
+        ? `<img src="${tplMarcaAgua}" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.05;pointer-events:none;z-index:0;" />`
+        : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${config.nomeEscola || 'SIGA'}</div>`;
+
       win.document.write(`
         <!DOCTYPE html>
         <html>
@@ -283,20 +345,10 @@ export default function EditorDocumentos() {
           <style>
             * { box-sizing: border-box; }
             body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; position: relative; }
-            .watermark {
-              position: fixed; top: 50%; left: 50%;
-              transform: translate(-50%, -50%) rotate(-45deg);
-              font-size: 72px; font-weight: bold;
-              color: rgba(0,0,0,0.04); white-space: nowrap;
-              pointer-events: none; z-index: 0;
-              font-family: 'Times New Roman', serif;
-              letter-spacing: 8px;
-            }
             .content { position: relative; z-index: 1; }
             .doc-header { text-align: center; margin-bottom: 32px; }
-            .insignia { display: block; margin: 0 auto 8px; }
             h1 { font-size: 16px; margin: 4px 0; font-family: 'Times New Roman', serif; }
-            .republika { font-size: 11px; color: #555; margin-bottom: 2px; }
+            .republika { font-size: 11px; color: #555; margin-bottom: 2px; letter-spacing: 1px; text-transform: uppercase; }
             .divider { width: 80px; height: 2px; background: #000; margin: 12px auto; }
             .doc-tipo { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin: 8px 0; }
             .doc-meta { font-size: 11px; color: #555; margin-bottom: 32px; }
@@ -305,12 +357,11 @@ export default function EditorDocumentos() {
             .sig-line { width: 200px; height: 1px; background: #333; margin: 40px auto 6px; }
             @media print {
               body { margin: 30px 50px; }
-              .watermark { position: fixed; }
             }
           </style>
         </head>
         <body>
-          <div class="watermark">${watermarkText}</div>
+          ${watermarkHtml}
           <div class="content">
             <div class="doc-header">
               ${logoHtml}
@@ -479,6 +530,82 @@ export default function EditorDocumentos() {
           ))}
         </ScrollView>
 
+        {/* Aparência do documento */}
+        <View style={styles.appearSection}>
+          <TouchableOpacity style={styles.appearHeader} onPress={() => setShowAppearPanel(v => !v)} activeOpacity={0.7}>
+            <Ionicons name="image-outline" size={15} color={Colors.gold} />
+            <Text style={styles.appearHeaderTitle}>Aparência do Documento</Text>
+            <Ionicons name={showAppearPanel ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
+          </TouchableOpacity>
+
+          {showAppearPanel && (
+            <View style={styles.appearBody}>
+              {/* Insignia upload */}
+              <View style={styles.appearItem}>
+                <View style={styles.appearItemInfo}>
+                  <Text style={styles.appearItemLabel}>Insígnia / Emblema</Text>
+                  <Text style={styles.appearItemHint}>Aparece no topo do documento (ex: brasão da escola)</Text>
+                </View>
+                <View style={styles.appearItemControls}>
+                  {editorInsignia ? (
+                    <View style={styles.imagePreviewWrap}>
+                      <Image source={{ uri: editorInsignia }} style={styles.imagePreview} resizeMode="contain" />
+                      <TouchableOpacity style={styles.imageRemoveBtn} onPress={() => setEditorInsignia(undefined)}>
+                        <Ionicons name="close-circle" size={20} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickImage(setEditorInsignia)} activeOpacity={0.75}>
+                      <Ionicons name="cloud-upload-outline" size={18} color={Colors.gold} />
+                      <Text style={styles.uploadBtnText}>Carregar imagem</Text>
+                    </TouchableOpacity>
+                  )}
+                  {editorInsignia && (
+                    <TouchableOpacity style={styles.changeBtn} onPress={() => pickImage(setEditorInsignia)} activeOpacity={0.75}>
+                      <Ionicons name="refresh-outline" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.changeBtnText}>Alterar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.appearDivider} />
+
+              {/* Marca de água upload */}
+              <View style={styles.appearItem}>
+                <View style={styles.appearItemInfo}>
+                  <Text style={styles.appearItemLabel}>Marca de Água</Text>
+                  <Text style={styles.appearItemHint}>Imagem em fundo no documento (transparente)</Text>
+                </View>
+                <View style={styles.appearItemControls}>
+                  {editorMarcaAgua ? (
+                    <View style={styles.imagePreviewWrap}>
+                      <View style={styles.imagePreviewMarcaWrap}>
+                        <Image source={{ uri: editorMarcaAgua }} style={styles.imagePreviewMarca} resizeMode="contain" />
+                        <View style={styles.imagePreviewMarcaOverlay} />
+                      </View>
+                      <TouchableOpacity style={styles.imageRemoveBtn} onPress={() => setEditorMarcaAgua(undefined)}>
+                        <Ionicons name="close-circle" size={20} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity style={styles.uploadBtn} onPress={() => pickImage(setEditorMarcaAgua)} activeOpacity={0.75}>
+                      <Ionicons name="cloud-upload-outline" size={18} color={Colors.info} />
+                      <Text style={[styles.uploadBtnText, { color: Colors.info }]}>Carregar imagem</Text>
+                    </TouchableOpacity>
+                  )}
+                  {editorMarcaAgua && (
+                    <TouchableOpacity style={styles.changeBtn} onPress={() => pickImage(setEditorMarcaAgua)} activeOpacity={0.75}>
+                      <Ionicons name="refresh-outline" size={14} color={Colors.textSecondary} />
+                      <Text style={styles.changeBtnText}>Alterar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            </View>
+          )}
+        </View>
+
         <View style={[styles.editorBody, isWide && { flexDirection: 'row' }]}>
           {/* Text area */}
           <View style={[styles.editorTextWrap, isWide && { flex: 1 }]}>
@@ -642,14 +769,20 @@ export default function EditorDocumentos() {
             ) : (
               <View style={styles.previewOuter}>
                 {/* Watermark layer */}
-                <View style={styles.watermarkContainer} pointerEvents="none">
-                  <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
-                </View>
+                {emitTemplate?.marcaAguaBase64 ? (
+                  <View style={styles.watermarkContainer} pointerEvents="none">
+                    <Image source={{ uri: emitTemplate.marcaAguaBase64 }} style={styles.watermarkImage} resizeMode="contain" />
+                  </View>
+                ) : (
+                  <View style={styles.watermarkContainer} pointerEvents="none">
+                    <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
+                  </View>
+                )}
                 <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>
                   {/* Insignia + header */}
                   <View style={styles.docHeader}>
-                    {config.logoUrl ? (
-                      <Image source={{ uri: config.logoUrl }} style={styles.docInsignia} resizeMode="contain" />
+                    {emitTemplate?.insigniaBase64 ? (
+                      <Image source={{ uri: emitTemplate.insigniaBase64 }} style={styles.docInsignia} resizeMode="contain" />
                     ) : (
                       <View style={styles.docInsigniaPlaceholder}>
                         <Text style={styles.docInsigniaLetter}>{(config.nomeEscola || 'E').charAt(0).toUpperCase()}</Text>
@@ -876,6 +1009,11 @@ const styles = StyleSheet.create({
     letterSpacing: 6,
     textAlign: 'center',
   },
+  watermarkImage: {
+    width: '80%' as any,
+    height: 200,
+    opacity: 0.06,
+  },
   previewScroll: { flex: 1, backgroundColor: '#fff', borderRadius: 12, padding: 24 },
   docHeader: { alignItems: 'center', marginBottom: 24 },
   docInsignia: { width: 72, height: 72, marginBottom: 8 },
@@ -895,4 +1033,61 @@ const styles = StyleSheet.create({
   docSignatureLine: { width: 200, height: 1, backgroundColor: '#333', marginTop: 40, marginBottom: 6 },
   docSignatureName: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#1a1a1a' },
   docSignatureRole: { fontSize: 12, fontFamily: 'Inter_400Regular', color: '#444' },
+
+  // Appearance section
+  appearSection: {
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  appearHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
+  },
+  appearHeaderTitle: {
+    flex: 1, fontSize: 12, fontFamily: 'Inter_600SemiBold',
+    color: Colors.text, textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  appearBody: {
+    paddingHorizontal: 16, paddingBottom: 14,
+  },
+  appearItem: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 12, paddingVertical: 8,
+  },
+  appearItemInfo: { flex: 1 },
+  appearItemLabel: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  appearItemHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  appearItemControls: { alignItems: 'flex-end', gap: 4 },
+  appearDivider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
+
+  uploadBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9,
+    borderStyle: 'dashed',
+  },
+  uploadBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.gold },
+  changeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4,
+  },
+  changeBtnText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+
+  imagePreviewWrap: { alignItems: 'center', gap: 4 },
+  imagePreview: {
+    width: 64, height: 64, borderRadius: 8,
+    borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  imagePreviewMarcaWrap: {
+    width: 64, height: 50, borderRadius: 8,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+    overflow: 'hidden', alignItems: 'center', justifyContent: 'center',
+  },
+  imagePreviewMarca: { width: '100%' as any, height: '100%' as any, opacity: 0.4 },
+  imagePreviewMarcaOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  imageRemoveBtn: { position: 'absolute', top: -6, right: -6 },
 });
