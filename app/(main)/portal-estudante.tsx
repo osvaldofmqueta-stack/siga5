@@ -414,39 +414,51 @@ export default function PortalEstudanteScreen() {
           </TouchableOpacity>
         )}
 
-        <SectionTitle title="Calendário Escolar" icon="calendar" />
+        <SectionTitle title="Calendário de Marcos Escolares" icon="calendar" />
+        <Text style={styles.infoHint}>Marcos e eventos definidos pela escola para a sua turma</Text>
         {eventosAluno.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="calendar-outline" size={40} color={Colors.textMuted} />
-            <Text style={styles.emptyStateText}>Sem eventos/marcos definidos</Text>
+            <Text style={styles.emptyStateText}>Nenhum marco ou evento definido</Text>
           </View>
         ) : (
-          eventosAluno.map(ev => {
-            const isPast = new Date(ev.data) < new Date();
-            return (
-              <View key={ev.id} style={[styles.eventoCard, isPast && { opacity: 0.6 }]}>
-                <View style={styles.eventoLeft}>
-                  <Ionicons
-                    name={ev.tipo === 'Exame' ? 'document-text' : ev.tipo === 'Feriado' ? 'flag' : ev.tipo === 'Reunião' ? 'people' : ev.tipo === 'Cultural' ? 'musical-notes' : ev.tipo === 'Desportivo' ? 'fitness' : 'school'}
-                    size={20}
-                    color={ev.tipo === 'Exame' ? Colors.danger : ev.tipo === 'Feriado' ? Colors.gold : ev.tipo === 'Cultural' ? Colors.info : Colors.success}
-                  />
-                  <View style={styles.eventoInfo}>
-                    <Text style={styles.eventoTitulo}>{ev.titulo}</Text>
-                    <Text style={styles.eventoDesc} numberOfLines={1}>{ev.descricao}</Text>
+          <View style={styles.timelineContainer}>
+            {eventosAluno.map((ev, idx) => {
+              const isPast = new Date(ev.data) < new Date();
+              const isToday = ev.data === new Date().toISOString().split('T')[0];
+              const tipoColor = ev.tipo === 'Exame' ? Colors.danger : ev.tipo === 'Feriado' ? Colors.gold : ev.tipo === 'Reunião' ? Colors.info : ev.tipo === 'Cultural' ? Colors.success : ev.tipo === 'Desportivo' ? Colors.warning : Colors.accent;
+              const tipoIcon = ev.tipo === 'Exame' ? 'document-text' : ev.tipo === 'Feriado' ? 'flag' : ev.tipo === 'Reunião' ? 'people' : ev.tipo === 'Cultural' ? 'musical-notes' : ev.tipo === 'Desportivo' ? 'fitness' : 'school';
+              return (
+                <View key={ev.id} style={styles.timelineRow}>
+                  <View style={styles.timelineLeft}>
+                    <View style={[styles.timelineDot, { backgroundColor: tipoColor, opacity: isPast ? 0.4 : 1 }]}>
+                      <Ionicons name={tipoIcon as any} size={12} color="#fff" />
+                    </View>
+                    {idx < eventosAluno.length - 1 && <View style={styles.timelineLine} />}
+                  </View>
+                  <View style={[styles.timelineCard, isPast && { opacity: 0.55 }]}>
+                    <View style={styles.timelineCardTop}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.timelineTitulo}>{ev.titulo}</Text>
+                        {ev.descricao ? <Text style={styles.timelineDesc} numberOfLines={2}>{ev.descricao}</Text> : null}
+                      </View>
+                      <View style={styles.timelineDateBox}>
+                        <Text style={[styles.timelineDateNum, { color: tipoColor }]}>
+                          {new Date(ev.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}
+                        </Text>
+                        <Text style={styles.timelineHora}>{ev.hora}</Text>
+                      </View>
+                    </View>
+                    <View style={styles.timelineFooter}>
+                      <Badge label={ev.tipo} color={tipoColor} />
+                      {isToday && <Badge label="Hoje" color={Colors.success} />}
+                      {isPast && !isToday && <Badge label="Concluído" color={Colors.textMuted} />}
+                    </View>
                   </View>
                 </View>
-                <View style={styles.eventoRight}>
-                  <Text style={styles.eventoData}>{new Date(ev.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}</Text>
-                  <Text style={styles.eventoHora}>{ev.hora}</Text>
-                  <Badge
-                    label={ev.tipo}
-                    color={ev.tipo === 'Exame' ? Colors.danger : ev.tipo === 'Feriado' ? Colors.gold : Colors.info}
-                  />
-                </View>
-              </View>
-            );
-          })
+              );
+            })}
+          </View>
         )}
       </ScrollView>
     );
@@ -546,6 +558,10 @@ export default function PortalEstudanteScreen() {
     const filtered = mensagensAluno.filter(m => msgFilter === 'todas' ? true : m.tipo === msgFilter);
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.readonlyBanner}>
+          <Ionicons name="eye-outline" size={15} color={Colors.info} />
+          <Text style={styles.readonlyText}>Apenas visualização — as mensagens são enviadas pelos professores ou pela escola.</Text>
+        </View>
         <View style={styles.filterRow}>
           {(['todas', 'turma', 'privada'] as const).map(f => (
             <TouchableOpacity
@@ -958,54 +974,134 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderHistorico() {
-    const trimestreGrupos = ([1, 2, 3] as const).map(t => ({
-      trimestre: t,
-      notas: notasAluno.filter(n => n.trimestre === t),
-    }));
+    type LogItem = {
+      id: string;
+      data: string;
+      tipo: 'nota' | 'pagamento' | 'presenca' | 'documento' | 'matricula';
+      titulo: string;
+      subtitulo: string;
+      cor: string;
+      icone: string;
+    };
+
+    const logItems: LogItem[] = [];
+
+    notasAluno.forEach(n => {
+      if (n.nf > 0) {
+        const status = getStatusDisciplina(n.nf, n.trimestre);
+        logItems.push({
+          id: `nota-${n.id}`,
+          data: n.data || `${anoLetivo}-01-01`,
+          tipo: 'nota',
+          titulo: `Nota lançada — ${n.disciplina}`,
+          subtitulo: `${n.trimestre}º Trimestre · NF: ${n.nf.toFixed(1)} · ${status.label}`,
+          cor: status.color,
+          icone: status.icon,
+        });
+      }
+    });
+
+    pagamentosAluno.forEach(p => {
+      const taxa = taxas.find(t => t.id === p.taxaId);
+      const statusColor = p.status === 'pago' ? Colors.success : p.status === 'pendente' ? Colors.warning : Colors.danger;
+      logItems.push({
+        id: `pag-${p.id}`,
+        data: p.createdAt || p.data,
+        tipo: 'pagamento',
+        titulo: `Pagamento — ${taxa?.descricao || p.observacao || 'Rubrica'}`,
+        subtitulo: `${formatAOA(p.valor)} · ${p.status === 'pago' ? 'Pago' : p.status === 'pendente' ? 'Pendente' : 'Cancelado'}${p.referencia ? ` · Ref: ${p.referencia}` : ''}`,
+        cor: statusColor,
+        icone: p.status === 'pago' ? 'checkmark-circle' : p.status === 'pendente' ? 'time' : 'close-circle',
+      });
+    });
+
+    presAluno.forEach(p => {
+      const statusColor = p.status === 'P' ? Colors.success : p.status === 'J' ? Colors.warning : Colors.danger;
+      const statusLabel = p.status === 'P' ? 'Presente' : p.status === 'J' ? 'Falta Justificada' : 'Falta';
+      const icon = p.status === 'P' ? 'checkmark-circle' : p.status === 'J' ? 'shield-checkmark' : 'close-circle';
+      logItems.push({
+        id: `pres-${p.id}`,
+        data: p.data,
+        tipo: 'presenca',
+        titulo: `${statusLabel} — ${p.disciplina}`,
+        subtitulo: `Data: ${new Date(p.data).toLocaleDateString('pt-PT')}`,
+        cor: statusColor,
+        icone: icon,
+      });
+    });
+
+    solicitacoesAluno.forEach(s => {
+      const statusColor = s.status === 'pronto' ? Colors.success : s.status === 'em_processamento' ? Colors.info : Colors.warning;
+      logItems.push({
+        id: `sol-${s.id}`,
+        data: s.createdAt,
+        tipo: 'documento',
+        titulo: `Documento solicitado — ${s.tipo}`,
+        subtitulo: `Motivo: ${s.motivo} · ${s.status === 'pronto' ? 'Pronto' : s.status === 'em_processamento' ? 'Em Processamento' : 'Pendente'}`,
+        cor: statusColor,
+        icone: 'document-text',
+      });
+    });
+
+    if (reconfirmacaoAtual) {
+      logItems.push({
+        id: `reconf-${reconfirmacaoAtual.id || 'rc'}`,
+        data: reconfirmacaoAtual.data,
+        tipo: 'matricula',
+        titulo: 'Matrícula Reconfirmada',
+        subtitulo: `Ano lectivo ${reconfirmacaoAtual.anoLetivo} — Confirmado em ${new Date(reconfirmacaoAtual.data).toLocaleDateString('pt-PT')}`,
+        cor: Colors.success,
+        icone: 'school',
+      });
+    }
+
+    const sorted = logItems.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+    const TIPO_LABELS: Record<string, string> = {
+      nota: 'Nota',
+      pagamento: 'Financeiro',
+      presenca: 'Presença',
+      documento: 'Documento',
+      matricula: 'Matrícula',
+    };
+
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.infoCard}>
-          <SectionTitle title={`Ano Lectivo ${anoLetivo}`} icon="calendar" />
-          <View style={styles.statsRow}>
-            <StatCard value={aprovadas} label="Aprovadas" color={Colors.success} />
-            <StatCard value={reprovadas} label="Reprovadas" color={Colors.danger} />
-            <StatCard value={mediaGeral} label="Média" color={Colors.gold} />
-            <StatCard value={`${pctPresenca}%`} label="Presenças" color={Colors.info} />
-          </View>
+        <SectionTitle title="Resumo do Ano" icon="stats-chart" />
+        <View style={styles.statsRow}>
+          <StatCard value={aprovadas} label="Aprovadas" color={Colors.success} />
+          <StatCard value={reprovadas} label="Reprovadas" color={Colors.danger} />
+          <StatCard value={mediaGeral} label="Média" color={Colors.gold} />
+          <StatCard value={`${pctPresenca}%`} label="Presenças" color={Colors.info} />
         </View>
 
-        {trimestreGrupos.map(({ trimestre, notas: notasTri }) => (
-          <View key={trimestre} style={styles.infoCard}>
-            <SectionTitle title={`${trimestre}º Trimestre`} icon="time" />
-            {notasTri.length === 0 ? (
-              <Text style={styles.emptyText}>Sem notas lançadas</Text>
-            ) : (
-              notasTri.map(n => {
-                const status = getStatusDisciplina(n.nf, n.trimestre);
-                return (
-                  <View key={n.id} style={styles.historicoRow}>
-                    <View style={styles.historicoLeft}>
-                      <Ionicons name={status.icon as any} size={16} color={status.color} />
-                      <Text style={styles.historicoDisc} numberOfLines={1}>{n.disciplina}</Text>
-                    </View>
-                    <View style={styles.historicoRight}>
-                      <Text style={styles.historicoLabel}>NF</Text>
-                      <Text style={[styles.historicoNF, { color: status.color }]}>{n.nf > 0 ? n.nf.toFixed(1) : '—'}</Text>
-                    </View>
-                  </View>
-                );
-              })
-            )}
-            {notasTri.length > 0 && (
-              <View style={[styles.infoRow, { marginTop: 8 }]}>
-                <Text style={styles.infoLabel}>Média do Trimestre</Text>
-                <Text style={[styles.infoVal, { color: Colors.gold }]}>
-                  {(notasTri.reduce((s, n) => s + (n.nf || 0), 0) / notasTri.length).toFixed(1)}
+        <SectionTitle title="Registo de Atividades" icon="time" />
+        <Text style={styles.infoHint}>Histórico completo de tudo o que foi feito neste ano lectivo, ordenado por data.</Text>
+
+        {sorted.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="time-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem atividades registadas</Text>
+          </View>
+        ) : (
+          sorted.map(item => (
+            <View key={item.id} style={[styles.logCard, { borderLeftColor: item.cor }]}>
+              <View style={[styles.logIconBox, { backgroundColor: item.cor + '22' }]}>
+                <Ionicons name={item.icone as any} size={18} color={item.cor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <View style={styles.logTop}>
+                  <Text style={styles.logTitulo} numberOfLines={1}>{item.titulo}</Text>
+                  <Badge label={TIPO_LABELS[item.tipo]} color={item.cor} />
+                </View>
+                <Text style={styles.logSub} numberOfLines={2}>{item.subtitulo}</Text>
+                <Text style={styles.logData}>
+                  {new Date(item.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}
                 </Text>
               </View>
-            )}
-          </View>
-        ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     );
   }
@@ -1424,4 +1520,28 @@ const styles = StyleSheet.create({
   },
   submitBtn: { backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
   submitBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  readonlyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.info + '18', borderWidth: 1, borderColor: Colors.info + '44', borderRadius: 12, padding: 12, marginBottom: 14 },
+  readonlyText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 18 },
+
+  timelineContainer: { gap: 0 },
+  timelineRow: { flexDirection: 'row', gap: 12, marginBottom: 4 },
+  timelineLeft: { alignItems: 'center', width: 28 },
+  timelineDot: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  timelineLine: { flex: 1, width: 2, backgroundColor: Colors.border, marginTop: 2, marginBottom: -2 },
+  timelineCard: { flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 10 },
+  timelineCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 },
+  timelineTitulo: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 3 },
+  timelineDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18 },
+  timelineDateBox: { alignItems: 'flex-end', minWidth: 60 },
+  timelineDateNum: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  timelineHora: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  timelineFooter: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+
+  logCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, padding: 14, marginBottom: 10 },
+  logIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  logTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4, gap: 8 },
+  logTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, flex: 1 },
+  logSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18, marginBottom: 4 },
+  logData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 });

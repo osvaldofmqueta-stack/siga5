@@ -65,6 +65,7 @@ export default function HorarioScreen() {
   const { addNotificacao } = useNotificacoes();
 
   const isProf = user?.role === 'professor';
+  const isAluno = user?.role === 'aluno';
   const profData = professores.find(p => p.email === user?.email);
 
   const [showSumarioModal, setShowSumarioModal] = useState(false);
@@ -295,9 +296,9 @@ export default function HorarioScreen() {
                         styles.cell, styles.cellFilled, { width: CELL_W },
                         isMyClass && styles.cellMinha,
                       ]}
-                      onLongPress={() => !isProf && openOptions(aula)}
-                      onPress={() => isProf ? openProfCell(aula) : openOptions(aula)}
-                      activeOpacity={0.7}
+                      onLongPress={() => (!isProf && !isAluno) && openOptions(aula)}
+                      onPress={() => isProf ? openProfCell(aula) : (isAluno ? undefined : openOptions(aula))}
+                      activeOpacity={isAluno ? 1 : 0.7}
                     >
                       <Text style={styles.cellDisciplina} numberOfLines={2}>{aula.disciplina}</Text>
                       <Text style={styles.cellProf} numberOfLines={1}>{aula.professorNome}</Text>
@@ -308,7 +309,7 @@ export default function HorarioScreen() {
                         </View>
                       )}
                     </TouchableOpacity>
-                  ) : isProf ? (
+                  ) : (isProf || isAluno) ? (
                     <View key={dia} style={[styles.cell, styles.cellEmpty, { width: CELL_W }]} />
                   ) : (
                     <TouchableOpacity
