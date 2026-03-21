@@ -633,28 +633,28 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
 
 // ─── Mapa de Aproveitamento ──────────────────────────────────────────────────
 
-const SEED_MAPA_APROVEITAMENTO_ID = 'tpl_seed_mapa_aproveitamento_v1';
+const SEED_MAPA_APROVEITAMENTO_ID = 'tpl_seed_mapa_aproveitamento_v2';
 const SEED_MAPA_APROVEITAMENTO: DocTemplate = {
   id: SEED_MAPA_APROVEITAMENTO_ID,
   nome: 'Mapa de Aproveitamento — Por Trimestre',
   tipo: 'mapa_aproveitamento',
   criadoEm: '2026-01-01T00:00:00.000Z',
   atualizadoEm: '2026-01-01T00:00:00.000Z',
-  conteudo: `MAPA DE APROVEITAMENTO — [TRIMESTRE]º TRIMESTRE / [ANO_LECTIVO]
+  conteudo: `MAPA DE APROVEITAMENTO — {{TRIMESTRE}}º TRIMESTRE / {{ANO_LECTIVO}}
 
-Escola: [NOME_ESCOLA]
-Área do Ensino Geral
+Este documento é gerado automaticamente a partir dos dados lançados no sistema.
 
-Tabela por Nível e Classe:
-Matriculados (MF/F) | Desistência | Avaliados (MF/F) | C/Aproveitamento (MF/F/%) | S/Aproveitamento (MF/F/%) | Nº Professores (MF/F)
+Colunas: NÍVEL | CLASSE | MATRICULADOS (MF/F) | DESISTÊNCIA (MF/F) | AVALIADOS (MF/F) | C/APROVEITAMENTO (MF/F/%) | S/APROVEITAMENTO (MF/F/%) | Nº DE PROFESSORES (MF/F)
 
-Ensino Primário: Iniciação, 1ª-6ª Classe
-1º Ciclo: 7ª, 8ª, 9ª Classe
-2º Ciclo: 10ª, 11ª, 12ª Classe
+Níveis abrangidos:
+• Ensino Primário: Iniciação, 1ª, 2ª, 3ª, 4ª, 5ª, 6ª Classe
+• 1º Ciclo: 7ª, 8ª, 9ª Classe
+• 2º Ciclo: 10ª, 11ª, 12ª Classe
 
-(gerado automaticamente a partir dos dados lançados no sistema)
+Para emitir: clique em "Emitir" e seleccione o trimestre pretendido.
+O mapa será gerado em formato A3 paisagem com todos os dados calculados automaticamente.
 
-[NOME_ESCOLA], [DATA_ACTUAL].`,
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
 };
 
 // ─── Certificado II Ciclo (10ª, 11ª, 12ª) — Ensino Secundário Geral ─────────
@@ -1776,7 +1776,23 @@ export default function EditorDocumentos() {
 
     // ── Stats computation ────────────────────────────────────────────────
     function turmasForClasse(keys: string[]): Turma[] {
-      return turmas.filter(t => keys.some(k => t.classe?.startsWith(k.replace('ª','').replace('a',''))));
+      return turmas.filter(t => {
+        const c = (t.classe || '').toLowerCase().trim();
+        return keys.some(k => {
+          const kl = k.toLowerCase().trim();
+          // For numeric classes (e.g., '1ª', '10ª'): extract the number and match exactly
+          const numMatch = kl.match(/^(\d+)/);
+          if (numMatch) {
+            const num = numMatch[1];
+            // Must start with this exact number followed by 'ª' or space or end
+            return new RegExp(`^${num}[ªa\\s]`).test(c) || c === num;
+          }
+          // Non-numeric (Iniciação): normalize and check
+          const kNorm = kl.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          const cNorm = c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+          return cNorm.includes(kNorm) || cNorm.startsWith(kNorm);
+        });
+      });
     }
 
     function getStats(classeKeys: string[]) {
@@ -1956,6 +1972,9 @@ export default function EditorDocumentos() {
       <td style="text-align:center;border:1px solid #888;">-</td>
     </tr>`;
 
+    const anoLetivoSlash = anoLetivo.includes('/') ? anoLetivo : `${anoLetivo}/${String(Number(anoLetivo)+1).slice(-2)}`;
+    const tipoEscola = (config as any).tipoEscola || 'PRIVADA';
+
     return `<!DOCTYPE html>
 <html>
 <head>
@@ -1964,10 +1983,11 @@ export default function EditorDocumentos() {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; font-size: 10px; color: #000; padding: 14px 20px; }
-    .header { text-align: center; margin-bottom: 8px; }
+    .header { text-align: center; margin-bottom: 6px; }
     .header p { margin: 1px 0; font-size: 10px; font-weight: bold; text-transform: uppercase; }
-    .escola { text-align: left; font-weight: bold; font-size: 10px; margin-bottom: 4px; }
-    .titulo { text-align: center; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; border: 1px solid #000; padding: 3px; }
+    .header p.sub { font-weight: normal; font-size: 9.5px; }
+    .escola-row { text-align: left; font-weight: bold; font-size: 10px; margin-bottom: 4px; }
+    .titulo { text-align: center; font-size: 10.5px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; border: 1px solid #000; padding: 4px; letter-spacing: 0.3px; }
     table { border-collapse: collapse; width: 100%; font-size: 9.5px; }
     th { border: 1px solid #000; padding: 3px 4px; text-align: center; background: #f0f0f0; font-weight: bold; font-size: 9px; line-height: 1.2; }
     td { border: 1px solid #ccc; font-size: 9.5px; }
@@ -1984,15 +2004,15 @@ export default function EditorDocumentos() {
   <div class="header">
     <p>República de Angola</p>
     <p>Governo da Província de ${config.provincia || '_______________'}</p>
-    <p>Comissão Administrativa da Cidade de ${config.municipio || '_______________'}</p>
-    <p>Repartição da Educação do Distrito Urbano de _______________</p>
+    <p>Administração Municipal de ${config.municipio || '_______________'}</p>
+    <p class="sub">Repartição de Educação, Ensino Ciência e Tecnologia e Inovação</p>
     <p>Área do Ensino Geral</p>
   </div>
 
-  <div class="escola">${escola.toUpperCase()} :</div>
+  <div class="escola-row">ESCOLA: ${escola.toUpperCase()}</div>
 
   <div class="titulo">
-    MAPA DE APROVEITAMENTO DO ${trimestre}º TRIMESTRE DO ANO LECTIVO ${anoLetivo} / ${escola.toUpperCase()}
+    MAPA DE APROVEITAMENTO DO ${trimestre}º TRIMESTRE DO ANO LECTIVO ${anoLetivoSlash} / ESCOLAS ${tipoEscola.toUpperCase()}
   </div>
 
   <table>
@@ -2447,6 +2467,15 @@ export default function EditorDocumentos() {
     const win = window.open('', '_blank');
     if (!win) return;
 
+    // ── Mapa de Aproveitamento: generated HTML ────────────────────────────────
+    if (emitTemplate?.tipo === 'mapa_aproveitamento') {
+      const html = buildMapaAproveitamentoHtml(emitTrimestre);
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      return;
+    }
+
     // ── Pauta Final: use generated HTML directly ──────────────────────────────
     if (emitTemplate?.tipo === 'pauta_final' && emitTurmaId) {
       const html = buildPautaFinalHtml(emitTurmaId);
@@ -2834,6 +2863,7 @@ export default function EditorDocumentos() {
 
   function EmitScreen() {
     const isPauta = isPautaType(emitTemplate);
+    const isMapa = isMapaType(emitTemplate);
 
     // ── Turma-level (pauta) variables ─────────────────────────────────────
     const turmasAtivas = turmas.filter(t => t.ativo);
@@ -2858,7 +2888,22 @@ export default function EditorDocumentos() {
     const selectedAluno = alunos.find(a => a.id === emitAlunoId);
     const selectedTurmaForAluno = selectedAluno ? turmas.find(t => t.id === selectedAluno.turmaId) : null;
 
-    const canPrint = isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview);
+    // ── Mapa de Aproveitamento stats for preview ──────────────────────────
+    const totalAlunos = alunos.filter(a => a.ativo).length;
+    const totalAlunosF = alunos.filter(a => a.ativo && a.genero === 'F').length;
+    const notasTrimestre = notas.filter(n => n.trimestre === emitTrimestre);
+    const avaliadosSet = new Set(notasTrimestre.map(n => n.alunoId));
+    const totalAvaliados = avaliadosSet.size;
+    const aprovados = [...avaliadosSet].filter(id => {
+      const ns = notasTrimestre.filter(n => n.alunoId === id);
+      if (ns.length === 0) return false;
+      return ns.reduce((s, n) => s + n.nf, 0) / ns.length >= 10;
+    }).length;
+    const aprovPct = totalAvaliados > 0 ? Math.round((aprovados / totalAvaliados) * 100) : 0;
+    const sortedTurmasForMapa = [...turmas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo));
+    const anoLetivoMapa = sortedTurmasForMapa[0]?.anoLetivo || String(new Date().getFullYear());
+
+    const canPrint = isMapa ? true : (isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview));
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -2882,7 +2927,41 @@ export default function EditorDocumentos() {
         <View style={[styles.emitBody, isWide && { flexDirection: 'row' }]}>
           {/* Left: Turma selector (pauta) or Student selector (documents) */}
           <View style={[styles.emitLeft, isWide && { width: 300 }]}>
-            {isPauta ? (
+            {isMapa ? (
+              <>
+                <Text style={styles.emitSectionTitle}>1. Seleccionar Trimestre</Text>
+                <View style={{ gap: 8, paddingTop: 4 }}>
+                  {([1, 2, 3] as const).map(t => {
+                    const sel = emitTrimestre === t;
+                    const triLabel = t === 1 ? '1º Trimestre' : t === 2 ? '2º Trimestre' : '3º Trimestre';
+                    return (
+                      <TouchableOpacity
+                        key={t}
+                        style={[styles.alunoItem, sel && { borderColor: '#065f46', borderWidth: 1.5, backgroundColor: '#065f4620' }]}
+                        onPress={() => setEmitTrimestre(t)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.alunoAvatar, sel && { backgroundColor: '#065f46' }]}>
+                          <Text style={styles.alunoAvatarText}>{t}T</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.alunoNome, sel && { color: '#065f46' }]}>{triLabel}</Text>
+                          <Text style={styles.alunoMeta}>Ano Lectivo {anoLetivoMapa}</Text>
+                        </View>
+                        {sel && <Ionicons name="checkmark-circle" size={18} color="#065f46" />}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={{ flex: 1 }} />
+                <View style={{ backgroundColor: '#0d2618', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#065f46', flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                  <Ionicons name="information-circle-outline" size={18} color="#065f46" />
+                  <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                    O mapa será gerado automaticamente em formato A3 paisagem com todos os dados do sistema.
+                  </Text>
+                </View>
+              </>
+            ) : isPauta ? (
               <>
                 <Text style={styles.emitSectionTitle}>1. Seleccionar Turma</Text>
                 <View style={styles.searchBox}>
@@ -2979,9 +3058,68 @@ export default function EditorDocumentos() {
             )}
           </View>
 
-          {/* Right: Pauta summary or Document preview */}
+          {/* Right: Mapa summary, Pauta summary, or Document preview */}
           <View style={[styles.emitRight, isWide && { flex: 1 }]}>
-            {isPauta ? (
+            {isMapa ? (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Resumo do Mapa</Text>
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                  <View style={{ backgroundColor: '#0d2618', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#065f46' }}>
+                    <Text style={{ color: '#4ade80', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>
+                      MAPA DE APROVEITAMENTO — A3 PAISAGEM
+                    </Text>
+                    <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>
+                      {emitTrimestre === 1 ? '1º' : emitTrimestre === 2 ? '2º' : '3º'} Trimestre
+                    </Text>
+                    <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                      Ano Lectivo {anoLetivoMapa} · Todos os níveis
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                      <Ionicons name="people-outline" size={22} color={Colors.info} />
+                      <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{totalAlunos}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Matriculados</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular' }}>{totalAlunosF}F</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                      <Ionicons name="checkmark-circle-outline" size={22} color={Colors.success} />
+                      <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{totalAvaliados}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Avaliados</Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                      <Ionicons name="trending-up-outline" size={22} color="#4ade80" />
+                      <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{aprovados}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>C/Aproveitamento</Text>
+                      <Text style={{ color: '#4ade80', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{aprovPct}%</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                      <Ionicons name="trending-down-outline" size={22} color={Colors.danger} />
+                      <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{totalAvaliados - aprovados}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>S/Aproveitamento</Text>
+                      <Text style={{ color: Colors.danger, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{100 - aprovPct}%</Text>
+                    </View>
+                  </View>
+                  <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                    <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>ESTRUTURA DO MAPA</Text>
+                    {['Ensino Primário: Iniciação, 1ª–6ª Classe', '1º Ciclo: 7ª, 8ª, 9ª Classe', '2º Ciclo: 10ª, 11ª, 12ª Classe'].map(l => (
+                      <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="layers-outline" size={14} color={Colors.success} />
+                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{l}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={{ backgroundColor: '#0d2618', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#065f46', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <Ionicons name="print-outline" size={18} color="#4ade80" />
+                    <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                      Clique em Imprimir para gerar o Mapa de Aproveitamento em formato A3 paisagem, pronto para submissão à Repartição de Educação.
+                    </Text>
+                  </View>
+                </ScrollView>
+              </>
+            ) : isPauta ? (
               <>
                 <Text style={styles.emitSectionTitle}>2. Resumo da Pauta</Text>
                 {!selectedTurmaObj ? (
