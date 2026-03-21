@@ -635,6 +635,34 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
 
 // ─── Mapa de Aproveitamento — Detalhado por Turma (IIIº Trimestre style) ──────
 
+// ─── Mapa de Aproveitamento — Por Curso e Classe (10ª–13ª) ───────────────────
+
+const SEED_MAPA_POR_CURSO_CLASSE_ID = 'tpl_seed_mapa_por_curso_classe_v1';
+const SEED_MAPA_POR_CURSO_CLASSE: DocTemplate = {
+  id: SEED_MAPA_POR_CURSO_CLASSE_ID,
+  nome: 'Mapa de Aproveitamento — Por Curso e Classe (10ª–13ª)',
+  tipo: 'mapa_aproveitamento',
+  classeAlvo: 'CURSO_CLASSE',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `MAPA DE APROVEITAMENTO ESCOLAR DOS ALUNOS
+Referente ao {{TRIMESTRE}}º Trimestre do Ano Lectivo de {{ANO_LECTIVO}}
+(10ª, 11ª, 12ª, 13ª Classes) — Regime Diurno
+
+Nome da Escola: {{NOME_ESCOLA}}
+
+Estrutura da tabela (por Curso × Classe):
+  NOME DO CURSO | 10ª Classe [Aprovados M/F/Total | Reprovados M/F/Total | D-AM-T-E M/F/Total]
+               | 11ª Classe [...]  | 12ª Classe [...]  | 13ª Classe [...] | TOTAL GERAL [Aptos | N/Apt | D-AM-T-E]
+
+D: Desistente; AM: Anulação de Matrícula; T: Transferido; E: Excluído
+
+Os dados são calculados automaticamente a partir dos alunos e notas lançados no sistema.
+Assinado por: O Subdirector Pedagógico.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 const SEED_MAPA_TURMA_DETALHADO_ID = 'tpl_seed_mapa_turma_detalhado_v1';
 const SEED_MAPA_TURMA_DETALHADO: DocTemplate = {
   id: SEED_MAPA_TURMA_DETALHADO_ID,
@@ -902,7 +930,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -2319,6 +2347,237 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Mapa de Aproveitamento — Por Curso e Classe (10ª–13ª) ─────────────────
+
+  function buildMapaPorCursoClasseHtml(trimestre: 1 | 2 | 3): string {
+    const escola = config.nomeEscola || 'Complexo Escolar';
+    const subdirector = user?.nome || '____________________________';
+    const now = new Date();
+    const dataLocal = `${config.municipio || 'Luanda'}, ${now.getDate()} / ${String(now.getMonth()+1).padStart(2,'0')} / ${now.getFullYear()}`;
+
+    const sortedTurmas3 = [...turmas].sort((a,b) => b.anoLetivo.localeCompare(a.anoLetivo));
+    const anoLetivo = sortedTurmas3[0]?.anoLetivo || String(now.getFullYear());
+    const anoLetivoSlash3 = anoLetivo.includes('/') ? anoLetivo : `${anoLetivo}/${String(Number(anoLetivo)+1).slice(-2)}`;
+
+    // Target classes for this mapa (II Ciclo + 13ª)
+    const TARGET_PREFIXES = ['10ª', '11ª', '12ª', '13ª'];
+    const activeTurmas = turmas.filter(t => t.ativo && TARGET_PREFIXES.some(p => t.classe.startsWith(p)));
+
+    // Detect which classes actually exist (in order)
+    const existingClasses = TARGET_PREFIXES.filter(p =>
+      activeTurmas.some(t => t.classe.startsWith(p))
+    );
+
+    // Helper: stats for a group of turmaIds
+    function groupStats(turmaIds: string[]) {
+      const groupAlunos = alunos.filter(a => a.ativo && turmaIds.includes(a.turmaId || ''));
+      const notasTri = notas.filter(n => turmaIds.includes(n.turmaId || '') && n.trimestre === trimestre);
+
+      const avaliadosIds = [...new Set(notasTri.map(n => n.alunoId))];
+      const aprovadosIds = avaliadosIds.filter(id => {
+        const ns = notasTri.filter(n => n.alunoId === id);
+        return ns.length > 0 && (ns.reduce((s, n) => s + n.nf, 0) / ns.length) >= 10;
+      });
+      const reprovadosIds = avaliadosIds.filter(id => !aprovadosIds.includes(id));
+
+      const aprovM = aprovadosIds.filter(id => groupAlunos.find(a => a.id === id)?.genero !== 'F').length;
+      const aprovF = aprovadosIds.filter(id => groupAlunos.find(a => a.id === id)?.genero === 'F').length;
+      const reprovM = reprovadosIds.filter(id => groupAlunos.find(a => a.id === id)?.genero !== 'F').length;
+      const reprovF = reprovadosIds.filter(id => groupAlunos.find(a => a.id === id)?.genero === 'F').length;
+
+      // D-AM-T-E: not tracked yet → always 0
+      return {
+        aprovM, aprovF, aprovT: aprovM + aprovF,
+        reprovM, reprovF, reprovT: reprovM + reprovF,
+        damteM: 0, damteF: 0, damteT: 0,
+      };
+    }
+
+    // Build rows: one row per "curso" — since we don't have explicit curso field,
+    // we derive groups by turma.nivel or show a single all-school row.
+    // Approach: group turmas by nivel within target classes → one row per nivel group.
+    type CursoRow = {
+      label: string;
+      turmaIds: string[];
+    };
+
+    const nivelGroups = new Map<string, string[]>();
+    for (const t of activeTurmas) {
+      const key = t.nivel || 'Ensino';
+      if (!nivelGroups.has(key)) nivelGroups.set(key, []);
+      nivelGroups.get(key)!.push(t.id);
+    }
+
+    // If only one nivel group (or all same), use a single row with school name
+    const cursoRows: CursoRow[] = nivelGroups.size <= 1
+      ? [{ label: escola, turmaIds: activeTurmas.map(t => t.id) }]
+      : [...nivelGroups.entries()].map(([nivel, ids]) => ({ label: nivel, turmaIds: ids }));
+
+    // Build class-level columns header
+    const classColHeaders = existingClasses.map(cls => `
+      <th colspan="9" style="border:1px solid #000;background:#d0d0d0;font-size:8px;text-align:center;">${cls} Classe</th>`).join('');
+
+    const classSubHeaders = existingClasses.map(() => `
+      <th colspan="3" style="border:1px solid #bbb;background:#e0e0e0;font-size:7.5px;text-align:center;">Alunos Aprovados</th>
+      <th colspan="3" style="border:1px solid #bbb;background:#e0e0e0;font-size:7.5px;text-align:center;">Alunos Reprovados</th>
+      <th colspan="3" style="border:1px solid #bbb;background:#e0e0e0;font-size:7.5px;text-align:center;">Alunos D-AM-T-E</th>`).join('');
+
+    // 3 groups × 3 cols per class
+    const mfRow = existingClasses.map(() => `
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">M</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">F</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">Total</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">M</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">F</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">Total</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">M</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">F</th>
+      <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;">Total</th>`).join('');
+
+    // Build data rows
+    const totals = { aprovM: 0, aprovF: 0, aprovT: 0, reprovM: 0, reprovF: 0, reprovT: 0, damteM: 0, damteF: 0, damteT: 0 };
+
+    const dataRows = cursoRows.map(cr => {
+      let rowCells = '';
+      let rowAprovT = 0, rowReprovT = 0, rowDamteT = 0;
+
+      for (const cls of existingClasses) {
+        const clsTurmaIds = cr.turmaIds.filter(id => {
+          const t = turmas.find(t => t.id === id);
+          return t && t.classe.startsWith(cls);
+        });
+        const s = groupStats(clsTurmaIds);
+        rowCells += `
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#065f46;">${s.aprovM}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#065f46;">${s.aprovF}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;font-weight:bold;color:#065f46;">${s.aprovT}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#991b1b;">${s.reprovM}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#991b1b;">${s.reprovF}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;font-weight:bold;color:#991b1b;">${s.reprovT}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#999;">0</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#999;">0</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:8px;color:#999;">0</td>`;
+        rowAprovT += s.aprovT;
+        rowReprovT += s.reprovT;
+        rowDamteT += s.damteT;
+        totals.aprovM += s.aprovM; totals.aprovF += s.aprovF; totals.aprovT += s.aprovT;
+        totals.reprovM += s.reprovM; totals.reprovF += s.reprovF; totals.reprovT += s.reprovT;
+      }
+
+      const totalEval = rowAprovT + rowReprovT;
+      const aptosPct = totalEval > 0 ? Math.round((rowAprovT / totalEval) * 100) : 0;
+      const nAptosPct = totalEval > 0 ? 100 - aptosPct : 0;
+
+      return `<tr>
+        <td style="border:1px solid #ccc;padding:2px 5px;font-size:8.5px;font-weight:bold;">${cr.label}</td>
+        ${rowCells}
+        <td style="border:1px solid #ccc;text-align:center;font-size:8.5px;font-weight:bold;color:#065f46;">${rowAprovT}</td>
+        <td style="border:1px solid #ccc;text-align:center;font-size:8.5px;font-weight:bold;color:#991b1b;">${rowReprovT}</td>
+        <td style="border:1px solid #ccc;text-align:center;font-size:8.5px;color:#999;">0</td>
+      </tr>`;
+    });
+
+    // Total row
+    const totalEvalGeral = totals.aprovT + totals.reprovT;
+    const aptosPctGeral = totalEvalGeral > 0 ? Math.round((totals.aprovT / totalEvalGeral) * 100) : 0;
+    const nAptosPctGeral = totalEvalGeral > 0 ? 100 - aptosPctGeral : 0;
+
+    let totalRowCells = '';
+    for (const cls of existingClasses) {
+      const clsTurmaIds = activeTurmas.filter(t => t.classe.startsWith(cls)).map(t => t.id);
+      const s = groupStats(clsTurmaIds);
+      totalRowCells += `
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#065f46;">${s.aprovM}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#065f46;">${s.aprovF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#065f46;">${s.aprovT}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#991b1b;">${s.reprovM}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#991b1b;">${s.reprovF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;font-weight:bold;color:#991b1b;">${s.reprovT}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;color:#999;">0</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;color:#999;">0</td>
+        <td style="border:1px solid #999;text-align:center;font-size:8px;color:#999;">0</td>`;
+    }
+
+    const triLabel3 = trimestre === 1 ? 'I' : trimestre === 2 ? 'II' : 'III';
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapa de Aproveitamento por Curso e Classe — ${triLabel3}º Trimestre ${anoLetivo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 9px; color: #000; padding: 10px 14px; }
+    .header { text-align: center; margin-bottom: 8px; }
+    .header p { margin: 1px 0; font-size: 9.5px; font-weight: bold; text-transform: uppercase; }
+    .header p.inst { text-decoration: underline; font-size: 10px; }
+    .titulo { font-size: 9px; font-weight: bold; margin-bottom: 2px; }
+    .escola-label { font-size: 9px; margin-bottom: 8px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 14px; }
+    .sig-row { display: flex; justify-content: flex-end; margin-top: 24px; }
+    .sig-block { text-align: center; }
+    .sig-label { font-size: 9.5px; font-weight: bold; margin-bottom: 26px; text-transform: uppercase; }
+    .sig-line { width: 200px; border-top: 1px solid #000; margin: 0 auto 3px; }
+    .sig-name { font-size: 9px; font-style: italic; }
+    .date { font-size: 9px; margin: 10px 0 5px; font-weight: bold; }
+    .footnote { font-size: 8px; color: #555; margin-top: 4px; }
+    @media print { @page { size: A3 landscape; margin: 6mm 10mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Ministério da Educação</p>
+    <p class="inst">${escola.toUpperCase()}</p>
+  </div>
+
+  <p class="titulo">Mapa de Aproveitamento Escolar dos Alunos Referente ao ${triLabel3}º Trimestre do Ano Lectivo ${anoLetivoSlash3} (${existingClasses.join(', ')} Classes) — Regime Diurno</p>
+  <p class="escola-label">Nome da Escola: <strong>${escola}</strong></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="3" style="border:1px solid #000;padding:2px 4px;background:#2d2d2d;color:#fff;font-size:8px;text-align:center;vertical-align:middle;min-width:120px;">Nome do Curso</th>
+        ${classColHeaders}
+        <th colspan="3" rowspan="2" style="border:1px solid #000;background:#555;color:#fff;font-size:8px;text-align:center;vertical-align:middle;">TOTAL GERAL</th>
+      </tr>
+      <tr>
+        ${classSubHeaders}
+      </tr>
+      <tr>
+        ${mfRow}
+        <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;color:#065f46;">Aptos MF</th>
+        <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;color:#991b1b;">N/Apt MF</th>
+        <th style="border:1px solid #ccc;font-size:7px;padding:1px 2px;color:#777;">D-AM-T-E MF</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dataRows.join('\n')}
+      <tr style="background:#c8c8c8;font-weight:bold;">
+        <td style="border:1px solid #888;padding:2px 5px;font-size:8.5px;">Total</td>
+        ${totalRowCells}
+        <td style="border:1px solid #888;text-align:center;font-size:8.5px;color:#065f46;">${totals.aprovT}</td>
+        <td style="border:1px solid #888;text-align:center;font-size:8.5px;color:#991b1b;">${totals.reprovT}</td>
+        <td style="border:1px solid #888;text-align:center;font-size:8.5px;color:#999;">0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <p class="footnote">D: Desistente; AM: Anulação de Matrícula; T: Transferido; E: Excluído</p>
+
+  <div class="date">${dataLocal}.</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">O Subdirector Pedagógico</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${subdirector}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   // ─── Certificado II Ciclo HTML Builder (10ª, 11ª, 12ª) ───────────────────
 
   function buildCertificadoIiCicloHtml(alunoId: string): string {
@@ -2736,7 +2995,9 @@ export default function EditorDocumentos() {
     if (emitTemplate?.tipo === 'mapa_aproveitamento') {
       const html = emitTemplate.classeAlvo === 'TURMA_DETALHADO'
         ? buildMapaTurmaDetalhadoHtml(emitTrimestre)
-        : buildMapaAproveitamentoHtml(emitTrimestre);
+        : emitTemplate.classeAlvo === 'CURSO_CLASSE'
+          ? buildMapaPorCursoClasseHtml(emitTrimestre)
+          : buildMapaAproveitamentoHtml(emitTrimestre);
       win.document.write(html);
       win.document.close();
       win.print();
