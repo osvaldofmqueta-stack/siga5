@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,6 +8,17 @@ import { useDrawer } from '@/context/DrawerContext';
 import { useAuth } from '@/context/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { useNotificacoes } from '@/context/NotificacoesContext';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia';
+  if (h < 18) return 'Boa tarde';
+  return 'Boa noite';
+}
+
+function formatTime(date: Date) {
+  return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+}
 
 interface TopBarProps {
   title: string;
@@ -22,8 +33,18 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { isDesktop } = useBreakpoint();
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const interval = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const topPad = isDesktop ? 0 : Platform.OS === 'web' ? 67 : insets.top;
+
+  const firstName = user?.nome?.trim().split(' ')[0] ?? '';
+  const greetingText = subtitle ?? `${getGreeting()}${firstName ? `, ${firstName}` : ''}`;
+  const timeText = formatTime(now);
 
   return (
     <View style={[styles.container, { paddingTop: topPad + (isDesktop ? 16 : 8) }]}>
@@ -35,7 +56,11 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
 
       <View style={styles.titleArea}>
         <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{title}</Text>
-        {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+        <View style={styles.greetingRow}>
+          <Text style={styles.subtitle} numberOfLines={1}>{greetingText}</Text>
+          <View style={styles.timeDot} />
+          <Text style={styles.timeText}>{timeText}</Text>
+        </View>
       </View>
 
       <View style={styles.rightActions}>
@@ -98,11 +123,29 @@ const styles = StyleSheet.create({
   titleDesktop: {
     fontSize: 19,
   },
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
   subtitle: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
     color: Colors.textMuted,
-    marginTop: 1,
+  },
+  timeDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: Colors.textMuted,
+    opacity: 0.5,
+  },
+  timeText: {
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.gold,
+    opacity: 0.85,
   },
   rightActions: {
     flexDirection: 'row',

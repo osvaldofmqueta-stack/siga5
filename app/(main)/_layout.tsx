@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
@@ -7,9 +7,10 @@ import DrawerRight from '@/components/DrawerRight';
 import { useAuth } from '@/context/AuthContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import SessionTimeoutModal, { useSessionTimeout } from '@/components/SessionTimeoutModal';
 
 export default function MainLayout() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const { isLicencaValida, diasRestantes, isLoading: licLoading } = useLicense();
   const router = useRouter();
   const { isDesktop } = useBreakpoint();
@@ -30,12 +31,23 @@ export default function MainLayout() {
     }
   }, [isLicencaValida, diasRestantes, licLoading, user]);
 
+  const handleSessionLogout = useCallback(async () => {
+    await logout();
+    router.replace('/login' as any);
+  }, [logout, router]);
+
+  const { showModal, countdown, handleContinue, handleLogout } = useSessionTimeout(
+    handleSessionLogout,
+    !!user
+  );
+
   const stackScreens = (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
       <Stack.Screen name="dashboard" />
       <Stack.Screen name="alunos" />
       <Stack.Screen name="professores" />
       <Stack.Screen name="turmas" />
+      <Stack.Screen name="salas" />
       <Stack.Screen name="notas" />
       <Stack.Screen name="presencas" />
       <Stack.Screen name="eventos" />
@@ -68,14 +80,17 @@ export default function MainLayout() {
   if (isDesktop) {
     return (
       <View style={styles.desktopContainer}>
-        {/* Persistent left sidebar */}
         <DrawerLeft />
-
-        {/* Main content area */}
         <View style={styles.desktopContent}>
           {stackScreens}
           <DrawerRight />
         </View>
+        <SessionTimeoutModal
+          visible={showModal}
+          countdown={countdown}
+          onContinue={handleContinue}
+          onLogout={handleLogout}
+        />
       </View>
     );
   }
@@ -85,6 +100,12 @@ export default function MainLayout() {
       {stackScreens}
       <DrawerLeft />
       <DrawerRight />
+      <SessionTimeoutModal
+        visible={showModal}
+        countdown={countdown}
+        onContinue={handleContinue}
+        onLogout={handleLogout}
+      />
     </View>
   );
 }

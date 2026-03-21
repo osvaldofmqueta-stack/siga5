@@ -438,6 +438,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function addSala(s: Omit<Sala, 'id'>) {
+    const nova: Sala = { ...s, id: genId() };
+    const updated = [...salas, nova];
+    setSalas(updated);
+    await persist(STORAGE_KEYS.salas, updated);
+    try {
+      await apiRequest('POST', '/api/salas', nova);
+    } catch (e) {
+      console.warn('Falha ao gravar sala no banco', e);
+    }
+  }
+
+  async function updateSala(id: string, s: Partial<Sala>) {
+    const updated = salas.map(x => x.id === id ? { ...x, ...s } : x);
+    setSalas(updated);
+    await persist(STORAGE_KEYS.salas, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/salas/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar sala no banco', e);
+    }
+  }
+
+  async function deleteSala(id: string) {
+    const updated = salas.filter(x => x.id !== id);
+    setSalas(updated);
+    await persist(STORAGE_KEYS.salas, updated);
+    try {
+      await apiRequest('DELETE', `/api/salas/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover sala no banco', e);
+    }
+  }
+
   async function addNota(n: Omit<Nota, 'id'>) {
     const nova: Nota = { ...n, id: genId() };
     const updated = [...notas, nova];
@@ -533,14 +568,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<DataContextValue>(() => ({
-    alunos, professores, turmas, notas, presencas, eventos, isLoading,
+    alunos, professores, turmas, salas, notas, presencas, eventos, isLoading,
     addAluno, updateAluno, deleteAluno,
     addProfessor, updateProfessor, deleteProfessor,
     addTurma, updateTurma, deleteTurma,
+    addSala, updateSala, deleteSala,
     addNota, updateNota,
     addPresenca, updatePresenca, deletePresenca,
     addEvento, updateEvento, deleteEvento,
-  }), [alunos, professores, turmas, notas, presencas, eventos, isLoading]);
+  }), [alunos, professores, turmas, salas, notas, presencas, eventos, isLoading]);
 
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
