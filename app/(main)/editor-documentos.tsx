@@ -1073,6 +1073,45 @@ Director(a): {{NOME_DIRECTOR}}
 Escola: {{NOME_ESCOLA}}`,
 };
 
+// ─── Certificado Ensino Secundário Técnico-Profissional Seed ─────────────────
+
+const SEED_CERT_TECNICO_PROF_ID = 'tpl_seed_cert_tecnico_profissional_v1';
+const SEED_CERT_TECNICO_PROF: DocTemplate = {
+  id: SEED_CERT_TECNICO_PROF_ID,
+  nome: 'Certificado — Ensino Secundário Técnico-Profissional (IIº Ciclo)',
+  tipo: 'certificado',
+  classeAlvo: 'TECNICO-PROFISSIONAL',
+  bloqueado: true,
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `[CERTIFICADO TÉCNICO-PROFISSIONAL — GERADO AUTOMATICAMENTE]
+
+Este modelo gera o Certificado oficial de conclusão do II Ciclo do Ensino Secundário Técnico-Profissional.
+
+Dados preenchidos automaticamente (da base de dados):
+• Nome completo, pai/encarregado, data de nascimento, município e província do aluno
+• Ano lectivo (da turma actual do aluno)
+• Nome da escola e Director(a) (das configurações)
+• Tabela de classificações organizadas por componente:
+  — Componente Sócio-cultural (L. Portuguesa, L. Estrangeira, F. Atitudes Integradoras, Ed. Física)
+  — Componente Científica (Matemática, Biologia, Física, Química, Informática, Psicologia, etc.)
+  — Componente Técnica, Tecnológica e Prática (todas as disciplinas restantes lançadas no sistema)
+• Média por Plano Curricular (PC) = média de todas as disciplinas
+• Prova de Aptidão Profissional (PAP) = se existir nota com nome "PAP" ou "Aptidão Profissional"
+• Classificação Final por Curso = (2×PC + PAP) / 3 (se PAP disponível)
+
+Campos a preencher manualmente:
+• Número, data e arquivo do Bilhete de Identidade
+• Nome da mãe do aluno
+• Número e data do Decreto Executivo de criação da escola
+• Especialidade / Área de formação técnica
+• Livro de registo e folha (para efeitos legais)
+• Assinatura do Director Provincial ("Visto")
+
+Director(a): {{NOME_DIRECTOR}}
+Escola: {{NOME_ESCOLA}}`,
+};
+
 // ─── Ficha de Matrícula Seed ─────────────────────────────────────────────────
 
 const SEED_FICHA_MATRICULA_ID = 'tpl_seed_ficha_matricula_v1';
@@ -1163,7 +1202,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -4254,6 +4293,281 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Certificado Ensino Secundário Técnico-Profissional ──────────────────────
+
+  function buildCertificadoTecnicoProfissionalHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+    const turma = turmas.find(t => t.id === aluno.turmaId);
+    const escola = config.nomeEscola || 'Instituto Técnico';
+    const director = user?.nome || '____________________________';
+    const now = new Date();
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+    const anoLetivo = turma?.anoLetivo || String(now.getFullYear());
+
+    const nome = `${aluno.nome} ${aluno.apelido}`;
+    const diaNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getDate() : '__';
+    const mesNasc = aluno.dataNascimento ? MESES[new Date(aluno.dataNascimento).getMonth()] : '__________';
+    const anoNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getFullYear() : '____';
+    const municipio = aluno.municipio || '______________';
+    const provincia = aluno.provincia || '______________';
+    const encarregado = aluno.nomeEncarregado || '________________________';
+
+    // All notas for this student
+    const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+
+    // Track which disciplinas are already matched (to avoid double-counting)
+    const matchedKeys = new Set<string>();
+
+    type DiscDef = { nome: string; lookup: string[] };
+    type ResolvedRow = { nome: string; nota: number | null };
+
+    function resolveRows(defs: DiscDef[]): ResolvedRow[] {
+      return defs.map(d => {
+        for (const n of alunoNotas) {
+          const dk = n.disciplina.toLowerCase().trim();
+          for (const s of d.lookup) {
+            const sl = s.toLowerCase();
+            if (dk.includes(sl) || sl.includes(dk)) {
+              matchedKeys.add(dk);
+              return { nome: d.nome, nota: n.nf };
+            }
+          }
+        }
+        return { nome: d.nome, nota: null };
+      });
+    }
+
+    // ── Componente Sócio-cultural ──────────────────────────────────────────────
+    const defsS: DiscDef[] = [
+      { nome: 'L. Portuguesa',                    lookup: ['língua portuguesa', 'l. portuguesa', 'lingua portuguesa', 'português', 'portugues'] },
+      { nome: 'L. Estrangeira',                   lookup: ['língua estrangeira', 'l. estrangeira', 'lingua estrangeira', 'inglês', 'ingles', 'francês', 'frances'] },
+      { nome: 'Formação de Atitudes Integradoras', lookup: ['atitudes integradoras', 'formação de atitudes', 'formacao de atitudes'] },
+      { nome: 'Educação Física',                  lookup: ['educação física', 'educacao fisica', 'ed. física', 'ed.física'] },
+    ];
+
+    // ── Componente Científica ─────────────────────────────────────────────────
+    const defsC: DiscDef[] = [
+      { nome: 'Matemática',     lookup: ['matemática', 'matematica'] },
+      { nome: 'Biologia',       lookup: ['biologia'] },
+      { nome: 'Física',         lookup: ['física', 'fisica'] },
+      { nome: 'Química',        lookup: ['química', 'quimica'] },
+      { nome: 'Informática',    lookup: ['informática', 'informatica'] },
+      { nome: 'Psicologia Geral', lookup: ['psicologia geral', 'psicologia'] },
+    ];
+
+    const rowsS = resolveRows(defsS);
+    const rowsC = resolveRows(defsC);
+
+    // ── Componente Técnica — all remaining notas (dynamic, specialty-specific) ─
+    // PAP lookup first (before technical block)
+    const papSearches = ['pap', 'prova de aptidão', 'aptidão profissional', 'prova aptidão', 'prova de aptidao'];
+    let papNota: number | null = null;
+    for (const n of alunoNotas) {
+      const dk = n.disciplina.toLowerCase().trim();
+      for (const s of papSearches) {
+        if (dk.includes(s) || s.includes(dk)) {
+          papNota = n.nf;
+          matchedKeys.add(dk);
+          break;
+        }
+      }
+      if (papNota !== null) break;
+    }
+
+    // Everything else goes into the technical component
+    const rowsT: ResolvedRow[] = alunoNotas
+      .filter(n => !matchedKeys.has(n.disciplina.toLowerCase().trim()))
+      .map(n => ({ nome: n.disciplina, nota: n.nf }));
+
+    // ── Statistics ────────────────────────────────────────────────────────────
+    const allRows = [...rowsS, ...rowsC, ...rowsT].filter(r => r.nota !== null);
+    const mpc = allRows.length > 0
+      ? allRows.reduce((s, r) => s + (r.nota ?? 0), 0) / allRows.length
+      : null;
+    const mpcRounded  = mpc !== null ? Math.round(mpc) : null;
+    const mpcDisplay  = mpcRounded  !== null ? String(mpcRounded)  : '—';
+    const mpcExtenso  = mpcRounded  !== null ? numExtenso(mpcRounded)  : '________';
+
+    const papRounded  = papNota !== null ? Math.round(papNota) : null;
+    const papDisplay  = papRounded  !== null ? String(papRounded)  : '___';
+    const papExtenso  = papRounded  !== null ? numExtenso(papRounded)  : '________';
+
+    const finalCalc   = mpcRounded !== null && papRounded !== null
+      ? Math.round((2 * mpcRounded + papRounded) / 3)
+      : mpcRounded;
+    const finalDisplay = finalCalc !== null ? String(finalCalc) : '—';
+    const finalExtenso = finalCalc !== null ? numExtenso(finalCalc) : '________';
+
+    // ── HTML row helpers ──────────────────────────────────────────────────────
+    function sectionHeader(label: string): string {
+      return `<tr style="background:#f0f0f0;">
+        <td colspan="3" style="font-weight:bold;padding:5px 10px;border:1px solid #999;">${label}</td>
+      </tr>`;
+    }
+    function discRow(r: ResolvedRow): string {
+      const val = r.nota !== null ? Math.round(r.nota) : null;
+      const valStr    = val !== null ? String(val)              : '—';
+      const extensoStr = val !== null ? `(${numExtenso(val)}) Valores` : '—';
+      return `<tr>
+        <td style="padding:4px 10px;border:1px solid #ccc;">${r.nome}</td>
+        <td style="text-align:center;font-weight:bold;border:1px solid #ccc;">${valStr}</td>
+        <td style="text-align:center;border:1px solid #ccc;">${extensoStr}</td>
+      </tr>`;
+    }
+    function summaryRow(label: string, val: string, extenso: string, isFinal = false): string {
+      const bg = isFinal ? '#1a2540' : '#f5f5f5';
+      const fg = isFinal ? '#fff'    : '#000';
+      const fw = 'bold';
+      return `<tr style="background:${bg};color:${fg};font-weight:${fw};">
+        <td style="padding:5px 10px;border:1px solid ${isFinal ? '#1a2540' : '#999'};">${label}</td>
+        <td style="text-align:center;border:1px solid ${isFinal ? '#1a2540' : '#999'};">${val}</td>
+        <td style="text-align:center;border:1px solid ${isFinal ? '#1a2540' : '#999'};">${extenso.startsWith('(') ? extenso : `(${extenso}) Valores`}</td>
+      </tr>`;
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado — ${nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', serif; font-size: 12px; color: #000; padding: 20px 36px; line-height: 1.65; }
+
+    .top-row { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .visto-box { width: 180px; border: 1px solid #999; padding: 6px 10px; font-size: 10px; text-align: center; min-height: 80px; }
+    .visto-title { font-weight: bold; font-size: 10px; margin-bottom: 4px; }
+    .visto-sig-line { width: 120px; border-top: 1px solid #000; margin: 30px auto 4px; }
+    .stamp-box { width: 180px; border: 2px solid #333; padding: 8px 10px; font-size: 10px; text-align: center; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+    .stamp-text { font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; font-size: 10px; text-align: center; }
+
+    .header-block { text-align: center; margin-bottom: 12px; }
+    .header-block p { margin: 2px 0; }
+    .rep { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    .ministerio { font-size: 11.5px; font-weight: bold; text-transform: uppercase; }
+    .nivel-ensino { font-size: 11px; font-weight: bold; text-transform: uppercase; margin-top: 4px; }
+    .titulo-cert { font-size: 26px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; margin: 8px 0 14px; }
+
+    .body-text { text-align: justify; font-size: 12px; line-height: 1.85; margin-bottom: 14px; }
+    .director-name { color: #c00; font-weight: bold; }
+    .student-name  { color: #c00; font-weight: bold; font-style: italic; }
+    .especialidade { font-weight: bold; text-transform: uppercase; }
+    .bold { font-weight: bold; }
+
+    table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 11.5px; }
+    table th { background: #ddd; border: 1px solid #999; padding: 5px 10px; font-weight: bold; text-align: center; }
+    table th:first-child { text-align: left; }
+
+    .legal { text-align: justify; font-size: 11.5px; line-height: 1.7; margin-top: 10px; }
+    .date-line { text-align: center; margin: 18px 0 8px; font-size: 12px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 10px; }
+    .sig-block { text-align: center; min-width: 190px; }
+    .sig-label { font-size: 11px; font-weight: bold; margin-bottom: 32px; }
+    .sig-line  { width: 170px; border-top: 1px solid #000; margin: 0 auto 4px; }
+    .sig-name  { font-size: 11px; }
+
+    @media print { @page { size: A4; margin: 12mm 18mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+
+  <!-- TOP ROW: Visto | Coat of Arms | Stamp -->
+  <div class="top-row">
+    <div class="visto-box">
+      <div class="visto-title">Visto</div>
+      <div style="font-size:10px;">O Director Provincial</div>
+      <div class="visto-sig-line"></div>
+      <div style="font-size:10px;">____________________________</div>
+    </div>
+    <div style="text-align:center;">
+      <img src="/icons/icon-192.png" alt="Armas" style="height:70px;width:70px;object-fit:contain;" onerror="this.style.display='none'" />
+    </div>
+    <div class="stamp-box">
+      <div class="stamp-text">Inspecção da Educação<br>${provincia}</div>
+    </div>
+  </div>
+
+  <!-- INSTITUTION HEADER -->
+  <div class="header-block">
+    <p class="rep">República de Angola</p>
+    <p class="ministerio">Ministério da Educação</p>
+    <p class="nivel-ensino">Ensino Secundário Técnico-Professional</p>
+    <p class="titulo-cert">Certificado</p>
+  </div>
+
+  <!-- BODY TEXT -->
+  <div class="body-text">
+    <span class="director-name">${director}</span>, Director(a) do
+    <span class="bold">${escola}</span>,
+    criado sob o Decreto Executivo n.º <span class="bold">_____</span>
+    de ___ de ____________________,
+    certifica que <span class="student-name">${nome}</span>,
+    filho(a) de <span class="bold">${encarregado}</span>
+    e de <span class="bold">________________________________</span>,
+    natural de <span class="bold">${municipio}</span>,
+    Província de <span class="bold">${provincia}</span>,
+    nascido(a) aos <span class="bold">${diaNasc} de ${mesNasc} de ${anoNasc}</span>,
+    portador(a) do Bilhete de Identificação n.º <span class="bold">________________________</span>,
+    passado pelo arquivo de identificação de <span class="bold">${provincia}</span>
+    aos ___ de _______________ de ______,
+    concluiu no ano lectivo <span class="bold">${anoLetivo}</span>
+    o Curso do <span class="bold">II CICLO DO ENSINO SECUNDÁRIO TÉCNICO</span>,
+    na especialidade de <span class="especialidade">________________________________</span>,
+    conforme o disposto na alínea f) do artigo 109.º da LBSEE 17/16, de 7 de Outubro,
+    com Média de <span class="bold">${mpcDisplay}</span> valores
+    obtida nas seguintes classificações por disciplinas:
+  </div>
+
+  <!-- GRADES TABLE -->
+  <table>
+    <thead>
+      <tr>
+        <th style="width:55%;text-align:left;">Componentes da Formação</th>
+        <th style="width:22%;">Média Final</th>
+        <th style="width:23%;">Média por Extenso</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sectionHeader('Componente Sócio-cultural')}
+      ${rowsS.map(discRow).join('')}
+      ${sectionHeader('Componente Científica')}
+      ${rowsC.filter(r => r.nota !== null).map(discRow).join('')}
+      ${rowsT.length > 0 ? sectionHeader('Componente Técnica, Tecnológica e Prática') : ''}
+      ${rowsT.map(discRow).join('')}
+      ${summaryRow('Média por Plano Curricular (PC)', mpcDisplay, mpcExtenso)}
+      ${summaryRow('Prova de Aptidão Profissional (PAP)', papDisplay, papExtenso)}
+      ${summaryRow('Classificação Final por Curso = (2×PC+PAP)/3', finalDisplay, finalExtenso, true)}
+    </tbody>
+  </table>
+
+  <!-- LEGAL TEXT -->
+  <div class="legal">
+    Para efeitos legais lhe é passado o presente <strong>CERTIFICADO</strong>,
+    que consta no livro de registo n.º <strong>____</strong>, folha <strong>____</strong>,
+    assinado por mim e autenticado com carimbo a selo branco em uso neste estabelecimento de ensino.
+  </div>
+
+  <!-- DATE & SIGNATURES -->
+  <div class="date-line">${municipio}, aos ${dataActual}</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">Conferido por</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">&nbsp;</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O Director</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+  </div>
+
+</body>
+</html>`;
+  }
+
   function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
@@ -4327,6 +4641,8 @@ export default function EditorDocumentos() {
         html = buildCertificadoItaqHtml(emitAlunoId);
       } else if (classe === 'PEDAGOGICO-II-CICLO') {
         html = buildCertificadoHabilitacoesLiterariasHtml(emitAlunoId);
+      } else if (classe === 'TECNICO-PROFISSIONAL') {
+        html = buildCertificadoTecnicoProfissionalHtml(emitAlunoId);
       } else {
         html = buildCertificadoHabilitacoesHtml(emitAlunoId, classe);
       }
