@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../lib/api';
 
 export type RegistroStatus = 'pendente' | 'aprovado' | 'rejeitado';
 
@@ -35,15 +35,6 @@ interface RegistroContextValue {
 }
 
 const RegistroContext = createContext<RegistroContextValue | null>(null);
-const STORAGE_KEY = '@sgaa_registros';
-
-function genId(): string {
-  return 'reg_' + Date.now().toString() + Math.random().toString(36).substr(2, 6);
-}
-
-function now(): string {
-  return new Date().toISOString();
-}
 
 export function RegistroProvider({ children }: { children: ReactNode }) {
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoRegistro[]>([]);
@@ -53,8 +44,8 @@ export function RegistroProvider({ children }: { children: ReactNode }) {
 
   async function load() {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) setSolicitacoes(JSON.parse(raw));
+      const data = await api.get<SolicitacaoRegistro[]>('/api/registros');
+      setSolicitacoes(data);
     } catch (e) {
       console.error('RegistroContext load error', e);
     } finally {
@@ -62,58 +53,51 @@ export function RegistroProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function persist(data: SolicitacaoRegistro[]) {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
   async function submeterSolicitacao(data: Omit<SolicitacaoRegistro, 'id' | 'status' | 'criadoEm'>) {
-    const nova: SolicitacaoRegistro = {
-      ...data,
-      id: genId(),
-      status: 'pendente',
-      criadoEm: now(),
-    };
-    const updated = [nova, ...solicitacoes];
-    setSolicitacoes(updated);
-    await persist(updated);
+    const nova = await api.post<SolicitacaoRegistro>('/api/registros', { ...data, status: 'pendente' });
+    setSolicitacoes(prev => [nova, ...prev]);
   }
 
   async function aprovarSolicitacao(id: string, avaliadorNome: string) {
-    const updated = solicitacoes.map(s =>
-      s.id === id ? { ...s, status: 'aprovado' as RegistroStatus, avaliadoEm: now(), avaliadoPor: avaliadorNome } : s
-    );
-    setSolicitacoes(updated);
-    await persist(updated);
+    const updated = await api.put<SolicitacaoRegistro>(`/api/registros/${id}`, {
+      status: 'aprovado',
+      avaliadoEm: new Date().toISOString(),
+      avaliadoPor: avaliadorNome,
+    });
+    setSolicitacoes(prev => prev.map(s => s.id === id ? updated : s));
   }
 
   async function rejeitarSolicitacao(id: string, avaliadorNome: string, motivo: string) {
-    const updated = solicitacoes.map(s =>
-      s.id === id ? { ...s, status: 'rejeitado' as RegistroStatus, avaliadoEm: now(), avaliadoPor: avaliadorNome, motivoRejeicao: motivo } : s
-    );
-    setSolicitacoes(updated);
-    await persist(updated);
+    const updated = await api.put<SolicitacaoRegistro>(`/api/registros/${id}`, {
+      status: 'rejeitado',
+      avaliadoEm: new Date().toISOString(),
+      avaliadoPor: avaliadorNome,
+      motivoRejeicao: motivo,
+    });
+    setSolicitacoes(prev => prev.map(s => s.id === id ? updated : s));
   }
 
   async function deletarSolicitacao(id: string) {
-    const updated = solicitacoes.filter(s => s.id !== id);
-    setSolicitacoes(updated);
-    await persist(updated);
+    await api.delete(`/api/registros/${id}`);
+    setSolicitacoes(prev => prev.filter(s => s.id !== id));
   }
 
   const pendentes = useMemo(() => solicitacoes.filter(s => s.status === 'pendente'), [solicitacoes]);
   const aprovadas = useMemo(() => solicitacoes.filter(s => s.status === 'aprovado'), [solicitacoes]);
   const rejeitadas = useMemo(() => solicitacoes.filter(s => s.status === 'rejeitado'), [solicitacoes]);
 
-  const value = useMemo<RegistroContextValue>(() => ({
-    solicitacoes, isLoading,
-    submeterSolicitacao, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao,
-    pendentes, aprovadas, rejeitadas,
-  }), [solicitacoes, isLoading, pendentes, aprovadas, rejeitadas]);
-
-  return <RegistroContext.Provider value={value}>{children}</RegistroContext.Provider>;
+  return (
+    <RegistroContext.Provider value={{
+      solicitacoes, isLoading,
+      submeterSolicitacao, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao,
+      pendentes, aprovadas, rejeitadas,
+    }}>
+      {children}
+    </RegistroContext.Provider>
+  );
 }
 
-export function useRegistro() {
+export function useRegistro(): RegistroContextValue {
   const ctx = useContext(RegistroContext);
   if (!ctx) throw new Error('useRegistro must be used within RegistroProvider');
   return ctx;

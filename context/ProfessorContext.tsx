@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../lib/api';
 
 export interface Pauta {
   id: string;
@@ -116,19 +116,6 @@ interface ProfessorContextValue {
 
 const ProfessorContext = createContext<ProfessorContextValue | null>(null);
 
-function genId(): string {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-}
-
-const KEYS = {
-  pautas: '@sgaa_pautas',
-  solicitacoes: '@sgaa_solicitacoes_abertura',
-  mensagens: '@sgaa_mensagens_prof',
-  materiais: '@sgaa_materiais',
-  sumarios: '@sgaa_sumarios',
-  calendarioProvas: '@sgaa_calendario_provas',
-};
-
 export function ProfessorProvider({ children }: { children: ReactNode }) {
   const [pautas, setPautas] = useState<Pauta[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoAbertura[]>([]);
@@ -143,19 +130,19 @@ export function ProfessorProvider({ children }: { children: ReactNode }) {
   async function loadAll() {
     try {
       const [p, s, m, mat, sum, cal] = await Promise.all([
-        AsyncStorage.getItem(KEYS.pautas),
-        AsyncStorage.getItem(KEYS.solicitacoes),
-        AsyncStorage.getItem(KEYS.mensagens),
-        AsyncStorage.getItem(KEYS.materiais),
-        AsyncStorage.getItem(KEYS.sumarios),
-        AsyncStorage.getItem(KEYS.calendarioProvas),
+        api.get<Pauta[]>('/api/pautas'),
+        api.get<SolicitacaoAbertura[]>('/api/solicitacoes-abertura'),
+        api.get<Mensagem[]>('/api/mensagens'),
+        api.get<Material[]>('/api/materiais'),
+        api.get<Sumario[]>('/api/sumarios'),
+        api.get<CalendarioProva[]>('/api/calendario-provas'),
       ]);
-      setPautas(p ? JSON.parse(p) : []);
-      setSolicitacoes(s ? JSON.parse(s) : []);
-      setMensagens(m ? JSON.parse(m) : []);
-      setMateriais(mat ? JSON.parse(mat) : []);
-      setSumarios(sum ? JSON.parse(sum) : []);
-      setCalendarioProvas(cal ? JSON.parse(cal) : []);
+      setPautas(p);
+      setSolicitacoes(s);
+      setMensagens(m);
+      setMateriais(mat);
+      setSumarios(sum);
+      setCalendarioProvas(cal);
     } catch (e) {
       console.error('ProfessorContext load error', e);
     } finally {
@@ -163,22 +150,15 @@ export function ProfessorProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function persist<T>(key: string, data: T[]) {
-    await AsyncStorage.setItem(key, JSON.stringify(data));
-  }
-
   async function addPauta(p: Omit<Pauta, 'id' | 'createdAt'>): Promise<Pauta> {
-    const nova: Pauta = { ...p, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...pautas, nova];
-    setPautas(updated);
-    await persist(KEYS.pautas, updated);
+    const nova = await api.post<Pauta>('/api/pautas', p);
+    setPautas(prev => [nova, ...prev]);
     return nova;
   }
 
   async function updatePauta(id: string, p: Partial<Pauta>) {
-    const updated = pautas.map(x => x.id === id ? { ...x, ...p } : x);
-    setPautas(updated);
-    await persist(KEYS.pautas, updated);
+    const updated = await api.put<Pauta>(`/api/pautas/${id}`, p);
+    setPautas(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   function getPautaByKey(turmaId: string, disciplina: string, trimestre: 1 | 2 | 3): Pauta | undefined {
@@ -186,75 +166,61 @@ export function ProfessorProvider({ children }: { children: ReactNode }) {
   }
 
   async function addSolicitacao(s: Omit<SolicitacaoAbertura, 'id' | 'createdAt'>) {
-    const nova: SolicitacaoAbertura = { ...s, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...solicitacoes, nova];
-    setSolicitacoes(updated);
-    await persist(KEYS.solicitacoes, updated);
+    const nova = await api.post<SolicitacaoAbertura>('/api/solicitacoes-abertura', s);
+    setSolicitacoes(prev => [nova, ...prev]);
   }
 
   async function updateSolicitacao(id: string, s: Partial<SolicitacaoAbertura>) {
-    const updated = solicitacoes.map(x => x.id === id ? { ...x, ...s } : x);
-    setSolicitacoes(updated);
-    await persist(KEYS.solicitacoes, updated);
+    const updated = await api.put<SolicitacaoAbertura>(`/api/solicitacoes-abertura/${id}`, s);
+    setSolicitacoes(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function addMensagem(m: Omit<Mensagem, 'id' | 'createdAt' | 'lidaPor'>) {
-    const nova: Mensagem = { ...m, id: genId(), lidaPor: [m.remetenteId], createdAt: new Date().toISOString() };
-    const updated = [...mensagens, nova];
-    setMensagens(updated);
-    await persist(KEYS.mensagens, updated);
+    const nova = await api.post<Mensagem>('/api/mensagens', { ...m, lidaPor: [m.remetenteId] });
+    setMensagens(prev => [nova, ...prev]);
   }
 
   async function marcarMensagemLida(id: string, userId: string) {
-    const updated = mensagens.map(x => x.id === id && !x.lidaPor.includes(userId)
-      ? { ...x, lidaPor: [...x.lidaPor, userId] } : x);
-    setMensagens(updated);
-    await persist(KEYS.mensagens, updated);
+    const msg = mensagens.find(x => x.id === id);
+    if (!msg || msg.lidaPor.includes(userId)) return;
+    const novaLidaPor = [...msg.lidaPor, userId];
+    const updated = await api.put<Mensagem>(`/api/mensagens/${id}`, { lidaPor: novaLidaPor });
+    setMensagens(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function addMaterial(m: Omit<Material, 'id' | 'createdAt'>) {
-    const novo: Material = { ...m, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...materiais, novo];
-    setMateriais(updated);
-    await persist(KEYS.materiais, updated);
+    const novo = await api.post<Material>('/api/materiais', m);
+    setMateriais(prev => [novo, ...prev]);
   }
 
   async function deleteMaterial(id: string) {
-    const updated = materiais.filter(x => x.id !== id);
-    setMateriais(updated);
-    await persist(KEYS.materiais, updated);
+    await api.delete(`/api/materiais/${id}`);
+    setMateriais(prev => prev.filter(x => x.id !== id));
   }
 
   async function addSumario(s: Omit<Sumario, 'id' | 'createdAt'>) {
-    const novo: Sumario = { ...s, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...sumarios, novo];
-    setSumarios(updated);
-    await persist(KEYS.sumarios, updated);
+    const novo = await api.post<Sumario>('/api/sumarios', s);
+    setSumarios(prev => [novo, ...prev]);
   }
 
   async function updateSumario(id: string, s: Partial<Sumario>) {
-    const updated = sumarios.map(x => x.id === id ? { ...x, ...s } : x);
-    setSumarios(updated);
-    await persist(KEYS.sumarios, updated);
+    const updated = await api.put<Sumario>(`/api/sumarios/${id}`, s);
+    setSumarios(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function addCalendarioProva(c: Omit<CalendarioProva, 'id' | 'createdAt'>) {
-    const nova: CalendarioProva = { ...c, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...calendarioProvas, nova];
-    setCalendarioProvas(updated);
-    await persist(KEYS.calendarioProvas, updated);
+    const nova = await api.post<CalendarioProva>('/api/calendario-provas', c);
+    setCalendarioProvas(prev => [nova, ...prev]);
   }
 
   async function updateCalendarioProva(id: string, c: Partial<CalendarioProva>) {
-    const updated = calendarioProvas.map(x => x.id === id ? { ...x, ...c } : x);
-    setCalendarioProvas(updated);
-    await persist(KEYS.calendarioProvas, updated);
+    const updated = await api.put<CalendarioProva>(`/api/calendario-provas/${id}`, c);
+    setCalendarioProvas(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function deleteCalendarioProva(id: string) {
-    const updated = calendarioProvas.filter(x => x.id !== id);
-    setCalendarioProvas(updated);
-    await persist(KEYS.calendarioProvas, updated);
+    await api.delete(`/api/calendario-provas/${id}`);
+    setCalendarioProvas(prev => prev.filter(x => x.id !== id));
   }
 
   const value = useMemo<ProfessorContextValue>(() => ({

@@ -103,6 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "nomeEncarregado",
         "telefoneEncarregado",
         "ativo",
+        "bloqueado",
         "foto",
         "createdAt",
       ] as const;
@@ -726,6 +727,627 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // UTILIZADORES DO SISTEMA
+  // -----------------------
+  app.get("/api/utilizadores", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.utilizadores ORDER BY "criadoEm" DESC`,
+      [],
+    );
+    json(res, 200, rows);
+  });
+
+  app.post("/api/utilizadores", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.utilizadores (id,"nome","email","senha","role","escola","ativo","criadoEm")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [b.id ?? null, b.nome, b.email, b.senha, b.role, b.escola ?? '', b.ativo ?? true, b.criadoEm ?? new Date().toISOString()],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.put("/api/utilizadores/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["nome","email","senha","role","escola","ativo"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}" = $${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.utilizadores SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/utilizadores/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.utilizadores WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // ANOS ACADÉMICOS
+  // -----------------------
+  app.get("/api/anos-academicos", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.anos_academicos ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/anos-academicos", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.anos_academicos (id,"ano","dataInicio","dataFim","ativo","trimestres")
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
+        [b.id ?? null, b.ano, b.dataInicio, b.dataFim, b.ativo ?? false, jsonbParam(b.trimestres) ?? '[]'],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/anos-academicos/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["ano","dataInicio","dataFim","ativo","trimestres"] as const;
+      const jsonbKeys = new Set(["trimestres"]);
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(jsonbKeys.has(key) ? jsonbParam(v) : v);
+        const ph = `$${values.length}`;
+        setParts.push(jsonbKeys.has(key) ? `"${key}"=${ph}::jsonb` : `"${key}"=${ph}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.anos_academicos SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/anos-academicos/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.anos_academicos WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // PAUTAS
+  // -----------------------
+  app.get("/api/pautas", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.pautas ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/pautas", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.pautas (id,"turmaId","disciplina","trimestre","professorId","status","anoLetivo","dataFecho")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [b.id ?? null, b.turmaId, b.disciplina, b.trimestre, b.professorId, b.status ?? 'aberta', b.anoLetivo, b.dataFecho ?? null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/pautas/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["turmaId","disciplina","trimestre","professorId","status","anoLetivo","dataFecho"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.pautas SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/pautas/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.pautas WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // SOLICITAÇÕES DE ABERTURA
+  // -----------------------
+  app.get("/api/solicitacoes-abertura", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.solicitacoes_abertura ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/solicitacoes-abertura", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.solicitacoes_abertura (id,"pautaId","turmaId","turmaNome","disciplina","trimestre","professorId","professorNome","motivo","status","respondidoEm","observacao")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [b.id??null,b.pautaId,b.turmaId,b.turmaNome,b.disciplina,b.trimestre,b.professorId,b.professorNome,b.motivo,b.status??'pendente',b.respondidoEm??null,b.observacao??null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/solicitacoes-abertura/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status","respondidoEm","observacao"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.solicitacoes_abertura SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // MENSAGENS (PROFESSOR / TURMA / ALUNO)
+  // -----------------------
+  app.get("/api/mensagens", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.mensagens ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/mensagens", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.mensagens (id,"remetenteId","remetenteNome","tipo","turmaId","turmaNome","destinatarioId","destinatarioNome","destinatarioTipo","assunto","corpo","lidaPor")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12::jsonb) RETURNING *`,
+        [b.id??null,b.remetenteId,b.remetenteNome,b.tipo,b.turmaId??null,b.turmaNome??null,b.destinatarioId??null,b.destinatarioNome??null,b.destinatarioTipo??null,b.assunto,b.corpo,jsonbParam(b.lidaPor)??'[]'],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/mensagens/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["lidaPor"] as const;
+      const jsonbKeys = new Set(["lidaPor"]);
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(jsonbKeys.has(key) ? jsonbParam(v) : v);
+        const ph = `$${values.length}`;
+        setParts.push(jsonbKeys.has(key) ? `"${key}"=${ph}::jsonb` : `"${key}"=${ph}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.mensagens SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // MATERIAIS DIDÁCTICOS
+  // -----------------------
+  app.get("/api/materiais", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.materiais ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/materiais", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.materiais (id,"professorId","turmaId","turmaNome","disciplina","titulo","descricao","tipo","conteudo","nomeArquivo","tamanhoArquivo")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        [b.id??null,b.professorId,b.turmaId,b.turmaNome,b.disciplina,b.titulo,b.descricao??'',b.tipo,b.conteudo,b.nomeArquivo??null,b.tamanhoArquivo??null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/materiais/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.materiais WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // SUMÁRIOS
+  // -----------------------
+  app.get("/api/sumarios", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.sumarios ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/sumarios", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.sumarios (id,"professorId","professorNome","turmaId","turmaNome","disciplina","data","horaInicio","horaFim","numeroAula","conteudo","status","observacaoRH")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        [b.id??null,b.professorId,b.professorNome,b.turmaId,b.turmaNome,b.disciplina,b.data,b.horaInicio,b.horaFim,b.numeroAula,b.conteudo,b.status??'pendente',b.observacaoRH??null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/sumarios/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status","observacaoRH","conteudo","data","horaInicio","horaFim","numeroAula"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.sumarios SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/sumarios/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.sumarios WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // CALENDÁRIO DE PROVAS
+  // -----------------------
+  app.get("/api/calendario-provas", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.calendario_provas ORDER BY "data" ASC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/calendario-provas", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.calendario_provas (id,"titulo","descricao","turmasIds","disciplina","data","hora","tipo","publicado")
+         VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9) RETURNING *`,
+        [b.id??null,b.titulo,b.descricao??'',jsonbParam(b.turmasIds)??'[]',b.disciplina,b.data,b.hora,b.tipo,b.publicado??false],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/calendario-provas/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["titulo","descricao","turmasIds","disciplina","data","hora","tipo","publicado"] as const;
+      const jsonbKeys = new Set(["turmasIds"]);
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(jsonbKeys.has(key) ? jsonbParam(v) : v);
+        const ph = `$${values.length}`;
+        setParts.push(jsonbKeys.has(key) ? `"${key}"=${ph}::jsonb` : `"${key}"=${ph}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.calendario_provas SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/calendario-provas/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.calendario_provas WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // TAXAS
+  // -----------------------
+  app.get("/api/taxas", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.taxas ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/taxas", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.taxas (id,"tipo","descricao","valor","frequencia","nivel","anoAcademico","ativo")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [b.id??null,b.tipo,b.descricao,b.valor,b.frequencia,b.nivel,b.anoAcademico,b.ativo??true],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/taxas/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["tipo","descricao","valor","frequencia","nivel","anoAcademico","ativo"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.taxas SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/taxas/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.taxas WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // PAGAMENTOS
+  // -----------------------
+  app.get("/api/pagamentos", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.pagamentos ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/pagamentos", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.pagamentos (id,"alunoId","taxaId","valor","data","mes","trimestre","ano","status","metodoPagamento","referencia","observacao")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [b.id??null,b.alunoId,b.taxaId,b.valor,b.data,b.mes??null,b.trimestre??null,b.ano,b.status??'pendente',b.metodoPagamento,b.referencia??null,b.observacao??null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/pagamentos/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status","metodoPagamento","referencia","observacao","valor","data"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.pagamentos SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/pagamentos/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.pagamentos WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // MENSAGENS FINANCEIRAS
+  // -----------------------
+  app.get("/api/mensagens-financeiras", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.mensagens_financeiras ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/mensagens-financeiras", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.mensagens_financeiras (id,"alunoId","remetente","texto","data","lida","tipo")
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [b.id??null,b.alunoId,b.remetente,b.texto,b.data,b.lida??false,b.tipo??'geral'],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/mensagens-financeiras/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["lida","texto"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.mensagens_financeiras SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // RUPES
+  // -----------------------
+  app.get("/api/rupes", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.rupes ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/rupes", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.rupes (id,"alunoId","taxaId","valor","referencia","dataGeracao","dataValidade","status")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+        [b.id??null,b.alunoId,b.taxaId,b.valor,b.referencia,b.dataGeracao,b.dataValidade,b.status??'ativo'],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/rupes/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.rupes SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // NOTIFICAÇÕES
+  // -----------------------
+  app.get("/api/notificacoes", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.notificacoes ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/notificacoes", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.notificacoes (id,"titulo","mensagem","tipo","data","lida","link")
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [b.id??null,b.titulo,b.mensagem,b.tipo??'info',b.data,b.lida??false,b.link??null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/notificacoes/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["lida"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.notificacoes SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/notificacoes/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.notificacoes WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  app.delete("/api/notificacoes", async (_req: Request, res: Response) => {
+    await query(`DELETE FROM public.notificacoes`, []);
+    json(res, 200, { ok: true });
+  });
+
+  // -----------------------
+  // REGISTROS (SOLICITAÇÕES DE MATRÍCULA)
+  // -----------------------
+  app.get("/api/registros", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.registros ORDER BY "criadoEm" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/registros", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.registros (id,"nomeCompleto","dataNascimento","genero","provincia","municipio","nivel","classe","nomeEncarregado","telefoneEncarregado","observacoes","status")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [b.id??null,b.nomeCompleto,b.dataNascimento,b.genero,b.provincia,b.municipio,b.nivel,b.classe,b.nomeEncarregado,b.telefoneEncarregado,b.observacoes??'',b.status??'pendente'],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/registros/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status","avaliadoEm","avaliadoPor","motivoRejeicao"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      const rows = await query<JsonObject>(`UPDATE public.registros SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/registros/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.registros WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // CONFIGURAÇÕES
+  // -----------------------
+  app.get("/api/config", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.config_geral LIMIT 1`, []);
+    if (rows[0]) return json(res, 200, rows[0]);
+    // Create default if not exists
+    const created = await query<JsonObject>(
+      `INSERT INTO public.config_geral DEFAULT VALUES RETURNING *`, [],
+    );
+    json(res, 200, created[0]);
+  });
+
+  app.put("/api/config", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","horarioFuncionamento","flashScreen","multaConfig"] as const;
+      const jsonbKeys = new Set(["flashScreen","multaConfig"]);
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(jsonbKeys.has(key) ? jsonbParam(v) : v);
+        const ph = `$${values.length}`;
+        setParts.push(jsonbKeys.has(key) ? `"${key}"=${ph}::jsonb` : `"${key}"=${ph}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      // Upsert: update existing row or insert if none
+      const existing = await query<JsonObject>(`SELECT id FROM public.config_geral LIMIT 1`, []);
+      let rows;
+      if (existing[0]) {
+        rows = await query<JsonObject>(`UPDATE public.config_geral SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, existing[0].id]);
+      } else {
+        rows = await query<JsonObject>(`INSERT INTO public.config_geral DEFAULT VALUES RETURNING *`, []);
+        if (setParts.length) {
+          rows = await query<JsonObject>(`UPDATE public.config_geral SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, rows[0].id]);
+        }
+      }
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   const httpServer = createServer(app);

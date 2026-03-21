@@ -29,12 +29,19 @@ An Academic Management System (SGAA Angola) for educational institutions in Ango
 - **professores.tsx**: Role guard added — professors see an "Acesso Restrito" screen instead of the full teacher management panel.
 - **rh-controle.tsx**: Exam calendar publish notifications were already correctly implemented (verified).
 
-## Recent Changes (This Session — Migration & Horários DB)
-- **Migration**: Installed `tsx` package (was missing), fixed CORS issue in `lib/query-client.ts` — API calls now use `window.location.origin` in browser instead of hardcoded `EXPO_PUBLIC_DOMAIN`, resolving cross-origin errors.
-- **Database**: Provisioned PostgreSQL, pushed all tables (`alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `users`, **`horarios`** — new).
-- **shared/schema.ts**: Added `horarios` table with full schedule fields (`turmaId`, `disciplina`, `professorId`, `professorNome`, `diaSemana`, `periodo`, `horaInicio`, `horaFim`, `sala`, `anoAcademico`).
-- **server/routes.ts**: Added full CRUD API routes for `/api/horarios` (GET, POST, PUT, DELETE).
-- **app/(main)/horario.tsx**: Migrated from AsyncStorage to server-side PostgreSQL persistence. Schedules now survive across devices, sessions, and browser clears.
+## Recent Changes (This Session — Full DB Migration)
+- **Complete database migration**: All 23 tables now exist in PostgreSQL. Zero application data is stored in AsyncStorage.
+- **shared/schema.ts**: Full schema with all 23 tables: `alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `horarios`, `utilizadores`, `anos_academicos`, `pautas`, `solicitacoes_abertura`, `mensagens`, `materiais`, `sumarios`, `calendario_provas`, `taxas`, `pagamentos`, `mensagens_financeiras`, `rupes`, `notificacoes`, `registros`, `config_geral`, `users`.
+- **server/routes.ts**: Full CRUD API routes for ALL 23 tables. New endpoints: `/api/utilizadores`, `/api/anos-academicos`, `/api/pautas`, `/api/solicitacoes-abertura`, `/api/mensagens`, `/api/materiais`, `/api/sumarios`, `/api/calendario-provas`, `/api/taxas`, `/api/pagamentos`, `/api/mensagens-financeiras`, `/api/rupes`, `/api/notificacoes`, `/api/registros`, `/api/config`.
+- **lib/api.ts**: New utility helper for API calls used by all contexts.
+- **All contexts migrated to database API**:
+  - `AnoAcademicoContext` → `/api/anos-academicos`
+  - `NotificacoesContext` → `/api/notificacoes`
+  - `RegistroContext` → `/api/registros`
+  - `UsersContext` → `/api/utilizadores`
+  - `ConfigContext` → `/api/config`
+  - `ProfessorContext` → `/api/pautas`, `/api/solicitacoes-abertura`, `/api/mensagens`, `/api/materiais`, `/api/sumarios`, `/api/calendario-provas`
+  - `FinanceiroContext` → `/api/taxas`, `/api/pagamentos`, `/api/mensagens-financeiras`, `/api/rupes`, `/api/config` (multaConfig), `/api/alunos` (bloqueado field)
 
 ## Architecture
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../lib/api';
 
 export interface FlashScreenConfig {
   ativa: boolean;
@@ -51,8 +51,6 @@ interface ConfigContextValue {
   isLoading: boolean;
 }
 
-const CONFIG_KEY = '@sgaa_config_geral';
-
 const ConfigContext = createContext<ConfigContextValue | null>(null);
 
 export function ConfigProvider({ children }: { children: ReactNode }) {
@@ -60,26 +58,34 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    AsyncStorage.getItem(CONFIG_KEY)
+    api.get<Record<string, unknown>>('/api/config')
       .then(raw => {
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          setConfig({ ...DEFAULT_CONFIG, ...parsed, flashScreen: { ...DEFAULT_FLASH, ...(parsed.flashScreen || {}) } });
-        }
+        const parsed: ConfigGeral = {
+          nomeEscola: (raw.nomeEscola as string) || DEFAULT_CONFIG.nomeEscola,
+          logoUrl: raw.logoUrl as string | undefined,
+          pp1Habilitado: raw.pp1Habilitado !== undefined ? Boolean(raw.pp1Habilitado) : DEFAULT_CONFIG.pp1Habilitado,
+          pptHabilitado: raw.pptHabilitado !== undefined ? Boolean(raw.pptHabilitado) : DEFAULT_CONFIG.pptHabilitado,
+          notaMinimaAprovacao: (raw.notaMinimaAprovacao as number) ?? DEFAULT_CONFIG.notaMinimaAprovacao,
+          maxAlunosTurma: (raw.maxAlunosTurma as number) ?? DEFAULT_CONFIG.maxAlunosTurma,
+          horarioFuncionamento: (raw.horarioFuncionamento as string) || DEFAULT_CONFIG.horarioFuncionamento,
+          flashScreen: { ...DEFAULT_FLASH, ...((raw.flashScreen as Partial<FlashScreenConfig>) || {}) },
+        };
+        setConfig(parsed);
       })
+      .catch(() => setConfig(DEFAULT_CONFIG))
       .finally(() => setIsLoading(false));
   }, []);
 
   async function updateConfig(updates: Partial<ConfigGeral>) {
     const next = { ...config, ...updates };
     setConfig(next);
-    await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(next));
+    await api.put('/api/config', next);
   }
 
   async function updateFlashScreen(updates: Partial<FlashScreenConfig>) {
     const next = { ...config, flashScreen: { ...config.flashScreen, ...updates } };
     setConfig(next);
-    await AsyncStorage.setItem(CONFIG_KEY, JSON.stringify(next));
+    await api.put('/api/config', next);
   }
 
   const value = useMemo<ConfigContextValue>(

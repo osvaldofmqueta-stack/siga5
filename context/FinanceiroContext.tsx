@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../lib/api';
 
 export type TipoTaxa = 'propina' | 'matricula' | 'material' | 'exame' | 'multa' | 'outro';
 export type FrequenciaTaxa = 'mensal' | 'trimestral' | 'anual' | 'unica';
@@ -95,26 +95,15 @@ interface FinanceiroContextValue {
 
 const FinanceiroContext = createContext<FinanceiroContextValue | null>(null);
 
-const STORAGE_TAXAS = '@sgaa_taxas';
-const STORAGE_PAGAMENTOS = '@sgaa_pagamentos';
-const STORAGE_MULTA_CONFIG = '@sgaa_multa_config';
-const STORAGE_MENSAGENS = '@sgaa_mensagens_financeiras';
-const STORAGE_RUPES = '@sgaa_rupes';
-const STORAGE_BLOQUEADOS = '@sgaa_bloqueados_financeiros';
-
-function genId() {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-}
-
-export function formatAOA(valor: number): string {
-  return valor.toLocaleString('pt-AO') + ' AOA';
-}
-
 const DEFAULT_MULTA_CONFIG: MultaConfig = {
   percentagem: 10,
   diasCarencia: 5,
   ativo: true,
 };
+
+export function formatAOA(valor: number): string {
+  return valor.toLocaleString('pt-AO') + ' AOA';
+}
 
 export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [taxas, setTaxas] = useState<Taxa[]>([]);
@@ -125,80 +114,61 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [bloqueados, setBloqueados] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const [t, p, mc, msg, r, bl] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_TAXAS),
-        AsyncStorage.getItem(STORAGE_PAGAMENTOS),
-        AsyncStorage.getItem(STORAGE_MULTA_CONFIG),
-        AsyncStorage.getItem(STORAGE_MENSAGENS),
-        AsyncStorage.getItem(STORAGE_RUPES),
-        AsyncStorage.getItem(STORAGE_BLOQUEADOS),
+      const [t, p, msg, r, alunos, cfg] = await Promise.all([
+        api.get<Taxa[]>('/api/taxas'),
+        api.get<Pagamento[]>('/api/pagamentos'),
+        api.get<MensagemFinanceira[]>('/api/mensagens-financeiras'),
+        api.get<RUPEGerado[]>('/api/rupes'),
+        api.get<Array<{ id: string; bloqueado: boolean }>>('/api/alunos'),
+        api.get<Record<string, unknown>>('/api/config'),
       ]);
-      setTaxas(t ? JSON.parse(t) : []);
-      setPagamentos(p ? JSON.parse(p) : []);
-      setMultaConfig(mc ? JSON.parse(mc) : DEFAULT_MULTA_CONFIG);
-      setMensagens(msg ? JSON.parse(msg) : []);
-      setRupes(r ? JSON.parse(r) : []);
-      setBloqueados(bl ? JSON.parse(bl) : []);
+      setTaxas(t);
+      setPagamentos(p);
+      setMensagens(msg);
+      setRupes(r);
+      setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
+      if (cfg.multaConfig) {
+        setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
+      }
     } catch (e) {
-      setTaxas([]);
-      setPagamentos([]);
-      setMultaConfig(DEFAULT_MULTA_CONFIG);
-      setMensagens([]);
-      setRupes([]);
-      setBloqueados([]);
+      console.error('FinanceiroContext load error', e);
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function persistTaxas(data: Taxa[]) { await AsyncStorage.setItem(STORAGE_TAXAS, JSON.stringify(data)); }
-  async function persistPagamentos(data: Pagamento[]) { await AsyncStorage.setItem(STORAGE_PAGAMENTOS, JSON.stringify(data)); }
-  async function persistMensagens(data: MensagemFinanceira[]) { await AsyncStorage.setItem(STORAGE_MENSAGENS, JSON.stringify(data)); }
-  async function persistRupes(data: RUPEGerado[]) { await AsyncStorage.setItem(STORAGE_RUPES, JSON.stringify(data)); }
-  async function persistBloqueados(data: string[]) { await AsyncStorage.setItem(STORAGE_BLOQUEADOS, JSON.stringify(data)); }
-
   async function addTaxa(t: Omit<Taxa, 'id'>) {
-    const novo: Taxa = { ...t, id: genId() };
-    const updated = [...taxas, novo];
-    setTaxas(updated);
-    await persistTaxas(updated);
+    const novo = await api.post<Taxa>('/api/taxas', t);
+    setTaxas(prev => [novo, ...prev]);
   }
 
   async function updateTaxa(id: string, t: Partial<Taxa>) {
-    const updated = taxas.map(x => x.id === id ? { ...x, ...t } : x);
-    setTaxas(updated);
-    await persistTaxas(updated);
+    const updated = await api.put<Taxa>(`/api/taxas/${id}`, t);
+    setTaxas(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function deleteTaxa(id: string) {
-    const updated = taxas.filter(x => x.id !== id);
-    setTaxas(updated);
-    await persistTaxas(updated);
+    await api.delete(`/api/taxas/${id}`);
+    setTaxas(prev => prev.filter(x => x.id !== id));
   }
 
   async function addPagamento(p: Omit<Pagamento, 'id' | 'createdAt'>) {
-    const novo: Pagamento = { ...p, id: genId(), createdAt: new Date().toISOString() };
-    const updated = [...pagamentos, novo];
-    setPagamentos(updated);
-    await persistPagamentos(updated);
+    const novo = await api.post<Pagamento>('/api/pagamentos', p);
+    setPagamentos(prev => [novo, ...prev]);
   }
 
   async function updatePagamento(id: string, p: Partial<Pagamento>) {
-    const updated = pagamentos.map(x => x.id === id ? { ...x, ...p } : x);
-    setPagamentos(updated);
-    await persistPagamentos(updated);
+    const updated = await api.put<Pagamento>(`/api/pagamentos/${id}`, p);
+    setPagamentos(prev => prev.map(x => x.id === id ? updated : x));
   }
 
   async function deletePagamento(id: string) {
-    const updated = pagamentos.filter(x => x.id !== id);
-    setPagamentos(updated);
-    await persistPagamentos(updated);
+    await api.delete(`/api/pagamentos/${id}`);
+    setPagamentos(prev => prev.filter(x => x.id !== id));
   }
 
   function getTotalRecebido(anoAcademico?: string) {
@@ -224,20 +194,18 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   async function updateMultaConfig(cfg: Partial<MultaConfig>) {
     const updated = { ...multaConfig, ...cfg };
     setMultaConfig(updated);
-    await AsyncStorage.setItem(STORAGE_MULTA_CONFIG, JSON.stringify(updated));
+    await api.put('/api/config', { multaConfig: updated });
   }
 
   async function bloquearAluno(alunoId: string) {
     if (bloqueados.includes(alunoId)) return;
-    const updated = [...bloqueados, alunoId];
-    setBloqueados(updated);
-    await persistBloqueados(updated);
+    await api.put(`/api/alunos/${alunoId}`, { bloqueado: true });
+    setBloqueados(prev => [...prev, alunoId]);
   }
 
   async function desbloquearAluno(alunoId: string) {
-    const updated = bloqueados.filter(id => id !== alunoId);
-    setBloqueados(updated);
-    await persistBloqueados(updated);
+    await api.put(`/api/alunos/${alunoId}`, { bloqueado: false });
+    setBloqueados(prev => prev.filter(id => id !== alunoId));
   }
 
   function isAlunoBloqueado(alunoId: string) {
@@ -245,18 +213,13 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   async function enviarMensagem(alunoId: string, texto: string, remetente: string, tipo: MensagemFinanceira['tipo'] = 'geral') {
-    const nova: MensagemFinanceira = {
-      id: genId(),
-      alunoId,
-      remetente,
-      texto,
+    const nova = await api.post<MensagemFinanceira>('/api/mensagens-financeiras', {
+      alunoId, remetente, texto,
       data: new Date().toISOString(),
       lida: false,
       tipo,
-    };
-    const updated = [...mensagens, nova];
-    setMensagens(updated);
-    await persistMensagens(updated);
+    });
+    setMensagens(prev => [nova, ...prev]);
   }
 
   function getMensagensAluno(alunoId: string) {
@@ -264,9 +227,8 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   async function marcarMensagemLida(id: string) {
-    const updated = mensagens.map(m => m.id === id ? { ...m, lida: true } : m);
-    setMensagens(updated);
-    await persistMensagens(updated);
+    await api.put(`/api/mensagens-financeiras/${id}`, { lida: true });
+    setMensagens(prev => prev.map(m => m.id === id ? { ...m, lida: true } : m));
   }
 
   function getUnreadMensagensAluno(alunoId: string) {
@@ -281,19 +243,13 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
     const seq = String(rupes.length + 1).padStart(4, '0');
     const referencia = `RUPE-${dataGeracao.getFullYear()}-${String(dataGeracao.getMonth() + 1).padStart(2, '0')}-${seq}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
 
-    const novo: RUPEGerado = {
-      id: genId(),
-      alunoId,
-      taxaId,
-      valor,
-      referencia,
+    const novo = await api.post<RUPEGerado>('/api/rupes', {
+      alunoId, taxaId, valor, referencia,
       dataGeracao: dataGeracao.toISOString(),
       dataValidade: dataValidade.toISOString(),
       status: 'ativo',
-    };
-    const updated = [...rupes, novo];
-    setRupes(updated);
-    await persistRupes(updated);
+    });
+    setRupes(prev => [novo, ...prev]);
     return novo;
   }
 
