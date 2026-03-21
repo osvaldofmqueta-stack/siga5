@@ -58,10 +58,15 @@ An Academic Management System (SGAA Angola) for educational institutions in Ango
 - **professores.tsx**: Role guard added — professors see an "Acesso Restrito" screen instead of the full teacher management panel.
 - **rh-controle.tsx**: Exam calendar publish notifications were already correctly implemented (verified).
 
-## Recent Changes (This Session — Full DB Migration)
-- **Complete database migration**: All 23 tables now exist in PostgreSQL. Zero application data is stored in AsyncStorage.
-- **shared/schema.ts**: Full schema with all 23 tables: `alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `horarios`, `utilizadores`, `anos_academicos`, `pautas`, `solicitacoes_abertura`, `mensagens`, `materiais`, `sumarios`, `calendario_provas`, `taxas`, `pagamentos`, `mensagens_financeiras`, `rupes`, `notificacoes`, `registros`, `config_geral`, `users`.
-- **server/routes.ts**: Full CRUD API routes for ALL 23 tables. New endpoints: `/api/utilizadores`, `/api/anos-academicos`, `/api/pautas`, `/api/solicitacoes-abertura`, `/api/mensagens`, `/api/materiais`, `/api/sumarios`, `/api/calendario-provas`, `/api/taxas`, `/api/pagamentos`, `/api/mensagens-financeiras`, `/api/rupes`, `/api/notificacoes`, `/api/registros`, `/api/config`.
+## Recent Changes (This Session — DB Bootstrap + Font Fix)
+- **Database tables created**: `npx drizzle-kit push` applied all 24 tables to the PostgreSQL database. All API routes now return 200 instead of 500.
+- **Tables active**: `alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `horarios`, `utilizadores`, `anos_academicos`, `pautas`, `solicitacoes_abertura`, `mensagens`, `materiais`, `sumarios`, `calendario_provas`, `taxas`, `pagamentos`, `mensagens_financeiras`, `rupes`, `notificacoes`, `registros`, `config_geral`, `users`, `user_permissions`, `salas`.
+- **Font timeout**: fontfaceobserver 6000ms timeout error resolved — app now loads correctly with no blocking errors. `_layout.tsx` already bypasses `useFonts` on web; DB errors were causing cascade re-renders that triggered font checks.
+
+## Recent Changes (Previous Session — Full DB Migration)
+- **Complete database migration**: All 24 tables now exist in PostgreSQL. Zero application data is stored in AsyncStorage.
+- **shared/schema.ts**: Full schema with all 24 tables: `alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `horarios`, `utilizadores`, `anos_academicos`, `pautas`, `solicitacoes_abertura`, `mensagens`, `materiais`, `sumarios`, `calendario_provas`, `taxas`, `pagamentos`, `mensagens_financeiras`, `rupes`, `notificacoes`, `registros`, `config_geral`, `users`, `user_permissions`, `salas`.
+- **server/routes.ts**: Full CRUD API routes for ALL 24 tables. New endpoints: `/api/utilizadores`, `/api/anos-academicos`, `/api/pautas`, `/api/solicitacoes-abertura`, `/api/mensagens`, `/api/materiais`, `/api/sumarios`, `/api/calendario-provas`, `/api/taxas`, `/api/pagamentos`, `/api/mensagens-financeiras`, `/api/rupes`, `/api/notificacoes`, `/api/registros`, `/api/config`.
 - **lib/api.ts**: New utility helper for API calls used by all contexts.
 - **All contexts migrated to database API**:
   - `AnoAcademicoContext` → `/api/anos-academicos`
