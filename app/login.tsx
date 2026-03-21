@@ -554,7 +554,7 @@ export default function LoginScreen() {
           onPress={() => router.push('/registro' as any)}
           activeOpacity={0.85}
         >
-          <Text style={styles.registerBtnText}>Solicitar</Text>
+          <Text style={styles.registerBtnText}>Inscrição</Text>
           <Ionicons name="arrow-forward" size={13} color="#3498DB" />
         </TouchableOpacity>
       </View>
