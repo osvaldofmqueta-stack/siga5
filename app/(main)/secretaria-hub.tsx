@@ -15,7 +15,8 @@ import TopBar from '@/components/TopBar';
 const { width } = Dimensions.get('window');
 
 // ─── Types ─────────────────────────────────────────────────────────────────
-type DocType = 'declaracao' | 'certificado' | 'boletim' | 'atestado' | 'historico';
+type DocType = 'declaracao' | 'declaracao_com_nota' | 'transferencia' | 'certificado' | 'boletim' | 'atestado' | 'historico';
+type TipoDocEspecifico = 'declaracao_sem_nota' | 'certificado_habilitacoes' | 'declaracao_com_nota' | 'transferencia';
 type ProcessoStatus = 'pendente' | 'em_curso' | 'concluido' | 'cancelado';
 
 interface Documento {
@@ -51,7 +52,9 @@ interface Correspondencia {
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function docLabel(tipo: DocType) {
   const map: Record<DocType, string> = {
-    declaracao: 'Declaração de Matrícula',
+    declaracao: 'Declaração Sem Nota',
+    declaracao_com_nota: 'Declaração com Nota',
+    transferencia: 'Declaração de Transferência',
     certificado: 'Certificado de Habilitações',
     boletim: 'Boletim de Notas',
     atestado: 'Atestado de Frequência',
@@ -63,13 +66,24 @@ function docLabel(tipo: DocType) {
 function docColor(tipo: DocType) {
   const map: Record<DocType, string> = {
     declaracao: Colors.info,
+    declaracao_com_nota: Colors.success,
+    transferencia: '#8B5CF6',
     certificado: Colors.gold,
-    boletim: Colors.success,
+    boletim: '#06B6D4',
     atestado: Colors.warning,
     historico: Colors.accent,
   };
   return map[tipo];
 }
+
+const DOC_ESPECIFICO_CONFIG: Record<TipoDocEspecifico, {
+  label: string; icon: string; color: string; docType: DocType; temFinalidade: boolean;
+}> = {
+  declaracao_sem_nota: { label: 'Declaração Sem Nota', icon: 'document-text-outline', color: Colors.info, docType: 'declaracao', temFinalidade: true },
+  certificado_habilitacoes: { label: 'Certificado de Habilitações', icon: 'ribbon-outline', color: Colors.gold, docType: 'certificado', temFinalidade: false },
+  declaracao_com_nota: { label: 'Declaração com Nota', icon: 'document-attach-outline', color: Colors.success, docType: 'declaracao_com_nota', temFinalidade: true },
+  transferencia: { label: 'Declaração de Transferência', icon: 'arrow-redo-outline', color: '#8B5CF6', docType: 'transferencia', temFinalidade: true },
+};
 
 function statusColor(s: ProcessoStatus) {
   const map: Record<ProcessoStatus, string> = {
@@ -252,6 +266,198 @@ function EmitirDocumentoModal({ visible, onClose, onEmit, alunos }: {
   );
 }
 
+// ─── EMITIR DOCUMENTO ESPECÍFICO MODAL ───────────────────────────────────────
+function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turmas }: {
+  visible: boolean; onClose: () => void;
+  onEmit: (doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) => void;
+  tipo: TipoDocEspecifico | null;
+  alunos: any[]; turmas: any[];
+}) {
+  const config = tipo ? DOC_ESPECIFICO_CONFIG[tipo] : null;
+
+  const [busca, setBusca] = useState('');
+  const [alunoSelecionado, setAlunoSelecionado] = useState<any | null>(null);
+  const [finalidade, setFinalidade] = useState('');
+  const [erro, setErro] = useState('');
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+
+  const sugestoes = useMemo(() => {
+    if (!busca.trim() || busca.trim().length < 2) return [];
+    const q = busca.toLowerCase().trim();
+    return alunos.filter(a => {
+      const nomeCompleto = `${a.nome} ${a.apelido}`.toLowerCase();
+      const matricula = (a.numeroMatricula || '').toLowerCase();
+      const turma = turmas.find((t: any) => t.id === a.turmaId);
+      const turmaNome = (turma?.nome || '').toLowerCase();
+      const sala = (turma?.sala || '').toLowerCase();
+      return nomeCompleto.includes(q) || matricula.includes(q) || turmaNome.includes(q) || sala.includes(q);
+    }).slice(0, 6);
+  }, [busca, alunos, turmas]);
+
+  function handleSelectAluno(a: any) {
+    setAlunoSelecionado(a);
+    const turma = turmas.find((t: any) => t.id === a.turmaId);
+    setBusca(`${a.nome} ${a.apelido}`);
+    setMostrarSugestoes(false);
+    setErro('');
+  }
+
+  function handleReset() {
+    setBusca(''); setAlunoSelecionado(null); setFinalidade(''); setErro(''); setMostrarSugestoes(false);
+  }
+
+  function handleClose() { handleReset(); onClose(); }
+
+  function handleSubmit() {
+    if (!alunoSelecionado) { setErro('Seleccione um estudante da lista de sugestões.'); return; }
+    if (config?.temFinalidade && !finalidade.trim()) { setErro('A finalidade é obrigatória para este documento.'); return; }
+    setErro('');
+    onEmit({
+      tipo: config!.docType,
+      alunoNome: `${alunoSelecionado.nome} ${alunoSelecionado.apelido}`,
+      alunoNum: alunoSelecionado.numeroMatricula || `ALN-${Date.now()}`,
+      finalidade: finalidade.trim(),
+    });
+    handleReset();
+    onClose();
+  }
+
+  if (!config) return null;
+
+  const turmaDoAluno = alunoSelecionado ? turmas.find((t: any) => t.id === alunoSelecionado.turmaId) : null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                <View style={[styles.docEspIconWrap, { backgroundColor: config.color + '22' }]}>
+                  <Ionicons name={config.icon as any} size={20} color={config.color} />
+                </View>
+                <Text style={[styles.modalTitle, { fontSize: 15 }]}>{config.label}</Text>
+              </View>
+              <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Pesquisa de Estudante */}
+            <Text style={styles.fieldLabel}>Pesquisar Estudante *</Text>
+            <Text style={styles.fieldHint}>Pesquise por nome, n.º matrícula, turma ou sala</Text>
+            <View style={{ position: 'relative' }}>
+              <View style={[styles.inputRow, { borderColor: mostrarSugestoes ? config.color : Colors.border }]}>
+                <Ionicons name="search-outline" size={16} color={Colors.textMuted} style={{ marginRight: 6 }} />
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0, paddingHorizontal: 0 }]}
+                  value={busca}
+                  onChangeText={v => { setBusca(v); setAlunoSelecionado(null); setMostrarSugestoes(true); }}
+                  placeholder="Ex: Maria João, ALN-2025-0042, 10.ª A..."
+                  placeholderTextColor={Colors.textMuted}
+                  onFocus={() => setMostrarSugestoes(true)}
+                />
+                {busca.length > 0 && (
+                  <TouchableOpacity onPress={handleReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                    <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Dropdown de sugestões */}
+              {mostrarSugestoes && sugestoes.length > 0 && (
+                <View style={styles.sugestoesBox}>
+                  {sugestoes.map(a => {
+                    const t = turmas.find((tr: any) => tr.id === a.turmaId);
+                    return (
+                      <TouchableOpacity key={a.id} style={styles.sugestaoRow} onPress={() => handleSelectAluno(a)} activeOpacity={0.7}>
+                        <View style={styles.sugestaoAvatar}>
+                          <Text style={styles.sugestaoAvatarText}>{a.nome[0]}{a.apelido[0]}</Text>
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.sugestaoNome}>{a.nome} {a.apelido}</Text>
+                          <Text style={styles.sugestaoMeta}>
+                            {a.numeroMatricula}{t ? `  ·  ${t.nome}  ·  Sala ${t.sala}` : ''}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+              {mostrarSugestoes && busca.trim().length >= 2 && sugestoes.length === 0 && (
+                <View style={[styles.sugestoesBox, { padding: 14, alignItems: 'center' }]}>
+                  <Ionicons name="person-outline" size={22} color={Colors.textMuted} />
+                  <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 6, fontFamily: 'Inter_400Regular' }}>Nenhum estudante encontrado</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Cartão do aluno seleccionado */}
+            {alunoSelecionado && (
+              <View style={[styles.alunoCard, { borderColor: config.color + '44' }]}>
+                <View style={[styles.alunoCardAvatar, { backgroundColor: config.color + '22' }]}>
+                  <Text style={[styles.alunoCardAvatarText, { color: config.color }]}>
+                    {alunoSelecionado.nome[0]}{alunoSelecionado.apelido[0]}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.alunoCardNome}>{alunoSelecionado.nome} {alunoSelecionado.apelido}</Text>
+                  <Text style={styles.alunoCardMeta}>
+                    {alunoSelecionado.numeroMatricula}
+                    {turmaDoAluno ? `  ·  ${turmaDoAluno.nome}  ·  Sala ${turmaDoAluno.sala}` : ''}
+                  </Text>
+                </View>
+                <View style={[styles.alunoCardCheck, { backgroundColor: config.color }]}>
+                  <Ionicons name="checkmark" size={14} color="#fff" />
+                </View>
+              </View>
+            )}
+
+            {/* Finalidade (apenas quando não é Certificado de Habilitações) */}
+            {config.temFinalidade && (
+              <>
+                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Finalidade *</Text>
+                <Text style={styles.fieldHint}>Para que se destina este documento</Text>
+                <TextInput
+                  style={styles.input}
+                  value={finalidade}
+                  onChangeText={v => { setFinalidade(v); setErro(''); }}
+                  placeholder="Ex: Pedido de bolsa de estudo, emprego, banco..."
+                  placeholderTextColor={Colors.textMuted}
+                  multiline
+                  numberOfLines={2}
+                />
+              </>
+            )}
+
+            {/* Erro */}
+            {erro.length > 0 && (
+              <View style={styles.erroRow}>
+                <Ionicons name="alert-circle-outline" size={14} color={Colors.danger} />
+                <Text style={styles.erroText}>{erro}</Text>
+              </View>
+            )}
+
+            {/* Acções */}
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: config.color }]} onPress={handleSubmit}>
+                <Ionicons name="print-outline" size={16} color="#fff" />
+                <Text style={styles.submitBtnText}>Emitir</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── NOVO PROCESSO MODAL ─────────────────────────────────────────────────────
 function NovoProcessoModal({ visible, onClose, onSave }: {
   visible: boolean; onClose: () => void;
@@ -409,6 +615,9 @@ export default function SecretariaHubScreen() {
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [emitirEspecificoTipo, setEmitirEspecificoTipo] = useState<TipoDocEspecifico | null>(null);
+
+  function abrirDocEspecifico(t: TipoDocEspecifico) { setEmitirEspecificoTipo(t); }
   const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia'>('visao');
 
   const stats = useMemo(() => ({
@@ -439,7 +648,10 @@ export default function SecretariaHubScreen() {
   }
 
   const QUICK_ACTIONS = [
-    { label: 'Emitir\nDeclaração', icon: 'document-text', color: Colors.info, action: () => setShowEmitirModal(true) },
+    { label: 'Declaração\nSem Nota', icon: 'document-text-outline', color: Colors.info, action: () => abrirDocEspecifico('declaracao_sem_nota') },
+    { label: 'Certificado de\nHabilitações', icon: 'ribbon-outline', color: Colors.gold, action: () => abrirDocEspecifico('certificado_habilitacoes') },
+    { label: 'Declaração\nCom Nota', icon: 'document-attach-outline', color: Colors.success, action: () => abrirDocEspecifico('declaracao_com_nota') },
+    { label: 'Declaração de\nTransferência', icon: 'arrow-redo-outline', color: '#8B5CF6', action: () => abrirDocEspecifico('transferencia') },
     { label: 'Abrir\nProcesso', icon: 'folder-open', color: Colors.warning, action: () => setShowProcessoModal(true) },
     { label: 'Gestão\nde Alunos', icon: 'people', color: Colors.success, action: () => router.push('/(main)/alunos' as any) },
     { label: 'Registo\nde Presenças', icon: 'calendar-check', color: Colors.gold, action: () => router.push('/(main)/presencas' as any) },
@@ -726,6 +938,14 @@ export default function SecretariaHubScreen() {
         onEmit={handleEmitir}
         alunos={alunos}
       />
+      <EmitirDocEspecificoModal
+        visible={emitirEspecificoTipo !== null}
+        onClose={() => setEmitirEspecificoTipo(null)}
+        onEmit={handleEmitir}
+        tipo={emitirEspecificoTipo}
+        alunos={alunos}
+        turmas={turmas}
+      />
       <NovoProcessoModal
         visible={showProcessoModal}
         onClose={() => setShowProcessoModal(false)}
@@ -866,4 +1086,26 @@ const styles = StyleSheet.create({
   gestaoAcademicaSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.6)', marginTop: 3 },
   gestaoAcademicaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.gold + '30', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: Colors.gold + '50' },
   gestaoAcademicaBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold },
+
+  fieldHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 7, marginTop: -4 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 4 },
+
+  sugestoesBox: { backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 10, overflow: 'hidden' },
+  sugestaoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  sugestaoAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.info + '22', alignItems: 'center', justifyContent: 'center' },
+  sugestaoAvatarText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.info },
+  sugestaoNome: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  sugestaoMeta: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+
+  alunoCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1.5, padding: 12, marginBottom: 4 },
+  alunoCardAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  alunoCardAvatarText: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  alunoCardNome: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  alunoCardMeta: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  alunoCardCheck: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+
+  docEspIconWrap: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+
+  erroRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.danger + '30' },
+  erroText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger, flex: 1 },
 });
