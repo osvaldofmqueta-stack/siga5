@@ -184,6 +184,99 @@ const VARIABLE_EXAMPLE_MAP: Record<string, string> = (() => {
   return map;
 })();
 
+// ─── Rich Text Editor helpers ────────────────────────────────────────────────
+
+function isHtmlContent(s: string): boolean {
+  return s.trim().startsWith('<');
+}
+
+function plainTextToHtml(text: string): string {
+  if (!text) return '';
+  if (isHtmlContent(text)) return text;
+  return text.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('');
+}
+
+function stripHtmlTags(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
+
+function buildQuillSrcdoc(initialHtml: string): string {
+  const safeInitial = JSON.stringify(initialHtml);
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
+<style>
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%;overflow:hidden;background:#111827}
+  body{display:flex;flex-direction:column}
+  .ql-toolbar.ql-snow{background:#1a2540;border:none!important;border-bottom:1px solid #2d3a5a!important;flex-shrink:0;padding:6px 8px}
+  .ql-container.ql-snow{flex:1;border:none!important;overflow-y:auto}
+  .ql-editor{min-height:100%;color:#e2e8f0;font-size:14px;line-height:1.85;padding:20px 28px;font-family:'Times New Roman',serif}
+  .ql-editor.ql-blank::before{color:#4a5568;font-style:italic}
+  .ql-toolbar .ql-stroke{stroke:#94a3b8!important}
+  .ql-toolbar .ql-fill{fill:#94a3b8!important}
+  .ql-toolbar .ql-picker{color:#94a3b8}
+  .ql-toolbar .ql-picker-label{color:#94a3b8}
+  .ql-toolbar .ql-picker-options{background:#1a2540;border:1px solid #2d3a5a;color:#e2e8f0}
+  .ql-toolbar .ql-picker-item:hover,.ql-toolbar .ql-picker-item.ql-selected{color:#fff}
+  .ql-toolbar button:hover .ql-stroke,.ql-toolbar button.ql-active .ql-stroke{stroke:#fff!important}
+  .ql-toolbar button:hover .ql-fill,.ql-toolbar button.ql-active .ql-fill{fill:#fff!important}
+  .ql-snow.ql-toolbar button{border-radius:4px}
+  .ql-snow.ql-toolbar button:hover{background:rgba(255,255,255,0.1)}
+  .ql-snow .ql-tooltip{background:#1a2540;border:1px solid #2d3a5a;color:#e2e8f0;box-shadow:0 4px 16px rgba(0,0,0,0.4);border-radius:8px}
+  .ql-snow .ql-tooltip input[type=text]{background:#0d1530;border:1px solid #2d3a5a;color:#e2e8f0}
+  .ql-snow .ql-tooltip a{color:#60a5fa}
+  .ql-color-picker .ql-picker-options,.ql-background .ql-picker-options{background:#1a2540!important;border:1px solid #2d3a5a!important}
+  /* Tag variable styling */
+  .ql-editor .var-tag{background:#1d4ed822;color:#60a5fa;border-radius:3px;padding:1px 3px;font-family:monospace;font-size:12px}
+</style>
+</head>
+<body>
+<div id="editor"></div>
+<script>
+  var quill = new Quill('#editor', {
+    theme: 'snow',
+    placeholder: 'Escreva o conteúdo do documento aqui...\\n\\nClique numa variável no painel à direita para inserir dados automáticos.',
+    modules: {
+      toolbar: [
+        [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
+        ['bold', 'italic', 'underline', 'strike'],
+        [{ color: [] }, { background: [] }],
+        [{ align: [] }],
+        [{ list: 'ordered' }, { list: 'bullet' }],
+        [{ indent: '-1' }, { indent: '+1' }],
+        ['link', 'clean']
+      ]
+    }
+  });
+  var initial = ${safeInitial};
+  if (initial) { quill.root.innerHTML = initial; }
+  var timer;
+  quill.on('text-change', function() {
+    clearTimeout(timer);
+    timer = setTimeout(function() {
+      window.parent.postMessage({ type: 'ck_change', html: quill.root.innerHTML }, '*');
+    }, 350);
+  });
+  window.addEventListener('message', function(e) {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === 'ck_insert') {
+      var range = quill.getSelection(true);
+      var idx = range ? range.index : quill.getLength();
+      quill.insertText(idx, e.data.text, 'user');
+      quill.setSelection(idx + e.data.text.length, 0);
+      quill.focus();
+    }
+  });
+</script>
+</body>
+</html>`;
+}
+
 function genId() { return 'tpl_' + Date.now() + Math.random().toString(36).slice(2, 7); }
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -963,6 +1056,18 @@ export default function EditorDocumentos() {
   const [emitTrimestre, setEmitTrimestre] = useState<1 | 2 | 3>(1);
 
   const inputRef = useRef<TextInput>(null);
+  const quillIframeRef = useRef<any>(null);
+  const quillSrcdocRef = useRef<string>('');
+
+  // Listen for content changes from the Quill iframe (web only)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = (e: any) => {
+      if (e.data?.type === 'ck_change') setEditorContent(e.data.html);
+    };
+    (window as any).addEventListener('message', handler);
+    return () => (window as any).removeEventListener('message', handler);
+  }, []);
 
   // Load templates + seed defaults
   useEffect(() => {
@@ -1001,6 +1106,7 @@ export default function EditorDocumentos() {
     setEditorMarcaAgua(undefined);
     setShowVarsPanel(true);
     setShowAppearPanel(true);
+    if (Platform.OS === 'web') quillSrcdocRef.current = buildQuillSrcdoc('');
     setMode('editor');
   }
 
@@ -1013,6 +1119,7 @@ export default function EditorDocumentos() {
     setEditorMarcaAgua(t.marcaAguaBase64);
     setShowVarsPanel(true);
     setShowAppearPanel(true);
+    if (Platform.OS === 'web') quillSrcdocRef.current = buildQuillSrcdoc(plainTextToHtml(t.conteudo));
     setMode('editor');
   }
 
@@ -1168,7 +1275,7 @@ export default function EditorDocumentos() {
       <div class="doc-tipo">${template.nome}</div>
       <div class="doc-meta">Dados de exemplo — João Manuel Silva</div>
     </div>
-    <pre>${conteudo}</pre>
+    ${isHtmlContent(conteudo) ? `<div style="text-align:justify;line-height:1.9;font-family:'Times New Roman',serif;font-size:14px;">${conteudo}</div>` : `<pre>${conteudo}</pre>`}
     <div class="signature">
       <div style="font-size:13px;color:#444;">Luanda, ${dataActual}</div>
       <div class="sig-line"></div>
@@ -1395,6 +1502,10 @@ export default function EditorDocumentos() {
 
   // Insert variable into editor at cursor (web-aware)
   function insertVariable(tag: string) {
+    if (Platform.OS === 'web' && quillIframeRef.current) {
+      quillIframeRef.current.contentWindow?.postMessage({ type: 'ck_insert', text: tag }, '*');
+      return;
+    }
     if (Platform.OS === 'web') {
       const el = (inputRef.current as any)?._inputRef?.current as HTMLTextAreaElement | null
         || document.activeElement as HTMLTextAreaElement | null;
@@ -3417,7 +3528,7 @@ export default function EditorDocumentos() {
             <div class="doc-tipo">${emitTemplate?.nome || ''}</div>
             ${aluno ? `<div class="doc-meta">${aluno.nome} ${aluno.apelido}</div>` : ''}
           </div>
-          <pre>${emitPreview}</pre>
+          ${isHtmlContent(emitPreview) ? `<div style="text-align:justify;line-height:1.9;font-family:'Times New Roman',serif;font-size:14px;">${emitPreview}</div>` : `<pre>${emitPreview}</pre>`}
           <div class="signature">
             <div style="font-size:13px;color:#444;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
             <div class="sig-line"></div>
@@ -3702,18 +3813,26 @@ export default function EditorDocumentos() {
                 <Text style={styles.toggleVarsText}>{showVarsPanel ? 'Ocultar variáveis' : 'Ver variáveis'}</Text>
               </TouchableOpacity>
             </View>
-            <TextInput
-              ref={inputRef}
-              style={styles.editorTextInput}
-              value={editorContent}
-              onChangeText={setEditorContent}
-              multiline
-              textAlignVertical="top"
-              placeholder={`Escreva o conteúdo do documento aqui...\n\nUse as variáveis no painel ao lado para inserir dados automáticos.\n\nExemplo:\nEu, {{NOME_DIRECTOR}}, Director(a) da {{NOME_ESCOLA}}, declaro que {{NOME_COMPLETO}}, portador(a) do BI nº _______, filho(a) de _______ e _______, nascido(a) em {{DATA_NASCIMENTO}}, na província de {{PROVINCIA}}, está regularmente matriculado(a) na {{CLASSE}}, turma {{TURMA}}, no ano lectivo {{ANO_LECTIVO}}.\n\nLuanda, {{DATA_ACTUAL}}.`}
-              placeholderTextColor={Colors.textMuted}
-            />
+            {Platform.OS === 'web' ? (
+              React.createElement('iframe', {
+                ref: quillIframeRef,
+                srcDoc: quillSrcdocRef.current,
+                style: { flex: 1, border: 'none', width: '100%', minHeight: 480 },
+              } as any)
+            ) : (
+              <TextInput
+                ref={inputRef}
+                style={styles.editorTextInput}
+                value={editorContent}
+                onChangeText={setEditorContent}
+                multiline
+                textAlignVertical="top"
+                placeholder={`Escreva o conteúdo do documento aqui...\n\nUse as variáveis no painel ao lado para inserir dados automáticos.`}
+                placeholderTextColor={Colors.textMuted}
+              />
+            )}
             <View style={styles.editorStats}>
-              <Text style={styles.editorStatsText}>{editorContent.length} caracteres · {editorContent.split('\n').length} linhas</Text>
+              <Text style={styles.editorStatsText}>{stripHtmlTags(editorContent).length} caracteres</Text>
             </View>
           </View>
 
