@@ -368,7 +368,7 @@ export default function RegistroScreen() {
                   A sua solicitação será analisada exclusivamente por:
                 </Text>
                 <View style={styles.approvalRoles}>
-                  {['CEO', 'PCA', 'Administrador', 'Director'].map(role => (
+                  {['CEO', 'PCA', 'Administrador', 'Director', 'Chefe de Secretária'].map(role => (
                     <View key={role} style={styles.approvalRoleBadge}>
                       <Ionicons name="person-circle-outline" size={11} color={Colors.gold} />
                       <Text style={styles.approvalRoleText}>{role}</Text>
