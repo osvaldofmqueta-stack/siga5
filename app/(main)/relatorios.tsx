@@ -344,15 +344,36 @@ function gerarHTMLAprovacao(
 export default function RelatoriosScreen() {
   const { alunos, professores, turmas, notas, presencas } = useData();
   const { config } = useConfig();
-  const { anoAtivo } = useAnoAcademico();
+  const { anos, anoAtivo } = useAnoAcademico();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'geral' | 'notas' | 'presencas' | 'mapas'>('geral');
   const [periodo, setPeriodo] = useState<Periodo>('T1');
   const [tipoMapa, setTipoMapa] = useState<TipoMapa>('notas');
+  const [anoFiltroId, setAnoFiltroId] = useState<string | null>(null);
+  const [turmaFiltroId, setTurmaFiltroId] = useState<string>('todas');
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const nomeEscola = config?.nomeEscola ?? 'Escola';
   const anoLetivo = anoAtivo?.ano ?? String(new Date().getFullYear());
+
+  // Ano lectivo seleccionado nos Mapas (default = ano activo ou o mais recente)
+  const anoFiltro = useMemo(() => {
+    if (anoFiltroId) return anos.find(a => a.id === anoFiltroId) ?? null;
+    if (anoAtivo) return anoAtivo;
+    return anos[0] ?? null;
+  }, [anoFiltroId, anos, anoAtivo]);
+
+  // Turmas do ano lectivo filtrado
+  const turmasFiltroAno = useMemo(() => {
+    if (!anoFiltro) return turmas.filter(t => t.ativo);
+    return turmas.filter(t => t.anoLetivo === anoFiltro.ano && t.ativo);
+  }, [anoFiltro, turmas]);
+
+  // Turma(s) seleccionada(s)
+  const turmasFiltradas = useMemo(() => {
+    if (turmaFiltroId === 'todas') return turmasFiltroAno;
+    return turmasFiltroAno.filter(t => t.id === turmaFiltroId);
+  }, [turmaFiltroId, turmasFiltroAno]);
 
   const geralStats = useMemo(() => {
     const totalAlunos = alunos.filter(a => a.ativo).length;
@@ -409,31 +430,43 @@ export default function RelatoriosScreen() {
   // ── Mapas Stats (preview cards) ──────────────────────────────────────────
   const mapasStats = useMemo(() => {
     const trimestre = periodo === 'T1' ? 1 : periodo === 'T2' ? 2 : periodo === 'T3' ? 3 : null;
-    const filteredNotas = trimestre ? notas.filter(n => n.trimestre === trimestre) : notas;
+    const turmaIds = new Set(turmasFiltradas.map(t => t.id));
+    const alunosFiltrados = alunos.filter(a => turmaIds.has(a.turmaId) && a.ativo);
+    const alunoIds = new Set(alunosFiltrados.map(a => a.id));
 
-    const aprovados = filteredNotas.filter(n => n.mac >= 10).length;
-    const taxa = filteredNotas.length ? Math.round((aprovados / filteredNotas.length) * 100) : 0;
-    const media = filteredNotas.length
-      ? (filteredNotas.reduce((s, n) => s + n.mac, 0) / filteredNotas.length).toFixed(1)
+    const notasFiltradas = notas.filter(n =>
+      turmaIds.has(n.turmaId) && (trimestre ? n.trimestre === trimestre : true)
+    );
+
+    const aprovados = notasFiltradas.filter(n => n.mac >= 10).length;
+    const taxa = notasFiltradas.length ? Math.round((aprovados / notasFiltradas.length) * 100) : 0;
+    const media = notasFiltradas.length
+      ? (notasFiltradas.reduce((s, n) => s + n.mac, 0) / notasFiltradas.length).toFixed(1)
       : '—';
 
-    const presentes = presencas.filter(p => p.status === 'P').length;
-    const taxaPresenca = presencas.length ? Math.round((presentes / presencas.length) * 100) : 0;
+    const presencasFiltradas = presencas.filter(p => alunoIds.has(p.alunoId));
+    const presentes = presencasFiltradas.filter(p => p.status === 'P').length;
+    const taxaPresenca = presencasFiltradas.length
+      ? Math.round((presentes / presencasFiltradas.length) * 100)
+      : 0;
 
-    const turmesComAlunos = turmas.filter(t => alunos.some(a => a.turmaId === t.id && a.ativo)).length;
-
-    return { taxa, media, taxaPresenca, turmesComAlunos, totalAlunos: alunos.filter(a => a.ativo).length };
-  }, [periodo, notas, presencas, turmas, alunos]);
+    return {
+      taxa, media, taxaPresenca,
+      totalAlunos: alunosFiltrados.length,
+      totalTurmas: turmasFiltradas.length,
+      totalNotas: notasFiltradas.length,
+    };
+  }, [periodo, notas, presencas, turmasFiltradas, alunos]);
 
   const handlePrint = () => {
     if (Platform.OS !== 'web') return;
-    const turmasAtivas = turmas.filter(t => t.ativo);
+    const anoImpresso = anoFiltro?.ano ?? anoLetivo;
     if (tipoMapa === 'notas') {
-      printHTML(gerarHTMLNotas(periodo, turmasAtivas, alunos, notas, nomeEscola, anoLetivo));
+      printHTML(gerarHTMLNotas(periodo, turmasFiltradas, alunos, notas, nomeEscola, anoImpresso));
     } else if (tipoMapa === 'presencas') {
-      printHTML(gerarHTMLPresencas(periodo, turmasAtivas, alunos, presencas, nomeEscola, anoLetivo));
+      printHTML(gerarHTMLPresencas(periodo, turmasFiltradas, alunos, presencas, nomeEscola, anoImpresso));
     } else {
-      printHTML(gerarHTMLAprovacao(periodo, turmasAtivas, alunos, notas, nomeEscola, anoLetivo));
+      printHTML(gerarHTMLAprovacao(periodo, turmasFiltradas, alunos, notas, nomeEscola, anoImpresso));
     }
   };
 
@@ -555,12 +588,60 @@ export default function RelatoriosScreen() {
     { key: 'aprovacao', label: 'Mapa de Aprovação', icon: 'ribbon', desc: 'Aprovados e reprovados por turma', color: Colors.success },
   ];
 
+  const tipoAtual = TIPOS_MAPA.find(t => t.key === tipoMapa)!;
+
+  // Linha-resumo do que vai ser impresso
+  const descFiltro = [
+    anoFiltro?.ano ?? 'Todos os anos',
+    periodo,
+    turmaFiltroId === 'todas'
+      ? `${turmasFiltroAno.length} turma(s)`
+      : turmasFiltroAno.find(t => t.id === turmaFiltroId)?.nome ?? 'Turma',
+  ].join(' · ');
+
   const renderMapas = () => (
     <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
 
-      {/* Período Selector */}
-      <View style={styles.mapSection}>
-        <Text style={styles.mapSectionTitle}>Período</Text>
+      {/* ── FILTROS ─────────────────────────────────────────── */}
+      <View style={styles.filtrosCard}>
+        <View style={styles.filtrosHeader}>
+          <Ionicons name="funnel" size={16} color={Colors.gold} />
+          <Text style={styles.filtrosTitle}>Filtros do Mapa</Text>
+        </View>
+
+        {/* 1 – Ano Lectivo */}
+        <Text style={styles.filtroLabel}>Ano Lectivo</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtroScroll}>
+          <View style={styles.filtroRow}>
+            {anos.length === 0 && (
+              <View style={[styles.filtroChip, styles.filtroChipDisabled]}>
+                <Text style={styles.filtroChipText}>Nenhum ano configurado</Text>
+              </View>
+            )}
+            {anos.map(a => {
+              const sel = anoFiltro?.id === a.id;
+              return (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.filtroChip, sel && styles.filtroChipActive]}
+                  onPress={() => {
+                    setAnoFiltroId(a.id);
+                    setTurmaFiltroId('todas');
+                  }}
+                >
+                  {a.ativo && <View style={styles.filtroActiveDot} />}
+                  <Text style={[styles.filtroChipText, sel && styles.filtroChipTextActive]}>
+                    {a.ano}
+                  </Text>
+                  {a.ativo && <Text style={styles.filtroActiveTag}>Activo</Text>}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+
+        {/* 2 – Trimestre */}
+        <Text style={[styles.filtroLabel, { marginTop: 14 }]}>Trimestre / Período</Text>
         <View style={styles.periodoRow}>
           {PERIODOS.map(p => (
             <TouchableOpacity
@@ -572,9 +653,47 @@ export default function RelatoriosScreen() {
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* 3 – Turma / Curso */}
+        <Text style={[styles.filtroLabel, { marginTop: 14 }]}>Turma / Curso</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtroScroll}>
+          <View style={styles.filtroRow}>
+            <TouchableOpacity
+              style={[styles.filtroChip, turmaFiltroId === 'todas' && styles.filtroChipActive]}
+              onPress={() => setTurmaFiltroId('todas')}
+            >
+              <Ionicons name="grid" size={13} color={turmaFiltroId === 'todas' ? Colors.text : Colors.textMuted} />
+              <Text style={[styles.filtroChipText, turmaFiltroId === 'todas' && styles.filtroChipTextActive]}>
+                Todas ({turmasFiltroAno.length})
+              </Text>
+            </TouchableOpacity>
+            {turmasFiltroAno.map(t => {
+              const sel = turmaFiltroId === t.id;
+              return (
+                <TouchableOpacity
+                  key={t.id}
+                  style={[styles.filtroChip, sel && { ...styles.filtroChipActive, backgroundColor: Colors.info }]}
+                  onPress={() => setTurmaFiltroId(t.id)}
+                >
+                  <Text style={[styles.filtroChipText, sel && styles.filtroChipTextActive]}>
+                    {t.nome}
+                  </Text>
+                  <Text style={[styles.filtroChipSub, sel && { color: 'rgba(255,255,255,0.7)' }]}>
+                    {t.classe} · {t.turno}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            {turmasFiltroAno.length === 0 && (
+              <View style={[styles.filtroChip, styles.filtroChipDisabled]}>
+                <Text style={styles.filtroChipText}>Sem turmas para este ano</Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
       </View>
 
-      {/* Tipo de Mapa Selector */}
+      {/* ── TIPO DE MAPA ─────────────────────────────────────── */}
       <View style={styles.mapSection}>
         <Text style={styles.mapSectionTitle}>Tipo de Mapa</Text>
         <View style={styles.tiposGrid}>
@@ -602,79 +721,87 @@ export default function RelatoriosScreen() {
         </View>
       </View>
 
-      {/* Summary Cards */}
-      <View style={styles.mapSection}>
-        <Text style={styles.mapSectionTitle}>Resumo — {periodo}</Text>
-        <View style={styles.metricsGrid}>
-          <MetricCard
-            label="Total de Alunos"
-            value={mapasStats.totalAlunos}
-            color={Colors.info}
-            icon={<Ionicons name="people" size={20} color={Colors.info} />}
-          />
-          <MetricCard
-            label="Turmas com Dados"
-            value={mapasStats.turmesComAlunos}
-            color={Colors.gold}
-            icon={<Ionicons name="library" size={20} color={Colors.gold} />}
-          />
-          {tipoMapa !== 'presencas' && (
-            <>
-              <MetricCard
-                label="Taxa de Aprovação"
-                value={`${mapasStats.taxa}%`}
-                color={Colors.success}
-                icon={<Ionicons name="checkmark-circle" size={20} color={Colors.success} />}
-                desc={periodo}
-              />
-              <MetricCard
-                label="Média Geral"
-                value={`${mapasStats.media}/20`}
-                color={Colors.warning}
-                icon={<Ionicons name="stats-chart" size={20} color={Colors.warning} />}
-                desc={periodo}
-              />
-            </>
-          )}
-          {tipoMapa === 'presencas' && (
-            <MetricCard
-              label="Taxa de Presença"
-              value={`${mapasStats.taxaPresenca}%`}
-              color={Colors.success}
-              icon={<Ionicons name="calendar" size={20} color={Colors.success} />}
-            />
-          )}
-        </View>
+      {/* ── RESUMO DOS FILTROS ───────────────────────────────── */}
+      <View style={styles.resumoFiltroCard}>
+        <Ionicons name="information-circle" size={16} color={Colors.gold} />
+        <Text style={styles.resumoFiltroText}>
+          <Text style={{ color: Colors.gold, fontFamily: 'Inter_700Bold' }}>{tipoAtual.label}</Text>
+          {'  ·  '}{descFiltro}
+        </Text>
       </View>
 
-      {/* Turmas Preview */}
+      {/* ── MÉTRICAS ─────────────────────────────────────────── */}
+      <View style={styles.metricsGrid}>
+        <MetricCard
+          label="Total de Alunos"
+          value={mapasStats.totalAlunos}
+          color={Colors.info}
+          icon={<Ionicons name="people" size={20} color={Colors.info} />}
+          desc={descFiltro}
+        />
+        <MetricCard
+          label="Turmas"
+          value={mapasStats.totalTurmas}
+          color={Colors.gold}
+          icon={<Ionicons name="library" size={20} color={Colors.gold} />}
+        />
+        {tipoMapa !== 'presencas' && (
+          <>
+            <MetricCard
+              label="Taxa de Aprovação"
+              value={`${mapasStats.taxa}%`}
+              color={Colors.success}
+              icon={<Ionicons name="checkmark-circle" size={20} color={Colors.success} />}
+              desc={periodo}
+            />
+            <MetricCard
+              label="Média Geral"
+              value={`${mapasStats.media}/20`}
+              color={Colors.warning}
+              icon={<Ionicons name="stats-chart" size={20} color={Colors.warning} />}
+              desc={periodo}
+            />
+          </>
+        )}
+        {tipoMapa === 'presencas' && (
+          <MetricCard
+            label="Taxa de Presença"
+            value={`${mapasStats.taxaPresenca}%`}
+            color={Colors.success}
+            icon={<Ionicons name="calendar" size={20} color={Colors.success} />}
+          />
+        )}
+      </View>
+
+      {/* ── TURMAS INCLUÍDAS ─────────────────────────────────── */}
       <View style={styles.mapSection}>
-        <Text style={styles.mapSectionTitle}>Turmas Incluídas no Mapa</Text>
-        {turmas.filter(t => t.ativo && alunos.some(a => a.turmaId === t.id && a.ativo)).map(turma => {
+        <Text style={styles.mapSectionTitle}>Turmas no Mapa ({turmasFiltradas.length})</Text>
+        {turmasFiltradas.map(turma => {
           const count = alunos.filter(a => a.turmaId === turma.id && a.ativo).length;
-          const trimestre = periodo === 'T1' ? 1 : periodo === 'T2' ? 2 : periodo === 'T3' ? 3 : null;
-          const turmaNotas = trimestre
-            ? notas.filter(n => alunos.find(a => a.id === n.alunoId && a.turmaId === turma.id) && n.trimestre === trimestre)
-            : notas.filter(n => alunos.find(a => a.id === n.alunoId && a.turmaId === turma.id));
+          const trNum = periodo === 'T1' ? 1 : periodo === 'T2' ? 2 : periodo === 'T3' ? 3 : null;
+          const turmaNotas = notas.filter(n =>
+            n.turmaId === turma.id && (trNum ? n.trimestre === trNum : true)
+          );
           const aprovados = tipoMapa !== 'presencas'
             ? turmaNotas.filter(n => n.mac >= 10).length
-            : presencas.filter(p => alunos.find(a => a.id === p.alunoId && a.turmaId === turma.id) && p.status === 'P').length;
+            : presencas.filter(p =>
+                alunos.find(a => a.id === p.alunoId && a.turmaId === turma.id) && p.status === 'P'
+              ).length;
+          const cor = tipoMapa === 'presencas' ? Colors.gold : Colors.success;
 
           return (
             <View key={turma.id} style={styles.turmaPreviewCard}>
-              <View style={styles.turmaPreviewLeft}>
-                <View style={[styles.turmaBadge, { backgroundColor: Colors.info + '20' }]}>
-                  <Ionicons name="library" size={16} color={Colors.info} />
-                </View>
-                <View>
-                  <Text style={styles.turmaNome}>{turma.nome}</Text>
-                  <Text style={styles.turmaInfo}>Classe {turma.classe} · {turma.nivel} · {count} alunos</Text>
-                </View>
+              <View style={[styles.turmaBadge, { backgroundColor: cor + '20' }]}>
+                <Ionicons name="library" size={16} color={cor} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.turmaNome}>{turma.nome}</Text>
+                <Text style={styles.turmaInfo}>
+                  Classe {turma.classe} · {turma.nivel} · {turma.turno} · {count} alunos
+                </Text>
               </View>
               <View style={styles.turmaPreviewRight}>
-                <Text style={[styles.turmaAprov, { color: tipoMapa !== 'presencas' ? Colors.success : Colors.info }]}>
-                  {aprovados}
-                </Text>
+                <Text style={[styles.turmaAprov, { color: cor }]}>{aprovados}</Text>
                 <Text style={styles.turmaAprovLabel}>
                   {tipoMapa === 'presencas' ? 'presenças' : 'aprovados'}
                 </Text>
@@ -682,21 +809,23 @@ export default function RelatoriosScreen() {
             </View>
           );
         })}
-        {turmas.filter(t => t.ativo && alunos.some(a => a.turmaId === t.id && a.ativo)).length === 0 && (
+        {turmasFiltradas.length === 0 && (
           <View style={styles.empty}>
             <Ionicons name="folder-open-outline" size={32} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>Sem turmas com alunos activos.</Text>
+            <Text style={styles.emptyText}>Nenhuma turma corresponde aos filtros.</Text>
+            <Text style={styles.emptySubtext}>Selecciona um ano lectivo diferente ou verifica as turmas.</Text>
           </View>
         )}
       </View>
 
-      {/* Print Button */}
-      {Platform.OS === 'web' && (
+      {/* ── BOTÃO IMPRIMIR ───────────────────────────────────── */}
+      {Platform.OS === 'web' && turmasFiltradas.length > 0 && (
         <TouchableOpacity style={styles.printBtn} onPress={handlePrint} activeOpacity={0.8}>
           <Ionicons name="print" size={20} color="#fff" />
-          <Text style={styles.printBtnText}>
-            Imprimir / Exportar — {TIPOS_MAPA.find(t => t.key === tipoMapa)?.label} ({periodo})
-          </Text>
+          <View>
+            <Text style={styles.printBtnText}>Imprimir / Exportar PDF</Text>
+            <Text style={styles.printBtnSub}>{tipoAtual.label} · {descFiltro}</Text>
+          </View>
         </TouchableOpacity>
       )}
 
@@ -784,11 +913,31 @@ const styles = StyleSheet.create({
   // Mapas styles
   mapSection: { gap: 10 },
   mapSectionTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 1 },
+  // Filtros card
+  filtrosCard: { backgroundColor: Colors.backgroundCard, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 8 },
+  filtrosHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  filtrosTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  filtroLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 },
+  filtroScroll: { flexGrow: 0 },
+  filtroRow: { flexDirection: 'row', gap: 8, paddingVertical: 4 },
+  filtroChip: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border },
+  filtroChipActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  filtroChipDisabled: { opacity: 0.5 },
+  filtroChipText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  filtroChipTextActive: { color: Colors.text },
+  filtroChipSub: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  filtroActiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.success },
+  filtroActiveTag: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.success },
+  // Resumo filtro
+  resumoFiltroCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.surface, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.gold + '40' },
+  resumoFiltroText: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, lineHeight: 18 },
+  // Período
   periodoRow: { flexDirection: 'row', gap: 8 },
-  periodoBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border },
+  periodoBtn: { flex: 1, paddingVertical: 10, borderRadius: 12, alignItems: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   periodoBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   periodoBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
   periodoBtnTextActive: { color: Colors.text },
+  // Tipos
   tiposGrid: { gap: 10 },
   tipoCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
   tipoIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
@@ -796,6 +945,7 @@ const styles = StyleSheet.create({
   tipoLabel: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
   tipoDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   tipoCheck: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  // Turmas preview
   turmaPreviewCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, gap: 12 },
   turmaPreviewLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
   turmaBadge: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -804,6 +954,8 @@ const styles = StyleSheet.create({
   turmaPreviewRight: { alignItems: 'flex-end' },
   turmaAprov: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   turmaAprovLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
-  printBtn: { backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 8 },
+  // Print button
+  printBtn: { backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 8 },
   printBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+  printBtnSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.75)', marginTop: 2 },
 });
