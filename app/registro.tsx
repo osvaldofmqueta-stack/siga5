@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Platform, KeyboardAvoidingView,
+  TextInput, Alert, Platform, KeyboardAvoidingView, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,7 +9,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
-import { useRegistro } from '@/context/RegistroContext';
 import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 
@@ -20,12 +19,20 @@ const CLASSES_POR_NIVEL: Record<string, string[]> = {
   'II Ciclo': ['10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'],
 };
 
+const STEP_LABELS = ['Dados Pessoais', 'Contacto', 'Escolaridade'];
+
 interface FormData {
   nomeCompleto: string;
   dataNascimento: string;
   genero: 'M' | 'F';
   provincia: string;
   municipio: string;
+  telefone: string;
+  email: string;
+  endereco: string;
+  bairro: string;
+  numeroBi: string;
+  numeroCedula: string;
   nivel: string;
   classe: string;
   nomeEncarregado: string;
@@ -34,10 +41,10 @@ interface FormData {
 }
 
 function InputField({
-  label, value, onChangeText, placeholder, required, keyboardType, multiline, hint,
+  label, value, onChangeText, placeholder, required, keyboardType, multiline, hint, autoCapitalize,
 }: {
   label: string; value: string; onChangeText: (v: string) => void;
-  placeholder?: string; required?: boolean; keyboardType?: any; multiline?: boolean; hint?: string;
+  placeholder?: string; required?: boolean; keyboardType?: any; multiline?: boolean; hint?: string; autoCapitalize?: any;
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -55,7 +62,7 @@ function InputField({
           placeholder={placeholder}
           placeholderTextColor={Colors.textMuted}
           keyboardType={keyboardType || 'default'}
-          autoCapitalize="words"
+          autoCapitalize={autoCapitalize ?? 'words'}
           multiline={multiline}
           numberOfLines={multiline ? 4 : 1}
           onFocus={() => setFocused(true)}
@@ -98,12 +105,65 @@ function ChipSelector({
   );
 }
 
+function CredenciaisModal({ visible, dados, onClose }: {
+  visible: boolean;
+  dados: { nomeCompleto: string; email: string; senha: string } | null;
+  onClose: () => void;
+}) {
+  if (!dados) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={credStyles.overlay}>
+        <View style={credStyles.container}>
+          <View style={credStyles.iconCircle}>
+            <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+          </View>
+          <Text style={credStyles.title}>Inscrição Enviada!</Text>
+          <Text style={credStyles.subtitle}>
+            Guarde as suas credenciais de acesso à conta provisória. Serão necessárias para acompanhar o processo.
+          </Text>
+
+          <View style={credStyles.box}>
+            <View style={credStyles.row}>
+              <Ionicons name="mail-outline" size={15} color={Colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={credStyles.rowLabel}>Email de Acesso</Text>
+                <Text style={credStyles.rowValue}>{dados.email}</Text>
+              </View>
+            </View>
+            <View style={credStyles.divider} />
+            <View style={credStyles.row}>
+              <Ionicons name="lock-closed-outline" size={15} color={Colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={credStyles.rowLabel}>Senha Provisória</Text>
+                <Text style={credStyles.rowValue}>{dados.senha}</Text>
+              </View>
+            </View>
+          </View>
+
+          <View style={credStyles.notice}>
+            <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
+            <Text style={credStyles.noticeText}>
+              A senha é gerada a partir do seu apelido e ano de nascimento. Guarde num local seguro.
+            </Text>
+          </View>
+
+          <TouchableOpacity style={credStyles.btn} onPress={onClose}>
+            <Text style={credStyles.btnText}>Ir para o Login Provisório</Text>
+            <Ionicons name="arrow-forward" size={16} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function RegistroScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { submeterSolicitacao } = useRegistro();
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string } | null>(null);
 
   const [form, setForm] = useState<FormData>({
     nomeCompleto: '',
@@ -111,6 +171,12 @@ export default function RegistroScreen() {
     genero: 'M',
     provincia: '',
     municipio: '',
+    telefone: '',
+    email: '',
+    endereco: '',
+    bairro: '',
+    numeroBi: '',
+    numeroCedula: '',
     nivel: '',
     classe: '',
     nomeEncarregado: '',
@@ -121,66 +187,72 @@ export default function RegistroScreen() {
   const set = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
 
   function validateStep1() {
-    if (!form.nomeCompleto.trim()) {
-      Alert.alert('Campo obrigatório', 'Introduza o nome completo do estudante.');
-      return false;
-    }
-    if (!form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      Alert.alert('Data inválida', 'Introduza a data no formato AAAA-MM-DD.\nExemplo: 2010-05-15');
-      return false;
-    }
-    if (!form.provincia) {
-      Alert.alert('Campo obrigatório', 'Seleccione a província.');
-      return false;
-    }
+    if (!form.nomeCompleto.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome completo.'); return false; }
+    if (!form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) { Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD.\nEx: 2010-05-15'); return false; }
+    if (!form.provincia) { Alert.alert('Campo obrigatório', 'Seleccione a província.'); return false; }
+    if (!form.municipio) { Alert.alert('Campo obrigatório', 'Seleccione o município.'); return false; }
     return true;
   }
 
   function validateStep2() {
-    if (!form.nivel) {
-      Alert.alert('Campo obrigatório', 'Seleccione o nível de ensino.');
-      return false;
-    }
-    if (!form.classe) {
-      Alert.alert('Campo obrigatório', 'Seleccione a classe.');
-      return false;
-    }
-    if (!form.nomeEncarregado.trim()) {
-      Alert.alert('Campo obrigatório', 'Introduza o nome do encarregado de educação.');
-      return false;
-    }
-    if (!form.telefoneEncarregado.trim()) {
-      Alert.alert('Campo obrigatório', 'Introduza o contacto do encarregado.');
-      return false;
-    }
+    if (!form.telefone.trim()) { Alert.alert('Campo obrigatório', 'Introduza o número de telefone.'); return false; }
+    if (!form.email.trim()) { Alert.alert('Campo obrigatório', 'Introduza o email de contacto.'); return false; }
+    if (!form.email.includes('@')) { Alert.alert('Email inválido', 'Introduza um email válido.'); return false; }
     return true;
   }
 
+  function validateStep3() {
+    if (!form.nivel) { Alert.alert('Campo obrigatório', 'Seleccione o nível de ensino.'); return false; }
+    if (!form.classe) { Alert.alert('Campo obrigatório', 'Seleccione a classe.'); return false; }
+    if (!form.nomeEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do encarregado.'); return false; }
+    if (!form.telefoneEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o contacto do encarregado.'); return false; }
+    return true;
+  }
+
+  function handleNext() {
+    if (step === 1 && validateStep1()) setStep(2);
+    else if (step === 2 && validateStep2()) setStep(3);
+    else if (step === 3) handleSubmit();
+  }
+
   async function handleSubmit() {
-    if (!validateStep2()) return;
+    if (!validateStep3()) return;
     setIsLoading(true);
     try {
       if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await submeterSolicitacao({
-        nomeCompleto: form.nomeCompleto.trim(),
-        dataNascimento: form.dataNascimento.trim(),
-        genero: form.genero,
-        provincia: form.provincia,
-        municipio: form.municipio.trim(),
-        nivel: form.nivel,
-        classe: form.classe,
-        nomeEncarregado: form.nomeEncarregado.trim(),
-        telefoneEncarregado: form.telefoneEncarregado.trim(),
-        observacoes: form.observacoes.trim(),
+      const res = await fetch('/api/registros', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nomeCompleto: form.nomeCompleto.trim(),
+          dataNascimento: form.dataNascimento.trim(),
+          genero: form.genero,
+          provincia: form.provincia,
+          municipio: form.municipio,
+          telefone: form.telefone.trim(),
+          email: form.email.trim().toLowerCase(),
+          endereco: form.endereco.trim(),
+          bairro: form.bairro.trim(),
+          numeroBi: form.numeroBi.trim(),
+          numeroCedula: form.numeroCedula.trim(),
+          nivel: form.nivel,
+          classe: form.classe,
+          nomeEncarregado: form.nomeEncarregado.trim(),
+          telefoneEncarregado: form.telefoneEncarregado.trim(),
+          observacoes: form.observacoes.trim(),
+          status: 'pendente',
+        }),
       });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
       if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert(
-        'Solicitação Enviada com Sucesso',
-        'A sua solicitação de matrícula foi registada no sistema.\n\nSerá analisada pela direcção escolar e receberá uma resposta através do encarregado de educação.',
-        [{ text: 'Voltar ao Início', onPress: () => router.replace('/login') }]
-      );
-    } catch {
-      Alert.alert('Erro', 'Não foi possível enviar a solicitação. Tente novamente.');
+      setCredenciais({
+        nomeCompleto: data.nomeCompleto,
+        email: data.email,
+        senha: data.senhaProvisoria || '',
+      });
+    } catch (e: any) {
+      Alert.alert('Erro', e.message || 'Não foi possível enviar. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -204,25 +276,23 @@ export default function RegistroScreen() {
         </View>
 
         <View style={styles.stepsContainer}>
-          <View style={styles.stepConnector}>
-            <View style={[styles.stepConnectorLine, step > 1 && styles.stepConnectorLineDone]} />
-          </View>
-          {[1, 2].map(s => (
-            <View key={s} style={styles.stepItem}>
-              <View style={[
-                styles.stepCircle,
-                step === s && styles.stepCircleActive,
-                step > s && styles.stepCircleDone,
-              ]}>
-                {step > s
-                  ? <Ionicons name="checkmark" size={13} color="#fff" />
-                  : <Text style={[styles.stepNum, step === s && styles.stepNumActive]}>{s}</Text>
-                }
+          {[1, 2, 3].map((s, idx) => (
+            <React.Fragment key={s}>
+              {idx > 0 && (
+                <View style={[styles.stepLine, step > idx && styles.stepLineDone]} />
+              )}
+              <View style={styles.stepItem}>
+                <View style={[styles.stepCircle, step === s && styles.stepCircleActive, step > s && styles.stepCircleDone]}>
+                  {step > s
+                    ? <Ionicons name="checkmark" size={12} color="#fff" />
+                    : <Text style={[styles.stepNum, step === s && styles.stepNumActive]}>{s}</Text>
+                  }
+                </View>
+                <Text style={[styles.stepLabel, step >= s && styles.stepLabelActive]} numberOfLines={1}>
+                  {STEP_LABELS[s - 1]}
+                </Text>
               </View>
-              <Text style={[styles.stepLabel, step >= s && styles.stepLabelActive]}>
-                {s === 1 ? 'Dados Pessoais' : 'Escolaridade'}
-              </Text>
-            </View>
+            </React.Fragment>
           ))}
         </View>
       </LinearGradient>
@@ -234,6 +304,8 @@ export default function RegistroScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+
+          {/* ── STEP 1: Dados Pessoais ─── */}
           {step === 1 && (
             <View style={styles.stepCard}>
               <View style={styles.stepCardHead}>
@@ -243,27 +315,9 @@ export default function RegistroScreen() {
                 <Text style={styles.stepCardTitle}>Dados do Estudante</Text>
               </View>
 
-              <InputField
-                label="Nome Completo"
-                value={form.nomeCompleto}
-                onChangeText={v => set('nomeCompleto', v)}
-                placeholder="Nome completo do estudante"
-                required
-              />
-              <DatePickerField
-                label="Data de Nascimento"
-                value={form.dataNascimento}
-                onChange={v => set('dataNascimento', v)}
-                required
-              />
-
-              <ChipSelector
-                label="Género"
-                options={['M', 'F']}
-                value={form.genero}
-                onSelect={v => set('genero', v)}
-                required
-              />
+              <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => set('nomeCompleto', v)} placeholder="Nome completo do estudante" required />
+              <DatePickerField label="Data de Nascimento" value={form.dataNascimento} onChange={v => set('dataNascimento', v)} required />
+              <ChipSelector label="Género" options={['M', 'F']} value={form.genero} onSelect={v => set('genero', v)} required />
 
               <ProvinciaMunicipioSelector
                 provinciaValue={form.provincia}
@@ -275,13 +329,50 @@ export default function RegistroScreen() {
             </View>
           )}
 
+          {/* ── STEP 2: Contacto & Identificação ─── */}
           {step === 2 && (
+            <View style={styles.stepCard}>
+              <View style={styles.stepCardHead}>
+                <View style={[styles.stepCardIcon, { backgroundColor: 'rgba(240,165,0,0.12)' }]}>
+                  <Ionicons name="call-outline" size={16} color={Colors.gold} />
+                </View>
+                <Text style={styles.stepCardTitle}>Contacto & Identificação</Text>
+              </View>
+
+              <View style={styles.sectionLabel}>
+                <Ionicons name="call-outline" size={12} color={Colors.textMuted} />
+                <Text style={styles.sectionLabelText}>Contacto</Text>
+              </View>
+
+              <InputField label="Telefone" value={form.telefone} onChangeText={v => set('telefone', v)} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" />
+              <InputField label="Email" value={form.email} onChangeText={v => set('email', v)} placeholder="email@exemplo.ao" required keyboardType="email-address" autoCapitalize="none" hint="Será usado para aceder à conta provisória" />
+
+              <View style={styles.sectionLabel}>
+                <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                <Text style={styles.sectionLabelText}>Localização</Text>
+              </View>
+
+              <InputField label="Endereço" value={form.endereco} onChangeText={v => set('endereco', v)} placeholder="Rua, número, bloco..." />
+              <InputField label="Bairro" value={form.bairro} onChangeText={v => set('bairro', v)} placeholder="Ex: Bairro Miramar, Rangel..." />
+
+              <View style={styles.sectionLabel}>
+                <Ionicons name="card-outline" size={12} color={Colors.textMuted} />
+                <Text style={styles.sectionLabelText}>Identificação Oficial</Text>
+              </View>
+
+              <InputField label="Número do BI" value={form.numeroBi} onChangeText={v => set('numeroBi', v)} placeholder="Ex: 004123456LA042" autoCapitalize="characters" />
+              <InputField label="Número da Cédula" value={form.numeroCedula} onChangeText={v => set('numeroCedula', v)} placeholder="Ex: 12345678" autoCapitalize="none" />
+            </View>
+          )}
+
+          {/* ── STEP 3: Escolaridade & Encarregado ─── */}
+          {step === 3 && (
             <View style={styles.stepCard}>
               <View style={styles.stepCardHead}>
                 <View style={[styles.stepCardIcon, { backgroundColor: 'rgba(240,165,0,0.12)' }]}>
                   <Ionicons name="school-outline" size={16} color={Colors.gold} />
                 </View>
-                <Text style={styles.stepCardTitle}>Dados Escolares & Encarregado</Text>
+                <Text style={styles.stepCardTitle}>Escolaridade & Encarregado</Text>
               </View>
 
               <ChipSelector
@@ -293,62 +384,34 @@ export default function RegistroScreen() {
               />
 
               {classeOptions.length > 0 && (
-                <ChipSelector
-                  label="Classe"
-                  options={classeOptions}
-                  value={form.classe}
-                  onSelect={v => set('classe', v)}
-                  required
-                />
+                <ChipSelector label="Classe" options={classeOptions} value={form.classe} onSelect={v => set('classe', v)} required />
               )}
 
-              <View style={styles.sectionDivider}>
-                <Ionicons name="people-outline" size={13} color={Colors.textMuted} />
-                <Text style={styles.sectionDividerText}>Encarregado de Educação</Text>
+              <View style={styles.sectionLabel}>
+                <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
+                <Text style={styles.sectionLabelText}>Encarregado de Educação</Text>
               </View>
 
-              <InputField
-                label="Nome do Encarregado"
-                value={form.nomeEncarregado}
-                onChangeText={v => set('nomeEncarregado', v)}
-                placeholder="Nome completo do encarregado"
-                required
-              />
-              <InputField
-                label="Telefone de Contacto"
-                value={form.telefoneEncarregado}
-                onChangeText={v => set('telefoneEncarregado', v)}
-                placeholder="+244 9XX XXX XXX"
-                required
-                keyboardType="phone-pad"
-              />
-              <InputField
-                label="Observações Adicionais"
-                value={form.observacoes}
-                onChangeText={v => set('observacoes', v)}
-                placeholder="Necessidades especiais, transferência de outra escola, etc..."
-                multiline
-              />
+              <InputField label="Nome do Encarregado" value={form.nomeEncarregado} onChangeText={v => set('nomeEncarregado', v)} placeholder="Nome completo do encarregado" required />
+              <InputField label="Telefone de Contacto" value={form.telefoneEncarregado} onChangeText={v => set('telefoneEncarregado', v)} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" />
+              <InputField label="Observações Adicionais" value={form.observacoes} onChangeText={v => set('observacoes', v)} placeholder="Necessidades especiais, transferência, etc..." multiline />
 
               <View style={styles.approvalNotice}>
                 <View style={styles.approvalNoticeHeader}>
                   <Ionicons name="shield-checkmark-outline" size={15} color={Colors.gold} />
-                  <Text style={styles.approvalNoticeTitle}>Processo de Aprovação</Text>
+                  <Text style={styles.approvalNoticeTitle}>Processo de Admissão</Text>
                 </View>
                 <Text style={styles.approvalNoticeText}>
-                  A sua solicitação será analisada exclusivamente por:
+                  Após submissão receberá credenciais de acesso provisório para acompanhar o processo de admissão:
                 </Text>
-                <View style={styles.approvalRoles}>
-                  {['CEO', 'PCA', 'Administrador', 'Director', 'Chefe de Secretária'].map(role => (
-                    <View key={role} style={styles.approvalRoleBadge}>
-                      <Ionicons name="person-circle-outline" size={11} color={Colors.gold} />
-                      <Text style={styles.approvalRoleText}>{role}</Text>
+                <View style={styles.approvalSteps}>
+                  {['Análise da inscrição', 'Exame de admissão', 'Publicação de resultados', 'Completar matrícula'].map((s, i) => (
+                    <View key={i} style={styles.approvalStep}>
+                      <View style={styles.approvalStepNum}><Text style={styles.approvalStepNumText}>{i + 1}</Text></View>
+                      <Text style={styles.approvalStepText}>{s}</Text>
                     </View>
                   ))}
                 </View>
-                <Text style={styles.approvalNoticeFooter}>
-                  Após aprovação, receberá as credenciais de acesso via encarregado de educação.
-                </Text>
               </View>
             </View>
           )}
@@ -364,15 +427,12 @@ export default function RegistroScreen() {
             )}
             <TouchableOpacity
               style={[styles.nextBtn, isLoading && styles.nextBtnDisabled]}
-              onPress={() => step === 1 ? (validateStep1() && setStep(2)) : handleSubmit()}
+              onPress={handleNext}
               disabled={isLoading}
               activeOpacity={0.88}
             >
               <LinearGradient
-                colors={step === 2
-                  ? [Colors.success, '#27AE60']
-                  : ['#1A5276', '#2980B9']
-                }
+                colors={step === 3 ? [Colors.success, '#27AE60'] : ['#1A5276', '#2980B9']}
                 style={styles.nextBtnGrad}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
@@ -380,13 +440,8 @@ export default function RegistroScreen() {
                 {isLoading
                   ? <Text style={styles.nextBtnText}>A enviar...</Text>
                   : <>
-                      <Text style={styles.nextBtnText}>
-                        {step === 2 ? 'Submeter Solicitação' : 'Continuar'}
-                      </Text>
-                      <Ionicons
-                        name={step === 2 ? 'checkmark-circle-outline' : 'arrow-forward'}
-                        size={17} color="#fff"
-                      />
+                      <Text style={styles.nextBtnText}>{step === 3 ? 'Submeter Inscrição' : 'Continuar'}</Text>
+                      <Ionicons name={step === 3 ? 'checkmark-circle-outline' : 'arrow-forward'} size={17} color="#fff" />
                     </>
                 }
               </LinearGradient>
@@ -394,156 +449,97 @@ export default function RegistroScreen() {
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <CredenciaisModal
+        visible={!!credenciais}
+        dados={credenciais}
+        onClose={() => { setCredenciais(null); router.replace('/login-provisorio' as any); }}
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-
   header: { paddingBottom: 20 },
-  headerTop: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingBottom: 18, gap: 12,
-  },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-  },
+  headerTop: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 18, gap: 12 },
+  backBtn: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   headerTexts: { flex: 1 },
   headerTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
   headerSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
 
-  stepsContainer: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 24, gap: 0, position: 'relative',
-  },
-  stepConnector: {
-    position: 'absolute', left: '30%', right: '30%', top: '50%',
-    height: 2, justifyContent: 'center',
-  },
-  stepConnectorLine: {
-    flex: 1, height: 2,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  stepConnectorLineDone: { backgroundColor: Colors.success },
-  stepItem: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  stepCircle: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: Colors.backgroundElevated,
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center', justifyContent: 'center',
-  },
+  stepsContainer: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 4 },
+  stepItem: { alignItems: 'center', gap: 4 },
+  stepLine: { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 16 },
+  stepLineDone: { backgroundColor: Colors.success },
+  stepCircle: { width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.backgroundElevated, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
   stepCircleActive: { borderColor: '#2980B9', backgroundColor: 'rgba(41,128,185,0.15)' },
   stepCircleDone: { backgroundColor: Colors.success, borderColor: Colors.success },
-  stepNum: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
+  stepNum: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
   stepNumActive: { color: '#2980B9' },
-  stepLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, flex: 1 },
+  stepLabel: { fontSize: 9, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
   stepLabelActive: { color: Colors.text },
 
   scroll: { flex: 1 },
   scrollContent: { padding: 16, gap: 0 },
-
-  stepCard: {
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 18, borderWidth: 1,
-    borderColor: Colors.border, padding: 20, gap: 20,
-  },
+  stepCard: { backgroundColor: Colors.backgroundCard, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 20, gap: 20 },
   stepCardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
   stepCardIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   stepCardTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
 
   fieldGroup: { gap: 7 },
   fieldLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  fieldLabel: {
-    fontSize: 11, fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(255,255,255,0.45)',
-    letterSpacing: 0.7, textTransform: 'uppercase',
-  },
+  fieldLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.45)', letterSpacing: 0.7, textTransform: 'uppercase' },
   fieldRequired: { fontSize: 12, color: Colors.accent, fontFamily: 'Inter_700Bold' },
   fieldHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: -3 },
-
-  inputWrap: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12, borderWidth: 1.5,
-    borderColor: Colors.border,
-    paddingHorizontal: 14, height: 52,
-    justifyContent: 'center',
-  },
+  inputWrap: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 14, height: 52, justifyContent: 'center' },
   inputWrapFocused: { borderColor: Colors.gold, backgroundColor: 'rgba(240,165,0,0.04)' },
   inputWrapMulti: { height: 110, paddingVertical: 12, justifyContent: 'flex-start' },
   input: { fontSize: 15, fontFamily: 'Inter_400Regular', color: Colors.text },
   inputMulti: { textAlignVertical: 'top', lineHeight: 22 },
 
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 13, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  chipActive: {
-    backgroundColor: 'rgba(204,26,26,0.12)',
-    borderColor: Colors.accent,
-  },
+  chip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 13, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.04)' },
+  chipActive: { backgroundColor: 'rgba(204,26,26,0.12)', borderColor: Colors.accent },
   chipText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   chipTextActive: { color: Colors.accent, fontFamily: 'Inter_700Bold' },
 
-  sectionDivider: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingTop: 8, paddingBottom: 2,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-    marginTop: 4,
-  },
-  sectionDividerText: {
-    fontSize: 11, fontFamily: 'Inter_600SemiBold',
-    color: Colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase',
-  },
+  sectionLabel: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 4, paddingBottom: 2, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4 },
+  sectionLabelText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
 
-  approvalNotice: {
-    backgroundColor: 'rgba(240,165,0,0.06)',
-    borderRadius: 14, borderWidth: 1,
-    borderColor: 'rgba(240,165,0,0.18)',
-    padding: 16, gap: 10,
-    marginTop: 4,
-  },
+  approvalNotice: { backgroundColor: 'rgba(240,165,0,0.06)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(240,165,0,0.18)', padding: 16, gap: 12, marginTop: 4 },
   approvalNoticeHeader: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   approvalNoticeTitle: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold },
-  approvalNoticeText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
-  approvalRoles: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  approvalRoleBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: 'rgba(240,165,0,0.1)',
-    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
-    borderWidth: 1, borderColor: 'rgba(240,165,0,0.2)',
-  },
-  approvalRoleText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
-  approvalNoticeFooter: {
-    fontSize: 11, fontFamily: 'Inter_400Regular',
-    color: Colors.textMuted, lineHeight: 17, marginTop: 2,
-  },
+  approvalNoticeText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18 },
+  approvalSteps: { gap: 8 },
+  approvalStep: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  approvalStepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(240,165,0,0.2)', alignItems: 'center', justifyContent: 'center' },
+  approvalStepNumText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  approvalStepText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1 },
 
-  footer: {
-    backgroundColor: Colors.primaryDark,
-    borderTopWidth: 1, borderTopColor: Colors.border,
-    padding: 16, paddingTop: 12,
-  },
+  footer: { backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingTop: 12 },
   footerActions: { flexDirection: 'row', gap: 12 },
-  prevBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 18, paddingVertical: 15,
-    borderRadius: 13, borderWidth: 1,
-    borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.05)',
-  },
+  prevBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 15, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.05)' },
   prevBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
   nextBtn: { flex: 1, borderRadius: 13, overflow: 'hidden' },
   nextBtnDisabled: { opacity: 0.6 },
-  nextBtnGrad: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', paddingVertical: 16, gap: 8,
-  },
+  nextBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8 },
   nextBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff', letterSpacing: 0.1 },
+});
+
+const credStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  container: { backgroundColor: '#0F1F40', borderRadius: 24, padding: 28, width: '100%', maxWidth: 420, alignItems: 'center', gap: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: 'rgba(39,174,96,0.15)', alignItems: 'center', justifyContent: 'center' },
+  title: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.text, textAlign: 'center' },
+  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  box: { width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  rowLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  rowValue: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 2 },
+  divider: { height: 1, backgroundColor: Colors.border },
+  notice: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12, width: '100%' },
+  noticeText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1, lineHeight: 17 },
+  btn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.success, paddingVertical: 14, paddingHorizontal: 24, borderRadius: 13, width: '100%', justifyContent: 'center' },
+  btnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
 });

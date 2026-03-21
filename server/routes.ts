@@ -1443,18 +1443,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // REGISTROS (SOLICITAÇÕES DE MATRÍCULA)
   // -----------------------
+  function gerarSenhaProvisoria(nomeCompleto: string, dataNascimento: string): string {
+    const partes = nomeCompleto.trim().split(/\s+/);
+    const apelido = partes[partes.length - 1] || partes[0] || 'Aluno';
+    const ano = (dataNascimento || '2000').substring(0, 4);
+    const anoInvertido = ano.split('').reverse().join('');
+    return apelido + anoInvertido;
+  }
+
+  function gerarReferenciaRUPE(): string {
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const seq = String(now.getTime()).slice(-5);
+    const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
+    return `RUPE-${yyyy}-${mm}-${seq}-${rand}`;
+  }
+
   app.get("/api/registros", async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.registros ORDER BY "criadoEm" DESC`, []);
     json(res, 200, rows);
   });
 
+  app.get("/api/registros/:id", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.registros WHERE id=$1`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  app.post("/api/login-provisorio", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { email, senha } = b as { email: string; senha: string };
+      if (!email || !senha) return json(res, 400, { error: "Email e senha são obrigatórios." });
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.registros WHERE LOWER(email)=LOWER($1) AND "senhaProvisoria"=$2`,
+        [email.trim(), senha.trim()]
+      );
+      if (!rows[0]) return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha provisória." });
+      const reg = rows[0] as any;
+      if (reg.status === 'pendente') return json(res, 403, { error: "A sua inscrição ainda está em análise pela secretaria." });
+      if (reg.status === 'rejeitado') return json(res, 403, { error: "A sua inscrição foi rejeitada." });
+      if (reg.status === 'reprovado_admissao') return json(res, 403, { error: "Não foi admitido(a) neste processo. A conta provisória foi encerrada." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   app.post("/api/registros", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      const senha = gerarSenhaProvisoria(String(b.nomeCompleto||''), String(b.dataNascimento||''));
       const rows = await query<JsonObject>(
-        `INSERT INTO public.registros (id,"nomeCompleto","dataNascimento","genero","provincia","municipio","nivel","classe","nomeEncarregado","telefoneEncarregado","observacoes","status")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-        [b.id??null,b.nomeCompleto,b.dataNascimento,b.genero,b.provincia,b.municipio,b.nivel,b.classe,b.nomeEncarregado,b.telefoneEncarregado,b.observacoes??'',b.status??'pendente'],
+        `INSERT INTO public.registros (
+          id,"nomeCompleto","dataNascimento","genero","provincia","municipio",
+          "telefone","email","endereco","bairro","numeroBi","numeroCedula",
+          "nivel","classe","nomeEncarregado","telefoneEncarregado","observacoes",
+          "status","senhaProvisoria"
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        [
+          b.id??null, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
+          b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
+          b.nivel, b.classe, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
+          b.status??'pendente', senha
+        ],
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
@@ -1464,7 +1515,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
-      const allowed = ["status","avaliadoEm","avaliadoPor","motivoRejeicao"] as const;
+      const allowed = [
+        "status","avaliadoEm","avaliadoPor","motivoRejeicao",
+        "dataProva","notaAdmissao","resultadoAdmissao","matriculaCompleta",
+        "rupeInscricao","rupeMatricula"
+      ] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -1474,6 +1529,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(`UPDATE public.registros SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
       if (!rows[0]) return json(res, 404, { error: "Not found." });
       json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/registros/:id/publicar-data-prova", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { dataProva } = b as { dataProva: string };
+      if (!dataProva) return json(res, 400, { error: "dataProva é obrigatória." });
+      const rows = await query<JsonObject>(
+        `UPDATE public.registros SET "dataProva"=$1 WHERE id=$2 RETURNING *`,
+        [dataProva, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/registros/:id/lancar-nota", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const nota = Number(b.notaAdmissao);
+      if (isNaN(nota) || nota < 0 || nota > 20) return json(res, 400, { error: "Nota inválida (0–20)." });
+      const resultado = nota >= 10 ? 'aprovado' : 'reprovado';
+      const novoStatus = nota >= 10 ? 'admitido' : 'reprovado_admissao';
+      const rows = await query<JsonObject>(
+        `UPDATE public.registros SET "notaAdmissao"=$1,"resultadoAdmissao"=$2,"status"=$3 WHERE id=$4 RETURNING *`,
+        [nota, resultado, novoStatus, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/registros/:id/gerar-rupe", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const tipo = String(b.tipo || 'inscricao'); // 'inscricao' | 'matricula'
+      const valor = Number(b.valor || 0);
+      const referencia = gerarReferenciaRUPE();
+      const field = tipo === 'matricula' ? 'rupeMatricula' : 'rupeInscricao';
+      const rows = await query<JsonObject>(
+        `UPDATE public.registros SET "${field}"=$1 WHERE id=$2 RETURNING *`,
+        [referencia, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, { referencia, valor, validade: new Date(Date.now() + 15*24*60*60*1000).toISOString().split('T')[0], registro: rows[0] });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/registros/:id/completar-matricula", async (req: Request, res: Response) => {
+    try {
+      const regRows = await query<JsonObject>(`SELECT * FROM public.registros WHERE id=$1`, [req.params.id]);
+      if (!regRows[0]) return json(res, 404, { error: "Inscrição não encontrada." });
+      const reg = regRows[0] as any;
+      if (reg.status !== 'admitido') return json(res, 400, { error: "Apenas estudantes admitidos podem completar a matrícula." });
+
+      // Find matching turma
+      const turmas = await query<JsonObject>(
+        `SELECT id FROM public.turmas WHERE nome ILIKE $1 LIMIT 1`,
+        [`%${reg.classe}%`]
+      );
+      const turmaId = (turmas[0] as any)?.id || '';
+
+      // Parse name
+      const partes = String(reg.nomeCompleto || '').trim().split(/\s+/);
+      const nome = partes[0] || '';
+      const apelido = partes.slice(1).join(' ') || nome;
+
+      // Generate matricula number
+      const ano = new Date().getFullYear();
+      const rand = Math.random().toString(36).toUpperCase().slice(2, 7);
+      const numeroMatricula = `MAT-${ano}-${rand}`;
+
+      // Create aluno record
+      const alunoRows = await query<JsonObject>(
+        `INSERT INTO public.alunos (
+          id,"numeroMatricula","nome","apelido","dataNascimento","genero",
+          "provincia","municipio","turmaId","nomeEncarregado","telefoneEncarregado",
+          "emailEncarregado","ativo","bloqueado"
+        ) VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,false) RETURNING *`,
+        [numeroMatricula, nome, apelido, reg.dataNascimento, reg.genero,
+         reg.provincia, reg.municipio, turmaId,
+         reg.nomeEncarregado, reg.telefoneEncarregado, reg.email||'']
+      );
+      const aluno = alunoRows[0] as any;
+
+      // Create utilizador for aluno (official account)
+      if (reg.email) {
+        await query(
+          `INSERT INTO public.utilizadores (id,nome,email,senha,role,"alunoId","ativo")
+           VALUES (gen_random_uuid(),$1,$2,$3,'aluno',$4,true)
+           ON CONFLICT (email) DO NOTHING`,
+          [reg.nomeCompleto, reg.email, reg.senhaProvisoria, aluno.id]
+        ).catch(() => {}); // ignore if utilizadores doesn't have these exact columns
+      }
+
+      // Mark registration as complete
+      await query(
+        `UPDATE public.registros SET "status"='matriculado',"matriculaCompleta"=true WHERE id=$1`,
+        [reg.id]
+      );
+
+      json(res, 200, { success: true, aluno, numeroMatricula });
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 

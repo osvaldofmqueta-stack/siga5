@@ -558,6 +558,15 @@ export default function LoginScreen() {
           <Ionicons name="arrow-forward" size={13} color="#3498DB" />
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        style={styles.provisorioBtn}
+        onPress={() => router.push('/login-provisorio' as any)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="person-circle-outline" size={15} color={Colors.gold} />
+        <Text style={styles.provisorioBtnText}>Já tenho uma inscrição — Acompanhar processo</Text>
+        <Ionicons name="chevron-forward" size={13} color={Colors.gold} />
+      </TouchableOpacity>
     </Animated.View>
   );
 
@@ -987,6 +996,17 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(52,152,219,0.25)',
   },
   registerBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#3498DB' },
+
+  provisorioBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 8, paddingVertical: 11, paddingHorizontal: 14,
+    backgroundColor: 'rgba(240,165,0,0.07)',
+    borderRadius: 12, borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.18)',
+  },
+  provisorioBtnText: {
+    flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.gold,
+  },
 
   footer: { alignItems: 'center', marginTop: 20, gap: 6 },
   angolaBanner: { flexDirection: 'row', height: 4, width: 36, borderRadius: 2, overflow: 'hidden', gap: 1 },

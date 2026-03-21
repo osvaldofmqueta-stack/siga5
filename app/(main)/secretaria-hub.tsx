@@ -874,6 +874,7 @@ export default function SecretariaHubScreen() {
     { label: 'Credencial', icon: 'card', color: Colors.textSecondary, action: () => setShowCredenciais(true) },
     { label: 'Boletim de\nMatrícula', icon: 'newspaper', color: '#F59E0B', action: () => router.push('/(main)/boletim-matricula' as any) },
     { label: 'Caderneta\nde Propinas', icon: 'cash', color: '#10B981', action: () => router.push('/(main)/boletim-propina' as any) },
+    { label: 'Processo de\nAdmissão', icon: 'school-outline', color: '#3498DB', action: () => router.push('/(main)/admissao' as any) },
   ];
 
   const TABS = [

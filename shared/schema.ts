@@ -514,12 +514,39 @@ export const registros = pgTable("registros", {
   genero: text("genero").notNull(),
   provincia: text("provincia").notNull(),
   municipio: text("municipio").notNull(),
+
+  // Contacto
+  telefone: text("telefone").notNull().default(''),
+  email: text("email").notNull().default(''),
+
+  // Localização
+  endereco: text("endereco").notNull().default(''),
+  bairro: text("bairro").notNull().default(''),
+
+  // Identificação oficial
+  numeroBi: text("numeroBi").notNull().default(''),
+  numeroCedula: text("numeroCedula").notNull().default(''),
+
+  // Escolaridade
   nivel: text("nivel").notNull(),
   classe: text("classe").notNull(),
+
+  // Encarregado
   nomeEncarregado: text("nomeEncarregado").notNull(),
   telefoneEncarregado: text("telefoneEncarregado").notNull(),
   observacoes: text("observacoes").notNull().default(''),
-  status: text("status").notNull().default('pendente'), // 'pendente' | 'aprovado' | 'rejeitado'
+
+  // Processo de admissão
+  // status: 'pendente' | 'aprovado' | 'rejeitado' | 'admitido' | 'reprovado_admissao' | 'matriculado'
+  status: text("status").notNull().default('pendente'),
+  senhaProvisoria: text("senhaProvisoria"),
+  dataProva: text("dataProva"),
+  notaAdmissao: real("notaAdmissao"),
+  resultadoAdmissao: text("resultadoAdmissao"),
+  matriculaCompleta: boolean("matriculaCompleta").notNull().default(false),
+  rupeInscricao: text("rupeInscricao"),
+  rupeMatricula: text("rupeMatricula"),
+
   avaliadoEm: text("avaliadoEm"),
   avaliadoPor: text("avaliadoPor"),
   motivoRejeicao: text("motivoRejeicao"),

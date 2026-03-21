@@ -1,6 +1,16 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Gestão de Acessos / Permissões)
+## Recent Changes (Latest Session — Processo de Admissão Completo)
+- **shared/schema.ts**: `registros` extended with: `telefone`, `email`, `endereco`, `bairro`, `numeroBi`, `numeroCedula`, `senhaProvisoria`, `dataProva`, `notaAdmissao`, `resultadoAdmissao`, `matriculaCompleta`, `rupeInscricao`, `rupeMatricula`. Status now includes `'admitido' | 'reprovado_admissao' | 'matriculado'`.
+- **server/routes.ts**: New admissions endpoints: `POST /api/login-provisorio`, `GET /api/registros/:id`, `PUT /api/registros/:id/publicar-data-prova`, `PUT /api/registros/:id/lancar-nota`, `POST /api/registros/:id/gerar-rupe`, `POST /api/registros/:id/completar-matricula`. Password: `apelido + reversedBirthYear`.
+- **app/registro.tsx**: Rewritten as 3-step form (Dados Pessoais → Contacto & Identificação → Escolaridade). Shows `CredenciaisModal` with email + provisional password after successful submission.
+- **app/login-provisorio.tsx** *(new)*: Standalone login for provisional accounts. Stores session in AsyncStorage. Explains the password formula.
+- **app/portal-provisorio.tsx** *(new)*: Full provisional student portal with status-driven sections: exam date display, RUPE generation for inscription/enrollment fee, grade display, enrollment completion trigger, final redirect to official login.
+- **app/(main)/admissao.tsx** *(new)*: Full admissions management screen for secretaria. Tabs: Pendentes / Aprovados / Resultado / Concluídos. Actions: approve/reject (pendentes), publish exam date + enter grade (aprovados). Detail modal for each registration.
+- **app/(main)/secretaria-hub.tsx**: Added "Processo de Admissão" to QUICK_ACTIONS (routes to `/(main)/admissao`).
+- **app/login.tsx**: Added "Conta Provisória" button below the registration card, routes to `/login-provisorio`.
+
+## Recent Changes (Previous Session — Gestão de Acessos / Permissões)
 - **shared/schema.ts**: Nova tabela `user_permissions` com `userId` (unique), `permissoes` (jsonb) e `atualizado_em`.
 - **server/routes.ts**: 4 novas rotas — `GET /api/user-permissions`, `GET /api/user-permissions/:userId`, `PUT /api/user-permissions/:userId` (upsert), `DELETE /api/user-permissions/:userId`.
 - **context/PermissoesContext.tsx** *(new)*: Contexto completo de permissões. Exporta `FEATURE_CATEGORIES` (26 funcionalidades em 8 categorias), `ROLE_DEFAULTS` (padrões por cargo), `usePermissoes()` com `hasPermission(key)`, `getUserPermissions(userId, role)`, `saveUserPermissions`, `resetUserPermissions`.
