@@ -60,6 +60,7 @@ export default function MainLayout() {
       <Stack.Screen name="gestao-academica" />
       <Stack.Screen name="editor-documentos" />
       <Stack.Screen name="boletim-matricula" />
+      <Stack.Screen name="boletim-propina" />
     </Stack>
   );
 

@@ -15,6 +15,7 @@ import {
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 
 const TIPO_LABEL: Record<TipoTaxa, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -66,6 +67,7 @@ export default function FinanceiroScreen() {
   const { alunos, turmas } = useData();
   const { anoSelecionado } = useAnoAcademico();
   const { user } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 24 : insets.bottom;
 
@@ -841,6 +843,10 @@ export default function FinanceiroScreen() {
               <TouchableOpacity style={st.perfilActionBtn} onPress={() => handleBloquear(alunoPerfilId, bloqueado)}>
                 <Ionicons name={bloqueado ? 'lock-open' : 'lock-closed'} size={15} color={bloqueado ? Colors.success : Colors.danger} />
                 <Text style={[st.perfilActionTxt, { color: bloqueado ? Colors.success : Colors.danger }]}>{bloqueado ? 'Desbloquear' : 'Bloquear'}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={st.perfilActionBtn} onPress={() => router.push('/boletim-propina' as any)}>
+                <Ionicons name="document-text" size={15} color={Colors.success} />
+                <Text style={[st.perfilActionTxt, { color: Colors.success }]}>Caderneta</Text>
               </TouchableOpacity>
             </View>
 

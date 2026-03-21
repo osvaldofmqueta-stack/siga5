@@ -16,6 +16,7 @@ import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useConfig } from '@/context/ConfigContext';
+import { useRouter } from 'expo-router';
 import TopBar from '@/components/TopBar';
 
 const { width } = Dimensions.get('window');
@@ -130,6 +131,7 @@ export default function PortalEstudanteScreen() {
   const { anoSelecionado } = useAnoAcademico();
   const { config } = useConfig();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
@@ -1348,6 +1350,79 @@ export default function PortalEstudanteScreen() {
             })}
           </>
         )}
+
+        {/* ── Caderneta de Propinas — Grelha de Meses ── */}
+        <SectionTitle title="Caderneta de Propinas" icon="calendar" />
+        {(() => {
+          const MESES_LET = [
+            { num: 9,  nome: 'SET' }, { num: 10, nome: 'OUT' }, { num: 11, nome: 'NOV' },
+            { num: 12, nome: 'DEZ' }, { num: 1,  nome: 'JAN' }, { num: 2,  nome: 'FEV' },
+            { num: 3,  nome: 'MAR' }, { num: 4,  nome: 'ABR' }, { num: 5,  nome: 'MAI' },
+            { num: 6,  nome: 'JUN' }, { num: 7,  nome: 'JUL' },
+          ];
+          const anoBase = parseInt(anoLetivo.split('/')[0]) || new Date().getFullYear();
+          const mesAtual = new Date().getMonth() + 1;
+          const anoAtualN = new Date().getFullYear();
+
+          const getStatusMesLocal = (mes: number) => {
+            const anoMes = mes >= 8 ? anoBase : anoBase + 1;
+            const anoStr = String(anoMes);
+            const pag = pagamentosAluno.find(p => p.mes === mes && p.ano === anoStr && p.status !== 'cancelado');
+            if (pag?.status === 'pago') return 'pago';
+            if (pag?.status === 'pendente') return 'pendente';
+            const dataRef = new Date(anoMes, mes - 1, 1);
+            const dataAtual = new Date(anoAtualN, mesAtual - 1, 1);
+            if (dataRef < dataAtual) return 'atraso';
+            return 'futuro';
+          };
+
+          const STATUS_COLORS: Record<string, string> = {
+            pago: Colors.success, pendente: Colors.warning,
+            atraso: Colors.danger, futuro: Colors.textMuted,
+          };
+          const STATUS_ICONS: Record<string, string> = {
+            pago: 'checkmark-circle', pendente: 'time',
+            atraso: 'alert-circle', futuro: 'ellipse-outline',
+          };
+
+          return (
+            <>
+              <View style={[styles.infoCard, { padding: 12 }]}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {MESES_LET.map(mes => {
+                    const status = getStatusMesLocal(mes.num);
+                    const color = STATUS_COLORS[status];
+                    const icon = STATUS_ICONS[status] as any;
+                    const isAtual = mes.num === mesAtual;
+                    return (
+                      <View key={mes.num} style={{
+                        width: '27%', flexGrow: 1, minWidth: 80,
+                        backgroundColor: color + '18',
+                        borderWidth: isAtual ? 2 : 1,
+                        borderColor: isAtual ? Colors.gold : color + '55',
+                        borderRadius: 8, padding: 7, alignItems: 'center', gap: 2,
+                      }}>
+                        <Ionicons name={icon} size={14} color={color} />
+                        <Text style={{ color, fontSize: 10, fontFamily: 'Inter_700Bold' }}>{mes.nome}</Text>
+                        {isAtual && <Text style={{ fontSize: 8, color: Colors.gold, fontFamily: 'Inter_600SemiBold' }}>ACTUAL</Text>}
+                        <Text style={{ fontSize: 8, color, fontFamily: 'Inter_400Regular' }}>
+                          {status === 'pago' ? 'Pago' : status === 'pendente' ? 'Pend.' : status === 'atraso' ? 'Atraso' : '—'}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.payBtn, { backgroundColor: Colors.info, marginBottom: 4 }]}
+                onPress={() => router.push('/boletim-propina' as any)}
+              >
+                <Ionicons name="document-text" size={16} color="#fff" />
+                <Text style={styles.payBtnText}>Ver Caderneta Completa</Text>
+              </TouchableOpacity>
+            </>
+          );
+        })()}
 
         <SectionTitle title="Histórico Financeiro" icon="receipt" />
         {historicoOrdenado.length === 0 ? (
