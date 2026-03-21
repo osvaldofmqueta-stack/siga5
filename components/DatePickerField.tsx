@@ -24,10 +24,21 @@ export default function DatePickerField({
 
   const displayValue = value
     ? (() => {
-        const [y, m, d] = value.split('-');
-        return `${d}/${m}/${y}`;
+        const parts = value.split('-');
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return value;
       })()
     : 'Seleccionar data';
+
+  function openPicker() {
+    if (inputRef.current) {
+      try {
+        inputRef.current.showPicker();
+      } catch {
+        inputRef.current.click();
+      }
+    }
+  }
 
   if (Platform.OS === 'web') {
     return (
@@ -36,28 +47,36 @@ export default function DatePickerField({
           <Text style={[styles.label, labelStyle]}>{label}</Text>
           {required && <Text style={styles.required}>*</Text>}
         </View>
-        <View style={styles.inputWrap}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} style={styles.icon} />
+
+        <TouchableOpacity
+          style={styles.inputWrap}
+          activeOpacity={0.75}
+          onPress={openPicker}
+        >
+          <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
           <Text style={[styles.displayText, !value && styles.placeholder]}>
             {displayValue}
           </Text>
-          <input
-            ref={inputRef}
-            type="date"
-            value={value || ''}
-            onChange={e => onChange(e.target.value)}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0,
-              width: '100%',
-              height: '100%',
-              cursor: 'pointer',
-              border: 'none',
-              background: 'transparent',
-            }}
-          />
-        </View>
+          <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
+
+        <input
+          ref={inputRef}
+          type="date"
+          value={value || ''}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            position: 'fixed',
+            opacity: 0,
+            pointerEvents: 'none',
+            width: 0,
+            height: 0,
+            border: 'none',
+            padding: 0,
+            top: 0,
+            left: 0,
+          }}
+        />
       </View>
     );
   }
@@ -69,7 +88,7 @@ export default function DatePickerField({
         {required && <Text style={styles.required}>*</Text>}
       </View>
       <TouchableOpacity style={styles.inputWrap} activeOpacity={0.75}>
-        <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} style={styles.icon} />
+        <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
         <Text style={[styles.displayText, !value && styles.placeholder]}>
           {displayValue}
         </Text>
@@ -94,8 +113,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 8,
-    position: 'relative' as any,
-    overflow: 'hidden' as any,
   },
   icon: { flexShrink: 0 },
   displayText: {
