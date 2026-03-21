@@ -191,6 +191,8 @@ function setupWebProxy(app: express.Application) {
       changeOrigin: true,
       ws: true,
       selfHandleResponse: true,
+      proxyTimeout: 60000,
+      timeout: 60000,
       headers: {
         host: `localhost:${EXPO_WEB_PORT}`,
       },
@@ -210,7 +212,7 @@ function setupWebProxy(app: express.Application) {
               <div style="text-align:center">
                 <h2>A iniciar o servidor web...</h2>
                 <p>Aguarda um momento enquanto o servidor Expo web arranca.</p>
-                <script>setTimeout(()=>location.reload(),3000)</script>
+                <script>setTimeout(()=>location.reload(),8000)</script>
               </div>
               </body></html>`,
             );
@@ -294,4 +296,8 @@ function setupErrorHandler(app: express.Application) {
       }
     },
   );
+
+  server.setTimeout(120000);
+  server.headersTimeout = 120000;
+  server.requestTimeout = 120000;
 })();
