@@ -38,9 +38,10 @@ export const utilizadores = pgTable("utilizadores", {
   nome: text("nome").notNull(),
   email: text("email").notNull().unique(),
   senha: text("senha").notNull(),
-  role: text("role").notNull(), // 'admin' | 'professor' | 'aluno' | 'financeiro' | 'rh'
+  role: text("role").notNull(), // 'admin' | 'professor' | 'aluno' | 'financeiro' | 'rh' | 'encarregado'
   escola: text("escola").notNull().default(''),
   ativo: boolean("ativo").notNull().default(true),
+  alunoId: varchar("alunoId"), // only for role='encarregado'
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -81,6 +82,7 @@ export const alunos = pgTable("alunos", {
 
   nomeEncarregado: text("nomeEncarregado").notNull(),
   telefoneEncarregado: text("telefoneEncarregado").notNull(),
+  emailEncarregado: text("emailEncarregado"),
   ativo: boolean("ativo").notNull().default(true),
   bloqueado: boolean("bloqueado").notNull().default(false),
   foto: text("foto"),

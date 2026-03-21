@@ -59,9 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(
         `INSERT INTO public.alunos (
           id, "numeroMatricula", "nome", "apelido", "dataNascimento", "genero", "provincia", "municipio",
-          "turmaId", "nomeEncarregado", "telefoneEncarregado", "ativo", "foto", "createdAt"
+          "turmaId", "nomeEncarregado", "telefoneEncarregado", "emailEncarregado", "ativo", "foto", "createdAt"
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15
         ) RETURNING *`,
         [
           b.id,
@@ -75,6 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.turmaId,
           b.nomeEncarregado,
           b.telefoneEncarregado,
+          b.emailEncarregado ?? null,
           b.ativo,
           b.foto ?? null,
           b.createdAt,
@@ -102,6 +103,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "turmaId",
         "nomeEncarregado",
         "telefoneEncarregado",
+        "emailEncarregado",
         "ativo",
         "bloqueado",
         "foto",
@@ -814,9 +816,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
-        `INSERT INTO public.utilizadores (id,"nome","email","senha","role","escola","ativo","criadoEm")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [b.id ?? null, b.nome, b.email, b.senha, b.role, b.escola ?? '', b.ativo ?? true, b.criadoEm ?? new Date().toISOString()],
+        `INSERT INTO public.utilizadores (id,"nome","email","senha","role","escola","ativo","alunoId","criadoEm")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [b.id ?? null, b.nome, b.email, b.senha, b.role, b.escola ?? '', b.ativo ?? true, b.alunoId ?? null, b.criadoEm ?? new Date().toISOString()],
       );
       json(res, 201, rows[0]);
     } catch (e) {
@@ -824,11 +826,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/utilizadores/encarregado/:alunoId", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.utilizadores WHERE "alunoId"=$1 AND role='encarregado' LIMIT 1`,
+      [req.params.alunoId],
+    );
+    if (!rows[0]) return json(res, 404, { error: "Encarregado não encontrado." });
+    json(res, 200, rows[0]);
+  });
+
   app.put("/api/utilizadores/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
-      const allowed = ["nome","email","senha","role","escola","ativo"] as const;
+      const allowed = ["nome","email","senha","role","escola","ativo","alunoId"] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;

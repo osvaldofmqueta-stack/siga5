@@ -74,6 +74,7 @@ export default function MainLayout() {
       <Stack.Screen name="boletim-matricula" />
       <Stack.Screen name="boletim-propina" />
       <Stack.Screen name="gestao-acessos" />
+      <Stack.Screen name="portal-encarregado" />
     </Stack>
   );
 

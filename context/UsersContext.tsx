@@ -10,6 +10,7 @@ export interface StoredUser {
   role: UserRole;
   escola: string;
   ativo: boolean;
+  alunoId?: string;
   criadoEm: string;
 }
 

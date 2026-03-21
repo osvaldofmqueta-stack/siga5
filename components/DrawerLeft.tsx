@@ -80,6 +80,7 @@ export default function DrawerLeft() {
   const isFinanceiro = user?.role === 'financeiro';
   const isSecretaria = user?.role === 'secretaria';
   const isRH = user?.role === 'director' || user?.role === 'admin';
+  const isEncarregado = user?.role === 'encarregado';
 
   const { hasPermission } = usePermissoes();
 
@@ -104,6 +105,25 @@ export default function DrawerLeft() {
       title: 'Financeiro',
       items: [
         { label: 'Pagamentos', route: '/(main)/portal-estudante', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'portal_estudante' },
+      ],
+    },
+  ];
+
+  const ENCARREGADO_SECTIONS: NavSection[] = [
+    {
+      title: 'Portal do Encarregado',
+      items: [
+        { label: 'Painel do Educando', route: '/(main)/portal-encarregado', icon: <MaterialCommunityIcons name="account-child" size={20} color="inherit" /> },
+        { label: 'Notas', route: '/(main)/portal-encarregado', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
+        { label: 'Presenças', route: '/(main)/portal-encarregado', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" /> },
+        { label: 'Financeiro', route: '/(main)/portal-encarregado', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+        { label: 'Mensagens', route: '/(main)/portal-encarregado', icon: <Ionicons name="chatbubbles-outline" size={20} color="inherit" /> },
+      ],
+    },
+    {
+      title: 'Conta',
+      items: [
+        { label: 'Meu Perfil', route: '/(main)/perfil', icon: <Ionicons name="person-outline" size={20} color="inherit" /> },
       ],
     },
   ];
@@ -278,6 +298,7 @@ export default function DrawerLeft() {
     : (isCeo || isPca) ? CEO_PCA_SECTIONS
     : isProf ? PROFESSOR_SECTIONS
     : isAluno ? ALUNO_SECTIONS
+    : isEncarregado ? ENCARREGADO_SECTIONS
     : isFinanceiro ? FINANCEIRO_SECTIONS
     : ADMIN_DIRECTOR_SECTIONS;
 

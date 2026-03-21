@@ -14,6 +14,7 @@ export interface Aluno {
   turmaId: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
+  emailEncarregado?: string;
   ativo: boolean;
   foto?: string;
   createdAt: string;

@@ -100,6 +100,15 @@ export default function LoginScreen() {
     }
   }, [user, authLoading]);
 
+  function getRouteForRole(role: string): string {
+    if (role === 'ceo' || role === 'pca') return '/(main)/ceo';
+    if (role === 'secretaria') return '/(main)/secretaria-hub';
+    if (role === 'professor') return '/(main)/professor-hub';
+    if (role === 'aluno') return '/(main)/portal-estudante';
+    if (role === 'encarregado') return '/(main)/portal-encarregado';
+    return '/(main)/dashboard';
+  }
+
   useEffect(() => {
     if (showBiometricWelcome) {
       startBiometricAnimation();
@@ -195,7 +204,7 @@ export default function LoginScreen() {
         setIsLoading(true);
         const authUser: AuthUser = { ...lastUser, biometricEnabled: true, avatar: lastUser.avatar };
         await login(authUser);
-        const route = lastUser.role === 'ceo' ? '/(main)/ceo' : lastUser.role === 'secretaria' ? '/(main)/secretaria-hub' : '/(main)/dashboard';
+        const route = getRouteForRole(lastUser.role);
         showWelcome(authUser, route);
       }
     } catch (e) {
@@ -233,18 +242,18 @@ export default function LoginScreen() {
         const bioAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
         if (emailTrimmed === CEO_ACCOUNT.email) {
           const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, '/(main)/ceo');
+          await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
         } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email) {
           const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, '/(main)/dashboard');
+          await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
         } else if (emailTrimmed === SECRETARIA_ACCOUNT.email) {
           const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, '/(main)/secretaria-hub');
+          await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
             const u: AuthUser = { id: found.id, nome: found.nome, email: found.email, role: found.role, escola: found.escola, biometricEnabled: true, avatar: bioAvatar };
-            await login(u); showWelcome(u, '/(main)/dashboard');
+            await login(u); showWelcome(u, getRouteForRole(found.role));
           } else {
             showAlert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
           }
@@ -280,21 +289,21 @@ export default function LoginScreen() {
     if (emailTrimmed === CEO_ACCOUNT.email && senha === CEO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, '/(main)/ceo');
+      await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
     } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email && senha === FINANCEIRO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, '/(main)/dashboard');
+      await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
     } else if (emailTrimmed === SECRETARIA_ACCOUNT.email && senha === SECRETARIA_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, '/(main)/secretaria-hub');
+      await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const u: AuthUser = { id: account.id, nome: account.nome, email: account.email, role: account.role, escola: account.escola, biometricEnabled: false, avatar: savedAvatar };
-        await login(u); showWelcome(u, '/(main)/dashboard');
+        await login(u); showWelcome(u, getRouteForRole(account.role));
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showAlert('Credenciais Inválidas', 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
