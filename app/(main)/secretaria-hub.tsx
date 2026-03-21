@@ -447,6 +447,7 @@ export default function SecretariaHubScreen() {
     { label: 'Calendário\nEscolar', icon: 'calendar', color: '#8B5CF6', action: () => router.push('/(main)/eventos' as any) },
     { label: 'Relatórios', icon: 'bar-chart', color: '#06B6D4', action: () => router.push('/(main)/relatorios' as any) },
     { label: 'Credencial', icon: 'card', color: Colors.textSecondary, action: () => setShowCredenciais(true) },
+    { label: 'Boletim de\nMatrícula', icon: 'newspaper', color: '#F59E0B', action: () => router.push('/(main)/boletim-matricula' as any) },
   ];
 
   const TABS = [

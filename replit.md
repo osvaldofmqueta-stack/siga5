@@ -1,5 +1,17 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
+## Recent Changes (Latest Session — Boletim de Matrícula)
+- **app/(main)/boletim-matricula.tsx** *(new)*: Ecrã completo para geração e impressão do Boletim de Matrícula.
+  - **Pesquisa de aluno**: campo de busca com dropdown em tempo real (por nome ou nº de matrícula).
+  - **QR Code**: gerado com `react-native-qrcode-svg` contendo JSON com matrícula, nome, turma, classe, anoLetivo e escola — substitui o espaço de fotografia do modelo original.
+  - **Dados automáticos (variáveis da BD)**: `numeroMatricula`, `nomeCompleto` (nome+apelido), `dataNascimento`, `genero`, `municipio`, `provincia`, `nomeEncarregado`, `telefoneEncarregado`, `turmaNome`, `classe`, `turno`, `nivel`, `anoLetivo`, `nomeEscola` (ConfigContext).
+  - **Impressão / PDF**: botão "Imprimir / Exportar PDF" usa `window.open()` + `window.print()` com HTML A4 portrait completo, incluindo: cabeçalho (República de Angola · Ministério da Educação · nome da escola), secção A (dados do aluno), secção B (dados do encarregado), secção C (dados escolares), Declaração sob compromisso de honra, assinaturas do director, chefe de secretaria, aluno e encarregado.
+  - **Pré-visualização nativa**: cartão no ecrã que mostra o boletim estruturado com todas as secções.
+  - **Tabela de variáveis**: painel visual que lista todos os campos que serão preenchidos automaticamente.
+- **app/(main)/_layout.tsx**: Registado `boletim-matricula` como novo Stack.Screen.
+- **app/(main)/secretaria-hub.tsx**: Adicionado botão "Boletim de Matrícula" nas Quick Actions (ícone `newspaper`, cor âmbar).
+- **app/(main)/alunos.tsx**: Adicionado botão de atalho (ícone `newspaper-outline`) em cada cartão de aluno para aceder ao Boletim de Matrícula.
+
 An Academic Management System (SGAA Angola) for educational institutions in Angola. Built as a cross-platform application (Web, Android, iOS) using a TypeScript stack.
 
 ## Recent Changes (Latest Session — Mapa de Aproveitamento)

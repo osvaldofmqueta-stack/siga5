@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Aluno } from '@/context/DataContext';
@@ -107,6 +108,7 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
 }
 
 export default function AlunosScreen() {
+  const router = useRouter();
   const { alunos, turmas, addAluno, updateAluno, deleteAluno } = useData();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
@@ -165,6 +167,9 @@ export default function AlunosScreen() {
           <Text style={styles.alunoProvinvia}>{item.provincia} · {item.genero === 'M' ? 'Masculino' : 'Feminino'}</Text>
         </View>
         <View style={styles.alunoActions}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/boletim-matricula' as any)}>
+            <Ionicons name="newspaper-outline" size={18} color={Colors.warning} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SGAA|ALUNO|${item.id}|${item.numeroMatricula}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroMatricula })}>
             <Ionicons name="qr-code-outline" size={18} color={Colors.gold} />
           </TouchableOpacity>
