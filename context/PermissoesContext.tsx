@@ -3,14 +3,15 @@ import { useAuth } from './AuthContext';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export type PermKey =
-  | 'dashboard' | 'ceo_dashboard' | 'alunos' | 'professores' | 'turmas'
+  | 'dashboard' | 'ceo_dashboard' | 'alunos' | 'professores' | 'turmas' | 'salas'
   | 'notas' | 'presencas' | 'horario' | 'historico' | 'grelha'
   | 'financeiro' | 'relatorios' | 'rh_controle' | 'admin'
   | 'editor_documentos' | 'secretaria_hub' | 'professor_hub'
   | 'professor_turmas' | 'professor_pauta' | 'professor_sumario'
   | 'professor_mensagens' | 'professor_materiais'
   | 'portal_estudante' | 'eventos' | 'notificacoes'
-  | 'boletim_matricula' | 'boletim_propina' | 'gestao_academica';
+  | 'boletim_matricula' | 'boletim_propina' | 'gestao_academica'
+  | 'gestao_acessos';
 
 export interface FeatureDef {
   key: PermKey;
@@ -42,9 +43,10 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Gestão Académica',
     icon: 'school',
     features: [
-      { key: 'alunos', label: 'Alunos', desc: 'Registo e gestão de alunos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'alunos', label: 'Alunos', desc: 'Registo, matrícula e gestão de alunos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'professores', label: 'Professores', desc: 'Gestão do corpo docente', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'turmas', label: 'Turmas', desc: 'Criação e gestão de turmas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'salas', label: 'Salas de Aula', desc: 'Gestão e atribuição de salas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'notas', label: 'Notas & Pautas', desc: 'Registo e consulta de notas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'presencas', label: 'Presenças', desc: 'Controlo de assiduidade', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'horario', label: 'Horário', desc: 'Horários de aulas e turnos', roles: ['admin', 'director', 'secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
@@ -101,6 +103,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     icon: 'shield-checkmark',
     features: [
       { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'ceo', 'pca'] },
+      { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['ceo', 'pca'] },
     ],
   },
 ];
@@ -111,9 +114,9 @@ const ALL_KEYS: PermKey[] = FEATURE_CATEGORIES.flatMap(c => c.features.map(f => 
 export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   ceo: [...ALL_KEYS],
   pca: [...ALL_KEYS],
-  admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
-  director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula'],
-  secretaria: ['secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios', 'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
+  admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
+  director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula'],
+  secretaria: ['secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios', 'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
   professor: ['professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario', 'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais'],
   aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos'],
   financeiro: ['financeiro', 'notificacoes', 'boletim_propina'],

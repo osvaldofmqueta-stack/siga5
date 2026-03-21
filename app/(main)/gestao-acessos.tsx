@@ -34,7 +34,7 @@ function initials(nome: string) {
 export default function GestaoAcessosScreen() {
   const { user } = useAuth();
   const { users } = useUsers();
-  const { getUserPermissions, saveUserPermissions, resetUserPermissions, isLoading, reload } = usePermissoes();
+  const { getUserPermissions, saveUserPermissions, resetUserPermissions, isLoading, reload, hasPermission } = usePermissoes();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 24 : insets.bottom;
 
@@ -45,7 +45,7 @@ export default function GestaoAcessosScreen() {
   const [search, setSearch] = useState('');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(FEATURE_CATEGORIES.map(c => c.categoria)));
 
-  const canManage = user?.role === 'ceo' || user?.role === 'pca';
+  const canManage = user?.role === 'ceo' || user?.role === 'pca' || hasPermission('gestao_acessos');
 
   const filteredUsers = users.filter(u =>
     u.id !== user?.id &&

@@ -188,7 +188,7 @@ export default function DrawerLeft() {
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
         { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
-        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
         { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
         { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
@@ -226,7 +226,7 @@ export default function DrawerLeft() {
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
         { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
-        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
         { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
@@ -234,7 +234,7 @@ export default function DrawerLeft() {
     {
       title: 'Administração',
       items: [
-        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" /> },
+        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
         { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" />, permKey: 'admin' },
       ],
     },
@@ -255,7 +255,7 @@ export default function DrawerLeft() {
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
         { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
-        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
         { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
         { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
@@ -286,12 +286,13 @@ export default function DrawerLeft() {
         { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
       ],
     }] : []),
-    ...(user?.role === 'director' ? [{
+    {
       title: 'Administração',
       items: [
-        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" />, permKey: 'admin' as PermKey },
+        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' as PermKey },
+        ...(user?.role === 'director' ? [{ label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> as any, permKey: 'admin' as PermKey }] : []),
       ],
-    }] : []),
+    },
   ];
 
   const RAW_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS
