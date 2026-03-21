@@ -36,20 +36,22 @@ export default function DatePickerField({
           {required && <Text style={styles.required}>*</Text>}
         </View>
 
-        <View style={styles.inputWrap}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
-          <Text style={[styles.displayText, !value && styles.placeholder]}>
-            {displayValue}
-          </Text>
-          <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
-
+        <div style={{ position: 'relative', display: 'block' }}>
+          <View style={styles.inputWrap} pointerEvents="none">
+            <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
+            <Text style={[styles.displayText, !value && styles.placeholder]}>
+              {displayValue}
+            </Text>
+            <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+          </View>
           <input
             type="date"
             value={value || ''}
             onChange={e => onChange(e.target.value)}
             style={{
               position: 'absolute',
-              inset: 0,
+              top: 0,
+              left: 0,
               width: '100%',
               height: '100%',
               opacity: 0,
@@ -57,10 +59,11 @@ export default function DatePickerField({
               border: 'none',
               padding: 0,
               margin: 0,
-              zIndex: 1,
+              zIndex: 2,
+              boxSizing: 'border-box',
             }}
           />
-        </View>
+        </div>
       </View>
     );
   }
@@ -97,7 +100,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     gap: 8,
-    position: 'relative',
   },
   icon: { flexShrink: 0 },
   displayText: {
