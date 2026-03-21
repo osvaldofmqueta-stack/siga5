@@ -1041,6 +1041,38 @@ Disciplinas: LP, LE, MAT, FIL, EF, Dir. Empresarial, Eco. Avançada, Gestão Fin
 {{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
 };
 
+// ─── Certificado de Habilitações Literárias (II Ciclo Pedagógico) Seed ──────
+
+const SEED_CERT_HAB_LIT_ID = 'tpl_seed_cert_hab_lit_pedagogico_v1';
+const SEED_CERT_HAB_LIT: DocTemplate = {
+  id: SEED_CERT_HAB_LIT_ID,
+  nome: 'Certificado de Habilitações Literárias — IIº Ciclo Pedagógico (10ª a 13ª)',
+  tipo: 'certificado',
+  classeAlvo: 'PEDAGOGICO-II-CICLO',
+  bloqueado: true,
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `[CERTIFICADO DE HABILITAÇÕES LITERÁRIAS — GERADO AUTOMATICAMENTE]
+
+Este modelo gera o Certificado oficial de conclusão do II Ciclo do Ensino Secundário Pedagógico (10ª a 13ª Classe).
+
+Ao emitir, seleccione o aluno e o sistema irá preencher automaticamente:
+• Nome completo, filiação e dados pessoais do aluno
+• Turma e ano lectivo de cada classe (10ª, 11ª, 12ª, 13ª)
+• Tabela de classificações por disciplina e por classe
+• Médias gerais por classe e média curricular final
+• Cabeçalho institucional e rodapé para assinatura
+
+Campos a preencher manualmente:
+• Número e data do Bilhete de Identidade
+• Nº e data do Decreto Executivo de criação da escola
+• Especialidade / área de formação
+• Livro de registo e folha
+
+Director(a): {{NOME_DIRECTOR}}
+Escola: {{NOME_ESCOLA}}`,
+};
+
 // ─── Ficha de Matrícula Seed ─────────────────────────────────────────────────
 
 const SEED_FICHA_MATRICULA_ID = 'tpl_seed_ficha_matricula_v1';
@@ -1131,7 +1163,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -3905,6 +3937,323 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Certificado de Habilitações Literárias — IIº Ciclo Pedagógico ──────────
+
+  function buildCertificadoHabilitacoesLiterariasHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+    const escola = config.nomeEscola || 'Escola';
+    const director = user?.nome || '____________________________';
+    const now = new Date();
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+
+    const nome = `${aluno.nome} ${aluno.apelido}`;
+    const diaNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getDate() : '__';
+    const mesNasc = aluno.dataNascimento ? MESES[new Date(aluno.dataNascimento).getMonth()] : '__________';
+    const anoNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getFullYear() : '____';
+    const municipio = aluno.municipio || '______________';
+    const provincia = aluno.provincia || '______________';
+    const encarregado = aluno.nomeEncarregado || '________________________';
+
+    const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+
+    function getGradesByClasse(classePrefix: string): Map<string, number> {
+      const map = new Map<string, number>();
+      const classTurmaIds = new Set(
+        turmas.filter(t => (t.classe || '').trim().startsWith(classePrefix)).map(t => t.id)
+      );
+      for (const n of alunoNotas) {
+        if (classTurmaIds.has(n.turmaId)) {
+          map.set(n.disciplina.toLowerCase().trim(), n.nf);
+        }
+      }
+      return map;
+    }
+
+    function getTurmaInfo(classePrefix: string): { nome: string; anoLetivo: string } {
+      const classTurmas = turmas.filter(t => (t.classe || '').trim().startsWith(classePrefix));
+      for (const t of classTurmas) {
+        if (alunoNotas.some(n => n.turmaId === t.id)) {
+          return { nome: t.nome, anoLetivo: t.anoLetivo };
+        }
+      }
+      return { nome: '—', anoLetivo: '—' };
+    }
+
+    const g10 = getGradesByClasse('10');
+    const g11 = getGradesByClasse('11');
+    const g12 = getGradesByClasse('12');
+    const g13 = getGradesByClasse('13');
+
+    const t10 = getTurmaInfo('10');
+    const t11 = getTurmaInfo('11');
+    const t12 = getTurmaInfo('12');
+    const t13 = getTurmaInfo('13');
+
+    function resolveGrade(grades: Map<string, number>, ...searches: string[]): string {
+      for (const s of searches) {
+        const sl = s.toLowerCase();
+        for (const [k, v] of grades) {
+          if (k.includes(sl) || sl.includes(k)) return String(Math.round(v));
+        }
+      }
+      return '—';
+    }
+
+    function classAvgDisplay(grades: Map<string, number>): { val: number | null; str: string; extenso: string } {
+      if (grades.size === 0) return { val: null, str: '—', extenso: '—' };
+      const vals = [...grades.values()];
+      const avg = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      return { val: avg, str: String(avg), extenso: numExtenso(avg) };
+    }
+
+    const ca10 = classAvgDisplay(g10);
+    const ca11 = classAvgDisplay(g11);
+    const ca12 = classAvgDisplay(g12);
+    const ca13 = classAvgDisplay(g13);
+
+    const anoLetivo = t13.anoLetivo !== '—' ? t13.anoLetivo
+      : t12.anoLetivo !== '—' ? t12.anoLetivo
+      : t11.anoLetivo !== '—' ? t11.anoLetivo
+      : String(now.getFullYear());
+
+    const mediaFinal = ca13.val ?? ca12.val ?? ca11.val ?? null;
+    const mediaFinalDisplay = mediaFinal !== null ? String(mediaFinal) : '—';
+    const mediaFinalExtenso = mediaFinal !== null ? numExtenso(mediaFinal) : '________';
+
+    function dRow(label: string, grade: string): string {
+      return `<tr><td class="disc-name">${label}</td><td class="disc-grade">${grade}</td></tr>`;
+    }
+    function gHeader(label: string): string {
+      return `<tr><td colspan="2" class="group-hdr">${label}</td></tr>`;
+    }
+
+    const table10 = `<table class="class-table">
+      <tr><td colspan="2" class="class-head">10ª CLASSE</td></tr>
+      <tr><td colspan="2" class="turma-info">TURMA: ${t10.nome}</td></tr>
+      <tr><td colspan="2" class="turma-info">ANO LECTIVO: ${t10.anoLetivo}</td></tr>
+      ${gHeader('Formação Geral')}
+      ${dRow('Francês', resolveGrade(g10, 'francês', 'frances'))}
+      ${dRow('Inglês', resolveGrade(g10, 'inglês', 'ingles'))}
+      ${dRow('História', resolveGrade(g10, 'história', 'historia'))}
+      ${dRow('Matemática', resolveGrade(g10, 'matemática', 'matematica'))}
+      ${dRow('Informática', resolveGrade(g10, 'informática', 'informatica'))}
+      ${dRow('Empreend.', resolveGrade(g10, 'empreend'))}
+      ${dRow('Ed.Física', resolveGrade(g10, 'ed.física', 'educação física', 'educacao fisica'))}
+      ${gHeader('Formação Educacional')}
+      ${dRow('Psicologia', resolveGrade(g10, 'psicologia'))}
+      ${gHeader('Formação Específica')}
+      ${dRow('Língua Portuguesa', resolveGrade(g10, 'língua portuguesa', 'lingua portuguesa'))}
+      ${dRow('Deontologia', resolveGrade(g10, 'deontologia'))}
+      ${dRow('Literactura', resolveGrade(g10, 'literactura', 'literatura'))}
+    </table>`;
+
+    const table11 = `<table class="class-table">
+      <tr><td colspan="2" class="class-head">11ª CLASSE</td></tr>
+      <tr><td colspan="2" class="turma-info">TURMA: ${t11.nome}</td></tr>
+      <tr><td colspan="2" class="turma-info">ANO LECTIVO: ${t11.anoLetivo}</td></tr>
+      ${gHeader('Formação Geral')}
+      ${dRow('Francês', resolveGrade(g11, 'francês', 'frances'))}
+      ${dRow('Inglês', resolveGrade(g11, 'inglês', 'ingles'))}
+      ${dRow('Ed.Física', resolveGrade(g11, 'ed.física', 'educação física', 'educacao fisica'))}
+      ${gHeader('Formação Educacional')}
+      ${dRow('A.S.E.A.G.E', resolveGrade(g11, 'a.s.e.a.g.e', 'aseage'))}
+      ${dRow('T.E.D.C', resolveGrade(g11, 't.e.d.c', 'tedc'))}
+      ${gHeader('Formação Específica')}
+      ${dRow('Língua Portuguesa', resolveGrade(g11, 'língua portuguesa', 'lingua portuguesa'))}
+      ${dRow('Met. L. Portuguesa', resolveGrade(g11, 'met. l. portuguesa', 'metodologia lingua'))}
+      ${dRow('PSEP L. Portuguesa', resolveGrade(g11, 'psep l. portuguesa', 'psep língua'))}
+      ${dRow('Met. E.M.C', resolveGrade(g11, 'met. e.m.c', 'metodologia emc', 'met.e.m.c'))}
+      ${dRow('PSEP E.M.C', resolveGrade(g11, 'psep e.m.c', 'psep emc'))}
+      ${dRow('Deontologia', resolveGrade(g11, 'deontologia'))}
+      ${dRow('Literactura', resolveGrade(g11, 'literactura', 'literatura'))}
+    </table>`;
+
+    const table12 = `<table class="class-table">
+      <tr><td colspan="2" class="class-head">12ª CLASSE</td></tr>
+      <tr><td colspan="2" class="turma-info">TURMA: ${t12.nome}</td></tr>
+      <tr><td colspan="2" class="turma-info">ANO LECTIVO: ${t12.anoLetivo}</td></tr>
+      ${gHeader('Formação Geral')}
+      ${dRow('Filosofia', resolveGrade(g12, 'filosofia'))}
+      ${dRow('Empreend.', resolveGrade(g12, 'empreend'))}
+      ${dRow('Ed.Física', resolveGrade(g12, 'ed.física', 'educação física', 'educacao fisica'))}
+      ${gHeader('Formação Educacional')}
+      ${dRow('H.\\ Saúde escolar', resolveGrade(g12, 'saúde escolar', 'saude escolar', 'higiene'))}
+      ${dRow('Ética', resolveGrade(g12, 'ética', 'etica'))}
+      ${gHeader('Formação Específica')}
+      ${dRow('Língua Portuguesa', resolveGrade(g12, 'língua portuguesa', 'lingua portuguesa'))}
+      ${dRow('Deontologia', resolveGrade(g12, 'deontologia'))}
+      ${dRow('Met. L. Portuguesa', resolveGrade(g12, 'met. l. portuguesa', 'metodologia lingua'))}
+      ${dRow('PSEP L. Portuguesa', resolveGrade(g12, 'psep l. portuguesa', 'psep língua'))}
+      ${dRow('Met. E.M.C', resolveGrade(g12, 'met. e.m.c', 'metodologia emc'))}
+      ${dRow('PSEP DE E.M.C', resolveGrade(g12, 'psep de e.m.c', 'psep de emc'))}
+    </table>`;
+
+    const table13 = `<table class="class-table">
+      <tr><td colspan="2" class="class-head">13ª CLASSE</td></tr>
+      <tr><td colspan="2" class="turma-info">TURMA: ${t13.nome}</td></tr>
+      <tr><td colspan="2" class="turma-info">ANO LECTIVO: ${t13.anoLetivo}</td></tr>
+      ${gHeader('Formação Específica')}
+      ${dRow('MÉDIA ANUAL', resolveGrade(g13, 'média anual', 'media anual'))}
+      ${dRow('P.A. PROFISSIONAL', resolveGrade(g13, 'p.a. profissional', 'aptidão profissional', 'pa profissional'))}
+      ${dRow('N. EST. CURRICULAR', resolveGrade(g13, 'n. est. curricular', 'estágio curricular'))}
+      <tr><td colspan="2" class="group-hdr" style="background:#1a2540;color:#fff;font-size:9px;text-align:center;padding:4px;">MÉDIAS GERAIS POR CLASSES</td></tr>
+      <tr><td colspan="2" class="group-hdr" style="font-size:8.5px;background:#e8e8e8;">MÉDIAS GERAIS POR CLASSES</td></tr>
+      <tr style="background:#f9f9f9;"><td class="disc-name" style="font-size:9px;">10ª CLASSE</td><td class="disc-grade">${ca10.str}</td></tr>
+      <tr><td class="disc-name" style="font-size:9px;">11ª CLASSE</td><td class="disc-grade">${ca11.str}</td></tr>
+      <tr style="background:#f9f9f9;"><td class="disc-name" style="font-size:9px;">12ª CLASSE</td><td class="disc-grade">${ca12.str}</td></tr>
+      <tr><td class="disc-name" style="font-size:9px;">13ª CLASSE</td><td class="disc-grade">${ca13.str}</td></tr>
+      <tr><td colspan="2" style="font-size:8.5px;padding:4px;text-align:justify;line-height:1.5;border-top:1px solid #aaa;">
+        Para efeitos legais lhe é passado o presente <strong>CERTIFICADO</strong>, que consta no livro de registo nº <strong>___</strong>, folha <strong>___</strong>, assinado por mim e autenticado com o selo branco em uso neste estabelecimento de ensino.
+      </td></tr>
+    </table>`;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado de Habilitações Literárias — ${nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Times New Roman', serif; font-size: 11px; color: #000; background: #fff; }
+    .page1 {
+      padding: 20px 28px;
+      border: 8px double #8B6914;
+      min-height: 260mm;
+      page-break-after: always;
+      position: relative;
+    }
+    .coat-arms { text-align: center; margin-bottom: 6px; }
+    .header-block { text-align: center; margin-bottom: 14px; line-height: 1.6; }
+    .rep-angola { font-size: 11px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
+    .gov-prov { font-size: 10.5px; font-weight: bold; text-transform: uppercase; }
+    .escola-nome { font-size: 12px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .ensino-nivel { font-size: 11px; font-weight: bold; text-transform: uppercase; }
+    .decorative-title {
+      text-align: center;
+      font-family: 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+      font-style: italic;
+      font-size: 26px;
+      color: #8B0000;
+      margin: 14px 0 18px;
+      letter-spacing: 1px;
+    }
+    .decorative-title .initial { font-size: 36px; font-weight: bold; }
+    .body-text { text-align: justify; line-height: 1.85; font-size: 11.5px; }
+    .body-text p { margin-bottom: 12px; }
+    .student-name { color: #8B0000; font-weight: bold; }
+    .bold { font-weight: bold; }
+    .page2 { padding: 14px 18px; }
+    .grades-section { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; border: 1px solid #555; }
+    .class-table { width: 100%; border-collapse: collapse; border-right: 1px solid #555; }
+    .class-table:last-child { border-right: none; }
+    .class-head { background: #1a2540; color: #fff; font-size: 11px; font-weight: bold; text-align: center; padding: 5px 4px; border-bottom: 1px solid #555; }
+    .turma-info { font-size: 9px; padding: 2px 4px; background: #f0f0f0; border-bottom: 1px solid #ddd; font-weight: bold; }
+    .group-hdr { font-weight: bold; font-size: 9.5px; background: #ddd; padding: 3px 4px; border-top: 1px solid #aaa; border-bottom: 1px solid #ccc; }
+    .disc-name { font-size: 9.5px; padding: 2px 4px; border-bottom: 1px solid #eee; }
+    .disc-grade { font-size: 9.5px; font-weight: bold; text-align: center; padding: 2px 4px; border-bottom: 1px solid #eee; width: 22px; border-left: 1px solid #ccc; color: #1a2540; }
+    .legal-text { margin-top: 12px; font-size: 10px; text-align: justify; line-height: 1.7; }
+    .date-footer { margin-top: 10px; font-size: 10px; font-weight: bold; text-transform: uppercase; line-height: 1.7; }
+    .sig-section { display: flex; justify-content: space-between; margin-top: 12px; }
+    .sig-block { text-align: center; min-width: 150px; }
+    .sig-label { font-size: 10px; font-weight: bold; }
+    .sig-line { width: 140px; border-top: 1px solid #000; margin: 28px auto 4px; }
+    .sig-name { font-size: 10px; font-style: italic; }
+    @media print {
+      @page { size: A4; margin: 12mm 15mm; }
+      body { margin: 0; }
+      .page1 { page-break-after: always; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PAGE 1: Header and introduction -->
+  <div class="page1">
+    <div class="coat-arms">
+      <img src="/icons/icon-192.png" alt="Brasão" style="height:56px;width:56px;object-fit:contain;" onerror="this.style.display='none'" />
+    </div>
+    <div class="header-block">
+      <p class="rep-angola">República de Angola</p>
+      <p class="gov-prov">Governo Provincial de ${provincia}</p>
+      <p class="escola-nome">${escola}</p>
+      <p class="ensino-nivel">Ensino Secundário Pedagógico</p>
+    </div>
+
+    <div class="decorative-title">
+      <span class="initial">C</span>ertificado de <span class="initial">H</span>abilitações <span class="initial">L</span>iterárias
+    </div>
+
+    <div class="body-text">
+      <p>
+        <span class="bold">${director}</span>, Director(a) da ${escola}, criada sob o
+        Decreto Executivo Conjunto nº <span class="bold">____/____</span> de ___ de ____________,
+        certifica que, <span class="student-name">${nome}</span>,
+        filho(a) de <span class="bold">${encarregado}</span>
+        e de <span class="bold">________________________________</span>,
+        nascido(a) aos <span class="bold">${diaNasc}</span> de
+        <span class="bold">${mesNasc}</span> de
+        <span class="bold">${anoNasc}</span>,
+        natural do <span class="bold">${municipio}</span>,
+        Município do <span class="bold">${municipio}</span>,
+        Província do <span class="bold">${provincia}</span>,
+        titular do B.I nº <span class="bold">________________________________</span>,
+        emitido aos <span class="bold">___</span> de <span class="bold">_______________</span>
+        de <span class="bold">______</span>,
+        pelo Departamento de Identificação Civil e Criminal do <span class="bold">${provincia}</span>.
+      </p>
+      <p>
+        Concluiu no ano lectivo <span class="bold">${anoLetivo}</span>,
+        o Curso do <span class="bold">II CICLO DO ENSINO SECUNDÁRIO PEDAGÓGICO</span>,
+        na especialidade de <span class="bold" style="text-decoration:underline;font-style:italic;">________________________________</span>,
+        o disposto na alínea f) do artigo 109º da LBSEE 17/16 de 7 de Outubro,
+        com a Média Curricular de <span class="bold">${mediaFinalDisplay}</span>
+        (<span class="bold">${mediaFinalExtenso} valores</span>)
+        obtida nas seguintes classificações por disciplinas:
+      </p>
+    </div>
+  </div>
+
+  <!-- PAGE 2: Grades table -->
+  <div class="page2">
+    <div class="grades-section">
+      ${table10}
+      ${table11}
+      ${table12}
+      ${table13}
+    </div>
+
+    <p class="date-footer">
+      ${escola.toUpperCase()} em ${municipio.toUpperCase()}, ${dataActual.toUpperCase()}.
+    </p>
+
+    <div class="sig-section">
+      <div class="sig-block">
+        <div class="sig-label">Conferido por</div>
+        <div class="sig-line"></div>
+        <div class="sig-name">&nbsp;</div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-label">Passado por</div>
+        <div class="sig-line"></div>
+        <div class="sig-name">&nbsp;</div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-label">O Director</div>
+        <div class="sig-line"></div>
+        <div class="sig-name">${director}</div>
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:10px;color:#c00;margin-top:14px;font-style:italic;">
+      Só é válido o Original
+    </p>
+  </div>
+
+</body>
+</html>`;
+  }
+
   function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
@@ -3976,6 +4325,8 @@ export default function EditorDocumentos() {
         html = buildCertificadoIiCicloHtml(emitAlunoId);
       } else if (classe === '13ª-ITAQ') {
         html = buildCertificadoItaqHtml(emitAlunoId);
+      } else if (classe === 'PEDAGOGICO-II-CICLO') {
+        html = buildCertificadoHabilitacoesLiterariasHtml(emitAlunoId);
       } else {
         html = buildCertificadoHabilitacoesHtml(emitAlunoId, classe);
       }
