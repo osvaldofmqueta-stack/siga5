@@ -12,8 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
-import { useUsers } from '@/context/UsersContext';
-import { usePermissoes, FEATURE_CATEGORIES, ROLE_DEFAULTS, PermKey } from '@/context/PermissoesContext';
+import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import TopBar from '@/components/TopBar';
 
 const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Malanje', 'Uíge', 'Zaire', 'Cabinda', 'Kwanza Norte', 'Kwanza Sul', 'Lunda Norte', 'Lunda Sul', 'Huíla', 'Namibe', 'Moxico', 'Cuando Cubango', 'Cunene', 'Kuando Kubango'];
@@ -70,15 +69,12 @@ const ROLE_COLOR: Record<string, string> = {
   secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success,
   financeiro: '#10B981', encarregado: '#F97316',
 };
-const TOTAL_FEATURES = FEATURE_CATEGORIES.reduce((s, c) => s + c.features.length, 0);
 
 export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
   const { alunos, professores, turmas, notas, presencas } = useData();
   const { pagamentos, taxas, bloqueados, getTotalRecebido, getTotalPendente, getMesesEmAtraso } = useFinanceiro();
   const { anoSelecionado } = useAnoAcademico();
-  const { users } = useUsers();
-  const { getUserPermissions, allUserPermissions } = usePermissoes();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -524,123 +520,13 @@ export default function PerfilScreen() {
           <InfoRow label="Versão da app" value="SGAA v1.0.0" />
         </View>
 
-        {/* Painel de Administração de Acessos — CEO / PCA */}
-        {(user.role === 'ceo' || user.role === 'pca') && (() => {
-          const managedUsers = users.filter(u => u.id !== user.id);
-          const usersWithOverrides = allUserPermissions.filter(p =>
-            Object.keys(p.permissoes).length > 0
-          ).length;
-          const totalManaged = managedUsers.length;
-
-          const roleGroups: Record<string, number> = {};
-          managedUsers.forEach(u => {
-            roleGroups[u.role] = (roleGroups[u.role] || 0) + 1;
-          });
-
-          const mostRestrictedUser = managedUsers.reduce<{ nome: string; active: number } | null>((acc, u) => {
-            const perms = getUserPermissions(u.id, u.role);
-            const active = Object.values(perms).filter(Boolean).length;
-            if (!acc || active < acc.active) return { nome: u.nome, active };
-            return acc;
-          }, null);
-
-          const mostActiveUser = managedUsers.reduce<{ nome: string; active: number } | null>((acc, u) => {
-            const perms = getUserPermissions(u.id, u.role);
-            const active = Object.values(perms).filter(Boolean).length;
-            if (!acc || active > acc.active) return { nome: u.nome, active };
-            return acc;
-          }, null);
-
-          return (
-            <View style={styles.card}>
-              <SectionHeader title="Controlo de Acessos e Permissões" icon="shield-checkmark" />
-
-              {/* Stats */}
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.info }]}>{totalManaged}</Text>
-                  <Text style={styles.statLbl}>Utilizadores</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.gold }]}>{TOTAL_FEATURES}</Text>
-                  <Text style={styles.statLbl}>Funcionalidades</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.warning }]}>{usersWithOverrides}</Text>
-                  <Text style={styles.statLbl}>Personalizados</Text>
-                </View>
-              </View>
-
-              {/* Role breakdown */}
-              <Text style={[styles.statLbl, { marginBottom: 8 }]}>DISTRIBUIÇÃO POR CARGO</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                {Object.entries(roleGroups).map(([role, count]) => (
-                  <View key={role} style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 5,
-                    backgroundColor: (ROLE_COLOR[role] || Colors.textMuted) + '20',
-                    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5,
-                    borderWidth: 1, borderColor: (ROLE_COLOR[role] || Colors.textMuted) + '44',
-                  }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: ROLE_COLOR[role] || Colors.textMuted }} />
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: ROLE_COLOR[role] || Colors.textMuted }}>
-                      {ROLE_LABEL[role] || role}
-                    </Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.text }}>{count}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* Insights */}
-              {mostRestrictedUser && (
-                <View style={{ backgroundColor: Colors.warning + '15', borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.warning + '33', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Ionicons name="lock-closed" size={16} color={Colors.warning} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.warning }}>Mais restrito</Text>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.text }} numberOfLines={1}>
-                      {mostRestrictedUser.nome} · {mostRestrictedUser.active}/{TOTAL_FEATURES} funcionalidades
-                    </Text>
-                  </View>
-                </View>
-              )}
-              {mostActiveUser && mostActiveUser.nome !== mostRestrictedUser?.nome && (
-                <View style={{ backgroundColor: Colors.success + '15', borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: Colors.success + '33', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Mais permissões</Text>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.text }} numberOfLines={1}>
-                      {mostActiveUser.nome} · {mostActiveUser.active}/{TOTAL_FEATURES} funcionalidades
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Category overview */}
-              <Text style={[styles.statLbl, { marginBottom: 8 }]}>MÓDULOS DO SISTEMA ({FEATURE_CATEGORIES.length} categorias)</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 14 }}>
-                {FEATURE_CATEGORIES.map(cat => (
-                  <View key={cat.categoria} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: Colors.border }}>
-                    <Ionicons name={cat.icon as any} size={11} color={Colors.gold} />
-                    <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>{cat.categoria}</Text>
-                    <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted }}>{cat.features.length}</Text>
-                  </View>
-                ))}
-              </View>
-
-              {/* CTA */}
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 13 }}
-                onPress={() => router.push('/(main)/gestao-acessos' as any)}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="key" size={18} color={Colors.primaryDark} />
-                <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.primaryDark }}>
-                  Gerir Permissões por Utilizador
-                </Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.primaryDark} />
-              </TouchableOpacity>
-            </View>
-          );
-        })()}
+        {/* Centro de Controlo de Acessos — CEO / PCA */}
+        {(user.role === 'ceo' || user.role === 'pca') && (
+          <View style={styles.card}>
+            <SectionHeader title="Controlo de Acessos e Permissões" icon="shield-checkmark" />
+            <GestaoAcessosPanel />
+          </View>
+        )}
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={() => setConfirmLogout(true)}>
