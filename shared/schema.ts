@@ -169,3 +169,26 @@ export const eventos = pgTable("eventos", {
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const horarios = pgTable("horarios", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  turmaId: varchar("turmaId")
+    .notNull()
+    .references(() => turmas.id),
+
+  disciplina: text("disciplina").notNull(),
+  professorId: varchar("professorId").references(() => professores.id),
+  professorNome: text("professorNome").notNull().default('—'),
+
+  diaSemana: integer("diaSemana").notNull(), // 1=Seg ... 5=Sex
+  periodo: integer("periodo").notNull(),     // 1..6
+  horaInicio: text("horaInicio").notNull(),
+  horaFim: text("horaFim").notNull(),
+  sala: text("sala").notNull().default(''),
+  anoAcademico: text("anoAcademico").notNull(),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});

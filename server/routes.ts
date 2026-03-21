@@ -633,6 +633,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
+  // -----------------------
+  // HORARIOS
+  // -----------------------
+  app.get("/api/horarios", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.horarios ORDER BY "diaSemana" ASC, "periodo" ASC`,
+      [],
+    );
+    json(res, 200, rows);
+  });
+
+  app.post("/api/horarios", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.horarios (
+          id, "turmaId", "disciplina", "professorId", "professorNome",
+          "diaSemana", "periodo", "horaInicio", "horaFim", "sala", "anoAcademico", "createdAt"
+        ) VALUES (
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12
+        ) RETURNING *`,
+        [
+          b.id,
+          b.turmaId,
+          b.disciplina,
+          b.professorId ?? null,
+          b.professorNome ?? '—',
+          b.diaSemana,
+          b.periodo,
+          b.horaInicio,
+          b.horaFim,
+          b.sala ?? '',
+          b.anoAcademico,
+          b.createdAt ?? new Date().toISOString(),
+        ],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.put("/api/horarios/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+
+      const allowed = [
+        "turmaId",
+        "disciplina",
+        "professorId",
+        "professorNome",
+        "diaSemana",
+        "periodo",
+        "horaInicio",
+        "horaFim",
+        "sala",
+        "anoAcademico",
+      ] as const;
+
+      const setParts: string[] = [];
+      const values: unknown[] = [];
+
+      for (const key of allowed) {
+        const v = b[key as keyof typeof b];
+        if (v === undefined) continue;
+        values.push(v as unknown);
+        setParts.push(`"${key}" = $${values.length}`);
+      }
+
+      if (setParts.length === 0) {
+        return json(res, 400, { error: "No fields to update." });
+      }
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.horarios SET ${setParts.join(", ")} WHERE id = $${values.length + 1} RETURNING *`,
+        [...values, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.delete("/api/horarios/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const rows = await query<JsonObject>(
+      `DELETE FROM public.horarios WHERE id = $1 RETURNING *`,
+      [id],
+    );
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

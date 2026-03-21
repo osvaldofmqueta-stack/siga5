@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, Platform, Dimensions, FlatList, ActivityIndicator,
+  Modal, TextInput, Alert, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
@@ -12,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
+import { apiRequest } from '@/lib/query-client';
 
 const { width } = Dimensions.get('window');
 
@@ -48,7 +48,6 @@ const DISCIPLINAS_POR_NIVEL: Record<string, string[]> = {
 };
 
 const CELL_W = Math.max(64, (width - 52) / 5);
-const STORAGE_KEY = '@sgaa_horarios';
 
 function genId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -88,18 +87,14 @@ export default function HorarioScreen() {
 
   async function loadHorarios() {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      const data = raw ? JSON.parse(raw) : [];
-      setHorarios(data);
+      const res = await apiRequest('GET', '/api/horarios');
+      const data = await res.json();
+      setHorarios(Array.isArray(data) ? data : []);
     } catch {
       setHorarios([]);
     } finally {
       setIsLoading(false);
     }
-  }
-
-  async function persist(data: AulaHorario[]) {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   }
 
   const turmasAtivas = turmas.filter(t => {
@@ -143,9 +138,12 @@ export default function HorarioScreen() {
   }
 
   async function removeAula(id: string) {
-    const updated = horarios.filter(h => h.id !== id);
-    setHorarios(updated);
-    await persist(updated);
+    try {
+      await apiRequest('DELETE', `/api/horarios/${id}`);
+      setHorarios(prev => prev.filter(h => h.id !== id));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível remover a aula.');
+    }
   }
 
   async function salvar() {
@@ -159,7 +157,7 @@ export default function HorarioScreen() {
         turmaId: turmaAtual.id,
         disciplina: form.disciplina,
         professorId: form.professorId,
-        professorNome: prof ? prof.apelido : '—',
+        professorNome: prof ? `${prof.nome} ${prof.apelido}` : '—',
         diaSemana: selectedCell.dia,
         periodo: selectedCell.periodo,
         horaInicio: periodo.inicio,
@@ -167,16 +165,27 @@ export default function HorarioScreen() {
         sala: form.sala || turmaAtual.sala,
         anoAcademico: anoSelecionado?.ano || '2025',
       };
-      const updated = [...horarios, nova];
-      setHorarios(updated);
-      await persist(updated);
+      try {
+        const res = await apiRequest('POST', '/api/horarios', nova);
+        const created = await res.json();
+        setHorarios(prev => [...prev, created]);
+      } catch {
+        Alert.alert('Erro', 'Não foi possível guardar a aula.');
+      }
     } else if (modalMode === 'edit' && editingHorario) {
-      const updated = horarios.map(h => h.id === editingHorario.id ? {
-        ...h, disciplina: form.disciplina, professorId: form.professorId,
-        professorNome: prof ? prof.apelido : '—', sala: form.sala || h.sala,
-      } : h);
-      setHorarios(updated);
-      await persist(updated);
+      const updates = {
+        disciplina: form.disciplina,
+        professorId: form.professorId || null,
+        professorNome: prof ? `${prof.nome} ${prof.apelido}` : '—',
+        sala: form.sala || editingHorario.sala,
+      };
+      try {
+        const res = await apiRequest('PUT', `/api/horarios/${editingHorario.id}`, updates);
+        const updated = await res.json();
+        setHorarios(prev => prev.map(h => h.id === editingHorario.id ? updated : h));
+      } catch {
+        Alert.alert('Erro', 'Não foi possível actualizar a aula.');
+      }
     }
     setModalMode(null);
   }

@@ -29,11 +29,18 @@ An Academic Management System (SGAA Angola) for educational institutions in Ango
 - **professores.tsx**: Role guard added — professors see an "Acesso Restrito" screen instead of the full teacher management panel.
 - **rh-controle.tsx**: Exam calendar publish notifications were already correctly implemented (verified).
 
+## Recent Changes (This Session — Migration & Horários DB)
+- **Migration**: Installed `tsx` package (was missing), fixed CORS issue in `lib/query-client.ts` — API calls now use `window.location.origin` in browser instead of hardcoded `EXPO_PUBLIC_DOMAIN`, resolving cross-origin errors.
+- **Database**: Provisioned PostgreSQL, pushed all tables (`alunos`, `professores`, `turmas`, `notas`, `presencas`, `eventos`, `users`, **`horarios`** — new).
+- **shared/schema.ts**: Added `horarios` table with full schedule fields (`turmaId`, `disciplina`, `professorId`, `professorNome`, `diaSemana`, `periodo`, `horaInicio`, `horaFim`, `sala`, `anoAcademico`).
+- **server/routes.ts**: Added full CRUD API routes for `/api/horarios` (GET, POST, PUT, DELETE).
+- **app/(main)/horario.tsx**: Migrated from AsyncStorage to server-side PostgreSQL persistence. Schedules now survive across devices, sessions, and browser clears.
+
 ## Architecture
 
 - **Frontend**: React Native with Expo SDK 54, Expo Router (file-based navigation), TanStack Query
 - **Backend**: Express.js server on port 5000 (proxies to Expo web dev server on port 8000 in development)
-- **Database/ORM**: Drizzle ORM configured (currently using in-memory storage via MemStorage)
+- **Database/ORM**: Drizzle ORM + PostgreSQL (all tables active and persisted)
 - **Package Manager**: npm
 - **Languages**: TypeScript
 
