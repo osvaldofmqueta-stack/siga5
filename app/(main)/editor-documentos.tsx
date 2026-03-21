@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -153,6 +153,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   pauta_final: 'Pauta Final',
   ficha_matricula: 'Ficha de Matrícula',
   mapa_aproveitamento: 'Mapa de Aproveitamento',
+  mapa_frequencias: 'Mapa de Frequências',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -164,6 +165,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   pauta_final: '#dc2626',
   ficha_matricula: '#0891b2',
   mapa_aproveitamento: '#065f46',
+  mapa_frequencias: '#1e40af',
   outro: Colors.textMuted,
 };
 
@@ -635,6 +637,32 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
 
 // ─── Mapa de Aproveitamento — Detalhado por Turma (IIIº Trimestre style) ──────
 
+// ─── Mapa de Frequências — Por Curso e Classe (10ª–13ª) ──────────────────────
+
+const SEED_MAPA_FREQUENCIAS_ID = 'tpl_seed_mapa_frequencias_v1';
+const SEED_MAPA_FREQUENCIAS: DocTemplate = {
+  id: SEED_MAPA_FREQUENCIAS_ID,
+  nome: 'Mapa de Frequências — Por Curso e Classe (10ª–13ª)',
+  tipo: 'mapa_frequencias',
+  classeAlvo: 'FREQUENCIAS',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `MAPA DE FREQUÊNCIAS
+(10ª, 11ª, 12ª, e 13ª CLASSES) ANO LECTIVO {{ANO_LECTIVO}}
+
+Enviado à: Direcção Nacional do Ensino Técnico Profissional
+
+Estrutura (por Curso × Classe):
+  NOME DO CURSO | 10ª Classe [Nº Turmas | Alunos Matriculados M/F/Total]
+               | 11ª Classe [...]  | 12ª Classe [...]  | 13ª Classe [...]
+               | TOTAL GERAL [Nº Turmas | Alunos Matriculados M/F/Total]
+
+Dados calculados automaticamente: número de turmas activas e alunos matriculados por sexo.
+Assinado por: O Subdirector Pedagógico.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 // ─── Mapa de Aproveitamento — Por Curso e Classe (10ª–13ª) ───────────────────
 
 const SEED_MAPA_POR_CURSO_CLASSE_ID = 'tpl_seed_mapa_por_curso_classe_v1';
@@ -930,7 +958,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1063,7 +1091,7 @@ export default function EditorDocumentos() {
     return t?.tipo === 'pauta' || t?.tipo === 'pauta_final';
   }
   function isMapaType(t: DocTemplate | null) {
-    return t?.tipo === 'mapa_aproveitamento';
+    return t?.tipo === 'mapa_aproveitamento' || t?.tipo === 'mapa_frequencias';
   }
 
   // ─── Pauta Final HTML Builder ──────────────────────────────────────────────
@@ -2347,6 +2375,195 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Mapa de Frequências — Por Curso e Classe (10ª–13ª) ─────────────────────
+
+  function buildMapaFrequenciasHtml(): string {
+    const escola = config.nomeEscola || 'Complexo Escolar';
+    const subdirector = user?.nome || '____________________________';
+    const now = new Date();
+    const dataLocal = `${config.municipio || 'Luanda'}, ___/___/${now.getFullYear()}`;
+
+    const sortedTurmasFq = [...turmas].sort((a,b) => b.anoLetivo.localeCompare(a.anoLetivo));
+    const anoLetivo = sortedTurmasFq[0]?.anoLetivo || String(now.getFullYear());
+    const anoLetivoSlashFq = anoLetivo.includes('/') ? anoLetivo : `${anoLetivo}/${String(Number(anoLetivo)+1).slice(-2)}`;
+
+    const TARGET_PREFIXES_FQ = ['10ª', '11ª', '12ª', '13ª'];
+    const activeTurmasFq = turmas.filter(t => t.ativo && TARGET_PREFIXES_FQ.some(p => t.classe.startsWith(p)));
+
+    const existingClassesFq = TARGET_PREFIXES_FQ.filter(p =>
+      activeTurmasFq.some(t => t.classe.startsWith(p))
+    );
+
+    // Helper: stats for a group of turmaIds
+    function fqGroupStats(turmaIds: string[]) {
+      const nTurmas = turmaIds.length;
+      const grpAlunos = alunos.filter(a => a.ativo && turmaIds.includes(a.turmaId || ''));
+      const matM = grpAlunos.filter(a => a.genero !== 'F').length;
+      const matF = grpAlunos.filter(a => a.genero === 'F').length;
+      return { nTurmas, matM, matF, matTotal: matM + matF };
+    }
+
+    // Group turmas by nivel within target classes
+    const nivelGroupsFq = new Map<string, string[]>();
+    for (const t of activeTurmasFq) {
+      const key = t.nivel || 'Ensino';
+      if (!nivelGroupsFq.has(key)) nivelGroupsFq.set(key, []);
+      nivelGroupsFq.get(key)!.push(t.id);
+    }
+
+    type FqCursoRow = { label: string; turmaIds: string[] };
+    const cursoRowsFq: FqCursoRow[] = nivelGroupsFq.size <= 1
+      ? [{ label: escola, turmaIds: activeTurmasFq.map(t => t.id) }]
+      : [...nivelGroupsFq.entries()].map(([nivel, ids]) => ({ label: nivel, turmaIds: ids }));
+
+    // Column headers
+    const classColHeadersFq = existingClassesFq.map(cls =>
+      `<th colspan="4" style="border:1px solid #000;background:#d0d0d0;font-size:8.5px;text-align:center;padding:3px;">${cls} Classe</th>`
+    ).join('');
+
+    const classSubHeadersFq = existingClassesFq.map(() =>
+      `<th style="border:1px solid #ccc;background:#e8e8e8;font-size:7.5px;padding:2px;text-align:center;">Nº<br/>Turmas</th>
+       <th style="border:1px solid #ccc;background:#e8e8e8;font-size:7.5px;padding:2px;text-align:center;">M</th>
+       <th style="border:1px solid #ccc;background:#e8e8e8;font-size:7.5px;padding:2px;text-align:center;">F</th>
+       <th style="border:1px solid #ccc;background:#e8e8e8;font-size:7.5px;padding:2px;text-align:center;">Total</th>`
+    ).join('');
+
+    // Build grand total accumulators
+    const grandFq = { nTurmas: 0, matM: 0, matF: 0, matTotal: 0 };
+    const classGrandFq: Record<string, { nTurmas: number; matM: number; matF: number; matTotal: number }> = {};
+    for (const cls of existingClassesFq) classGrandFq[cls] = { nTurmas: 0, matM: 0, matF: 0, matTotal: 0 };
+
+    // Build data rows
+    const dataRowsFq = cursoRowsFq.map(cr => {
+      let cells = '';
+      let rowTurmas = 0, rowM = 0, rowF = 0, rowTotal = 0;
+
+      for (const cls of existingClassesFq) {
+        const clsIds = cr.turmaIds.filter(id => {
+          const t = turmas.find(t => t.id === id);
+          return t && t.classe.startsWith(cls);
+        });
+        const s = fqGroupStats(clsIds);
+        cells += `
+          <td style="border:1px solid #ddd;text-align:center;font-size:9px;">${s.nTurmas}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:9px;">${s.matM}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:9px;">${s.matF}</td>
+          <td style="border:1px solid #ddd;text-align:center;font-size:9px;font-weight:bold;">${s.matTotal}</td>`;
+        rowTurmas += s.nTurmas; rowM += s.matM; rowF += s.matF; rowTotal += s.matTotal;
+        classGrandFq[cls].nTurmas += s.nTurmas;
+        classGrandFq[cls].matM += s.matM;
+        classGrandFq[cls].matF += s.matF;
+        classGrandFq[cls].matTotal += s.matTotal;
+      }
+
+      grandFq.nTurmas += rowTurmas; grandFq.matM += rowM; grandFq.matF += rowF; grandFq.matTotal += rowTotal;
+
+      return `<tr>
+        <td style="border:1px solid #ccc;padding:3px 6px;font-size:9px;font-weight:bold;">${cr.label}</td>
+        ${cells}
+        <td style="border:1px solid #ccc;text-align:center;font-size:9px;font-weight:bold;">${rowTurmas}</td>
+        <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${rowM}</td>
+        <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${rowF}</td>
+        <td style="border:1px solid #ccc;text-align:center;font-size:9px;font-weight:bold;">${rowTotal}</td>
+      </tr>`;
+    });
+
+    // Total row
+    let totalCells = '';
+    for (const cls of existingClassesFq) {
+      const cg = classGrandFq[cls];
+      totalCells += `
+        <td style="border:1px solid #999;text-align:center;font-size:9px;font-weight:bold;">${cg.nTurmas}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;font-weight:bold;">${cg.matM}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;font-weight:bold;">${cg.matF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;font-weight:bold;">${cg.matTotal}</td>`;
+    }
+
+    // NOME DA ESCOLA colspan = 1, class cols + total cols = existingClassesFq.length * 4 + 4
+    const totalColspan = existingClassesFq.length * 4 + 5;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapa de Frequências ${anoLetivoSlashFq}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 9px; color: #000; padding: 12px 16px; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .header p { margin: 1px 0; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    .header p.inst { font-size: 11px; text-decoration: underline; }
+    .titulo { font-size: 12px; font-weight: bold; color: #b91c1c; text-align: center; margin-bottom: 2px; }
+    .subtitulo { font-size: 10px; font-weight: bold; text-align: center; margin-bottom: 14px; }
+    .escola-box { border: 1px solid #000; text-align: center; font-weight: bold; font-size: 9px; padding: 4px; margin-bottom: 0; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 16px; }
+    th { vertical-align: middle; }
+    .sig-row { display: flex; justify-content: center; margin-top: 30px; }
+    .sig-block { text-align: center; }
+    .sig-label { font-size: 10px; font-weight: bold; text-transform: uppercase; margin-bottom: 28px; }
+    .sig-line { width: 220px; border-top: 1px solid #000; margin: 0 auto 3px; }
+    .sig-name { font-size: 10px; font-style: italic; }
+    .date { font-size: 10px; margin: 14px 0 4px; font-weight: bold; }
+    .visto { font-size: 9px; position: absolute; top: 12px; left: 14px; }
+    @media print { @page { size: A3 landscape; margin: 6mm 10mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Ministério da Educação</p>
+    <p class="inst">Direcção Nacional do Ensino Técnico Profissional</p>
+  </div>
+
+  <p class="titulo">MAPA DE FREQUÊNCIAS</p>
+  <p class="subtitulo">(${existingClassesFq.join(', ')} CLASSES) ANO LECTIVO ${anoLetivoSlashFq}</p>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="border:1px solid #000;background:#f0f0f0;font-size:8.5px;text-align:center;padding:3px;vertical-align:middle;min-width:60px;">NOME DA<br/>ESCOLA</th>
+        <th colspan="${totalColspan - 1}" style="border:1px solid #000;background:#d0d0d0;font-size:9px;text-align:center;padding:3px;">${escola.toUpperCase()}</th>
+      </tr>
+      <tr>
+        <th style="border:1px solid #000;background:#2d2d2d;color:#fff;font-size:8.5px;text-align:center;padding:3px;min-width:130px;">Nome do Curso</th>
+        ${classColHeadersFq}
+        <th colspan="4" style="border:1px solid #000;background:#555;color:#fff;font-size:8.5px;text-align:center;padding:3px;">TOTAL GERAL</th>
+      </tr>
+      <tr>
+        <td style="border:1px solid #ccc;"></td>
+        ${classSubHeadersFq}
+        <th style="border:1px solid #ccc;background:#d8d8e8;font-size:7.5px;padding:2px;text-align:center;">Nº<br/>Turmas</th>
+        <th style="border:1px solid #ccc;background:#d8d8e8;font-size:7.5px;padding:2px;text-align:center;">M</th>
+        <th style="border:1px solid #ccc;background:#d8d8e8;font-size:7.5px;padding:2px;text-align:center;">F</th>
+        <th style="border:1px solid #ccc;background:#d8d8e8;font-size:7.5px;padding:2px;text-align:center;">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dataRowsFq.join('\n')}
+      <tr style="background:#c8c8c8;font-weight:bold;">
+        <td style="border:1px solid #888;padding:3px 6px;font-size:9px;">Total</td>
+        ${totalCells}
+        <td style="border:1px solid #888;text-align:center;font-size:9px;">${grandFq.nTurmas}</td>
+        <td style="border:1px solid #888;text-align:center;font-size:9px;">${grandFq.matM}</td>
+        <td style="border:1px solid #888;text-align:center;font-size:9px;">${grandFq.matF}</td>
+        <td style="border:1px solid #888;text-align:center;font-size:9px;">${grandFq.matTotal}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="date">${dataLocal}</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">O Subdirector Pedagógico</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${subdirector}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   // ─── Mapa de Aproveitamento — Por Curso e Classe (10ª–13ª) ─────────────────
 
   function buildMapaPorCursoClasseHtml(trimestre: 1 | 2 | 3): string {
@@ -2998,6 +3215,15 @@ export default function EditorDocumentos() {
         : emitTemplate.classeAlvo === 'CURSO_CLASSE'
           ? buildMapaPorCursoClasseHtml(emitTrimestre)
           : buildMapaAproveitamentoHtml(emitTrimestre);
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      return;
+    }
+
+    // ── Mapa de Frequências: generated HTML ───────────────────────────────────
+    if (emitTemplate?.tipo === 'mapa_frequencias') {
+      const html = buildMapaFrequenciasHtml();
       win.document.write(html);
       win.document.close();
       win.print();
