@@ -483,6 +483,29 @@ export default function SecretariaHubScreen() {
         {/* ── VISÃO GERAL ──────────────────────────────────── */}
         {activeTab === 'visao' && (
           <>
+            {/* Gestão Académica Banner */}
+            <TouchableOpacity
+              style={styles.gestaoAcademicaBanner}
+              onPress={() => router.push('/(main)/gestao-academica' as any)}
+              activeOpacity={0.82}
+            >
+              <LinearGradient colors={['#1a2f6e', '#0D1B3E']} style={styles.gestaoAcademicaGrad}>
+                <View style={styles.gestaoAcademicaLeft}>
+                  <Ionicons name="school" size={28} color={Colors.gold} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.gestaoAcademicaTitle}>Gestão Académica</Text>
+                    <Text style={styles.gestaoAcademicaSubtitle}>
+                      Controlo completo: alunos, professores, turmas, presenças, notas, horário e histórico
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.gestaoAcademicaBtn}>
+                  <Text style={styles.gestaoAcademicaBtnText}>Abrir</Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
+                </View>
+              </LinearGradient>
+            </TouchableOpacity>
+
             {/* Stats */}
             <View style={styles.statsRow}>
               <StatCard value={stats.totalAlunos} label="Alunos\nMatriculados" color={Colors.info} icon="people" />
@@ -833,4 +856,12 @@ const styles = StyleSheet.create({
   credRowLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 1 },
   credRowValue: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   credNote: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', fontStyle: 'italic' },
+
+  gestaoAcademicaBanner: { marginHorizontal: 16, marginTop: 12, borderRadius: 18, overflow: 'hidden', elevation: 6, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 10 },
+  gestaoAcademicaGrad: { padding: 18, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gestaoAcademicaLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  gestaoAcademicaTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#fff' },
+  gestaoAcademicaSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.6)', marginTop: 3 },
+  gestaoAcademicaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.gold + '30', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: Colors.gold + '50' },
+  gestaoAcademicaBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold },
 });

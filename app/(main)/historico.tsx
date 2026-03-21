@@ -186,6 +186,14 @@ export default function HistoricoScreen() {
     <View style={styles.container}>
       <TopBar title="Histórico Académico" subtitle={anoSelecionado?.ano || ''} />
 
+      {/* Aviso de somente-leitura */}
+      <View style={styles.readOnlyBanner}>
+        <Ionicons name="lock-closed" size={14} color={Colors.textMuted} />
+        <Text style={styles.readOnlyText}>
+          Registo permanente e imutável — cresce automaticamente com a actividade académica
+        </Text>
+      </View>
+
       <View style={styles.viewModeRow}>
         <TouchableOpacity style={[styles.modeBtn, viewMode === 'aluno' && styles.modeBtnActive]} onPress={() => setViewMode('aluno')}>
           <Ionicons name="person" size={15} color={viewMode === 'aluno' ? Colors.gold : Colors.textSecondary} />
@@ -456,6 +464,8 @@ export default function HistoricoScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
+  readOnlyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.border + '80', borderBottomWidth: 1, borderBottomColor: Colors.border },
+  readOnlyText: { flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic' },
   viewModeRow: { flexDirection: 'row', backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
   modeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   modeBtnActive: { borderBottomColor: Colors.gold },
