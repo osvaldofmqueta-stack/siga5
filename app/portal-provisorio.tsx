@@ -185,6 +185,7 @@ export default function PortalProvisorioScreen() {
 
       {/* Header */}
       <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 8 }]}>
+        <View style={styles.headerInner}>
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.headerGreeting}>Olá, {primeiroNome}</Text>
@@ -214,6 +215,7 @@ export default function PortalProvisorioScreen() {
               />
             </React.Fragment>
           ))}
+        </View>
         </View>
       </LinearGradient>
 
@@ -432,7 +434,8 @@ export default function PortalProvisorioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  header: { paddingHorizontal: 20, paddingBottom: 16, gap: 12 },
+  header: { paddingBottom: 16, alignItems: 'center' },
+  headerInner: { maxWidth: 480, width: '100%', paddingHorizontal: 20, gap: 12 },
   headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
   headerGreeting: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text },
   headerSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
@@ -442,7 +445,7 @@ const styles = StyleSheet.create({
   timeline: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 16 },
+  scrollContent: { padding: 16, gap: 16, maxWidth: 480, width: '100%', alignSelf: 'center' },
 
   card: { backgroundColor: Colors.backgroundCard, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 14 },
   cardSuccess: { borderColor: 'rgba(39,174,96,0.3)', backgroundColor: 'rgba(39,174,96,0.05)' },

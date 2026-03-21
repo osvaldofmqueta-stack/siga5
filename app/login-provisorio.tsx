@@ -61,6 +61,7 @@ export default function LoginProvisorioScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.pwaWrap}>
           <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
             <Ionicons name="arrow-back" size={18} color={Colors.text} />
           </TouchableOpacity>
@@ -149,6 +150,7 @@ export default function LoginProvisorioScreen() {
               <Text style={styles.footerLink}>Fazer inscrição agora</Text>
             </TouchableOpacity>
           </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -157,7 +159,8 @@ export default function LoginProvisorioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scroll: { paddingHorizontal: 20, gap: 24, flexGrow: 1 },
+  scroll: { flexGrow: 1, alignItems: 'center' },
+  pwaWrap: { width: '100%', maxWidth: 480, paddingHorizontal: 20, gap: 24, alignSelf: 'center' },
   backBtn: { width: 38, height: 38, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignSelf: 'flex-start' },
   headerSection: { alignItems: 'center', gap: 12, paddingVertical: 8 },
   iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: 'rgba(240,165,0,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(240,165,0,0.25)' },

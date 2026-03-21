@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   stepLabelActive: { color: Colors.text },
 
   scroll: { flex: 1 },
-  scrollContent: { padding: 16, gap: 0 },
+  scrollContent: { padding: 16, gap: 0, maxWidth: 480, width: '100%', alignSelf: 'center' },
   stepCard: { backgroundColor: Colors.backgroundCard, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 20, gap: 20 },
   stepCardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
   stepCardIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -517,8 +517,8 @@ const styles = StyleSheet.create({
   approvalStepNumText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold },
   approvalStepText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1 },
 
-  footer: { backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingTop: 12 },
-  footerActions: { flexDirection: 'row', gap: 12 },
+  footer: { backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingTop: 12, alignItems: 'center' },
+  footerActions: { flexDirection: 'row', gap: 12, maxWidth: 480, width: '100%' },
   prevBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 15, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.05)' },
   prevBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
   nextBtn: { flex: 1, borderRadius: 13, overflow: 'hidden' },
