@@ -537,8 +537,8 @@ export default function LoginScreen() {
         <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
         <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
       </View>
-      <Text style={styles.footerText}>República de Angola  ·  SIGE v1.0</Text>
-      <Text style={styles.footerSub}>Sistema Integral de Gestão Escolar</Text>
+      <Text style={styles.footerText}>Desenvolvido pela IOGD  ·  SIGE v1.0</Text>
+      <Text style={styles.footerSub}>Intelligent Operations & Global Development</Text>
     </Animated.View>
   );
 
@@ -597,7 +597,7 @@ export default function LoginScreen() {
                 <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
                 <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
               </View>
-              <Text style={styles.footerText}>República de Angola  ·  SIGE v1.0</Text>
+              <Text style={styles.footerText}>Desenvolvido pela IOGD  ·  SIGE v1.0</Text>
             </View>
           </Animated.View>
 
