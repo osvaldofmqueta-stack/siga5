@@ -1193,6 +1193,26 @@ export default function EditorDocumentos() {
   const { user } = useAuth();
   const { alunos, turmas, notas, professores } = useData();
   const { config } = useConfig();
+
+  const directorGeral = config.directorGeral || user?.nome || '____________________________';
+  const directorPedagogico = config.directorPedagogico || '____________________________';
+  const directorProvincialEducacao = config.directorProvincialEducacao || '';
+
+  function buildSigRow(dirG: string, dirP: string, dirProv: string): string {
+    const block = (label: string, name: string) =>
+      `<div style="text-align:center;min-width:140px;flex:1;">` +
+        `<div style="font-size:11px;font-weight:bold;margin-bottom:28px;">${label}</div>` +
+        `<div class="sig-line" style="width:170px;border-top:1px solid #000;margin:0 auto 5px;"></div>` +
+        `<div style="font-size:11px;font-weight:bold;">${name}</div>` +
+      `</div>`;
+    return (
+      `<div style="display:flex;justify-content:space-around;margin-top:40px;flex-wrap:wrap;gap:16px;">` +
+        block('O Director Geral', dirG) +
+        block('O Director Pedagógico', dirP) +
+        (dirProv ? block('Director Provincial da Educação', dirProv) : '') +
+      `</div>`
+    );
+  }
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
 
   const [mode, setMode] = useState<Mode>('list');
@@ -1410,14 +1430,14 @@ export default function EditorDocumentos() {
       '{{MES_ACTUAL}}': MESES[now.getMonth()],
       '{{ANO_ACTUAL}}': String(now.getFullYear()),
       '{{NOME_ESCOLA}}': config.nomeEscola || 'Escola Secundária N.º 1',
-      '{{NOME_DIRECTOR}}': user?.nome || 'António Gomes',
+      '{{NOME_DIRECTOR}}': directorGeral,
     };
     Object.entries(exampleMap).forEach(([k, v]) => {
       conteudo = conteudo.split(k).join(v);
     });
 
     const escolaNome = config.nomeEscola || 'Escola Secundária N.º 1';
-    const directorNome = user?.nome || '';
+    const directorNome = directorGeral;
 
     const logoHtml = template.insigniaBase64
       ? `<img src="${template.insigniaBase64}" alt="Insígnia" style="height:90px;width:90px;object-fit:contain;margin-bottom:8px;" />`
@@ -1530,7 +1550,7 @@ export default function EditorDocumentos() {
     const filhoA = aluno.genero === 'F' ? 'filha' : 'filho';
 
     const escola = config.nomeEscola || '___________________________';
-    const director = user?.nome || '___________________________';
+    const director = directorGeral;
     const cidade = aluno.provincia || 'Luanda';
     const dataActual = `${now.getDate()} de ${MESES_LOCAL[now.getMonth()]} de ${now.getFullYear()}`;
 
@@ -1715,18 +1735,7 @@ export default function EditorDocumentos() {
 
   <div class="date-line">${cidade}, aos ${dataActual}</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="label">Conferido por</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">&nbsp;</div>
-    </div>
-    <div class="sig-block">
-      <div class="label">O (A) Director(a)</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 
 </body>
 </html>`;
@@ -1775,7 +1784,7 @@ export default function EditorDocumentos() {
     };
     const ciclo = cicloMap[turma.nivel] || turma.nivel.toUpperCase();
     const escola = config.nomeEscola || '___________________________';
-    const director = user?.nome || '___________________________';
+    const director = directorGeral;
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
 
     // Build discipline header columns
@@ -2105,7 +2114,7 @@ export default function EditorDocumentos() {
     const professor = professores.find(p => p.id === turma.professorId);
     const professorNome = professor ? `${professor.nome} ${professor.apelido || ''}`.trim() : '___________________________';
     const escolaNome = config.nomeEscola || '___________________________';
-    const director = user?.nome || '___________________________';
+    const director = directorGeral;
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
 
     const alunosDaTurma = alunos
@@ -2383,7 +2392,7 @@ export default function EditorDocumentos() {
       '{{PAUTA_NUMERO}}': '____',
       '{{PROCESSO_NUMERO}}': '____',
       '{{NOME_ESCOLA}}': config.nomeEscola || '',
-      '{{NOME_DIRECTOR}}': user?.nome || '',
+      '{{NOME_DIRECTOR}}': directorGeral,
       '{{DATA_ACTUAL}}': `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`,
       '{{MES_ACTUAL}}': MESES[now.getMonth()],
       '{{ANO_ACTUAL}}': now.getFullYear().toString(),
@@ -2640,7 +2649,7 @@ export default function EditorDocumentos() {
     if (!aluno) return '';
     const turma = turmas.find(t => t.id === aluno.turmaId);
     const escola = config.nomeEscola || 'Escola';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
     const anoLetivo = turma?.anoLetivo || String(now.getFullYear());
@@ -2807,18 +2816,7 @@ export default function EditorDocumentos() {
 
   <div class="date">Luanda aos ${dataActual}</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">Conferido por</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">&nbsp;</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">O Director</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 </body>
 </html>`;
   }
@@ -2827,7 +2825,7 @@ export default function EditorDocumentos() {
 
   function buildMapaAproveitamentoHtml(trimestre: 1 | 2 | 3): string {
     const escola = config.nomeEscola || 'Complexo Escolar';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${escola.toUpperCase()}, ${now.getDate()} DE ${MESES[now.getMonth()].toUpperCase()} DE ${now.getFullYear()}`;
 
@@ -3137,13 +3135,7 @@ export default function EditorDocumentos() {
 
   <div class="date">${dataActual}.</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">A /O DIRECTOR/A</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 </body>
 </html>`;
   }
@@ -3809,7 +3801,7 @@ export default function EditorDocumentos() {
     const aluno = alunos.find(a => a.id === alunoId);
     if (!aluno) return '';
     const escola = config.nomeEscola || 'Complexo Escolar';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const nome = `${aluno.nome} ${aluno.apelido}`;
     const diaNasc  = aluno.dataNascimento ? new Date(aluno.dataNascimento).getDate()           : '__';
@@ -4028,18 +4020,7 @@ export default function EditorDocumentos() {
   <!-- DATE & SIGNATURES -->
   <div class="date-line">${municipio} aos ${dataActual}</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">Conferido por</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">&nbsp;</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">O Director</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 
   <div class="mod-ref">Mod. 01/MED</div>
 
@@ -4053,7 +4034,7 @@ export default function EditorDocumentos() {
     const aluno = alunos.find(a => a.id === alunoId);
     if (!aluno) return '';
     const escola = config.nomeEscola || 'Liceu Público';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${escola.toUpperCase()}, ${now.getDate()} DE ${MESES[now.getMonth()].toUpperCase()} DE ${now.getFullYear()}`;
     const nome = `${aluno.nome} ${aluno.apelido}`;
@@ -4225,18 +4206,7 @@ export default function EditorDocumentos() {
 
   <div class="date-footer">${dataActual}.</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">O Subdirector Pedagógico</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">____________________________</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">O Director</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 
   <div class="conferiu">Conferiu: ____________________</div>
   <div class="decreto">Reconhecido pelo Ministério da Educação de Angola pelo decreto executivo conjunto nº _______ — Iª Série nº ___ de __ de ____________.</div>
@@ -4251,7 +4221,7 @@ export default function EditorDocumentos() {
     if (!aluno) return '';
     const turma = turmas.find(t => t.id === aluno.turmaId);
     const escola = config.nomeEscola || 'Instituto Técnico';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
     const anoLetivo = turma?.anoLetivo || String(now.getFullYear());
@@ -4439,18 +4409,7 @@ export default function EditorDocumentos() {
 
   <div class="date">${escola}, aos ${dataActual}</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">Conferido por</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">&nbsp;</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">O Director</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 </body>
 </html>`;
   }
@@ -4461,7 +4420,7 @@ export default function EditorDocumentos() {
     const aluno = alunos.find(a => a.id === alunoId);
     if (!aluno) return '';
     const escola = config.nomeEscola || 'Escola';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
 
@@ -4745,23 +4704,7 @@ export default function EditorDocumentos() {
       ${escola.toUpperCase()} em ${municipio.toUpperCase()}, ${dataActual.toUpperCase()}.
     </p>
 
-    <div class="sig-section">
-      <div class="sig-block">
-        <div class="sig-label">Conferido por</div>
-        <div class="sig-line"></div>
-        <div class="sig-name">&nbsp;</div>
-      </div>
-      <div class="sig-block">
-        <div class="sig-label">Passado por</div>
-        <div class="sig-line"></div>
-        <div class="sig-name">&nbsp;</div>
-      </div>
-      <div class="sig-block">
-        <div class="sig-label">O Director</div>
-        <div class="sig-line"></div>
-        <div class="sig-name">${director}</div>
-      </div>
-    </div>
+    ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 
     <p style="text-align:center;font-size:10px;color:#c00;margin-top:14px;font-style:italic;">
       Só é válido o Original
@@ -4779,7 +4722,7 @@ export default function EditorDocumentos() {
     if (!aluno) return '';
     const turma = turmas.find(t => t.id === aluno.turmaId);
     const escola = config.nomeEscola || 'Instituto Técnico';
-    const director = user?.nome || '____________________________';
+    const director = directorGeral;
     const now = new Date();
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
     const anoLetivo = turma?.anoLetivo || String(now.getFullYear());
@@ -4955,9 +4898,9 @@ export default function EditorDocumentos() {
   <div class="top-row">
     <div class="visto-box">
       <div class="visto-title">Visto</div>
-      <div style="font-size:10px;">O Director Provincial</div>
+      <div style="font-size:10px;">Director Provincial da Educação</div>
       <div class="visto-sig-line"></div>
-      <div style="font-size:10px;">____________________________</div>
+      <div style="font-size:10px;">${directorProvincialEducacao || '____________________________'}</div>
     </div>
     <div style="text-align:center;">
       <img src="/icons/icon-192.png" alt="Armas" style="height:70px;width:70px;object-fit:contain;" onerror="this.style.display='none'" />
@@ -5030,18 +4973,7 @@ export default function EditorDocumentos() {
   <!-- DATE & SIGNATURES -->
   <div class="date-line">${municipio}, aos ${dataActual}</div>
 
-  <div class="sig-row">
-    <div class="sig-block">
-      <div class="sig-label">Conferido por</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">&nbsp;</div>
-    </div>
-    <div class="sig-block">
-      <div class="sig-label">O Director</div>
-      <div class="sig-line"></div>
-      <div class="sig-name">${director}</div>
-    </div>
-  </div>
+  ${buildSigRow(directorGeral, directorPedagogico, directorProvincialEducacao)}
 
 </body>
 </html>`;
@@ -5180,11 +5112,19 @@ export default function EditorDocumentos() {
             ${aluno ? `<div class="doc-meta">${aluno.nome} ${aluno.apelido}</div>` : ''}
           </div>
           ${isHtmlContent(emitPreview) ? `<div style="text-align:justify;line-height:1.9;font-family:'Times New Roman',serif;font-size:14px;">${emitPreview}</div>` : `<pre>${emitPreview}</pre>`}
-          <div class="signature">
-            <div style="font-size:13px;color:#444;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
-            <div class="sig-line"></div>
-            <div style="font-weight:bold;font-size:13px;">${user?.nome || ''}</div>
-            <div style="font-size:12px;color:#555;">Director(a)</div>
+          <div class="date-footer" style="font-size:13px;color:#444;margin-top:40px;">Luanda, ${new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+          <div style="display:flex;justify-content:space-around;margin-top:30px;flex-wrap:wrap;gap:20px;">
+            <div style="text-align:center;min-width:150px;">
+              <div style="font-size:12px;font-weight:bold;margin-bottom:30px;">O Director Geral</div>
+              <div class="sig-line"></div>
+              <div style="font-weight:bold;font-size:12px;">${directorGeral}</div>
+            </div>
+            <div style="text-align:center;min-width:150px;">
+              <div style="font-size:12px;font-weight:bold;margin-bottom:30px;">O Director Pedagógico</div>
+              <div class="sig-line"></div>
+              <div style="font-weight:bold;font-size:12px;">${directorPedagogico}</div>
+            </div>
+            ${directorProvincialEducacao ? `<div style="text-align:center;min-width:150px;"><div style="font-size:12px;font-weight:bold;margin-bottom:30px;">Director Provincial da Educação</div><div class="sig-line"></div><div style="font-weight:bold;font-size:12px;">${directorProvincialEducacao}</div></div>` : ''}
           </div>
         </div>
       </body>

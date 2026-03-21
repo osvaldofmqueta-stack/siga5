@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 
 const { width } = Dimensions.get('window');
@@ -273,13 +274,25 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
   tipo: TipoDocEspecifico | null;
   alunos: any[]; turmas: any[];
 }) {
-  const config = tipo ? DOC_ESPECIFICO_CONFIG[tipo] : null;
+  const docConfig = tipo ? DOC_ESPECIFICO_CONFIG[tipo] : null;
+  const { config: appConfig, updateConfig } = useConfig();
 
   const [busca, setBusca] = useState('');
   const [alunoSelecionado, setAlunoSelecionado] = useState<any | null>(null);
   const [finalidade, setFinalidade] = useState('');
   const [erro, setErro] = useState('');
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [directorGeral, setDirectorGeral] = useState('');
+  const [directorPedagogico, setDirectorPedagogico] = useState('');
+  const [directorProvincial, setDirectorProvincial] = useState('');
+
+  React.useEffect(() => {
+    if (visible) {
+      setDirectorGeral(appConfig.directorGeral || '');
+      setDirectorPedagogico(appConfig.directorPedagogico || '');
+      setDirectorProvincial(appConfig.directorProvincialEducacao || '');
+    }
+  }, [visible, appConfig.directorGeral, appConfig.directorPedagogico, appConfig.directorProvincialEducacao]);
 
   const sugestoes = useMemo(() => {
     if (!busca.trim() || busca.trim().length < 2) return [];
@@ -308,21 +321,185 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
 
   function handleClose() { handleReset(); onClose(); }
 
+  function buildDocHtml(aluno: any, turma: any): string {
+    const escola = appConfig.nomeEscola || '___________________________';
+    const nomeAluno = `${aluno.nome} ${aluno.apelido}`;
+    const matricula = aluno.numeroMatricula || '';
+    const classe = turma?.classe || '';
+    const turmaNome = turma?.nome || '';
+    const anoLetivo = turma?.anoLetivo || new Date().getFullYear().toString();
+    const encarregado = aluno.nomeEncarregado || '___________________________';
+    const dataNasc = aluno.dataNascimento
+      ? new Date(aluno.dataNascimento + 'T12:00:00').toLocaleDateString('pt-PT')
+      : '__ / __ / ____';
+    const provincia = aluno.provincia || '_______________';
+    const municipio = aluno.municipio || '_______________';
+    const hoje = new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+    const dirG = directorGeral.trim() || '____________________________';
+    const dirP = directorPedagogico.trim() || '____________________________';
+    const dirProv = directorProvincial.trim();
+
+    const sigBlockBase = (label: string, name: string) => `
+      <div class="sig-block">
+        <div class="sig-label">${label}</div>
+        <div class="sig-line"></div>
+        <div class="sig-name">${name}</div>
+      </div>`;
+
+    const sigRow = `
+      <div class="sig-row">
+        ${sigBlockBase('O Director Geral', dirG)}
+        ${sigBlockBase('O Director Pedagógico', dirP)}
+        ${dirProv ? sigBlockBase('Director Provincial da Educação', dirProv) : ''}
+      </div>`;
+
+    let bodyContent = '';
+    const docTipo = docConfig?.docType;
+
+    if (docTipo === 'declaracao') {
+      bodyContent = `
+        <div class="doc-tipo">DECLARAÇÃO</div>
+        <div class="body-text">
+          <p>
+            Eu, <strong>${dirG}</strong>, Director(a) Geral da <strong>${escola}</strong>,
+            declaro para os devidos efeitos que <strong>${nomeAluno}</strong>,
+            portador(a) do n.º de matrícula <strong>${matricula}</strong>,
+            filho(a) de <strong>${encarregado}</strong> e de ________________________,
+            nascido(a) aos <strong>${dataNasc}</strong>,
+            natural de <strong>${municipio}</strong>, Município de <strong>${municipio}</strong>,
+            Província de <strong>${provincia}</strong>,
+            encontra-se regularmente matriculado(a) e a frequentar
+            a <strong>${classe}</strong>, Turma <strong>${turmaNome}</strong>,
+            no ano lectivo de <strong>${anoLetivo}</strong>.
+          </p>
+          ${finalidade.trim() ? `<p>O presente documento destina-se a <strong>${finalidade.trim()}</strong>.</p>` : ''}
+          <p>Mais declaro que as informações acima mencionadas constam dos registos existentes neste estabelecimento de ensino.</p>
+        </div>`;
+    } else if (docTipo === 'declaracao_com_nota') {
+      bodyContent = `
+        <div class="doc-tipo">DECLARAÇÃO COM NOTA</div>
+        <div class="body-text">
+          <p>
+            Eu, <strong>${dirG}</strong>, Director(a) Geral da <strong>${escola}</strong>,
+            declaro que <strong>${nomeAluno}</strong>,
+            portador(a) do n.º de matrícula <strong>${matricula}</strong>,
+            filho(a) de <strong>${encarregado}</strong> e de ________________________,
+            nascido(a) aos <strong>${dataNasc}</strong>,
+            natural de <strong>${municipio}</strong>, Província de <strong>${provincia}</strong>,
+            encontra-se matriculado(a) na <strong>${classe}</strong>, Turma <strong>${turmaNome}</strong>,
+            no ano lectivo de <strong>${anoLetivo}</strong>,
+            com aproveitamento escolar satisfatório.
+          </p>
+          ${finalidade.trim() ? `<p>O presente documento destina-se a <strong>${finalidade.trim()}</strong>.</p>` : ''}
+        </div>`;
+    } else if (docTipo === 'transferencia') {
+      bodyContent = `
+        <div class="doc-tipo">DECLARAÇÃO DE TRANSFERÊNCIA</div>
+        <div class="body-text">
+          <p>
+            Eu, <strong>${dirG}</strong>, Director(a) Geral da <strong>${escola}</strong>,
+            venho por meio desta transferir o(a) aluno(a) <strong>${nomeAluno}</strong>,
+            nascido(a) aos <strong>${dataNasc}</strong>,
+            filho(a) de <strong>${encarregado}</strong> e de ________________________,
+            portador(a) do n.º de matrícula <strong>${matricula}</strong>,
+            que frequentava a <strong>${classe}</strong>, Turma <strong>${turmaNome}</strong>,
+            no ano lectivo de <strong>${anoLetivo}</strong>.
+          </p>
+          ${finalidade.trim() ? `<p>Destino da transferência: <strong>${finalidade.trim()}</strong>.</p>` : ''}
+        </div>`;
+    } else {
+      bodyContent = `
+        <div class="doc-tipo">CERTIFICADO DE HABILITAÇÕES</div>
+        <div class="body-text">
+          <p>
+            Eu, <strong>${dirG}</strong>, Director(a) Geral da <strong>${escola}</strong>,
+            certifico que <strong>${nomeAluno}</strong>,
+            portador(a) do n.º de matrícula <strong>${matricula}</strong>,
+            filho(a) de <strong>${encarregado}</strong> e de ________________________,
+            nascido(a) aos <strong>${dataNasc}</strong>,
+            natural de <strong>${municipio}</strong>, Província de <strong>${provincia}</strong>,
+            concluiu o <strong>${classe}</strong> no ano lectivo de <strong>${anoLetivo}</strong>.
+          </p>
+          <p>
+            Para efeitos legais, é passado o presente CERTIFICADO, que consta no livro de registo nº ______,
+            folha ______, assinado por mim e autenticado com carimbo em uso neste estabelecimento de ensino.
+          </p>
+        </div>`;
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>${docConfig?.label || 'Documento'}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; }
+    .doc-header { text-align: center; margin-bottom: 28px; }
+    .republika { font-size: 11px; color: #555; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+    h1 { font-size: 16px; margin: 4px 0; }
+    .divider { width: 80px; height: 2px; background: #000; margin: 10px auto; }
+    .doc-tipo { font-size: 15px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; text-align: center; margin: 20px 0; }
+    .body-text { text-align: justify; line-height: 2; }
+    .body-text p { margin-bottom: 14px; }
+    .date-line { margin: 40px 0 10px; font-size: 13px; }
+    .sig-row { display: flex; justify-content: space-around; margin-top: 50px; flex-wrap: wrap; gap: 20px; }
+    .sig-block { text-align: center; min-width: 160px; }
+    .sig-label { font-size: 12px; font-weight: bold; margin-bottom: 30px; }
+    .sig-line { width: 180px; height: 1px; background: #333; margin: 0 auto 6px; }
+    .sig-name { font-size: 12px; font-weight: bold; }
+    @media print { body { margin: 30px 50px; } }
+  </style>
+</head>
+<body>
+  <div class="doc-header">
+    <div class="republika">República de Angola</div>
+    <h1>${escola}</h1>
+    <div class="divider"></div>
+  </div>
+  ${bodyContent}
+  <div class="date-line">Luanda, ${hoje}</div>
+  ${sigRow}
+</body>
+</html>`;
+  }
+
   function handleSubmit() {
     if (!alunoSelecionado) { setErro('Seleccione um estudante da lista de sugestões.'); return; }
-    if (config?.temFinalidade && !finalidade.trim()) { setErro('A finalidade é obrigatória para este documento.'); return; }
+    if (docConfig?.temFinalidade && !finalidade.trim()) { setErro('A finalidade é obrigatória para este documento.'); return; }
+    if (!directorGeral.trim()) { setErro('O nome do Director Geral é obrigatório.'); return; }
+    if (!directorPedagogico.trim()) { setErro('O nome do Director Pedagógico é obrigatório.'); return; }
     setErro('');
+
+    updateConfig({
+      directorGeral: directorGeral.trim(),
+      directorPedagogico: directorPedagogico.trim(),
+      directorProvincialEducacao: directorProvincial.trim() || undefined,
+    });
+
     onEmit({
-      tipo: config!.docType,
+      tipo: docConfig!.docType,
       alunoNome: `${alunoSelecionado.nome} ${alunoSelecionado.apelido}`,
       alunoNum: alunoSelecionado.numeroMatricula || `ALN-${Date.now()}`,
       finalidade: finalidade.trim(),
     });
+
+    if (Platform.OS === 'web') {
+      const turmaDoAlunoLocal = turmas.find((t: any) => t.id === alunoSelecionado.turmaId);
+      const html = buildDocHtml(alunoSelecionado, turmaDoAlunoLocal);
+      const win = window.open('', '_blank');
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+        win.print();
+      }
+    }
+
     handleReset();
     onClose();
   }
 
-  if (!config) return null;
+  if (!docConfig) return null;
 
   const turmaDoAluno = alunoSelecionado ? turmas.find((t: any) => t.id === alunoSelecionado.turmaId) : null;
 
@@ -334,10 +511,10 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
             {/* Header */}
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                <View style={[styles.docEspIconWrap, { backgroundColor: config.color + '22' }]}>
-                  <Ionicons name={config.icon as any} size={20} color={config.color} />
+                <View style={[styles.docEspIconWrap, { backgroundColor: docConfig.color + '22' }]}>
+                  <Ionicons name={docConfig.icon as any} size={20} color={docConfig.color} />
                 </View>
-                <Text style={[styles.modalTitle, { fontSize: 15 }]}>{config.label}</Text>
+                <Text style={[styles.modalTitle, { fontSize: 15 }]}>{docConfig.label}</Text>
               </View>
               <TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
@@ -348,7 +525,7 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
             <Text style={styles.fieldLabel}>Pesquisar Estudante *</Text>
             <Text style={styles.fieldHint}>Pesquise por nome, n.º matrícula, turma ou sala</Text>
             <View style={{ position: 'relative' }}>
-              <View style={[styles.inputRow, { borderColor: mostrarSugestoes ? config.color : Colors.border }]}>
+              <View style={[styles.inputRow, { borderColor: mostrarSugestoes ? docConfig.color : Colors.border }]}>
                 <Ionicons name="search-outline" size={16} color={Colors.textMuted} style={{ marginRight: 6 }} />
                 <TextInput
                   style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0, paddingHorizontal: 0 }]}
@@ -397,9 +574,9 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
 
             {/* Cartão do aluno seleccionado */}
             {alunoSelecionado && (
-              <View style={[styles.alunoCard, { borderColor: config.color + '44' }]}>
-                <View style={[styles.alunoCardAvatar, { backgroundColor: config.color + '22' }]}>
-                  <Text style={[styles.alunoCardAvatarText, { color: config.color }]}>
+              <View style={[styles.alunoCard, { borderColor: docConfig.color + '44' }]}>
+                <View style={[styles.alunoCardAvatar, { backgroundColor: docConfig.color + '22' }]}>
+                  <Text style={[styles.alunoCardAvatarText, { color: docConfig.color }]}>
                     {alunoSelecionado.nome[0]}{alunoSelecionado.apelido[0]}
                   </Text>
                 </View>
@@ -410,14 +587,14 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
                     {turmaDoAluno ? `  ·  ${turmaDoAluno.nome}  ·  Sala ${turmaDoAluno.sala}` : ''}
                   </Text>
                 </View>
-                <View style={[styles.alunoCardCheck, { backgroundColor: config.color }]}>
+                <View style={[styles.alunoCardCheck, { backgroundColor: docConfig.color }]}>
                   <Ionicons name="checkmark" size={14} color="#fff" />
                 </View>
               </View>
             )}
 
-            {/* Finalidade (apenas quando não é Certificado de Habilitações) */}
-            {config.temFinalidade && (
+            {/* Finalidade */}
+            {docConfig.temFinalidade && (
               <>
                 <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Finalidade *</Text>
                 <Text style={styles.fieldHint}>Para que se destina este documento</Text>
@@ -433,6 +610,42 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
               </>
             )}
 
+            {/* Assinaturas / Responsáveis */}
+            <View style={[styles.signatariosBox, { marginTop: 18 }]}>
+              <View style={styles.signatariosHeader}>
+                <Ionicons name="pen-outline" size={14} color={Colors.gold} />
+                <Text style={styles.signatariosTitle}>Assinaturas do Documento</Text>
+              </View>
+
+              <Text style={styles.fieldLabel}>Nome do Director Geral *</Text>
+              <TextInput
+                style={styles.input}
+                value={directorGeral}
+                onChangeText={v => { setDirectorGeral(v); setErro(''); }}
+                placeholder="Nome completo do Director Geral"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Nome do Director Pedagógico *</Text>
+              <TextInput
+                style={styles.input}
+                value={directorPedagogico}
+                onChangeText={v => { setDirectorPedagogico(v); setErro(''); }}
+                placeholder="Nome completo do Director Pedagógico"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Director Provincial da Educação</Text>
+              <Text style={styles.fieldHint}>Opcional — apenas se necessário para o documento</Text>
+              <TextInput
+                style={styles.input}
+                value={directorProvincial}
+                onChangeText={setDirectorProvincial}
+                placeholder="Nome do Director Provincial da Educação"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
             {/* Erro */}
             {erro.length > 0 && (
               <View style={styles.erroRow}>
@@ -446,7 +659,7 @@ function EmitirDocEspecificoModal({ visible, onClose, onEmit, tipo, alunos, turm
               <TouchableOpacity style={styles.cancelBtn} onPress={handleClose}>
                 <Text style={styles.cancelBtnText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: config.color }]} onPress={handleSubmit}>
+              <TouchableOpacity style={[styles.submitBtn, { backgroundColor: docConfig.color }]} onPress={handleSubmit}>
                 <Ionicons name="print-outline" size={16} color="#fff" />
                 <Text style={styles.submitBtnText}>Emitir</Text>
               </TouchableOpacity>
@@ -1108,4 +1321,8 @@ const styles = StyleSheet.create({
 
   erroRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.danger + '30' },
   erroText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger, flex: 1 },
+
+  signatariosBox: { backgroundColor: Colors.gold + '0D', borderRadius: 12, borderWidth: 1, borderColor: Colors.gold + '33', padding: 14 },
+  signatariosHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  signatariosTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold, letterSpacing: 0.3 },
 });

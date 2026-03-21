@@ -22,6 +22,9 @@ export interface ConfigGeral {
   numAvaliacoes: number;
   horarioFuncionamento: string;
   flashScreen: FlashScreenConfig;
+  directorGeral?: string;
+  directorPedagogico?: string;
+  directorProvincialEducacao?: string;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -72,6 +75,9 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           numAvaliacoes: (raw.numAvaliacoes as number) ?? DEFAULT_CONFIG.numAvaliacoes,
           horarioFuncionamento: (raw.horarioFuncionamento as string) || DEFAULT_CONFIG.horarioFuncionamento,
           flashScreen: { ...DEFAULT_FLASH, ...((raw.flashScreen as Partial<FlashScreenConfig>) || {}) },
+          directorGeral: (raw.directorGeral as string) || undefined,
+          directorPedagogico: (raw.directorPedagogico as string) || undefined,
+          directorProvincialEducacao: (raw.directorProvincialEducacao as string) || undefined,
         };
         setConfig(parsed);
       })
