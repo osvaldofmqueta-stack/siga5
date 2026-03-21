@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
-  Platform, Dimensions, FlatList, Image,
+  Platform, Dimensions, FlatList, Image, Alert,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
@@ -1362,11 +1362,36 @@ export default function EditorDocumentos() {
     await saveTemplates(updated);
   }
 
+  const LOCK_ROLES: string[] = ['pca', 'ceo', 'admin', 'director'];
+  const canManageLocks = LOCK_ROLES.includes(user?.role || '');
+
   async function toggleBloqueio(id: string) {
-    const updated = templates.map(t =>
-      t.id === id ? { ...t, bloqueado: !t.bloqueado } : t
+    if (!canManageLocks) {
+      Alert.alert('Acesso Restrito', 'Apenas o PCA, CEO, Administrador ou Director podem bloquear/desbloquear modelos de documentos.');
+      return;
+    }
+    const template = templates.find(t => t.id === id);
+    if (!template) return;
+    const isBlocking = !template.bloqueado;
+    Alert.alert(
+      isBlocking ? 'Bloquear Modelo' : 'Desbloquear Modelo',
+      isBlocking
+        ? `O modelo "${template.nome}" ficará indisponível para emissão. Deseja continuar?`
+        : `O modelo "${template.nome}" ficará disponível para todos os utilizadores autorizados. Deseja continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: isBlocking ? 'Bloquear' : 'Desbloquear',
+          style: isBlocking ? 'destructive' : 'default',
+          onPress: async () => {
+            const updated = templates.map(t =>
+              t.id === id ? { ...t, bloqueado: !t.bloqueado } : t
+            );
+            await saveTemplates(updated);
+          },
+        },
+      ]
     );
-    await saveTemplates(updated);
   }
 
   function previewTemplate(template: DocTemplate, previewContent?: string) {
@@ -5194,6 +5219,19 @@ export default function EditorDocumentos() {
   // ─── LIST ─────────────────────────────────────────────────────────────────
 
   function ListScreen() {
+    const [filtro, setFiltro] = useState<'todos' | 'ativos' | 'bloqueados'>('todos');
+
+    const visibleTemplates = canManageLocks
+      ? (filtro === 'ativos'
+          ? templates.filter(t => !t.bloqueado)
+          : filtro === 'bloqueados'
+            ? templates.filter(t => t.bloqueado)
+            : templates)
+      : templates.filter(t => !t.bloqueado);
+
+    const totalBloqueados = templates.filter(t => t.bloqueado).length;
+    const totalAtivos = templates.filter(t => !t.bloqueado).length;
+
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
         {/* Header */}
@@ -5203,7 +5241,11 @@ export default function EditorDocumentos() {
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Editor de Documentos</Text>
-            <Text style={styles.headerSub}>{templates.length} modelo{templates.length !== 1 ? 's' : ''} guardado{templates.length !== 1 ? 's' : ''}</Text>
+            <Text style={styles.headerSub}>
+              {canManageLocks
+                ? `${totalAtivos} activo${totalAtivos !== 1 ? 's' : ''} · ${totalBloqueados} bloqueado${totalBloqueados !== 1 ? 's' : ''}`
+                : `${totalAtivos} modelo${totalAtivos !== 1 ? 's' : ''} disponíve${totalAtivos !== 1 ? 'is' : 'l'}`}
+            </Text>
           </View>
           <TouchableOpacity style={styles.newBtn} onPress={openNew} activeOpacity={0.8}>
             <Ionicons name="add" size={18} color="#fff" />
@@ -5211,19 +5253,65 @@ export default function EditorDocumentos() {
           </TouchableOpacity>
         </View>
 
-        {templates.length === 0 ? (
+        {/* Filter tabs — only for managers */}
+        {canManageLocks && (
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+            {([
+              { key: 'todos', label: `Todos (${templates.length})` },
+              { key: 'ativos', label: `Activos (${totalAtivos})`, color: Colors.success },
+              { key: 'bloqueados', label: `Bloqueados (${totalBloqueados})`, color: Colors.danger },
+            ] as const).map(f => (
+              <TouchableOpacity
+                key={f.key}
+                onPress={() => setFiltro(f.key)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center', gap: 4,
+                  paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+                  backgroundColor: filtro === f.key ? (f.color || Colors.gold) + '22' : Colors.surface,
+                  borderWidth: 1,
+                  borderColor: filtro === f.key ? (f.color || Colors.gold) : Colors.border,
+                }}
+                activeOpacity={0.75}
+              >
+                {f.key === 'bloqueados' && <Ionicons name="lock-closed" size={11} color={filtro === f.key ? Colors.danger : Colors.textMuted} />}
+                {f.key === 'ativos' && <Ionicons name="lock-open" size={11} color={filtro === f.key ? Colors.success : Colors.textMuted} />}
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: filtro === f.key ? (f.color || Colors.gold) : Colors.textMuted }}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+
+        {/* Info banner for managers */}
+        {canManageLocks && totalBloqueados > 0 && filtro !== 'bloqueados' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 10, backgroundColor: Colors.danger + '15', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.danger + '40' }}>
+            <Ionicons name="lock-closed" size={14} color={Colors.danger} />
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1 }}>
+              {totalBloqueados} modelo{totalBloqueados !== 1 ? 's' : ''} bloqueado{totalBloqueados !== 1 ? 's' : ''} — invisíve{totalBloqueados !== 1 ? 'is' : 'l'} para os outros utilizadores.
+            </Text>
+          </View>
+        )}
+
+        {visibleTemplates.length === 0 ? (
           <View style={styles.emptyState}>
             <FontAwesome5 name="file-alt" size={52} color={Colors.textMuted} />
-            <Text style={styles.emptyTitle}>Nenhum modelo criado</Text>
-            <Text style={styles.emptyDesc}>Crie o primeiro modelo de documento para a sua escola.</Text>
-            <TouchableOpacity style={styles.emptyBtn} onPress={openNew}>
-              <Ionicons name="add" size={18} color="#fff" />
-              <Text style={styles.emptyBtnText}>Criar primeiro modelo</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyTitle}>
+              {filtro === 'bloqueados' ? 'Sem modelos bloqueados' : filtro === 'ativos' ? 'Sem modelos activos' : 'Nenhum modelo criado'}
+            </Text>
+            <Text style={styles.emptyDesc}>
+              {filtro === 'bloqueados' ? 'Nenhum modelo foi bloqueado.' : filtro === 'ativos' ? 'Todos os modelos estão bloqueados.' : 'Crie o primeiro modelo de documento para a sua escola.'}
+            </Text>
+            {filtro === 'todos' && (
+              <TouchableOpacity style={styles.emptyBtn} onPress={openNew}>
+                <Ionicons name="add" size={18} color="#fff" />
+                <Text style={styles.emptyBtnText}>Criar primeiro modelo</Text>
+              </TouchableOpacity>
+            )}
           </View>
         ) : (
           <FlatList
-            data={templates}
+            data={visibleTemplates}
             keyExtractor={t => t.id}
             contentContainerStyle={{ padding: 16, gap: 12 }}
             renderItem={({ item }) => <TemplateCard template={item} />}
@@ -5240,16 +5328,24 @@ export default function EditorDocumentos() {
     const bloqueado = !!template.bloqueado;
 
     return (
-      <View style={[styles.card, bloqueado && { opacity: 0.6, borderColor: Colors.danger + '55', borderWidth: 1 }]}>
+      <View style={[
+        styles.card,
+        bloqueado && { borderColor: Colors.danger + '60', borderWidth: 1, backgroundColor: Colors.danger + '08' },
+      ]}>
         <View style={styles.cardHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
             <View style={[styles.tipoBadge, { backgroundColor: tipoColor + '22' }]}>
               <Text style={[styles.tipoText, { color: tipoColor }]}>{TIPO_LABELS[template.tipo]}</Text>
             </View>
-            {bloqueado && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.danger + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+            {bloqueado ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.danger + '25', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.danger + '50' }}>
                 <Ionicons name="lock-closed" size={11} color={Colors.danger} />
-                <Text style={{ fontSize: 10, color: Colors.danger, fontWeight: '600' }}>Bloqueado</Text>
+                <Text style={{ fontSize: 10, color: Colors.danger, fontFamily: 'Inter_700Bold' }}>BLOQUEADO</Text>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.success + '20', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: Colors.success + '40' }}>
+                <Ionicons name="lock-open" size={11} color={Colors.success} />
+                <Text style={{ fontSize: 10, color: Colors.success, fontFamily: 'Inter_700Bold' }}>ACTIVO</Text>
               </View>
             )}
           </View>
@@ -5257,17 +5353,31 @@ export default function EditorDocumentos() {
             <Ionicons name="ellipsis-vertical" size={18} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
-        <Text style={styles.cardNome}>{template.nome}</Text>
+
+        <Text style={[styles.cardNome, bloqueado && { color: Colors.textMuted }]}>{template.nome}</Text>
         <Text style={styles.cardPreview} numberOfLines={2}>{preview || 'Sem conteúdo'}</Text>
+
         <View style={styles.cardFooter}>
           <Text style={styles.cardDate}>Actualizado: {fmtDate(template.atualizadoEm)}</Text>
           <View style={styles.cardActions}>
+            {/* Lock/Unlock quick button — managers only */}
+            {canManageLocks && (
+              <TouchableOpacity
+                style={[styles.cardActionBtn, { backgroundColor: bloqueado ? Colors.success + '18' : Colors.danger + '18', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 }]}
+                onPress={() => toggleBloqueio(template.id)}
+              >
+                <Ionicons name={bloqueado ? 'lock-open-outline' : 'lock-closed-outline'} size={14} color={bloqueado ? Colors.success : Colors.danger} />
+                <Text style={[styles.cardActionText, { color: bloqueado ? Colors.success : Colors.danger }]}>
+                  {bloqueado ? 'Desbloquear' : 'Bloquear'}
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              style={[styles.cardActionBtn, bloqueado && { opacity: 0.4 }]}
+              style={[styles.cardActionBtn, bloqueado && { opacity: 0.35 }]}
               onPress={() => !bloqueado && openEmit(template)}
               disabled={bloqueado}
             >
-              <Ionicons name={bloqueado ? 'lock-closed' : 'document-text'} size={14} color={bloqueado ? Colors.textMuted : Colors.success} />
+              <Ionicons name="document-text" size={14} color={bloqueado ? Colors.textMuted : Colors.success} />
               <Text style={[styles.cardActionText, { color: bloqueado ? Colors.textMuted : Colors.success }]}>Emitir</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cardActionBtn} onPress={() => openEdit(template)}>
@@ -5276,6 +5386,7 @@ export default function EditorDocumentos() {
             </TouchableOpacity>
           </View>
         </View>
+
         {showMenu && (
           <View style={styles.dropMenu}>
             <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); previewTemplate(template); }}>
@@ -5292,16 +5403,25 @@ export default function EditorDocumentos() {
                 <Text style={[styles.dropItemText, { color: Colors.success }]}>Emitir documento</Text>
               </TouchableOpacity>
             )}
-            <View style={styles.dropDivider} />
-            <TouchableOpacity
-              style={styles.dropItem}
-              onPress={() => { setShowMenu(false); toggleBloqueio(template.id); }}
-            >
-              <Ionicons name={bloqueado ? 'lock-open-outline' : 'lock-closed-outline'} size={16} color={bloqueado ? Colors.success : Colors.warning} />
-              <Text style={[styles.dropItemText, { color: bloqueado ? Colors.success : Colors.warning }]}>
-                {bloqueado ? 'Ativar modelo' : 'Bloquear modelo'}
-              </Text>
-            </TouchableOpacity>
+            {/* Lock/unlock — managers only */}
+            {canManageLocks && (
+              <>
+                <View style={styles.dropDivider} />
+                <TouchableOpacity
+                  style={styles.dropItem}
+                  onPress={() => { setShowMenu(false); toggleBloqueio(template.id); }}
+                >
+                  <Ionicons
+                    name={bloqueado ? 'lock-open-outline' : 'lock-closed-outline'}
+                    size={16}
+                    color={bloqueado ? Colors.success : Colors.danger}
+                  />
+                  <Text style={[styles.dropItemText, { color: bloqueado ? Colors.success : Colors.danger }]}>
+                    {bloqueado ? 'Desbloquear modelo' : 'Bloquear modelo'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
             <View style={styles.dropDivider} />
             <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); deleteTemplate(template.id); }}>
               <Ionicons name="trash-outline" size={16} color={Colors.danger} />
