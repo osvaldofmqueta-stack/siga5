@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -155,6 +155,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   ficha_matricula: 'Ficha de Matrícula',
   mapa_aproveitamento: 'Mapa de Aproveitamento',
   mapa_frequencias: 'Mapa de Frequências',
+  lista_turma: 'Lista da Turma',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -167,6 +168,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   ficha_matricula: '#0891b2',
   mapa_aproveitamento: '#065f46',
   mapa_frequencias: '#1e40af',
+  lista_turma: '#0369a1',
   outro: Colors.textMuted,
 };
 
@@ -490,6 +492,28 @@ Escola: {{NOME_ESCOLA}}  |  Classe: {{CLASSE}}  |  Turma: {{TURMA}}
 Ano Lectivo: {{ANO_LECTIVO}}  |  Turno: {{TURNO}}
 
 Assinado: {{NOME_DIRECTOR}} — Director(a)`,
+};
+
+const SEED_LISTA_TURMA_ID = 'tpl_seed_lista_turma_v1';
+const SEED_LISTA_TURMA: DocTemplate = {
+  id: SEED_LISTA_TURMA_ID,
+  nome: 'Lista da Turma',
+  tipo: 'lista_turma',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `[LISTA DA TURMA — GERADA AUTOMATICAMENTE]
+
+Este modelo gera automaticamente a Lista da Turma completa com todos os alunos da turma seleccionada.
+
+Ao emitir, seleccione a turma e o sistema irá:
+• Listar todos os alunos por ordem alfabética
+• Mostrar: Nº, Nome do Aluno, Idade, Sexo, Data de Nascimento, Contactos
+• Gerar o Mapa Estatístico (género e distribuição de idades)
+• Calcular totais e percentagens automaticamente
+
+Escola: {{NOME_ESCOLA}}
+Classe: {{CLASSE}} | Turma: {{TURMA}} | Período: {{TURNO}} | Ano Lectivo: {{ANO_LECTIVO}}
+Professor(a): Director(a) de Turma`,
 };
 
 const SEED_DECLARACAO_COM_NOTA_ID = 'tpl_seed_declaracao_com_nota_v1';
@@ -1024,7 +1048,7 @@ export default function EditorDocumentos() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { alunos, turmas, notas } = useData();
+  const { alunos, turmas, notas, professores } = useData();
   const { config } = useConfig();
   const topInset = Platform.OS === 'web' ? 67 : insets.top;
 
@@ -1075,7 +1099,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1306,6 +1330,9 @@ export default function EditorDocumentos() {
   function isMapaType(t: DocTemplate | null) {
     return t?.tipo === 'mapa_aproveitamento' || t?.tipo === 'mapa_frequencias';
   }
+  function isListaTurmaType(t: DocTemplate | null) {
+    return t?.tipo === 'lista_turma';
+  }
 
   // ─── Pauta Final HTML Builder ──────────────────────────────────────────────
 
@@ -1496,6 +1523,202 @@ export default function EditorDocumentos() {
     Legenda: MT1 = Média 1º Trimestre | MT2 = Média 2º Trimestre | MT3 = Média 3º Trimestre | MFD = Média Final do Ano
     | Classificação: ≥10 = Apto (A) | &lt;10 = Não Apto (NA)
   </div>
+</body>
+</html>`;
+  }
+
+  // ─── Lista da Turma HTML Builder ──────────────────────────────────────────
+
+  function buildListaTurmaHtml(turmaId: string): string {
+    const turma = turmas.find(t => t.id === turmaId);
+    if (!turma) return '';
+
+    const now = new Date();
+    const professor = professores.find(p => p.id === turma.professorId);
+    const professorNome = professor ? `${professor.nome} ${professor.apelido || ''}`.trim() : '___________________________';
+    const escolaNome = config.nomeEscola || '___________________________';
+    const director = user?.nome || '___________________________';
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+
+    const alunosDaTurma = alunos
+      .filter(a => a.ativo && a.turmaId === turmaId)
+      .sort((a, b) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`));
+
+    function calcAge(dataNasc: string): number {
+      if (!dataNasc) return 0;
+      const birth = new Date(dataNasc);
+      if (isNaN(birth.getTime())) return 0;
+      let age = now.getFullYear() - birth.getFullYear();
+      const m = now.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+      return age;
+    }
+
+    function fmtDate(d: string): string {
+      if (!d) return '';
+      const dt = new Date(d);
+      if (isNaN(dt.getTime())) return d;
+      return dt.toLocaleDateString('pt-PT');
+    }
+
+    const studentRows = alunosDaTurma.map((aluno, idx) => {
+      const age = calcAge(aluno.dataNascimento);
+      const bg = idx % 2 === 1 ? '#FFF9C4' : '#ffffff';
+      return `<tr style="background:${bg};">
+        <td style="text-align:center;font-weight:bold;">${idx + 1}</td>
+        <td style="text-align:left;padding-left:6px;">${aluno.nome.toUpperCase()} ${aluno.apelido.toUpperCase()}</td>
+        <td style="text-align:center;">${age > 0 ? age : ''}</td>
+        <td style="text-align:center;">${aluno.genero || ''}</td>
+        <td style="text-align:center;">${fmtDate(aluno.dataNascimento)}</td>
+        <td style="text-align:center;">${aluno.telefoneEncarregado || ''}</td>
+      </tr>`;
+    }).join('');
+
+    const total = alunosDaTurma.length;
+    const masculinos = alunosDaTurma.filter(a => a.genero === 'M').length;
+    const femininos = alunosDaTurma.filter(a => a.genero === 'F').length;
+    const pctM = total > 0 ? Math.round((masculinos / total) * 100) : 0;
+    const pctF = total > 0 ? Math.round((femininos / total) * 100) : 0;
+
+    const idadeGroups = [10, 11, 12, 13, 14, 15, 16];
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Lista da Turma — ${turma.classe} ${turma.nome} ${turma.anoLetivo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; margin: 20px 30px; color: #000; }
+    .header { text-align: center; margin-bottom: 12px; }
+    .header p { margin: 1px 0; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+    .info-block { margin-bottom: 6px; font-size: 11px; }
+    .info-row { display: flex; gap: 24px; margin-bottom: 3px; }
+    .info-row span { white-space: nowrap; }
+    .doc-title { text-align: center; font-size: 13px; font-weight: bold; text-decoration: underline; margin: 10px 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+    .main-table { border-collapse: collapse; width: 100%; font-size: 11px; margin-bottom: 20px; }
+    .main-table th { background: #00BCD4; color: #fff; font-style: italic; font-weight: bold; border: 1px solid #000; padding: 4px 6px; text-align: center; }
+    .main-table td { border: 1px solid #000; padding: 3px 4px; }
+    .main-table .num-col { width: 30px; }
+    .main-table .name-col { width: 38%; }
+    .stat-title { text-align: center; font-weight: bold; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; }
+    .stat-table { border-collapse: collapse; margin: 0 auto; min-width: 340px; font-size: 11px; }
+    .stat-table th { background: #00BCD4; color: #fff; font-style: italic; font-weight: bold; border: 1px solid #000; padding: 4px 8px; text-align: center; }
+    .stat-table td { border: 1px solid #000; padding: 3px 8px; text-align: center; }
+    .stat-label { background: #00BCD4; color: #fff; font-weight: bold; font-style: italic; text-align: center; }
+    .stat-genero-label { background: #00BCD4; color: #fff; font-weight: bold; font-style: italic; text-align: center; }
+    .total-row td { font-weight: bold; background: #e3f2fd; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 24px; font-size: 10px; }
+    .sig-block { text-align: center; min-width: 160px; }
+    .sig-line { width: 140px; border-top: 1px solid #000; margin: 30px auto 4px; }
+    .print-btn { position: fixed; bottom: 20px; right: 20px; background: #0369a1; color: #fff; border: none; border-radius: 8px; padding: 10px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999; }
+    .print-btn:hover { background: #0284c7; }
+    @media print {
+      .print-btn { display: none !important; }
+      body { margin: 15px 20px; }
+      @page { size: A4 portrait; margin: 12mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>REPÚBLICA DE ANGOLA</p>
+    <p>MINISTÉRIO DA EDUCAÇÃO</p>
+    <p>ENSINO GERAL</p>
+    <p style="margin-top:4px;">${escolaNome}</p>
+  </div>
+
+  <div class="info-block">
+    <div class="info-row">
+      <span><strong>${turma.classe}</strong></span>
+      <span><strong>SALA:</strong> ${turma.sala || '___'}</span>
+      <span><strong>TURMA:</strong> ${turma.nome}</span>
+      <span><strong>PERÍODO:</strong> ${turma.turno.toUpperCase()}</span>
+    </div>
+    <div class="info-row">
+      <span><strong>PROFESSOR(A):</strong> ${professorNome}</span>
+      <span><strong>ANO LECTIVO:</strong> ${turma.anoLetivo}</span>
+    </div>
+  </div>
+
+  <div class="doc-title">Lista da Turma</div>
+
+  <table class="main-table">
+    <thead>
+      <tr>
+        <th class="num-col">Nº</th>
+        <th class="name-col">NOME DO ALUNO</th>
+        <th>IDADE</th>
+        <th>SEXO</th>
+        <th>DATA DE<br>NASCIMENTO</th>
+        <th>CONTACTOS</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${studentRows}
+    </tbody>
+  </table>
+
+  <div class="stat-title">Mapa Estatístico</div>
+  <table class="stat-table">
+    <thead>
+      <tr>
+        <th colspan="2"></th>
+        <th>Nº DE ALUNOS</th>
+        <th>VALOR PERCENTUAL</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2" class="stat-genero-label">GÉNERO</td>
+        <td class="stat-genero-label" style="font-style:italic;font-weight:bold;">MASCULINO</td>
+        <td>${masculinos}</td>
+        <td>${pctM}%</td>
+      </tr>
+      <tr>
+        <td class="stat-genero-label" style="font-style:italic;font-weight:bold;">FEMENINO</td>
+        <td>${femininos}</td>
+        <td>${pctF}%</td>
+      </tr>
+      ${idadeGroups.map((age, i) => {
+        const count = alunosDaTurma.filter(a => calcAge(a.dataNascimento) === age).length;
+        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+        if (i === 0) {
+          return `<tr>
+            <td rowspan="${idadeGroups.length}" class="stat-label">IDADE</td>
+            <td class="stat-label" style="font-style:italic;font-weight:bold;">${age} ANOS</td>
+            <td>${count}</td>
+            <td>${pct}%</td>
+          </tr>`;
+        }
+        return `<tr>
+          <td class="stat-label" style="font-style:italic;font-weight:bold;">${age} ANOS</td>
+          <td>${count}</td>
+          <td>${pct}%</td>
+        </tr>`;
+      }).join('')}
+      <tr class="total-row">
+        <td colspan="2" style="font-weight:bold;background:#e3f2fd;">TOTAL DE ALUNOS</td>
+        <td colspan="2" style="font-weight:bold;background:#e3f2fd;">${total}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div>O PROFESSOR DIRECTOR DE TURMA</div>
+      <div class="sig-line"></div>
+      <div>${professorNome}</div>
+    </div>
+    <div class="sig-block">
+      <div>${dataActual}</div>
+      <div class="sig-line"></div>
+      <div>${director}</div>
+      <div>O(A) DIRECTOR(A)</div>
+    </div>
+  </div>
+
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
 </body>
 </html>`;
   }
@@ -3447,6 +3670,15 @@ export default function EditorDocumentos() {
       return;
     }
 
+    // ── Lista da Turma: use generated HTML directly ───────────────────────────
+    if (emitTemplate?.tipo === 'lista_turma' && emitTurmaId) {
+      const html = buildListaTurmaHtml(emitTurmaId);
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      return;
+    }
+
     // ── Pauta Final: use generated HTML directly ──────────────────────────────
     if (emitTemplate?.tipo === 'pauta_final' && emitTurmaId) {
       const html = buildPautaFinalHtml(emitTurmaId);
@@ -3884,6 +4116,7 @@ export default function EditorDocumentos() {
   function EmitScreen() {
     const isPauta = isPautaType(emitTemplate);
     const isMapa = isMapaType(emitTemplate);
+    const isListaTurma = isListaTurmaType(emitTemplate);
 
     // ── Turma-level (pauta) variables ─────────────────────────────────────
     const turmasAtivas = turmas.filter(t => t.ativo);
@@ -3923,7 +4156,7 @@ export default function EditorDocumentos() {
     const sortedTurmasForMapa = [...turmas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo));
     const anoLetivoMapa = sortedTurmasForMapa[0]?.anoLetivo || String(new Date().getFullYear());
 
-    const canPrint = isMapa ? true : (isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview));
+    const canPrint = isMapa ? true : (isListaTurma ? !!emitTurmaId : (isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview)));
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -3945,7 +4178,7 @@ export default function EditorDocumentos() {
         </View>
 
         <View style={[styles.emitBody, isWide && { flexDirection: 'row' }]}>
-          {/* Left: Turma selector (pauta) or Student selector (documents) */}
+          {/* Left: Turma selector (pauta/lista_turma) or Student selector (documents) */}
           <View style={[styles.emitLeft, isWide && { width: 300 }]}>
             {isMapa ? (
               <>
@@ -3981,7 +4214,7 @@ export default function EditorDocumentos() {
                   </Text>
                 </View>
               </>
-            ) : isPauta ? (
+            ) : (isPauta || isListaTurma) ? (
               <>
                 <Text style={styles.emitSectionTitle}>1. Seleccionar Turma</Text>
                 <View style={styles.searchBox}>
@@ -3998,21 +4231,22 @@ export default function EditorDocumentos() {
                   {filteredTurmas.map(turma => {
                     const sel = emitTurmaId === turma.id;
                     const count = alunos.filter(a => a.ativo && a.turmaId === turma.id).length;
+                    const accentColor = isListaTurma ? '#0369a1' : '#dc2626';
                     return (
                       <TouchableOpacity
                         key={turma.id}
-                        style={[styles.alunoItem, sel && styles.alunoItemSel]}
+                        style={[styles.alunoItem, sel && { borderColor: accentColor, borderWidth: 1.5, backgroundColor: accentColor + '15' }]}
                         onPress={() => { setEmitTurmaId(turma.id); setTurmaSearch(''); }}
                         activeOpacity={0.75}
                       >
-                        <View style={[styles.alunoAvatar, sel && { backgroundColor: '#dc2626' }]}>
+                        <View style={[styles.alunoAvatar, sel && { backgroundColor: accentColor }]}>
                           <Text style={styles.alunoAvatarText}>{turma.classe.charAt(0)}</Text>
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={[styles.alunoNome, sel && { color: '#dc2626' }]}>{turma.classe} — {turma.nome}</Text>
+                          <Text style={[styles.alunoNome, sel && { color: accentColor }]}>{turma.classe} — {turma.nome}</Text>
                           <Text style={styles.alunoMeta}>{turma.anoLetivo} · {turma.turno} · {count} alunos</Text>
                         </View>
-                        {sel && <Ionicons name="checkmark-circle" size={18} color="#dc2626" />}
+                        {sel && <Ionicons name="checkmark-circle" size={18} color={accentColor} />}
                       </TouchableOpacity>
                     );
                   })}
@@ -4025,6 +4259,11 @@ export default function EditorDocumentos() {
                     <Text style={styles.selectedInfoTitle}>Turma seleccionada:</Text>
                     <Text style={styles.selectedInfoName}>{selectedTurmaObj.classe} — {selectedTurmaObj.nome}</Text>
                     <Text style={styles.selectedInfoMeta}>{selectedTurmaObj.nivel} · {selectedTurmaObj.anoLetivo} · {selectedTurmaObj.turno}</Text>
+                    {isListaTurma && (
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 6 }}>
+                        {alunos.filter(a => a.ativo && a.turmaId === selectedTurmaObj.id).length} alunos · Lista com Mapa Estatístico
+                      </Text>
+                    )}
                   </View>
                 )}
               </>
@@ -4138,6 +4377,51 @@ export default function EditorDocumentos() {
                     </Text>
                   </View>
                 </ScrollView>
+              </>
+            ) : isListaTurma ? (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Resumo da Lista</Text>
+                {!selectedTurmaObj ? (
+                  <View style={styles.previewEmpty}>
+                    <Ionicons name="people-outline" size={48} color={Colors.textMuted} />
+                    <Text style={styles.previewEmptyText}>Seleccione uma turma para gerar a Lista da Turma</Text>
+                  </View>
+                ) : (
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    <View style={{ backgroundColor: '#0c2340', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#0369a1' }}>
+                      <Text style={{ color: '#0369a1', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>LISTA DA TURMA — FORMATO A4</Text>
+                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedTurmaObj.classe} — {selectedTurmaObj.nome}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{selectedTurmaObj.nivel} · Ano Lectivo {selectedTurmaObj.anoLetivo} · {selectedTurmaObj.turno}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="people-outline" size={22} color={Colors.info} />
+                        <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{alunosDaTurma.length}</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Total Alunos</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="man-outline" size={22} color={Colors.info} />
+                        <Text style={{ color: Colors.text, fontSize: 20, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{alunosDaTurma.filter(a => a.genero === 'M').length}M / {alunosDaTurma.filter(a => a.genero === 'F').length}F</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Género</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>CONTEÚDO DO DOCUMENTO</Text>
+                      {['Nº de ordem de cada aluno', 'Nome completo do aluno', 'Idade calculada automaticamente', 'Sexo (M/F)', 'Data de nascimento', 'Contacto do encarregado', 'Mapa Estatístico de género e idades'].map(l => (
+                        <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color='#0369a1' />
+                          <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{l}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={{ backgroundColor: '#0c2340', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#0369a1', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="print-outline" size={18} color='#0369a1' />
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                        A lista será gerada em formato A4 retrato com alternância de cores e Mapa Estatístico no final.
+                      </Text>
+                    </View>
+                  </ScrollView>
+                )}
               </>
             ) : isPauta ? (
               <>
