@@ -629,6 +629,35 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
   '{{NOTA_CONT_AV}}': ['contabilidade avançada', 'contabilidade avancada'],
 };
 
+// ─── Certificado ITAQ — 13ª Classe (Técnico-Profissional) ───────────────────
+
+const SEED_CERT_ITAQ_13_ID = 'tpl_seed_cert_itaq_13_v1';
+const SEED_CERT_ITAQ_13: DocTemplate = {
+  id: SEED_CERT_ITAQ_13_ID,
+  nome: 'Certificado de Habilitações — ITAQ 13ª (Técnico-Profissional)',
+  tipo: 'certificado',
+  classeAlvo: '13ª-ITAQ',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `CERTIFICADO — IIº CICLO ENSINO SECUNDÁRIO TÉCNICO (ITAQ)
+
+Director(a): {{NOME_DIRECTOR}} — {{NOME_ESCOLA}}
+Aluno: {{NOME_COMPLETO}}
+Filho(a) de {{PAI}} e de {{MAE}}
+Nascido(a) aos {{DIA_NASC}} de {{MES_NASC}} de {{ANO_NASC}}
+Natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}
+BI nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, Arquivo de {{BI_LOCAL_EMISSAO}}
+
+Concluiu no Ano Lectivo {{ANO_LECTIVO}} o IIº Ciclo Ensino Secundário Técnico
+Especialidade: {{AREA}}
+
+Componente Sociocultural: LP, LE, Formação de Actitudes Integradoras, EF
+Componente Científica: Matemática, Física, Química, Biologia
+Componente Técnica: Informática, Empreendedorismo, Agricultura Geral, etc.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 // ─── Certificados de Habilitações — II Ciclo (11ª, 12ª, 13ª) ────────────────
 
 const SEED_CERT_HAB_11_ID = 'tpl_seed_cert_hab_11_v1';
@@ -785,7 +814,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1639,6 +1668,217 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Certificado ITAQ HTML Builder ────────────────────────────────────────
+
+  function buildCertificadoItaqHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+    const turma = turmas.find(t => t.id === aluno.turmaId);
+    const escola = config.nomeEscola || 'Instituto Técnico';
+    const director = user?.nome || '____________________________';
+    const now = new Date();
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+    const anoLetivo = turma?.anoLetivo || String(now.getFullYear());
+
+    const nome = `${aluno.nome} ${aluno.apelido}`;
+    const diaNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getDate() : '__';
+    const anoNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getFullYear() : '____';
+    const mesNascNum = aluno.dataNascimento ? String(new Date(aluno.dataNascimento).getMonth() + 1).padStart(2, '0') : '__';
+    const municipio = aluno.municipio || '______________';
+    const provincia = aluno.provincia || '______________';
+    const encarregado = aluno.nomeEncarregado || '________________________';
+
+    // Resolve grades directly from notas by discipline name fuzzy match
+    const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+    function getNota(names: string[]): number | null {
+      for (const nota of alunoNotas) {
+        const d = nota.disciplina.toLowerCase().trim();
+        for (const name of names) {
+          if (d.includes(name) || name.includes(d)) return nota.nf;
+        }
+      }
+      return null;
+    }
+
+    type ItaqRow = { nome: string; lookup: string[]; isHeader?: boolean };
+    const sociocultural: ItaqRow[] = [
+      { nome: 'Língua Portuguesa',              lookup: ['língua portuguesa', 'lingua portuguesa', 'português'] },
+      { nome: 'Língua Estrangeira',             lookup: ['língua estrangeira', 'lingua estrangeira', 'inglês', 'ingles'] },
+      { nome: 'Formação de Actitudes Integradoras', lookup: ['formação de actitudes', 'formacao de actitudes', 'actitudes integradoras'] },
+      { nome: 'Educação Física',                lookup: ['educação física', 'educacao fisica', 'ed. física'] },
+    ];
+    const cientifica: ItaqRow[] = [
+      { nome: 'Matemática',  lookup: ['matemática', 'matematica'] },
+      { nome: 'Física',      lookup: ['física', 'fisica'] },
+      { nome: 'Química',     lookup: ['química', 'quimica'] },
+      { nome: 'Biologia',    lookup: ['biologia'] },
+    ];
+    const tecnica: ItaqRow[] = [
+      { nome: 'Informática',                              lookup: ['informática', 'informatica'] },
+      { nome: 'Empreendedorismo',                        lookup: ['empreendedorismo'] },
+      { nome: 'Agricultura Geral',                       lookup: ['agricultura geral'] },
+      { nome: 'Mecanização Agrícola',                    lookup: ['mecanização agrícola', 'mecanizacao agricola'] },
+      { nome: 'Topografia, Hidráulica e Construções Rurais', lookup: ['topografia', 'hidráulica', 'construções rurais'] },
+      { nome: 'Economia e Gestão',                       lookup: ['economia e gestão', 'economia e gestao'] },
+      { nome: 'Transformação e Conservação de Produtos', lookup: ['transformação e conservação', 'transformacao e conservacao'] },
+      { nome: 'Horto-Fruticultura',                      lookup: ['horto-fruticultura', 'hortofruticultura', 'horto fruticultura'] },
+      { nome: 'Fitossanidade',                           lookup: ['fitossanidade'] },
+      { nome: 'Culturas Arvenses e Industriais',         lookup: ['culturas arvenses'] },
+      { nome: 'Extensão e Desenvolvimento Rural',        lookup: ['extensão e desenvolvimento', 'extensao e desenvolvimento'] },
+      { nome: 'Trabalho de Campo',                       lookup: ['trabalho de campo'] },
+      { nome: 'Projecto Tecnológico',                    lookup: ['projecto tecnológico', 'projeto tecnologico', 'projecto tecnologico'] },
+    ];
+
+    const allDiscs = [...sociocultural, ...cientifica, ...tecnica];
+    const resolvedAll = allDiscs.map(d => ({ ...d, nota: getNota(d.lookup) }));
+
+    // MPC = average of all disciplines
+    const withGrades = resolvedAll.filter(g => g.nota !== null);
+    const mpc = withGrades.length > 0
+      ? withGrades.reduce((s, g) => s + (g.nota ?? 0), 0) / withGrades.length
+      : null;
+    const mpcRounded = mpc !== null ? Math.round(mpc) : null;
+    const mpcDisplay = mpcRounded !== null ? String(mpcRounded) : '___';
+    const mpcExtenso = mpcRounded !== null ? numExtenso(mpcRounded) : '______';
+
+    // Final = (2×MPC + PAP) / 3  → PAP left blank
+    const finalExtenso = mpcRounded !== null ? numExtenso(mpcRounded) : '______';
+
+    function buildRows(rows: ItaqRow[], component: string): string {
+      const header = `<tr style="background:#2c4a1e;">
+        <td colspan="3" style="font-weight:bold;color:#fff;padding:5px 8px;">${component}</td>
+      </tr>`;
+      const body = rows.map(d => {
+        const nota = getNota(d.lookup);
+        const notaStr = nota !== null ? Math.round(nota).toString() : '___';
+        const extensoStr = nota !== null ? `(${numExtenso(Math.round(nota))})` : '(___)';
+        return `<tr>
+          <td style="padding:4px 8px;">${d.nome}</td>
+          <td style="text-align:center;color:#1a5276;font-weight:bold;">${notaStr}</td>
+          <td style="text-align:center;color:#1a5276;">${extensoStr}</td>
+        </tr>`;
+      }).join('');
+      return header + body;
+    }
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado ITAQ — ${nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; padding: 24px 40px; line-height: 1.65; }
+    .header { text-align: center; margin-bottom: 14px; }
+    .header p { margin: 2px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .header .sub { font-size: 12px; font-weight: bold; letter-spacing: 1px; }
+    .border-box { border: 2px solid #2c4a1e; padding: 12px 16px; }
+    .titulo { text-align: center; font-size: 18px; font-weight: bold; text-transform: uppercase; letter-spacing: 3px; margin-bottom: 14px; }
+    .body { text-align: justify; margin-bottom: 12px; font-size: 11.5px; line-height: 1.75; }
+    .bold { font-weight: bold; }
+    .nome-aluno { color: #c00; font-weight: bold; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 11px; }
+    table th { background: #2c4a1e; color: #fff; border: 1px solid #2c4a1e; padding: 6px 8px; text-align: center; }
+    table th:first-child { text-align: left; }
+    table td { border: 1px solid #999; padding: 4px 6px; }
+    .summary-row td { background: #f0f4ec; font-weight: bold; border-top: 2px solid #2c4a1e; font-size: 11px; }
+    .final-row td { background: #2c4a1e; color: #fff; font-weight: bold; border-top: 2px solid #1a3c10; font-size: 11px; }
+    .legal { font-size: 11px; margin-top: 14px; text-align: justify; line-height: 1.7; }
+    .date { text-align: center; margin: 18px 0 28px; font-size: 11px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 10px; }
+    .sig-block { text-align: center; min-width: 200px; }
+    .sig-label { font-size: 11px; font-weight: bold; margin-bottom: 28px; }
+    .sig-line { width: 180px; border-top: 1px solid #000; margin: 0 auto 4px; }
+    .sig-name { font-size: 10.5px; font-style: italic; }
+    @media print { @page { size: A4; margin: 12mm 18mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Ministério da Educação</p>
+    <p class="sub">Ensino Secundário Técnico-Profissional</p>
+  </div>
+
+  <div class="border-box">
+    <div class="titulo">Certificado</div>
+
+    <div class="body">
+      <span class="bold">${director}</span>, Director do <span class="bold">${escola}</span>,
+      criado sob o Decreto Executivo nº __________ de __ de __________,
+      certifica que <span class="nome-aluno">${nome}</span>,
+      filho de <span class="bold">${encarregado}</span>
+      e de <span class="bold">________________________</span>,
+      natural de <span class="bold">______________</span>,
+      Município de <span class="bold">${municipio}</span>,
+      Província de <span class="bold">${provincia}</span>,
+      nascido aos <span class="bold">${diaNasc}/${mesNascNum}/${anoNasc}</span>,
+      portador do Bilhete de Identidade, nº <span class="bold">________________________</span>,
+      passado pelo Arquivo de Identificação de <span class="bold">${provincia}</span>,
+      aos __ / __ / ______,
+      concluiu no ano lectivo <span class="bold">${anoLetivo}</span>,
+      o Curso do IIº CICLO DO ENSINO SECUNDÁRIO TÉCNICO,
+      na especialidade de <span class="bold">____________________________</span>,
+      conforme o disposto na alínea f) do artigo 109º da LBSEE 17/16 de 7 de Outubro,
+      com a Média Final de <span class="bold">${mpcDisplay}</span> valores
+      obtida nas seguintes classificações por disciplinas:
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:58%;">Componente de Formação</th>
+          <th style="width:21%;">Média Final</th>
+          <th style="width:21%;">Média por Extenso</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${buildRows(sociocultural, 'Componente Sociocultural')}
+        ${buildRows(cientifica, 'Componente Científica')}
+        ${buildRows(tecnica, 'Componente Técnica, Tecnológica e Prática')}
+        <tr class="summary-row">
+          <td style="padding:5px 8px;">Média por Plano Curricular</td>
+          <td style="text-align:center;">${mpcDisplay}</td>
+          <td style="text-align:center;font-style:italic;">(${mpcExtenso})</td>
+        </tr>
+        <tr class="summary-row">
+          <td style="padding:5px 8px;">Prova de Aptidão Profissional</td>
+          <td style="text-align:center;">___</td>
+          <td style="text-align:center;font-style:italic;">(___)</td>
+        </tr>
+        <tr class="final-row">
+          <td style="padding:5px 8px;">Classificação Final por Curso =(2XPC+PAP)/3</td>
+          <td style="text-align:center;">___</td>
+          <td style="text-align:center;font-style:italic;">(${finalExtenso})</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="legal">
+      Para efeitos legais lhe é passado o presente <strong>CERTIFICADO</strong>,
+      que consta do livro de registo nº 1, &nbsp; folha____,
+      assinado por mim e autenticado com selo branco em uso neste estabelecimento de ensino.
+    </div>
+  </div>
+
+  <div class="date">${escola}, aos ${dataActual}</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">Conferido por</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">&nbsp;</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O Director</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
@@ -1664,7 +1904,10 @@ export default function EditorDocumentos() {
 
     // ── Certificado de Habilitações: rich HTML with grade table ───────────────
     if (emitTemplate?.tipo === 'certificado' && emitTemplate?.classeAlvo && emitAlunoId) {
-      const html = buildCertificadoHabilitacoesHtml(emitAlunoId, emitTemplate.classeAlvo);
+      const classe = emitTemplate.classeAlvo;
+      const html = classe === '13ª-ITAQ'
+        ? buildCertificadoItaqHtml(emitAlunoId)
+        : buildCertificadoHabilitacoesHtml(emitAlunoId, classe);
       win.document.write(html);
       win.document.close();
       win.print();
