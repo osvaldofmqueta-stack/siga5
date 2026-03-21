@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { apiRequest } from '@/lib/query-client';
 
 export interface Aluno {
   id: string;
@@ -230,7 +231,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   async function loadAll() {
     try {
       await cleanupDemoData();
-      const [a, p, t, n, pr, e] = await Promise.all([
+
+      // Carrega cache local (fallback)
+      const [aRaw, pRaw, tRaw, nRaw, prRaw, eRaw] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.alunos),
         AsyncStorage.getItem(STORAGE_KEYS.professores),
         AsyncStorage.getItem(STORAGE_KEYS.turmas),
@@ -238,12 +241,75 @@ export function DataProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(STORAGE_KEYS.presencas),
         AsyncStorage.getItem(STORAGE_KEYS.eventos),
       ]);
-      setAlunos(a ? JSON.parse(a) : []);
-      setProfessores(p ? JSON.parse(p) : []);
-      setTurmas(t ? JSON.parse(t) : []);
-      setNotas(n ? JSON.parse(n) : []);
-      setPresencas(pr ? JSON.parse(pr) : []);
-      setEventos(e ? JSON.parse(e) : []);
+
+      const cached = {
+        alunos: aRaw ? (JSON.parse(aRaw) as Aluno[]) : [],
+        professores: pRaw ? (JSON.parse(pRaw) as Professor[]) : [],
+        turmas: tRaw ? (JSON.parse(tRaw) as Turma[]) : [],
+        notas: nRaw ? (JSON.parse(nRaw) as Nota[]) : [],
+        presencas: prRaw ? (JSON.parse(prRaw) as Presenca[]) : [],
+        eventos: eRaw ? (JSON.parse(eRaw) as Evento[]) : [],
+      };
+
+      // Tenta sincronizar com o banco
+      try {
+        const [aApiRes, pApiRes, tApiRes, nApiRes, prApiRes, eApiRes] = await Promise.all([
+          apiRequest('GET', '/api/alunos'),
+          apiRequest('GET', '/api/professores'),
+          apiRequest('GET', '/api/turmas'),
+          apiRequest('GET', '/api/notas'),
+          apiRequest('GET', '/api/presencas'),
+          apiRequest('GET', '/api/eventos'),
+        ]);
+
+        const [aApi, pApi, tApi, nApi, prApi, eApi] = await Promise.all([
+          aApiRes.json() as Promise<Aluno[]>,
+          pApiRes.json() as Promise<Professor[]>,
+          tApiRes.json() as Promise<Turma[]>,
+          nApiRes.json() as Promise<Nota[]>,
+          prApiRes.json() as Promise<Presenca[]>,
+          eApiRes.json() as Promise<Evento[]>,
+        ]);
+
+        const anyApiData =
+          aApi.length > 0 ||
+          pApi.length > 0 ||
+          tApi.length > 0 ||
+          nApi.length > 0 ||
+          prApi.length > 0 ||
+          eApi.length > 0;
+
+        if (anyApiData) {
+          setAlunos(aApi);
+          setProfessores(pApi);
+          setTurmas(tApi);
+          setNotas(nApi);
+          setPresencas(prApi);
+          setEventos(eApi);
+
+          // Atualiza cache
+          await Promise.all([
+            persist(STORAGE_KEYS.alunos, aApi),
+            persist(STORAGE_KEYS.professores, pApi),
+            persist(STORAGE_KEYS.turmas, tApi),
+            persist(STORAGE_KEYS.notas, nApi),
+            persist(STORAGE_KEYS.presencas, prApi),
+            persist(STORAGE_KEYS.eventos, eApi),
+          ]);
+          return;
+        }
+      } catch (apiErr) {
+        // Se o servidor/rota não estiver pronto, usa o cache local
+        console.warn('API sync failed, using AsyncStorage cache', apiErr);
+      }
+
+      // Fallback: usa cache
+      setAlunos(cached.alunos);
+      setProfessores(cached.professores);
+      setTurmas(cached.turmas);
+      setNotas(cached.notas);
+      setPresencas(cached.presencas);
+      setEventos(cached.eventos);
     } catch (err) {
       console.error('DataContext load error', err);
     } finally {
@@ -260,18 +326,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...alunos, novo];
     setAlunos(updated);
     await persist(STORAGE_KEYS.alunos, updated);
+    try {
+      await apiRequest('POST', '/api/alunos', novo);
+    } catch (e) {
+      console.warn('Falha ao gravar aluno no banco', e);
+    }
   }
 
   async function updateAluno(id: string, a: Partial<Aluno>) {
     const updated = alunos.map(x => x.id === id ? { ...x, ...a } : x);
     setAlunos(updated);
     await persist(STORAGE_KEYS.alunos, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/alunos/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar aluno no banco', e);
+    }
   }
 
   async function deleteAluno(id: string) {
     const updated = alunos.filter(x => x.id !== id);
     setAlunos(updated);
     await persist(STORAGE_KEYS.alunos, updated);
+    try {
+      await apiRequest('DELETE', `/api/alunos/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover aluno no banco', e);
+    }
   }
 
   async function addProfessor(p: Omit<Professor, 'createdAt'>) {
@@ -279,18 +361,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...professores, novo];
     setProfessores(updated);
     await persist(STORAGE_KEYS.professores, updated);
+    try {
+      await apiRequest('POST', '/api/professores', novo);
+    } catch (e) {
+      console.warn('Falha ao gravar professor no banco', e);
+    }
   }
 
   async function updateProfessor(id: string, p: Partial<Professor>) {
     const updated = professores.map(x => x.id === id ? { ...x, ...p } : x);
     setProfessores(updated);
     await persist(STORAGE_KEYS.professores, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/professores/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar professor no banco', e);
+    }
   }
 
   async function deleteProfessor(id: string) {
     const updated = professores.filter(x => x.id !== id);
     setProfessores(updated);
     await persist(STORAGE_KEYS.professores, updated);
+    try {
+      await apiRequest('DELETE', `/api/professores/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover professor no banco', e);
+    }
   }
 
   async function addTurma(t: Omit<Turma, 'id'>) {
@@ -298,18 +396,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...turmas, nova];
     setTurmas(updated);
     await persist(STORAGE_KEYS.turmas, updated);
+    try {
+      await apiRequest('POST', '/api/turmas', nova);
+    } catch (e) {
+      console.warn('Falha ao gravar turma no banco', e);
+    }
   }
 
   async function updateTurma(id: string, t: Partial<Turma>) {
     const updated = turmas.map(x => x.id === id ? { ...x, ...t } : x);
     setTurmas(updated);
     await persist(STORAGE_KEYS.turmas, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/turmas/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar turma no banco', e);
+    }
   }
 
   async function deleteTurma(id: string) {
     const updated = turmas.filter(x => x.id !== id);
     setTurmas(updated);
     await persist(STORAGE_KEYS.turmas, updated);
+    try {
+      await apiRequest('DELETE', `/api/turmas/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover turma no banco', e);
+    }
   }
 
   async function addNota(n: Omit<Nota, 'id'>) {
@@ -317,12 +431,23 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...notas, nova];
     setNotas(updated);
     await persist(STORAGE_KEYS.notas, updated);
+    try {
+      await apiRequest('POST', '/api/notas', nova);
+    } catch (e) {
+      console.warn('Falha ao gravar nota no banco', e);
+    }
   }
 
   async function updateNota(id: string, n: Partial<Nota>) {
     const updated = notas.map(x => x.id === id ? { ...x, ...n } : x);
     setNotas(updated);
     await persist(STORAGE_KEYS.notas, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/notas/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar nota no banco', e);
+    }
   }
 
   async function addPresenca(p: Omit<Presenca, 'id'>) {
@@ -330,18 +455,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...presencas, nova];
     setPresencas(updated);
     await persist(STORAGE_KEYS.presencas, updated);
+    try {
+      await apiRequest('POST', '/api/presencas', nova);
+    } catch (e) {
+      console.warn('Falha ao gravar presença no banco', e);
+    }
   }
 
   async function updatePresenca(id: string, p: Partial<Presenca>) {
     const updated = presencas.map(x => x.id === id ? { ...x, ...p } : x);
     setPresencas(updated);
     await persist(STORAGE_KEYS.presencas, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/presencas/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar presença no banco', e);
+    }
   }
 
   async function deletePresenca(id: string) {
     const updated = presencas.filter(x => x.id !== id);
     setPresencas(updated);
     await persist(STORAGE_KEYS.presencas, updated);
+    try {
+      await apiRequest('DELETE', `/api/presencas/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover presença no banco', e);
+    }
   }
 
   async function addEvento(e: Omit<Evento, 'id' | 'createdAt'>) {
@@ -349,18 +490,34 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const updated = [...eventos, novo];
     setEventos(updated);
     await persist(STORAGE_KEYS.eventos, updated);
+    try {
+      await apiRequest('POST', '/api/eventos', novo);
+    } catch (e) {
+      console.warn('Falha ao gravar evento no banco', e);
+    }
   }
 
   async function updateEvento(id: string, e: Partial<Evento>) {
     const updated = eventos.map(x => x.id === id ? { ...x, ...e } : x);
     setEventos(updated);
     await persist(STORAGE_KEYS.eventos, updated);
+    try {
+      const row = updated.find(x => x.id === id);
+      if (row) await apiRequest('PUT', `/api/eventos/${id}`, row);
+    } catch (e) {
+      console.warn('Falha ao atualizar evento no banco', e);
+    }
   }
 
   async function deleteEvento(id: string) {
     const updated = eventos.filter(x => x.id !== id);
     setEventos(updated);
     await persist(STORAGE_KEYS.eventos, updated);
+    try {
+      await apiRequest('DELETE', `/api/eventos/${id}`);
+    } catch (e) {
+      console.warn('Falha ao remover evento no banco', e);
+    }
   }
 
   const value = useMemo<DataContextValue>(() => ({
