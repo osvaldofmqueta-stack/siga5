@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -152,6 +152,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   pauta: 'Mini-Pauta',
   pauta_final: 'Pauta Final',
   ficha_matricula: 'Ficha de Matrícula',
+  mapa_aproveitamento: 'Mapa de Aproveitamento',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -162,6 +163,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   pauta: '#8b5cf6',
   pauta_final: '#dc2626',
   ficha_matricula: '#0891b2',
+  mapa_aproveitamento: '#065f46',
   outro: Colors.textMuted,
 };
 
@@ -629,6 +631,32 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
   '{{NOTA_CONT_AV}}': ['contabilidade avançada', 'contabilidade avancada'],
 };
 
+// ─── Mapa de Aproveitamento ──────────────────────────────────────────────────
+
+const SEED_MAPA_APROVEITAMENTO_ID = 'tpl_seed_mapa_aproveitamento_v1';
+const SEED_MAPA_APROVEITAMENTO: DocTemplate = {
+  id: SEED_MAPA_APROVEITAMENTO_ID,
+  nome: 'Mapa de Aproveitamento — Por Trimestre',
+  tipo: 'mapa_aproveitamento',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `MAPA DE APROVEITAMENTO — [TRIMESTRE]º TRIMESTRE / [ANO_LECTIVO]
+
+Escola: [NOME_ESCOLA]
+Área do Ensino Geral
+
+Tabela por Nível e Classe:
+Matriculados (MF/F) | Desistência | Avaliados (MF/F) | C/Aproveitamento (MF/F/%) | S/Aproveitamento (MF/F/%) | Nº Professores (MF/F)
+
+Ensino Primário: Iniciação, 1ª-6ª Classe
+1º Ciclo: 7ª, 8ª, 9ª Classe
+2º Ciclo: 10ª, 11ª, 12ª Classe
+
+(gerado automaticamente a partir dos dados lançados no sistema)
+
+[NOME_ESCOLA], [DATA_ACTUAL].`,
+};
+
 // ─── Certificado II Ciclo (10ª, 11ª, 12ª) — Ensino Secundário Geral ─────────
 
 const SEED_CERT_II_CICLO_ID = 'tpl_seed_cert_ii_ciclo_v1';
@@ -833,6 +861,8 @@ export default function EditorDocumentos() {
   // Pauta Final emit state (turma-level)
   const [emitTurmaId, setEmitTurmaId] = useState('');
   const [turmaSearch, setTurmaSearch] = useState('');
+  // Mapa de Aproveitamento emit state (trimestre-level)
+  const [emitTrimestre, setEmitTrimestre] = useState<1 | 2 | 3>(1);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -842,7 +872,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -973,6 +1003,9 @@ export default function EditorDocumentos() {
   // Helper: checks if this template uses turma-level emit (pauta types)
   function isPautaType(t: DocTemplate | null) {
     return t?.tipo === 'pauta' || t?.tipo === 'pauta_final';
+  }
+  function isMapaType(t: DocTemplate | null) {
+    return t?.tipo === 'mapa_aproveitamento';
   }
 
   // ─── Pauta Final HTML Builder ──────────────────────────────────────────────
@@ -1688,6 +1721,311 @@ export default function EditorDocumentos() {
     </div>
     <div class="sig-block">
       <div class="sig-label">O Director</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
+  // ─── Mapa de Aproveitamento HTML Builder ─────────────────────────────────
+
+  function buildMapaAproveitamentoHtml(trimestre: 1 | 2 | 3): string {
+    const escola = config.nomeEscola || 'Complexo Escolar';
+    const director = user?.nome || '____________________________';
+    const now = new Date();
+    const dataActual = `${escola.toUpperCase()}, ${now.getDate()} DE ${MESES[now.getMonth()].toUpperCase()} DE ${now.getFullYear()}`;
+
+    // Detect anoLetivo from most recent turma
+    const sortedTurmas = [...turmas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo));
+    const anoLetivo = sortedTurmas[0]?.anoLetivo || String(now.getFullYear());
+
+    // ── Define class groups ────────────────────────────────────────────────
+    type ClasseRow = { label: string; classeKeys: string[]; nivel: string; span?: number };
+    const NIVEIS: { nivel: string; span: number; classes: ClasseRow[] }[] = [
+      {
+        nivel: 'ENSINO\nPRIMÁRIO', span: 7,
+        classes: [
+          { label: 'Iniciação',   classeKeys: ['Iniciação','Iniciacao','iniciação','iniciacao'], nivel: '' },
+          { label: '1ª Classe',   classeKeys: ['1ª','1a'], nivel: '' },
+          { label: '2ª Classe',   classeKeys: ['2ª','2a'], nivel: '' },
+          { label: '3ª Classe',   classeKeys: ['3ª','3a'], nivel: '' },
+          { label: '4ª Classe',   classeKeys: ['4ª','4a'], nivel: '' },
+          { label: '5ª Classe',   classeKeys: ['5ª','5a'], nivel: '' },
+          { label: '6ª Classe',   classeKeys: ['6ª','6a'], nivel: '' },
+        ],
+      },
+      {
+        nivel: '1º CICLO', span: 3,
+        classes: [
+          { label: '7ª Classe',   classeKeys: ['7ª','7a'], nivel: '' },
+          { label: '8ª Classe',   classeKeys: ['8ª','8a'], nivel: '' },
+          { label: '9ª Classe',   classeKeys: ['9ª','9a'], nivel: '' },
+        ],
+      },
+      {
+        nivel: '2º CICLO', span: 3,
+        classes: [
+          { label: '10ª Classe',  classeKeys: ['10ª','10a'], nivel: '' },
+          { label: '11ª Classe',  classeKeys: ['11ª','11a'], nivel: '' },
+          { label: '12ª Classe',  classeKeys: ['12ª','12a'], nivel: '' },
+        ],
+      },
+    ];
+
+    // ── Stats computation ────────────────────────────────────────────────
+    function turmasForClasse(keys: string[]): Turma[] {
+      return turmas.filter(t => keys.some(k => t.classe?.startsWith(k.replace('ª','').replace('a',''))));
+    }
+
+    function getStats(classeKeys: string[]) {
+      const ts = turmasForClasse(classeKeys);
+      const turmaIds = new Set(ts.map(t => t.id));
+
+      // Matriculados
+      const matriculados = alunos.filter(a => a.ativo && turmaIds.has(a.turmaId));
+      const matMF = matriculados.length;
+      const matF = matriculados.filter(a => a.genero === 'F').length;
+
+      // Notas for this trimestre
+      const notasTri = notas.filter(n => n.trimestre === trimestre && turmaIds.has(n.turmaId));
+
+      // Avaliados: students with at least 1 nota in this trimestre
+      const avaliadosSet = new Set(notasTri.map(n => n.alunoId));
+      const avaliadosMF = avaliadosSet.size;
+      const avaliadosF = matriculados.filter(a => a.genero === 'F' && avaliadosSet.has(a.id)).length;
+
+      // Average per student in this trimestre
+      const studentAvg = new Map<string, number>();
+      for (const aid of avaliadosSet) {
+        const studentNotas = notasTri.filter(n => n.alunoId === aid).map(n => n.nf);
+        if (studentNotas.length > 0) {
+          studentAvg.set(aid, studentNotas.reduce((a,b)=>a+b,0) / studentNotas.length);
+        }
+      }
+
+      // C/Aproveitamento: avg >= 10
+      const aprovIds = [...avaliadosSet].filter(id => (studentAvg.get(id) ?? 0) >= 10);
+      const aprovMF = aprovIds.length;
+      const aprovF = matriculados.filter(a => a.genero === 'F' && aprovIds.includes(a.id)).length;
+      const aprovPct = avaliadosMF > 0 ? Math.round((aprovMF / avaliadosMF) * 100) : null;
+
+      // S/Aproveitamento
+      const sAprovMF = avaliadosMF - aprovMF;
+      const sAprovF = avaliadosF - aprovF;
+      const sAprovPct = avaliadosMF > 0 ? Math.round((sAprovMF / avaliadosMF) * 100) : null;
+
+      // Nº de Professores: professors who teach at least one turma in this classe
+      const profSet = new Set<string>();
+      for (const prof of professores) {
+        if (prof.turmasIds?.some(tid => turmaIds.has(tid))) profSet.add(prof.id);
+      }
+      const profMF = profSet.size;
+      // Gender for professors not tracked → show '-'
+
+      return { matMF, matF, avaliadosMF, avaliadosF, aprovMF, aprovF, aprovPct, sAprovMF, sAprovF, sAprovPct, profMF };
+    }
+
+    function dash(v: number | null): string {
+      return v === null || v === 0 ? '-' : String(v);
+    }
+    function pct(v: number | null): string {
+      return v === null ? '-' : `${v}%`;
+    }
+
+    // Build sub-total and grand-total accumulators
+    type StatRow = ReturnType<typeof getStats>;
+    function addStats(a: StatRow, b: StatRow): StatRow {
+      return {
+        matMF: a.matMF + b.matMF,
+        matF: a.matF + b.matF,
+        avaliadosMF: a.avaliadosMF + b.avaliadosMF,
+        avaliadosF: a.avaliadosF + b.avaliadosF,
+        aprovMF: a.aprovMF + b.aprovMF,
+        aprovF: a.aprovF + b.aprovF,
+        aprovPct: null, // recalculated
+        sAprovMF: a.sAprovMF + b.sAprovMF,
+        sAprovF: a.sAprovF + b.sAprovF,
+        sAprovPct: null, // recalculated
+        profMF: a.profMF + b.profMF,
+      };
+    }
+    function calcPct(s: StatRow): StatRow {
+      return {
+        ...s,
+        aprovPct: s.avaliadosMF > 0 ? Math.round((s.aprovMF / s.avaliadosMF) * 100) : null,
+        sAprovPct: s.avaliadosMF > 0 ? Math.round((s.sAprovMF / s.avaliadosMF) * 100) : null,
+      };
+    }
+
+    function row(label: string, s: StatRow, bold = false, bg = '') {
+      const style = bold ? 'font-weight:bold;' : '';
+      const bgStyle = bg ? `background:${bg};` : '';
+      return `<tr style="${bgStyle}${style}">
+        <td style="padding:3px 5px;${style}">${label}</td>
+        <td style="text-align:center;">${s.matMF}</td>
+        <td style="text-align:center;">${s.matF}</td>
+        <td style="text-align:center;color:#aaa;">-</td>
+        <td style="text-align:center;color:#aaa;">-</td>
+        <td style="text-align:center;">${dash(s.avaliadosMF)}</td>
+        <td style="text-align:center;">${dash(s.avaliadosF)}</td>
+        <td style="text-align:center;color:#c00;font-weight:bold;">${dash(s.aprovMF)}</td>
+        <td style="text-align:center;">${dash(s.aprovF)}</td>
+        <td style="text-align:center;">${pct(s.aprovPct)}</td>
+        <td style="text-align:center;">${dash(s.sAprovMF)}</td>
+        <td style="text-align:center;">${dash(s.sAprovF)}</td>
+        <td style="text-align:center;">${pct(s.sAprovPct)}</td>
+        <td style="text-align:center;">${dash(s.profMF)}</td>
+        <td style="text-align:center;">-</td>
+      </tr>`;
+    }
+
+    let tableBody = '';
+    const zeroStats: StatRow = { matMF:0, matF:0, avaliadosMF:0, avaliadosF:0, aprovMF:0, aprovF:0, aprovPct:null, sAprovMF:0, sAprovF:0, sAprovPct:null, profMF:0 };
+    let grandTotal: StatRow = { ...zeroStats };
+
+    for (const nivel of NIVEIS) {
+      let nivelTotal: StatRow = { ...zeroStats };
+      let firstInNivel = true;
+
+      for (const classe of nivel.classes) {
+        const s = getStats(classe.classeKeys);
+        nivelTotal = addStats(nivelTotal, s);
+        const nivelCell = firstInNivel
+          ? `<td rowspan="${nivel.span}" style="font-weight:bold;text-align:center;vertical-align:middle;background:#f5f5f5;border:1px solid #ccc;white-space:pre;">${nivel.nivel}</td>`
+          : '';
+        tableBody += `<tr>
+          ${nivelCell}
+          <td style="padding:3px 5px;border:1px solid #ccc;">${classe.label}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${s.matMF}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${s.matF}</td>
+          <td style="text-align:center;border:1px solid #ccc;color:#aaa;">-</td>
+          <td style="text-align:center;border:1px solid #ccc;color:#aaa;">-</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.avaliadosMF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.avaliadosF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;color:#c00;font-weight:bold;">${dash(s.aprovMF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.aprovF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${pct(s.aprovPct)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.sAprovMF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.sAprovF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${pct(s.sAprovPct)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">${dash(s.profMF)}</td>
+          <td style="text-align:center;border:1px solid #ccc;">-</td>
+        </tr>`;
+        firstInNivel = false;
+      }
+
+      nivelTotal = calcPct(nivelTotal);
+      grandTotal = addStats(grandTotal, nivelTotal);
+      tableBody += `<tr style="background:#e8e8e8;font-weight:bold;">
+        <td colspan="2" style="padding:3px 8px;border:1px solid #999;">SUB-TOTAL</td>
+        <td style="text-align:center;border:1px solid #999;">${nivelTotal.matMF}</td>
+        <td style="text-align:center;border:1px solid #999;">${nivelTotal.matF}</td>
+        <td style="text-align:center;border:1px solid #999;color:#aaa;">-</td>
+        <td style="text-align:center;border:1px solid #999;color:#aaa;">-</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.avaliadosMF)}</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.avaliadosF)}</td>
+        <td style="text-align:center;border:1px solid #999;color:#c00;">${dash(nivelTotal.aprovMF)}</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.aprovF)}</td>
+        <td style="text-align:center;border:1px solid #999;">${pct(nivelTotal.aprovPct)}</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.sAprovMF)}</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.sAprovF)}</td>
+        <td style="text-align:center;border:1px solid #999;">${pct(nivelTotal.sAprovPct)}</td>
+        <td style="text-align:center;border:1px solid #999;">${dash(nivelTotal.profMF)}</td>
+        <td style="text-align:center;border:1px solid #999;">-</td>
+      </tr>`;
+    }
+
+    grandTotal = calcPct(grandTotal);
+    tableBody += `<tr style="background:#d1d5db;font-weight:bold;font-size:11px;">
+      <td colspan="2" style="padding:4px 8px;border:1px solid #888;">TOTAL GERAL</td>
+      <td style="text-align:center;border:1px solid #888;">${grandTotal.matMF}</td>
+      <td style="text-align:center;border:1px solid #888;">${grandTotal.matF}</td>
+      <td style="text-align:center;border:1px solid #888;color:#aaa;">-</td>
+      <td style="text-align:center;border:1px solid #888;color:#aaa;">-</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.avaliadosMF)}</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.avaliadosF)}</td>
+      <td style="text-align:center;border:1px solid #888;color:#c00;">${dash(grandTotal.aprovMF)}</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.aprovF)}</td>
+      <td style="text-align:center;border:1px solid #888;">${pct(grandTotal.aprovPct)}</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.sAprovMF)}</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.sAprovF)}</td>
+      <td style="text-align:center;border:1px solid #888;">${pct(grandTotal.sAprovPct)}</td>
+      <td style="text-align:center;border:1px solid #888;">${dash(grandTotal.profMF)}</td>
+      <td style="text-align:center;border:1px solid #888;">-</td>
+    </tr>`;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapa de Aproveitamento — ${trimestre}º Trimestre ${anoLetivo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 10px; color: #000; padding: 14px 20px; }
+    .header { text-align: center; margin-bottom: 8px; }
+    .header p { margin: 1px 0; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    .escola { text-align: left; font-weight: bold; font-size: 10px; margin-bottom: 4px; }
+    .titulo { text-align: center; font-size: 11px; font-weight: bold; text-transform: uppercase; margin-bottom: 6px; border: 1px solid #000; padding: 3px; }
+    table { border-collapse: collapse; width: 100%; font-size: 9.5px; }
+    th { border: 1px solid #000; padding: 3px 4px; text-align: center; background: #f0f0f0; font-weight: bold; font-size: 9px; line-height: 1.2; }
+    td { border: 1px solid #ccc; font-size: 9.5px; }
+    .sig-row { display: flex; justify-content: center; margin-top: 24px; }
+    .sig-block { text-align: center; }
+    .sig-label { font-size: 10px; font-style: italic; font-weight: bold; margin-bottom: 24px; }
+    .sig-line { width: 200px; border-top: 1px solid #000; margin: 0 auto 3px; }
+    .sig-name { font-size: 10px; font-weight: bold; }
+    .date { text-align: left; font-size: 10px; margin: 14px 0 8px; font-weight: bold; }
+    @media print { @page { size: A3 landscape; margin: 8mm 12mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Governo da Província de ${config.provincia || '_______________'}</p>
+    <p>Comissão Administrativa da Cidade de ${config.municipio || '_______________'}</p>
+    <p>Repartição da Educação do Distrito Urbano de _______________</p>
+    <p>Área do Ensino Geral</p>
+  </div>
+
+  <div class="escola">${escola.toUpperCase()} :</div>
+
+  <div class="titulo">
+    MAPA DE APROVEITAMENTO DO ${trimestre}º TRIMESTRE DO ANO LECTIVO ${anoLetivo} / ${escola.toUpperCase()}
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2">NÍVEL</th>
+        <th rowspan="2">CLASSE</th>
+        <th colspan="2">MATRICULADOS</th>
+        <th colspan="2">DESISTÊNCIA</th>
+        <th colspan="2">AVALIADOS</th>
+        <th colspan="3">C/APROVEITAMENTO</th>
+        <th colspan="3">S/APROVEITAMENTO</th>
+        <th colspan="2">Nº DE PROFESSORES</th>
+      </tr>
+      <tr>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th><th>%</th>
+        <th>MF</th><th>F</th><th>%</th>
+        <th>MF</th><th>F</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableBody}
+    </tbody>
+  </table>
+
+  <div class="date">${dataActual}.</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">A /O DIRECTOR/A</div>
       <div class="sig-line"></div>
       <div class="sig-name">${director}</div>
     </div>
