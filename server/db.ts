@@ -3,7 +3,7 @@ import { Pool } from "pg";
 const databaseUrl = process.env.DATABASE_URL;
 
 if (!databaseUrl) {
-  throw new Error("DATABASE_URL is not set. Configure it with your Supabase Postgres connection string.");
+  throw new Error("DATABASE_URL is not set. Please ensure the Replit PostgreSQL database is provisioned.");
 }
 
 export const pool = new Pool({
