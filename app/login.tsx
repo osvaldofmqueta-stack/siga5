@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
   Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,6 +59,11 @@ export default function LoginScreen() {
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
   const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'success' }>({ visible: false, title: '', message: '', type: 'error' });
+
+  function showAlert(title: string, message: string, type: 'error' | 'success' = 'error') {
+    setAlertModal({ visible: true, title, message, type });
+  }
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.85)).current;
@@ -196,7 +201,7 @@ export default function LoginScreen() {
 
   async function handleBiometricAuth() {
     if (Platform.OS === 'web') {
-      Alert.alert('Não disponível', 'Autenticação biométrica não está disponível na versão web.');
+      showAlert('Não disponível', 'Autenticação biométrica não está disponível na versão web.');
       return;
     }
     if (showBiometricWelcome && lastUser) {
@@ -215,7 +220,7 @@ export default function LoginScreen() {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const emailTrimmed = email.toLowerCase().trim();
         if (!emailTrimmed) {
-          Alert.alert('Email necessário', 'Introduza primeiro o seu email e depois use a autenticação biométrica.');
+          showAlert('Email necessário', 'Introduza primeiro o seu email e depois use a autenticação biométrica.');
           return;
         }
         setIsLoading(true);
@@ -235,7 +240,7 @@ export default function LoginScreen() {
             await login({ id: found.id, nome: found.nome, email: found.email, role: found.role, escola: found.escola, biometricEnabled: true, avatar: bioAvatar });
             router.replace('/(main)/dashboard');
           } else {
-            Alert.alert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
+            showAlert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
           }
         }
       }
@@ -247,9 +252,19 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
-    if (!email.trim() || !senha.trim()) {
+    if (!email.trim() && !senha.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha o email e a senha.');
+      showAlert('Campos Obrigatórios', 'Por favor, preencha o email e a senha para continuar.');
+      return;
+    }
+    if (!email.trim()) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert('Email em falta', 'Por favor, introduza o seu email institucional.');
+      return;
+    }
+    if (!senha.trim()) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert('Senha em falta', 'Por favor, introduza a sua senha de acesso.');
       return;
     }
     setIsLoading(true);
@@ -276,7 +291,7 @@ export default function LoginScreen() {
         router.replace('/(main)/dashboard');
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Credenciais Inválidas', 'Email ou senha incorrectos.\nVerifique e tente novamente.');
+        showAlert('Credenciais Inválidas', 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
       }
     }
     setIsLoading(false);
@@ -542,6 +557,36 @@ export default function LoginScreen() {
     </Animated.View>
   );
 
+  const alertModalView = (
+    <Modal
+      visible={alertModal.visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setAlertModal(p => ({ ...p, visible: false }))}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={[styles.modalIconWrap, { backgroundColor: alertModal.type === 'error' ? '#FF453A22' : '#22C55E22' }]}>
+            <Ionicons
+              name={alertModal.type === 'error' ? 'alert-circle' : 'checkmark-circle'}
+              size={36}
+              color={alertModal.type === 'error' ? '#FF453A' : '#22C55E'}
+            />
+          </View>
+          <Text style={styles.modalTitle}>{alertModal.title}</Text>
+          <Text style={styles.modalMessage}>{alertModal.message}</Text>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: alertModal.type === 'error' ? '#FF453A' : '#22C55E' }]}
+            onPress={() => setAlertModal(p => ({ ...p, visible: false }))}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.modalBtnText}>OK, entendi</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const bgDecorations = (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={styles.circle1} />
@@ -612,6 +657,7 @@ export default function LoginScreen() {
             </ScrollView>
           </View>
         </View>
+        {alertModalView}
       </LinearGradient>
     );
   }
@@ -654,6 +700,7 @@ export default function LoginScreen() {
           {footerView}
         </ScrollView>
       </KeyboardAvoidingView>
+      {alertModalView}
     </LinearGradient>
   );
 }
@@ -1051,5 +1098,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: Colors.textMuted,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    backgroundColor: '#0F1F40',
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+  },
+  modalIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  modalBtn: {
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
   },
 });
