@@ -173,6 +173,17 @@ const TIPO_COLORS: Record<DocTipo, string> = {
 const STORAGE_KEY = '@sgaa_doc_templates';
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+// Map of all template variables → example values (for preview without real data)
+const VARIABLE_EXAMPLE_MAP: Record<string, string> = (() => {
+  const map: Record<string, string> = {};
+  for (const group of VARIABLE_GROUPS) {
+    for (const v of group.vars) {
+      map[v.tag] = v.exemplo;
+    }
+  }
+  return map;
+})();
+
 function genId() { return 'tpl_' + Date.now() + Math.random().toString(36).slice(2, 7); }
 function fmtDate(iso: string) {
   const d = new Date(iso);
@@ -1082,6 +1093,93 @@ export default function EditorDocumentos() {
       t.id === id ? { ...t, bloqueado: !t.bloqueado } : t
     );
     await saveTemplates(updated);
+  }
+
+  function previewTemplate(template: DocTemplate, previewContent?: string) {
+    if (Platform.OS !== 'web') return;
+    const win = window.open('', '_blank');
+    if (!win) return;
+
+    const now = new Date();
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+
+    // Build content: use provided previewContent (from editor) or replace vars with examples
+    let conteudo = previewContent ?? template.conteudo;
+    const exampleMap = {
+      ...VARIABLE_EXAMPLE_MAP,
+      '{{DATA_ACTUAL}}': dataActual,
+      '{{MES_ACTUAL}}': MESES[now.getMonth()],
+      '{{ANO_ACTUAL}}': String(now.getFullYear()),
+      '{{NOME_ESCOLA}}': config.nomeEscola || 'Escola Secundária N.º 1',
+      '{{NOME_DIRECTOR}}': user?.nome || 'António Gomes',
+    };
+    Object.entries(exampleMap).forEach(([k, v]) => {
+      conteudo = conteudo.split(k).join(v);
+    });
+
+    const escolaNome = config.nomeEscola || 'Escola Secundária N.º 1';
+    const directorNome = user?.nome || '';
+
+    const logoHtml = template.insigniaBase64
+      ? `<img src="${template.insigniaBase64}" alt="Insígnia" style="height:90px;width:90px;object-fit:contain;margin-bottom:8px;" />`
+      : `<div style="width:72px;height:72px;border-radius:50%;background:#e0e0e0;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;font-size:26px;font-weight:bold;color:#666;line-height:72px;text-align:center;border:2px solid #ccc;">${escolaNome.charAt(0).toUpperCase()}</div>`;
+
+    const watermarkHtml = template.marcaAguaBase64
+      ? `<img src="${template.marcaAguaBase64}" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.05;pointer-events:none;z-index:0;" />`
+      : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${escolaNome}</div>`;
+
+    win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Pré-visualização — ${template.nome}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: 'Times New Roman', serif; margin: 60px; font-size: 14px; line-height: 1.8; color: #000; position: relative; }
+    .preview-banner { position: fixed; top: 0; left: 0; right: 0; background: #f59e0b; color: #000; text-align: center; padding: 6px 0; font-family: sans-serif; font-size: 12px; font-weight: bold; letter-spacing: 1px; z-index: 999; }
+    .content { position: relative; z-index: 1; margin-top: 30px; }
+    .doc-header { text-align: center; margin-bottom: 32px; }
+    h1 { font-size: 16px; margin: 4px 0; font-family: 'Times New Roman', serif; }
+    .republika { font-size: 11px; color: #555; margin-bottom: 2px; letter-spacing: 1px; text-transform: uppercase; }
+    .divider { width: 80px; height: 2px; background: #000; margin: 12px auto; }
+    .doc-tipo { font-size: 14px; font-weight: bold; letter-spacing: 2px; text-transform: uppercase; margin: 8px 0; }
+    .doc-meta { font-size: 11px; color: #777; font-style: italic; margin-bottom: 32px; }
+    pre { white-space: pre-wrap; font-family: 'Times New Roman', serif; font-size: 14px; line-height: 1.9; text-align: justify; }
+    .signature { margin-top: 60px; text-align: center; }
+    .sig-line { width: 200px; height: 1px; background: #333; margin: 40px auto 6px; }
+    .print-btn { position: fixed; bottom: 24px; right: 24px; background: #1d4ed8; color: #fff; border: none; border-radius: 8px; padding: 12px 24px; font-size: 14px; font-weight: bold; cursor: pointer; font-family: sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999; }
+    .print-btn:hover { background: #1e40af; }
+    @media print {
+      .preview-banner, .print-btn { display: none !important; }
+      body { margin: 30px 50px; }
+      .content { margin-top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-banner">⚠ PRÉ-VISUALIZAÇÃO — Dados fictícios para demonstração</div>
+  ${watermarkHtml}
+  <div class="content">
+    <div class="doc-header">
+      ${logoHtml}
+      <div class="republika">República de Angola</div>
+      <h1>${escolaNome}</h1>
+      <div class="divider"></div>
+      <div class="doc-tipo">${template.nome}</div>
+      <div class="doc-meta">Dados de exemplo — João Manuel Silva</div>
+    </div>
+    <pre>${conteudo}</pre>
+    <div class="signature">
+      <div style="font-size:13px;color:#444;">Luanda, ${dataActual}</div>
+      <div class="sig-line"></div>
+      <div style="font-weight:bold;font-size:13px;">${directorNome}</div>
+      <div style="font-size:12px;color:#555;">Director(a)</div>
+    </div>
+  </div>
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+</body>
+</html>`);
+    win.document.close();
   }
 
   function openEmit(t: DocTemplate) {
@@ -3431,6 +3529,10 @@ export default function EditorDocumentos() {
         </View>
         {showMenu && (
           <View style={styles.dropMenu}>
+            <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); previewTemplate(template); }}>
+              <Ionicons name="eye-outline" size={16} color={'#8b5cf6'} />
+              <Text style={[styles.dropItemText, { color: '#8b5cf6' }]}>Pré-visualizar PDF</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); openEdit(template); }}>
               <Ionicons name="pencil-outline" size={16} color={Colors.text} />
               <Text style={styles.dropItemText}>Editar</Text>
@@ -3479,6 +3581,18 @@ export default function EditorDocumentos() {
             placeholder="Nome do modelo..."
             placeholderTextColor={Colors.textMuted}
           />
+          {Platform.OS === 'web' && (
+            <TouchableOpacity
+              style={{ marginRight: 8, backgroundColor: '#8b5cf622', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              onPress={() => {
+                const fakeTpl: DocTemplate = { id: editingTemplate?.id || 'preview', nome: editorNome, tipo: editorTipo, conteudo: editorContent, criadoEm: '', atualizadoEm: '', insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua };
+                previewTemplate(fakeTpl, editorContent);
+              }}
+            >
+              <Ionicons name="eye-outline" size={16} color={'#8b5cf6'} />
+              <Text style={{ color: '#8b5cf6', fontSize: 13, fontWeight: '600' }}>Pré-ver</Text>
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             style={[styles.saveBtn, isSaving && { opacity: 0.6 }]}
             onPress={saveTemplate}
