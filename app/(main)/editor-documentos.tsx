@@ -14,7 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -156,6 +156,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   mapa_aproveitamento: 'Mapa de Aproveitamento',
   mapa_frequencias: 'Mapa de Frequências',
   lista_turma: 'Lista da Turma',
+  certificado_primario: 'Certificado Primário',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -169,6 +170,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   mapa_aproveitamento: '#065f46',
   mapa_frequencias: '#1e40af',
   lista_turma: '#0369a1',
+  certificado_primario: '#7c3aed',
   outro: Colors.textMuted,
 };
 
@@ -514,6 +516,36 @@ Ao emitir, seleccione a turma e o sistema irá:
 Escola: {{NOME_ESCOLA}}
 Classe: {{CLASSE}} | Turma: {{TURMA}} | Período: {{TURNO}} | Ano Lectivo: {{ANO_LECTIVO}}
 Professor(a): Director(a) de Turma`,
+};
+
+const SEED_CERT_PRIMARIO_ID = 'tpl_seed_cert_primario_v1';
+const SEED_CERT_PRIMARIO: DocTemplate = {
+  id: SEED_CERT_PRIMARIO_ID,
+  nome: 'Certificado do Ensino Primário',
+  tipo: 'certificado_primario',
+  bloqueado: true,
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `[CERTIFICADO DO ENSINO PRIMÁRIO — GERADO AUTOMATICAMENTE]
+
+Este modelo gera o Certificado oficial de conclusão do Ensino Primário conforme a LBSEE 17/16.
+
+Ao emitir, seleccione o aluno e o sistema irá preencher automaticamente:
+• Nome completo do aluno, data e local de nascimento
+• Género (filho/filha)
+• Município e Província
+• Tabela de classificações por ciclo (2ª, 4ª e 6ª Classe)
+• Médias finais por disciplina e por extenso
+• Média Geral Final
+
+Campos a preencher manualmente:
+• Nome do pai e da mãe
+• Número e data do Bilhete de Identidade / Passaporte
+• Nº e data do Decreto Executivo de criação da escola
+• Livro de registo e folha
+
+Escola: {{NOME_ESCOLA}}
+Director(a): {{NOME_DIRECTOR}}`,
 };
 
 const SEED_DECLARACAO_COM_NOTA_ID = 'tpl_seed_declaracao_com_nota_v1';
@@ -1099,7 +1131,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1332,6 +1364,236 @@ export default function EditorDocumentos() {
   }
   function isListaTurmaType(t: DocTemplate | null) {
     return t?.tipo === 'lista_turma';
+  }
+  function isCertificadoPrimarioType(t: DocTemplate | null) {
+    return t?.tipo === 'certificado_primario';
+  }
+
+  // ─── Certificado do Ensino Primário HTML Builder ───────────────────────────
+
+  function buildCertificadoPrimarioHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+
+    const now = new Date();
+    const MESES_LOCAL = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    function numPorExtenso(n: number): string {
+      const map: Record<number, string> = {
+        1: 'Um Valor', 2: 'Dois Valores', 3: 'Três Valores', 4: 'Quatro Valores',
+        5: 'Cinco Valores', 6: 'Seis Valores', 7: 'Sete Valores', 8: 'Oito Valores',
+        9: 'Nove Valores', 10: 'Dez Valores',
+      };
+      return map[n] || `${n} Valores`;
+    }
+
+    const bDate = aluno.dataNascimento ? new Date(aluno.dataNascimento + 'T12:00:00') : null;
+    const bDay = bDate ? String(bDate.getDate()).padStart(2, '0') : '__';
+    const bMonth = bDate ? MESES_LOCAL[bDate.getMonth()] : '___________';
+    const bYear = bDate ? String(bDate.getFullYear()) : '____';
+    const filhoA = aluno.genero === 'F' ? 'filha' : 'filho';
+
+    const escola = config.nomeEscola || '___________________________';
+    const director = user?.nome || '___________________________';
+    const cidade = aluno.provincia || 'Luanda';
+    const dataActual = `${now.getDate()} de ${MESES_LOCAL[now.getMonth()]} de ${now.getFullYear()}`;
+
+    const todasNotasAluno = notas.filter(n => n.alunoId === alunoId);
+
+    function getClasseForTurma(tId: string): string {
+      return turmas.find(t => t.id === tId)?.classe || '';
+    }
+
+    function getGradePorClasse(disciplinaNome: string, classe: string): number | null {
+      const matchNome = disciplinaNome.trim().toLowerCase();
+      const notasClasse = todasNotasAluno.filter(n => {
+        const tClasse = getClasseForTurma(n.turmaId);
+        return tClasse === classe && n.disciplina.trim().toLowerCase() === matchNome;
+      });
+      if (notasClasse.length === 0) return null;
+      const withNf = notasClasse.find(n => n.nf > 0);
+      if (withNf) return Math.round(withNf.nf);
+      const mts = notasClasse.map(n => n.mt1).filter(v => v > 0);
+      if (mts.length === 0) return null;
+      return Math.round(mts.reduce((a, b) => a + b, 0) / mts.length);
+    }
+
+    const cicloClasses = ['2ª Classe', '4ª Classe', '6ª Classe'];
+
+    const DISCIPLINAS_PRIMARIO: { nome: string; ciclos: number[]; bold: boolean }[] = [
+      { nome: 'Língua Portuguesa',          ciclos: [1, 2, 3], bold: false },
+      { nome: 'Matemática',                 ciclos: [1, 2, 3], bold: false },
+      { nome: 'Estudo do Meio',             ciclos: [1, 2],    bold: false },
+      { nome: 'Ciências Naturais',          ciclos: [3],       bold: false },
+      { nome: 'História',                   ciclos: [3],       bold: true  },
+      { nome: 'Geografia',                  ciclos: [3],       bold: false },
+      { nome: 'Educação Moral e Cívica',    ciclos: [3],       bold: true  },
+      { nome: 'Educação Manual e Plástica', ciclos: [1, 2, 3], bold: false },
+      { nome: 'Educação Musical',           ciclos: [1, 2, 3], bold: false },
+      { nome: 'Educação Física',            ciclos: [1, 2, 3], bold: false },
+      { nome: 'Língua de Origem Africana',  ciclos: [],        bold: false },
+    ];
+
+    const tableRows = DISCIPLINAS_PRIMARIO.map(disc => {
+      const grades: (number | null)[] = [1, 2, 3].map(ciclo => {
+        if (!disc.ciclos.includes(ciclo)) return null;
+        return getGradePorClasse(disc.nome, cicloClasses[ciclo - 1]);
+      });
+      const validGrades = grades.filter((g): g is number => g !== null);
+      const mediaFinal = validGrades.length > 0
+        ? Math.round(validGrades.reduce((a, b) => a + b, 0) / validGrades.length)
+        : null;
+
+      const cells = grades.map((g, idx) => {
+        if (!disc.ciclos.includes(idx + 1)) {
+          return `<td style="background:#c0c0c0;"></td>`;
+        }
+        return `<td style="text-align:center;">${g !== null ? g : ''}</td>`;
+      }).join('');
+
+      const fw = disc.bold ? 'font-weight:bold;' : '';
+      return `<tr>
+        <td style="${fw}padding:2px 4px;">${disc.nome}</td>
+        ${cells}
+        <td style="text-align:center;font-weight:bold;">${mediaFinal !== null ? mediaFinal : ''}</td>
+        <td style="text-align:center;">${mediaFinal !== null ? numPorExtenso(mediaFinal) : ''}</td>
+      </tr>`;
+    }).join('');
+
+    const allDiscMedias: number[] = [];
+    for (const disc of DISCIPLINAS_PRIMARIO) {
+      const validForDisc = [1, 2, 3]
+        .filter(c => disc.ciclos.includes(c))
+        .map(c => getGradePorClasse(disc.nome, cicloClasses[c - 1]))
+        .filter((g): g is number => g !== null);
+      if (validForDisc.length > 0) {
+        allDiscMedias.push(Math.round(validForDisc.reduce((a, b) => a + b, 0) / validForDisc.length));
+      }
+    }
+    const mediaGeral = allDiscMedias.length > 0
+      ? Math.round(allDiscMedias.reduce((a, b) => a + b, 0) / allDiscMedias.length)
+      : null;
+
+    const notasTurma = turmas.find(t => t.id === aluno.turmaId);
+    const anoLetivoConclusao = todasNotasAluno.length > 0
+      ? [...todasNotasAluno].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo))[0].anoLetivo
+      : (notasTurma?.anoLetivo || String(now.getFullYear()));
+
+    return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado Ensino Primário — ${aluno.nome} ${aluno.apelido}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Times New Roman", Times, serif; font-size: 12pt; color: #000; background: #fff; padding: 20mm 20mm 15mm 25mm; }
+    .visto-block { float: left; width: 200px; font-size: 10pt; margin-right: 20px; }
+    .visto-block p { margin: 2px 0; }
+    .visto-line { border-bottom: 1px solid #000; width: 180px; margin: 18px 0 4px; }
+    .header-center { text-align: center; font-size: 12pt; line-height: 1.6; }
+    .header-center .nivel { font-size: 12pt; margin-top: 6px; }
+    .header-center .titulo { font-size: 18pt; font-weight: bold; margin: 10px 0 16px; letter-spacing: 2px; text-transform: uppercase; }
+    .body-text { text-align: justify; font-size: 11pt; line-height: 1.7; margin-bottom: 14px; clear: both; }
+    .underline { text-decoration: underline; font-style: italic; }
+    .bold-caps { font-weight: bold; text-transform: uppercase; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10pt; }
+    table th, table td { border: 1px solid #000; padding: 3px 5px; }
+    table th { background: #f2f2f2; font-weight: bold; text-align: center; font-size: 9.5pt; }
+    .media-row td { font-weight: bold; background: #fffde7; }
+    .legal-text { font-size: 11pt; text-align: justify; line-height: 1.6; margin: 14px 0; }
+    .date-line { margin: 18px 0 10px; font-size: 11pt; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 40px; }
+    .sig-block { text-align: center; min-width: 220px; }
+    .sig-block .label { font-size: 11pt; margin-bottom: 30px; }
+    .sig-line { border-top: 1px solid #000; width: 200px; margin: 0 auto 4px; }
+    .sig-name { font-size: 10pt; }
+    .clearfix::after { content: ""; display: table; clear: both; }
+    @media print { @page { size: A4 portrait; margin: 20mm 20mm 15mm 25mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+
+  <div class="clearfix">
+    <div class="visto-block">
+      <p>Visto do(a)</p>
+      <p>Director(a)/Secretário(a) Municipal</p>
+      <div class="visto-line"></div>
+      <p>___________________________</p>
+    </div>
+    <div class="header-center">
+      <p><strong>REPÚBLICA DE ANGOLA</strong></p>
+      <p><strong>MINISTÉRIO DA EDUCAÇÃO</strong></p>
+      <p class="nivel">ENSINO PRIMÁRIO</p>
+      <p class="titulo">Certificado</p>
+    </div>
+  </div>
+
+  <div class="body-text">
+    <p>a)&nbsp;&nbsp;<span class="underline">__________________________</span>, Director(a) da Escola Primária nº&nbsp;<span class="underline">_______</span>,&nbsp;Ex:&nbsp;<span class="underline">_______</span>,&nbsp;nome
+    <span class="underline">${escola}</span>, criada sob Decreto Executivo nº&nbsp;<span class="underline">_____</span>&nbsp;/&nbsp;<span class="underline">____</span>&nbsp;de&nbsp;<span class="underline">_____________</span>,
+    certifica que</p>
+  </div>
+
+  <div class="body-text">
+    <span class="underline" style="color:#8B0000;font-weight:bold;">${aluno.nome} ${aluno.apelido}</span>,
+    ${filhoA}(a) de&nbsp;<span class="underline">___________________________________</span>&nbsp;e de&nbsp;<span class="underline">___________________________________</span>,
+    nascido(a) aos&nbsp;<span class="underline">${bDay} de ${bMonth} de ${bYear}</span>,
+    natural de&nbsp;<span class="underline">${aluno.municipio}</span>,
+    Município de&nbsp;<span class="underline">${aluno.municipio}</span>,
+    Província de&nbsp;<span class="underline">${aluno.provincia}</span>,
+    portador(a) do B.I./Passaporte nº&nbsp;<span class="underline">__________________</span>,
+    passado(a) pela Conservatória do registo civil de&nbsp;<span class="underline">_____________</span>
+    aos&nbsp;<span class="underline">_____________________</span>,
+    concluiu no ano lectivo&nbsp;<span class="underline"><strong>${anoLetivoConclusao}</strong></span>&nbsp;
+    o <span class="bold-caps">Ensino Primário,</span>
+    conforme o disposto na alínea b) do artigo 109.º. da LBSEE 17/16, de 7 de Outubro,
+    com a Média Final de&nbsp;<span class="underline"><strong>${mediaGeral !== null ? mediaGeral : '_____'}</strong></span>&nbsp;valores
+    obtida nas seguintes classificações por ciclos de aprendizagem:
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" style="text-align:left;min-width:180px;">Disciplina</th>
+        <th colspan="1">I Ciclo</th>
+        <th colspan="1">II Ciclo</th>
+        <th colspan="1">III Ciclo</th>
+        <th rowspan="2">Média Final</th>
+        <th rowspan="2">Média por Extenso</th>
+      </tr>
+      <tr>
+        <th>2ª. Classe</th>
+        <th>4ª. Classe</th>
+        <th>6ª. Classe</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+
+  <div class="legal-text">
+    Para efeitos legais lhe é passado o presente <strong>CERTIFICADO</strong>, que consta no livro de registo nº&nbsp;___________,
+    folha&nbsp;___________, assinado por mim e autenticado com carimbo a óleo/selo branco em uso neste estabelecimento de ensino.
+  </div>
+
+  <div class="date-line">${cidade}, aos ${dataActual}</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="label">Conferido por</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">&nbsp;</div>
+    </div>
+    <div class="sig-block">
+      <div class="label">O (A) Director(a)</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+  </div>
+
+</body>
+</html>`;
   }
 
   // ─── Pauta Final HTML Builder ──────────────────────────────────────────────
@@ -3670,6 +3932,15 @@ export default function EditorDocumentos() {
       return;
     }
 
+    // ── Certificado do Ensino Primário: use generated HTML directly ───────────
+    if (emitTemplate?.tipo === 'certificado_primario' && emitAlunoId) {
+      const html = buildCertificadoPrimarioHtml(emitAlunoId);
+      win.document.write(html);
+      win.document.close();
+      win.print();
+      return;
+    }
+
     // ── Lista da Turma: use generated HTML directly ───────────────────────────
     if (emitTemplate?.tipo === 'lista_turma' && emitTurmaId) {
       const html = buildListaTurmaHtml(emitTurmaId);
@@ -4117,6 +4388,7 @@ export default function EditorDocumentos() {
     const isPauta = isPautaType(emitTemplate);
     const isMapa = isMapaType(emitTemplate);
     const isListaTurma = isListaTurmaType(emitTemplate);
+    const isCertificadoPrimario = isCertificadoPrimarioType(emitTemplate);
 
     // ── Turma-level (pauta) variables ─────────────────────────────────────
     const turmasAtivas = turmas.filter(t => t.ativo);
@@ -4156,7 +4428,7 @@ export default function EditorDocumentos() {
     const sortedTurmasForMapa = [...turmas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo));
     const anoLetivoMapa = sortedTurmasForMapa[0]?.anoLetivo || String(new Date().getFullYear());
 
-    const canPrint = isMapa ? true : (isListaTurma ? !!emitTurmaId : (isPauta ? !!emitTurmaId : (!!emitAlunoId && !!emitPreview)));
+    const canPrint = isMapa ? true : (isListaTurma ? !!emitTurmaId : (isPauta ? !!emitTurmaId : (isCertificadoPrimario ? !!emitAlunoId : (!!emitAlunoId && !!emitPreview))));
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -4418,6 +4690,67 @@ export default function EditorDocumentos() {
                       <Ionicons name="print-outline" size={18} color='#0369a1' />
                       <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
                         A lista será gerada em formato A4 retrato com alternância de cores e Mapa Estatístico no final.
+                      </Text>
+                    </View>
+                  </ScrollView>
+                )}
+              </>
+            ) : isCertificadoPrimario ? (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Resumo do Certificado</Text>
+                {!selectedAluno ? (
+                  <View style={styles.previewEmpty}>
+                    <Ionicons name="ribbon-outline" size={48} color={Colors.textMuted} />
+                    <Text style={styles.previewEmptyText}>Seleccione um aluno para gerar o Certificado do Ensino Primário</Text>
+                  </View>
+                ) : (
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    <View style={{ backgroundColor: '#2d1b69', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#7c3aed' }}>
+                      <Text style={{ color: '#7c3aed', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>CERTIFICADO DO ENSINO PRIMÁRIO — A4</Text>
+                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                        {selectedTurmaForAluno?.classe || 'Sem turma'} · Nº {selectedAluno.numeroMatricula}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="person-outline" size={22} color='#7c3aed' />
+                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{selectedAluno.genero === 'F' ? 'Feminino' : 'Masculino'}</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Género</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="location-outline" size={22} color='#7c3aed' />
+                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>{selectedAluno.provincia}</Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>{selectedAluno.municipio}</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>CICLOS DE APRENDIZAGEM</Text>
+                      {['2ª Classe (I Ciclo)', '4ª Classe (II Ciclo)', '6ª Classe (III Ciclo)'].map((ciclo, idx) => {
+                        const classeLabel = ['2ª Classe', '4ª Classe', '6ª Classe'][idx];
+                        const temNotas = notas.some(n => n.alunoId === emitAlunoId && turmas.find(t => t.id === n.turmaId)?.classe === classeLabel);
+                        return (
+                          <View key={ciclo} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Ionicons name={temNotas ? 'checkmark-circle-outline' : 'ellipse-outline'} size={14} color={temNotas ? '#7c3aed' : Colors.textMuted} />
+                            <Text style={{ color: temNotas ? Colors.text : Colors.textMuted, fontSize: 13, fontFamily: 'Inter_400Regular' }}>{ciclo}</Text>
+                            <Text style={{ color: temNotas ? '#7c3aed' : Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', marginLeft: 'auto' }}>{temNotas ? 'Com dados' : 'Sem dados'}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                    <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>CAMPOS AUTOMÁTICOS DA BD</Text>
+                      {['Nome completo do aluno', 'Data de nascimento', 'Género (filho/filha)', 'Município e Província', 'Classificações por ciclo', 'Médias finais e por extenso', 'Média Geral Final'].map(l => (
+                        <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color='#7c3aed' />
+                          <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{l}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={{ backgroundColor: '#2d1b69', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#7c3aed', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="information-circle-outline" size={18} color='#7c3aed' />
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                        Campos como pai, mãe, BI e Decreto Executivo aparecem em branco para preenchimento manual após impressão.
                       </Text>
                     </View>
                   </ScrollView>
