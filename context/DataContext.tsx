@@ -99,10 +99,20 @@ export interface Evento {
   createdAt: string;
 }
 
+export interface Sala {
+  id: string;
+  nome: string;
+  bloco: string;
+  capacidade: number;
+  tipo: 'Sala Normal' | 'Laboratório' | 'Sala de Informática' | 'Auditório' | 'Sala de Reunião';
+  ativo: boolean;
+}
+
 interface DataContextValue {
   alunos: Aluno[];
   professores: Professor[];
   turmas: Turma[];
+  salas: Sala[];
   notas: Nota[];
   presencas: Presenca[];
   eventos: Evento[];
@@ -116,6 +126,9 @@ interface DataContextValue {
   addTurma: (t: Omit<Turma, 'id'>) => Promise<void>;
   updateTurma: (id: string, t: Partial<Turma>) => Promise<void>;
   deleteTurma: (id: string) => Promise<void>;
+  addSala: (s: Omit<Sala, 'id'>) => Promise<void>;
+  updateSala: (id: string, s: Partial<Sala>) => Promise<void>;
+  deleteSala: (id: string) => Promise<void>;
   addNota: (n: Omit<Nota, 'id'>) => Promise<void>;
   updateNota: (id: string, n: Partial<Nota>) => Promise<void>;
   addPresenca: (p: Omit<Presenca, 'id'>) => Promise<void>;
@@ -136,6 +149,7 @@ const STORAGE_KEYS = {
   alunos:      '@sgaa_alunos',
   professores: '@sgaa_professores',
   turmas:      '@sgaa_turmas',
+  salas:       '@sgaa_salas_v1',
   notas:       '@sgaa_notas',
   presencas:   '@sgaa_presencas',
   eventos:     '@sgaa_eventos',
@@ -221,6 +235,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [alunos, setAlunos]           = useState<Aluno[]>([]);
   const [professores, setProfessores] = useState<Professor[]>([]);
   const [turmas, setTurmas]           = useState<Turma[]>([]);
+  const [salas, setSalas]             = useState<Sala[]>([]);
   const [notas, setNotas]             = useState<Nota[]>([]);
   const [presencas, setPresencas]     = useState<Presenca[]>([]);
   const [eventos, setEventos]         = useState<Evento[]>([]);
@@ -233,10 +248,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await cleanupDemoData();
 
       // Carrega cache local (fallback)
-      const [aRaw, pRaw, tRaw, nRaw, prRaw, eRaw] = await Promise.all([
+      const [aRaw, pRaw, tRaw, sRaw, nRaw, prRaw, eRaw] = await Promise.all([
         AsyncStorage.getItem(STORAGE_KEYS.alunos),
         AsyncStorage.getItem(STORAGE_KEYS.professores),
         AsyncStorage.getItem(STORAGE_KEYS.turmas),
+        AsyncStorage.getItem(STORAGE_KEYS.salas),
         AsyncStorage.getItem(STORAGE_KEYS.notas),
         AsyncStorage.getItem(STORAGE_KEYS.presencas),
         AsyncStorage.getItem(STORAGE_KEYS.eventos),
@@ -246,6 +262,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         alunos: aRaw ? (JSON.parse(aRaw) as Aluno[]) : [],
         professores: pRaw ? (JSON.parse(pRaw) as Professor[]) : [],
         turmas: tRaw ? (JSON.parse(tRaw) as Turma[]) : [],
+        salas: sRaw ? (JSON.parse(sRaw) as Sala[]) : [],
         notas: nRaw ? (JSON.parse(nRaw) as Nota[]) : [],
         presencas: prRaw ? (JSON.parse(prRaw) as Presenca[]) : [],
         eventos: eRaw ? (JSON.parse(eRaw) as Evento[]) : [],
@@ -253,51 +270,45 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
       // Tenta sincronizar com o banco
       try {
-        const [aApiRes, pApiRes, tApiRes, nApiRes, prApiRes, eApiRes] = await Promise.all([
+        const [aApiRes, pApiRes, tApiRes, sApiRes, nApiRes, prApiRes, eApiRes] = await Promise.all([
           apiRequest('GET', '/api/alunos'),
           apiRequest('GET', '/api/professores'),
           apiRequest('GET', '/api/turmas'),
+          apiRequest('GET', '/api/salas'),
           apiRequest('GET', '/api/notas'),
           apiRequest('GET', '/api/presencas'),
           apiRequest('GET', '/api/eventos'),
         ]);
 
-        const [aApi, pApi, tApi, nApi, prApi, eApi] = await Promise.all([
+        const [aApi, pApi, tApi, sApi, nApi, prApi, eApi] = await Promise.all([
           aApiRes.json() as Promise<Aluno[]>,
           pApiRes.json() as Promise<Professor[]>,
           tApiRes.json() as Promise<Turma[]>,
+          sApiRes.json() as Promise<Sala[]>,
           nApiRes.json() as Promise<Nota[]>,
           prApiRes.json() as Promise<Presenca[]>,
           eApiRes.json() as Promise<Evento[]>,
         ]);
 
-        const anyApiData =
-          aApi.length > 0 ||
-          pApi.length > 0 ||
-          tApi.length > 0 ||
-          nApi.length > 0 ||
-          prApi.length > 0 ||
-          eApi.length > 0;
+        setAlunos(aApi);
+        setProfessores(pApi);
+        setTurmas(tApi);
+        setSalas(sApi);
+        setNotas(nApi);
+        setPresencas(prApi);
+        setEventos(eApi);
 
-        if (anyApiData) {
-          setAlunos(aApi);
-          setProfessores(pApi);
-          setTurmas(tApi);
-          setNotas(nApi);
-          setPresencas(prApi);
-          setEventos(eApi);
-
-          // Atualiza cache
-          await Promise.all([
-            persist(STORAGE_KEYS.alunos, aApi),
-            persist(STORAGE_KEYS.professores, pApi),
-            persist(STORAGE_KEYS.turmas, tApi),
-            persist(STORAGE_KEYS.notas, nApi),
-            persist(STORAGE_KEYS.presencas, prApi),
-            persist(STORAGE_KEYS.eventos, eApi),
-          ]);
-          return;
-        }
+        // Atualiza cache
+        await Promise.all([
+          persist(STORAGE_KEYS.alunos, aApi),
+          persist(STORAGE_KEYS.professores, pApi),
+          persist(STORAGE_KEYS.turmas, tApi),
+          persist(STORAGE_KEYS.salas, sApi),
+          persist(STORAGE_KEYS.notas, nApi),
+          persist(STORAGE_KEYS.presencas, prApi),
+          persist(STORAGE_KEYS.eventos, eApi),
+        ]);
+        return;
       } catch (apiErr) {
         // Se o servidor/rota não estiver pronto, usa o cache local
         console.warn('API sync failed, using AsyncStorage cache', apiErr);
@@ -307,6 +318,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setAlunos(cached.alunos);
       setProfessores(cached.professores);
       setTurmas(cached.turmas);
+      setSalas(cached.salas);
       setNotas(cached.notas);
       setPresencas(cached.presencas);
       setEventos(cached.eventos);

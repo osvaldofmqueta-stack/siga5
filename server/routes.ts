@@ -244,6 +244,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // SALAS DE AULA
+  // -----------------------
+  app.get("/api/salas", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.salas ORDER BY nome ASC`,
+      [],
+    );
+    json(res, 200, rows);
+  });
+
+  app.post("/api/salas", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.salas (id, "nome", "bloco", "capacidade", "tipo", "ativo")
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [b.id, b.nome, b.bloco ?? '', b.capacidade ?? 30, b.tipo ?? 'Sala Normal', b.ativo ?? true],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.put("/api/salas/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["nome", "bloco", "capacidade", "tipo", "ativo"] as const;
+      const setParts: string[] = [];
+      const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key as keyof typeof b];
+        if (v === undefined) continue;
+        values.push(v);
+        setParts.push(`"${key}" = $${values.length}`);
+      }
+      if (setParts.length === 0) return json(res, 400, { error: "No fields to update." });
+      const rows = await query<JsonObject>(
+        `UPDATE public.salas SET ${setParts.join(", ")} WHERE id = $${values.length + 1} RETURNING *`,
+        [...values, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.delete("/api/salas/:id", async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const rows = await query<JsonObject>(
+      `DELETE FROM public.salas WHERE id = $1 RETURNING *`,
+      [id],
+    );
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // -----------------------
   // TURMAS
   // -----------------------
   app.get("/api/turmas", async (_req: Request, res: Response) => {

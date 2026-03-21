@@ -112,6 +112,21 @@ export const professores = pgTable("professores", {
 });
 
 // -----------------------
+// SALAS DE AULA
+// -----------------------
+export const salas = pgTable("salas", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  nome: text("nome").notNull(),
+  bloco: text("bloco").notNull().default(''),
+  capacidade: integer("capacidade").notNull().default(30),
+  tipo: text("tipo").notNull().default('Sala Normal'), // "Sala Normal" | "Laboratório" | "Sala de Informática" | "Auditório" | "Sala de Reunião"
+  ativo: boolean("ativo").notNull().default(true),
+});
+
+// -----------------------
 // TURMAS
 // -----------------------
 export const turmas = pgTable("turmas", {
