@@ -496,6 +496,18 @@ export const registros = pgTable("registros", {
 });
 
 // -----------------------
+// PERMISSÕES POR UTILIZADOR
+// -----------------------
+export const userPermissions = pgTable("user_permissions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().unique(),
+  permissoes: jsonb("permissoes").notNull().default(sql`'{}'::jsonb`),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
 // CONFIGURAÇÕES DA ESCOLA
 // -----------------------
 export const configGeral = pgTable("config_geral", {

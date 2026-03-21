@@ -26,6 +26,7 @@ import { UsersProvider } from '@/context/UsersContext';
 import { RegistroProvider } from '@/context/RegistroContext';
 import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
+import { PermissoesProvider } from '@/context/PermissoesContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 
 if (Platform.OS !== 'web') {
@@ -53,26 +54,28 @@ function AppProviders() {
             <KeyboardProvider>
               <ConfigProvider>
                 <AuthProvider>
-                  <LicenseProvider>
-                    <UsersProvider>
-                      <RegistroProvider>
-                        <DataProvider>
-                          <AnoAcademicoProvider>
-                            <FinanceiroProvider>
-                              <NotificacoesProvider>
-                                <ProfessorProvider>
-                                  <DrawerProvider>
-                                    <RootLayoutNav />
-                                    <FlashScreenOverlay />
-                                  </DrawerProvider>
-                                </ProfessorProvider>
-                              </NotificacoesProvider>
-                            </FinanceiroProvider>
-                          </AnoAcademicoProvider>
-                        </DataProvider>
-                      </RegistroProvider>
-                    </UsersProvider>
-                  </LicenseProvider>
+                  <PermissoesProvider>
+                    <LicenseProvider>
+                      <UsersProvider>
+                        <RegistroProvider>
+                          <DataProvider>
+                            <AnoAcademicoProvider>
+                              <FinanceiroProvider>
+                                <NotificacoesProvider>
+                                  <ProfessorProvider>
+                                    <DrawerProvider>
+                                      <RootLayoutNav />
+                                      <FlashScreenOverlay />
+                                    </DrawerProvider>
+                                  </ProfessorProvider>
+                                </NotificacoesProvider>
+                              </FinanceiroProvider>
+                            </AnoAcademicoProvider>
+                          </DataProvider>
+                        </RegistroProvider>
+                      </UsersProvider>
+                    </LicenseProvider>
+                  </PermissoesProvider>
                 </AuthProvider>
               </ConfigProvider>
             </KeyboardProvider>

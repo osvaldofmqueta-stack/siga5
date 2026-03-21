@@ -508,6 +508,23 @@ export default function PerfilScreen() {
           <InfoRow label="Versão da app" value="SGAA v1.0.0" />
         </View>
 
+        {/* Gestão de Acessos — CEO / PCA */}
+        {(user.role === 'ceo' || user.role === 'pca') && (
+          <TouchableOpacity
+            style={styles.acessosBtn}
+            onPress={() => router.push('/(main)/gestao-acessos' as any)}
+          >
+            <View style={styles.acessosBtnIcon}>
+              <Ionicons name="key" size={20} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.acessosBtnTitle}>Gestão de Acessos</Text>
+              <Text style={styles.acessosBtnSub}>Controlar permissões por utilizador</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.gold} />
+          </TouchableOpacity>
+        )}
+
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={() => setConfirmLogout(true)}>
           <Ionicons name="log-out-outline" size={20} color={Colors.accent} />
@@ -617,4 +634,8 @@ const styles = StyleSheet.create({
   editCancelText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
   editSaveBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.accent, alignItems: 'center' },
   editSaveText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+  acessosBtn: { flexDirection: 'row', alignItems: 'center', gap: 14, margin: 16, marginBottom: 0, padding: 14, backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.gold + '44' },
+  acessosBtnIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center' },
+  acessosBtnTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  acessosBtnSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 });

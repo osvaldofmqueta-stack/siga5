@@ -13,6 +13,7 @@ import { useNotificacoes } from '@/context/NotificacoesContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { usePermissoes, PermKey } from '@/context/PermissoesContext';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 300);
 const SIDEBAR_WIDTH = 260;
@@ -22,6 +23,7 @@ interface NavItem {
   route: string;
   icon: React.ReactNode;
   badgeCount?: number;
+  permKey?: PermKey;
 }
 
 interface NavSection {
@@ -71,6 +73,7 @@ export default function DrawerLeft() {
   };
 
   const isCeo = user?.role === 'ceo';
+  const isPca = user?.role === 'pca';
 
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
@@ -78,27 +81,29 @@ export default function DrawerLeft() {
   const isSecretaria = user?.role === 'secretaria';
   const isRH = user?.role === 'director' || user?.role === 'admin';
 
+  const { hasPermission } = usePermissoes();
+
   const ALUNO_SECTIONS: NavSection[] = [
     {
       title: 'Meu Portal',
       items: [
-        { label: 'Portal do Estudante', route: '/(main)/portal-estudante', icon: <Ionicons name="grid" size={20} color="inherit" /> },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+        { label: 'Portal do Estudante', route: '/(main)/portal-estudante', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'portal_estudante' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
     {
       title: 'Académico',
       items: [
-        { label: 'Minhas Notas', route: '/(main)/portal-estudante', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
-        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
-        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
+        { label: 'Minhas Notas', route: '/(main)/portal-estudante', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'portal_estudante' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
+        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],
     },
     {
       title: 'Financeiro',
       items: [
-        { label: 'Pagamentos', route: '/(main)/portal-estudante', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+        { label: 'Pagamentos', route: '/(main)/portal-estudante', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'portal_estudante' },
       ],
     },
   ];
@@ -107,25 +112,25 @@ export default function DrawerLeft() {
     {
       title: 'Painel do Professor',
       items: [
-        { label: 'Meu Painel', route: '/(main)/professor-hub', icon: <Ionicons name="grid" size={20} color="inherit" /> },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+        { label: 'Meu Painel', route: '/(main)/professor-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'professor_hub' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
     {
       title: 'Académico',
       items: [
-        { label: 'Minhas Turmas', route: '/(main)/professor-turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
-        { label: 'Pautas & Notas', route: '/(main)/professor-pauta', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
-        { label: 'Sumário / Presenças', route: '/(main)/professor-sumario', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" /> },
-        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
+        { label: 'Minhas Turmas', route: '/(main)/professor-turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'professor_turmas' },
+        { label: 'Pautas & Notas', route: '/(main)/professor-pauta', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'professor_pauta' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Sumário / Presenças', route: '/(main)/professor-sumario', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" />, permKey: 'professor_sumario' },
+        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],
     },
     {
       title: 'Comunicação',
       items: [
-        { label: 'Mensagens', route: '/(main)/professor-mensagens', icon: <Ionicons name="chatbubbles" size={20} color="inherit" /> },
-        { label: 'Materiais', route: '/(main)/professor-materiais', icon: <Ionicons name="folder-open" size={20} color="inherit" /> },
+        { label: 'Mensagens', route: '/(main)/professor-mensagens', icon: <Ionicons name="chatbubbles" size={20} color="inherit" />, permKey: 'professor_mensagens' },
+        { label: 'Materiais', route: '/(main)/professor-materiais', icon: <Ionicons name="folder-open" size={20} color="inherit" />, permKey: 'professor_materiais' },
       ],
     },
   ];
@@ -134,16 +139,16 @@ export default function DrawerLeft() {
     {
       title: 'Painel Financeiro',
       items: [
-        { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+        { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
     {
       title: 'Operações',
       items: [
-        { label: 'Propinas em Atraso', route: '/(main)/financeiro', icon: <Ionicons name="alert-circle" size={20} color="inherit" /> },
-        { label: 'Rubricas e Multas', route: '/(main)/financeiro', icon: <Ionicons name="pricetag" size={20} color="inherit" /> },
-        { label: 'Mensagens', route: '/(main)/financeiro', icon: <Ionicons name="chatbubbles" size={20} color="inherit" /> },
+        { label: 'Propinas em Atraso', route: '/(main)/financeiro', icon: <Ionicons name="alert-circle" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Rubricas e Multas', route: '/(main)/financeiro', icon: <Ionicons name="pricetag" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Mensagens', route: '/(main)/financeiro', icon: <Ionicons name="chatbubbles" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
   ];
@@ -152,116 +157,132 @@ export default function DrawerLeft() {
     {
       title: 'Secretaria',
       items: [
-        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" /> },
-        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" /> },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'secretaria_hub' },
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
     {
       title: 'Gestão Académica',
       items: [
-        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" /> },
-        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
-        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
-        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" /> },
-        { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
-        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
+        { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
       ],
     },
     {
       title: 'Planeamento',
       items: [
-        { label: 'Calendário Escolar', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
-        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" /> },
+        { label: 'Calendário Escolar', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
       ],
     },
     {
       title: 'Análise',
       items: [
-        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" /> },
-        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" /> },
-        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' },
+        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
   ];
 
-  const NAV_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS : isCeo ? [
+  const CEO_PCA_SECTIONS: NavSection[] = [
     {
       title: 'Painel CEO',
       items: [
-        { label: 'Dashboard CEO', route: '/(main)/ceo', icon: <MaterialCommunityIcons name="crown" size={20} color="inherit" /> },
-        { label: 'Dashboard Escola', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" /> },
+        { label: 'Dashboard CEO', route: '/(main)/ceo', icon: <MaterialCommunityIcons name="crown" size={20} color="inherit" />, permKey: 'ceo_dashboard' },
+        { label: 'Dashboard Escola', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
       ],
     },
     {
       title: 'Sistema',
       items: [
-        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" /> },
-        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
-        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
-        { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" /> },
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
     },
     {
       title: 'Administração',
       items: [
-        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> },
+        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" /> },
+        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" />, permKey: 'admin' },
       ],
     },
-  ] : isProf ? PROFESSOR_SECTIONS : isAluno ? ALUNO_SECTIONS : isFinanceiro ? FINANCEIRO_SECTIONS : [
+  ];
+
+  const ADMIN_DIRECTOR_SECTIONS: NavSection[] = [
     {
       title: 'Principal',
       items: [
-        { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" /> },
-        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+        { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
+        { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
     {
       title: 'Académico',
       items: [
-        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" /> },
-        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
-        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" /> },
-        { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" /> },
-        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" /> },
-        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
-        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" /> },
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
       ],
     },
     {
       title: 'Currículo',
       items: [
-        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" /> },
+        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
       ],
     },
     {
       title: 'Financeiro',
       items: [
-        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" /> },
+        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
     {
       title: 'Análise',
       items: [
-        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" /> },
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
     },
     ...(isRH ? [{
       title: 'Recursos Humanos',
       items: [
-        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" /> },
+        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
       ],
     }] : []),
     ...(user?.role === 'director' ? [{
       title: 'Administração',
       items: [
-        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> },
+        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" />, permKey: 'admin' as PermKey },
       ],
     }] : []),
   ];
+
+  const RAW_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS
+    : (isCeo || isPca) ? CEO_PCA_SECTIONS
+    : isProf ? PROFESSOR_SECTIONS
+    : isAluno ? ALUNO_SECTIONS
+    : isFinanceiro ? FINANCEIRO_SECTIONS
+    : ADMIN_DIRECTOR_SECTIONS;
+
+  // CEO/PCA always see everything; others get filtered by permissions
+  const NAV_SECTIONS: NavSection[] = (isCeo || isPca) ? RAW_SECTIONS : RAW_SECTIONS.map(section => ({
+    ...section,
+    items: section.items.filter(item => !item.permKey || hasPermission(item.permKey)),
+  })).filter(section => section.items.length > 0);
 
   function renderNavContent(showClose: boolean) {
     return (

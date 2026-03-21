@@ -1,6 +1,23 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Boletim de Matrícula)
+## Recent Changes (Latest Session — Gestão de Acessos / Permissões)
+- **shared/schema.ts**: Nova tabela `user_permissions` com `userId` (unique), `permissoes` (jsonb) e `atualizado_em`.
+- **server/routes.ts**: 4 novas rotas — `GET /api/user-permissions`, `GET /api/user-permissions/:userId`, `PUT /api/user-permissions/:userId` (upsert), `DELETE /api/user-permissions/:userId`.
+- **context/PermissoesContext.tsx** *(new)*: Contexto completo de permissões. Exporta `FEATURE_CATEGORIES` (26 funcionalidades em 8 categorias), `ROLE_DEFAULTS` (padrões por cargo), `usePermissoes()` com `hasPermission(key)`, `getUserPermissions(userId, role)`, `saveUserPermissions`, `resetUserPermissions`.
+- **app/(main)/gestao-acessos.tsx** *(new)*: Ecrã de gestão de acessos exclusivo para CEO/PCA.
+  - Painel esquerdo: lista de todos os utilizadores com pesquisa, badge de cargo, contador de permissões activas.
+  - Painel direito: matrix de permissões do utilizador seleccionado com categorias expansíveis, barra de progresso, acções rápidas (Activar Tudo, Desactivar Tudo, Repor Padrão), badge "Fora do cargo" para permissões extra-role.
+  - Persistência na BD via API. Efeito imediato no login do utilizador.
+- **components/DrawerLeft.tsx**: Todos os `NavItem` têm agora `permKey`. Items filtrados por `hasPermission()` para todos os cargos excepto CEO/PCA. CEO tem acesso a "Gestão de Acessos" no menu Administração.
+- **app/(main)/perfil.tsx**: Botão "Gestão de Acessos" visível apenas para CEO/PCA.
+- **app/(main)/_layout.tsx**: Registado `gestao-acessos` como novo Stack.Screen.
+- **app/_layout.tsx**: `PermissoesProvider` adicionado à árvore de contextos (logo após `AuthProvider`).
+
+## Recent Changes (Previous Session — Bloqueio de Documentos)
+- **app/(main)/editor-documentos.tsx**: `Alert` adicionado aos imports React Native. Sistema de bloqueio/desbloqueio com verificação de cargo (`pca`, `ceo`, `admin`, `director`).
+- **app/(main)/editor-documentos.tsx** (ListScreen): Tabs de filtro (Todos/Activos/Bloqueados) para gestores; utilizadores comuns só vêem modelos activos.
+
+## Recent Changes (Previous Session — Boletim de Matrícula)
 - **app/(main)/boletim-matricula.tsx** *(new)*: Ecrã completo para geração e impressão do Boletim de Matrícula.
   - **Pesquisa de aluno**: campo de busca com dropdown em tempo real (por nome ou nº de matrícula).
   - **QR Code**: gerado com `react-native-qrcode-svg` contendo JSON com matrícula, nome, turma, classe, anoLetivo e escola — substitui o espaço de fotografia do modelo original.

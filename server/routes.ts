@@ -1310,6 +1310,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // PERMISSÕES DE UTILIZADORES
+  // -----------------------
+  app.get("/api/user-permissions", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.user_permissions`, []);
+    json(res, 200, rows);
+  });
+
+  app.get("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.user_permissions WHERE user_id=$1`, [req.params.userId]);
+    if (!rows[0]) return json(res, 200, { userId: req.params.userId, permissoes: {} });
+    json(res, 200, rows[0]);
+  });
+
+  app.put("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const permissoes = b.permissoes ?? {};
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.user_permissions (user_id, permissoes, atualizado_em)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (user_id)
+         DO UPDATE SET permissoes=$2::jsonb, atualizado_em=NOW()
+         RETURNING *`,
+        [req.params.userId, jsonbParam(permissoes)],
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+    await query(`DELETE FROM public.user_permissions WHERE user_id=$1`, [req.params.userId]);
+    json(res, 200, { ok: true });
+  });
+
+  // -----------------------
   // CONFIGURAÇÕES
   // -----------------------
   app.get("/api/config", async (_req: Request, res: Response) => {
