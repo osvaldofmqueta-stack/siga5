@@ -19,6 +19,7 @@ export interface ConfigGeral {
   pptHabilitado: boolean;
   notaMinimaAprovacao: number;
   maxAlunosTurma: number;
+  numAvaliacoes: number;
   horarioFuncionamento: string;
   flashScreen: FlashScreenConfig;
 }
@@ -40,6 +41,7 @@ const DEFAULT_CONFIG: ConfigGeral = {
   pptHabilitado: true,
   notaMinimaAprovacao: 10,
   maxAlunosTurma: 35,
+  numAvaliacoes: 4,
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
   flashScreen: DEFAULT_FLASH,
 };
@@ -67,6 +69,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           pptHabilitado: raw.pptHabilitado !== undefined ? Boolean(raw.pptHabilitado) : DEFAULT_CONFIG.pptHabilitado,
           notaMinimaAprovacao: (raw.notaMinimaAprovacao as number) ?? DEFAULT_CONFIG.notaMinimaAprovacao,
           maxAlunosTurma: (raw.maxAlunosTurma as number) ?? DEFAULT_CONFIG.maxAlunosTurma,
+          numAvaliacoes: (raw.numAvaliacoes as number) ?? DEFAULT_CONFIG.numAvaliacoes,
           horarioFuncionamento: (raw.horarioFuncionamento as string) || DEFAULT_CONFIG.horarioFuncionamento,
           flashScreen: { ...DEFAULT_FLASH, ...((raw.flashScreen as Partial<FlashScreenConfig>) || {}) },
         };

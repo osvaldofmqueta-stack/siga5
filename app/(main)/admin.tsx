@@ -671,7 +671,7 @@ export default function AdminScreen() {
                 />
               </View>
 
-              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+              <View style={[styles.configFieldRow, { borderBottomWidth: 1, borderBottomColor: Colors.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.configFieldLabel}>Máx. Alunos por Turma</Text>
                   <Text style={styles.configFieldDesc}>Limite de alunos por turma</Text>
@@ -688,6 +688,40 @@ export default function AdminScreen() {
                   selectTextOnFocus
                   placeholderTextColor={Colors.textMuted}
                 />
+              </View>
+
+              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas</Text>
+                  <Text style={styles.configFieldDesc}>
+                    Quantas avaliações (AVAL) por trimestre (1–8). Actualmente: {config.numAvaliacoes ?? 4}
+                  </Text>
+                </View>
+                <View style={styles.avalStepper}>
+                  <TouchableOpacity
+                    style={[styles.avalStepBtn, (config.numAvaliacoes ?? 4) <= 1 && styles.avalStepBtnDisabled]}
+                    onPress={() => {
+                      const cur = config.numAvaliacoes ?? 4;
+                      if (cur > 1) updateConfig({ numAvaliacoes: cur - 1 });
+                    }}
+                    disabled={(config.numAvaliacoes ?? 4) <= 1}
+                  >
+                    <Ionicons name="remove" size={18} color={(config.numAvaliacoes ?? 4) <= 1 ? Colors.textMuted : Colors.text} />
+                  </TouchableOpacity>
+                  <View style={styles.avalStepValue}>
+                    <Text style={styles.avalStepValueText}>{config.numAvaliacoes ?? 4}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.avalStepBtn, (config.numAvaliacoes ?? 4) >= 8 && styles.avalStepBtnDisabled]}
+                    onPress={() => {
+                      const cur = config.numAvaliacoes ?? 4;
+                      if (cur < 8) updateConfig({ numAvaliacoes: cur + 1 });
+                    }}
+                    disabled={(config.numAvaliacoes ?? 4) >= 8}
+                  >
+                    <Ionicons name="add" size={18} color={(config.numAvaliacoes ?? 4) >= 8 ? Colors.textMuted : Colors.text} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
 
@@ -1160,4 +1194,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.border },
   saveBtn: { backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 20, marginBottom: 8 },
   saveBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+  avalStepper: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  avalStepBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  avalStepBtnDisabled: { opacity: 0.35 },
+  avalStepValue: { width: 44, height: 36, borderRadius: 10, backgroundColor: Colors.backgroundElevated, borderWidth: 1, borderColor: Colors.gold + '55', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
+  avalStepValueText: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.gold },
 });

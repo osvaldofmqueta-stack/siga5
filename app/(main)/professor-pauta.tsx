@@ -25,12 +25,19 @@ interface NotaForm {
   aval2: string;
   aval3: string;
   aval4: string;
+  aval5: string;
+  aval6: string;
+  aval7: string;
+  aval8: string;
   pp1: string;
   ppt: string;
 }
 
-function calcMac(aval1: number, aval2: number, aval3: number, aval4: number): number {
-  const vals = [aval1, aval2, aval3, aval4].filter(v => v > 0);
+type AvalKey = 'aval1' | 'aval2' | 'aval3' | 'aval4' | 'aval5' | 'aval6' | 'aval7' | 'aval8';
+const ALL_AVAL_KEYS: AvalKey[] = ['aval1', 'aval2', 'aval3', 'aval4', 'aval5', 'aval6', 'aval7', 'aval8'];
+
+function calcMac(avais: number[]): number {
+  const vals = avais.filter(v => v > 0);
   if (vals.length === 0) return 0;
   return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
 }
@@ -123,10 +130,14 @@ export default function ProfessorPautaScreen() {
       const nota = notasExistentes.find(n => n.alunoId === aluno.id);
       return {
         alunoId: aluno.id,
-        aval1: nota ? String(nota.aval1) : '',
-        aval2: nota ? String(nota.aval2) : '',
-        aval3: nota ? String(nota.aval3) : '',
-        aval4: nota ? String(nota.aval4) : '',
+        aval1: nota ? String(nota.aval1 ?? '') : '',
+        aval2: nota ? String(nota.aval2 ?? '') : '',
+        aval3: nota ? String(nota.aval3 ?? '') : '',
+        aval4: nota ? String(nota.aval4 ?? '') : '',
+        aval5: nota ? String(nota.aval5 ?? '') : '',
+        aval6: nota ? String(nota.aval6 ?? '') : '',
+        aval7: nota ? String(nota.aval7 ?? '') : '',
+        aval8: nota ? String(nota.aval8 ?? '') : '',
         pp1: nota ? String(nota.pp1) : '',
         ppt: nota ? String(nota.ppt) : '',
       };
@@ -148,29 +159,31 @@ export default function ProfessorPautaScreen() {
         n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre
       );
 
+      const numAvais = config.numAvaliacoes ?? 4;
+      const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvais);
+
       for (const form of notasForms) {
-        const a1 = parseNum(form.aval1);
-        const a2 = parseNum(form.aval2);
-        const a3 = parseNum(form.aval3);
-        const a4 = parseNum(form.aval4);
+        const avalValues = activeAvalKeys.map(k => parseNum(form[k]));
         const pp = parseNum(form.pp1);
         const ppt = parseNum(form.ppt);
-        const mac = calcMac(a1, a2, a3, a4);
+        const mac = calcMac(avalValues);
         const mt1 = calcMt1(mac, pp);
         const nf = calcNF(mt1, ppt);
 
         const notaExistente = notasExistentes.find(n => n.alunoId === form.alunoId);
-        const notaData = {
+        const notaData: Record<string, unknown> = {
           alunoId: form.alunoId,
           turmaId,
           disciplina,
           trimestre,
-          aval1: a1, aval2: a2, aval3: a3, aval4: a4,
-          mac1: mac, pp1: pp, ppt, mt1, nf, mac,
+          pp1: pp, ppt, mac1: mac, mt1, nf, mac,
           anoLetivo: anoSelecionado?.ano || '2025',
           professorId: prof.id,
           data: new Date().toISOString().split('T')[0],
         };
+        ALL_AVAL_KEYS.forEach((k, i) => {
+          notaData[k] = i < numAvais ? avalValues[i] : 0;
+        });
 
         if (notaExistente) {
           await updateNota(notaExistente.id, notaData);
@@ -647,17 +660,21 @@ export default function ProfessorPautaScreen() {
       </View>
 
       {/* Grade Fields Legend */}
-      <View style={styles.legendaBar}>
-        <Text style={[styles.legendaCol, { width: 44 }]}>Nº</Text>
-        <Text style={[styles.legendaCol, { flex: 1 }]}>Aluno</Text>
-        <Text style={styles.legendaCol}>A1</Text>
-        <Text style={styles.legendaCol}>A2</Text>
-        <Text style={styles.legendaCol}>A3</Text>
-        <Text style={styles.legendaCol}>A4</Text>
-        <Text style={styles.legendaCol}>PP1</Text>
-        <Text style={styles.legendaCol}>PPT</Text>
-        <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
-      </View>
+      {(() => {
+        const nAval = config.numAvaliacoes ?? 4;
+        return (
+          <View style={styles.legendaBar}>
+            <Text style={[styles.legendaCol, { width: 44 }]}>Nº</Text>
+            <Text style={[styles.legendaCol, { flex: 1 }]}>Aluno</Text>
+            {ALL_AVAL_KEYS.slice(0, nAval).map((_, i) => (
+              <Text key={i} style={styles.legendaCol}>A{i + 1}</Text>
+            ))}
+            <Text style={styles.legendaCol}>PP1</Text>
+            <Text style={styles.legendaCol}>PPT</Text>
+            <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
+          </View>
+        );
+      })()}
 
       <FlatList
         data={notasForms}
@@ -666,17 +683,18 @@ export default function ProfessorPautaScreen() {
         renderItem={({ item: form, index }) => {
           const aluno = alunos.find(a => a.id === form.alunoId);
           if (!aluno) return null;
-          const a1 = parseNum(form.aval1);
-          const a2 = parseNum(form.aval2);
-          const a3 = parseNum(form.aval3);
-          const a4 = parseNum(form.aval4);
+          const nAval = config.numAvaliacoes ?? 4;
+          const activeKeys = ALL_AVAL_KEYS.slice(0, nAval);
+          const avalValues = activeKeys.map(k => parseNum(form[k]));
           const pp = parseNum(form.pp1);
           const ppt = parseNum(form.ppt);
-          const mac = calcMac(a1, a2, a3, a4);
+          const mac = calcMac(avalValues);
           const mt1 = calcMt1(mac, pp);
           const nf = calcNF(mt1, ppt);
           const nfColor = nf >= 10 ? Colors.success : nf > 0 ? Colors.danger : Colors.textMuted;
           const isEditing = editingAlunoId === aluno.id;
+          const editFields = [...activeKeys, 'pp1' as const, 'ppt' as const] as Array<keyof NotaForm>;
+          const displayValues = [...activeKeys.map(k => form[k]), form.pp1, form.ppt];
 
           return (
             <TouchableOpacity
@@ -695,7 +713,7 @@ export default function ProfessorPautaScreen() {
               </View>
               {isEditing && !isPautaFechada ? (
                 <>
-                  {(['aval1', 'aval2', 'aval3', 'aval4', 'pp1', 'ppt'] as const).map(field => (
+                  {editFields.map(field => (
                     <TextInput
                       key={field}
                       style={styles.gradeInput}
@@ -710,7 +728,7 @@ export default function ProfessorPautaScreen() {
                 </>
               ) : (
                 <>
-                  {[form.aval1, form.aval2, form.aval3, form.aval4, form.pp1, form.ppt].map((v, i) => (
+                  {displayValues.map((v, i) => (
                     <View key={i} style={styles.gradeCell}>
                       <Text style={styles.gradeCellText}>{v || '—'}</Text>
                     </View>

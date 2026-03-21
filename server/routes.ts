@@ -352,12 +352,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(
         `INSERT INTO public.notas (
           id, "alunoId", "turmaId", "disciplina", "trimestre",
-          "aval1","aval2","aval3","aval4","mac1","pp1","ppt","mt1","nf","mac",
+          "aval1","aval2","aval3","aval4","aval5","aval6","aval7","aval8",
+          "mac1","pp1","ppt","mt1","nf","mac",
           "anoLetivo","professorId","data","lancamentos"
         ) VALUES (
           $1,$2,$3,$4,$5,
-          $6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-          $16,$17,$18,$19::jsonb
+          $6,$7,$8,$9,$10,$11,$12,$13,
+          $14,$15,$16,$17,$18,$19,
+          $20,$21,$22,$23::jsonb
         ) RETURNING *`,
         [
           b.id,
@@ -365,10 +367,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.turmaId,
           b.disciplina,
           b.trimestre,
-          b.aval1,
-          b.aval2,
-          b.aval3,
-          b.aval4,
+          b.aval1 ?? 0,
+          b.aval2 ?? 0,
+          b.aval3 ?? 0,
+          b.aval4 ?? 0,
+          b.aval5 ?? 0,
+          b.aval6 ?? 0,
+          b.aval7 ?? 0,
+          b.aval8 ?? 0,
           b.mac1,
           b.pp1,
           b.ppt,
@@ -401,6 +407,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "aval2",
         "aval3",
         "aval4",
+        "aval5",
+        "aval6",
+        "aval7",
+        "aval8",
         "mac1",
         "pp1",
         "ppt",
