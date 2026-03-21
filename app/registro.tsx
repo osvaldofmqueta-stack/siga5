@@ -10,6 +10,7 @@ import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useRegistro } from '@/context/RegistroContext';
+import DatePickerField from '@/components/DatePickerField';
 
 const PROVINCIAS = [
   'Luanda', 'Benguela', 'Huambo', 'Bié', 'Uíge', 'Malanje', 'Moxico',
@@ -254,13 +255,11 @@ export default function RegistroScreen() {
                 placeholder="Nome completo do estudante"
                 required
               />
-              <InputField
+              <DatePickerField
                 label="Data de Nascimento"
                 value={form.dataNascimento}
-                onChangeText={v => set('dataNascimento', v)}
-                placeholder="AAAA-MM-DD"
+                onChange={v => set('dataNascimento', v)}
                 required
-                hint="Formato: 2010-05-15"
               />
 
               <ChipSelector

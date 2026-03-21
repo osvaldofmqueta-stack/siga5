@@ -13,6 +13,7 @@ import { useUsers } from '@/context/UsersContext';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
+import DatePickerField from '@/components/DatePickerField';
 
 const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Uíge', 'Malanje', 'Moxico', 'Cuando Cubango', 'Cunene', 'Namibe', 'Huíla', 'Kuanza Norte', 'Kuanza Sul', 'Lunda Norte', 'Lunda Sul', 'Zaire', 'Cabinda', 'Bengo'];
 
@@ -77,7 +78,29 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
             {[
               { label: 'Nome', key: 'nome', placeholder: 'Nome' },
               { label: 'Apelido', key: 'apelido', placeholder: 'Apelido' },
-              { label: 'Data de Nascimento (AAAA-MM-DD)', key: 'dataNascimento', placeholder: '2008-01-01' },
+            ].map(f => (
+              <View key={f.key} style={modalStyles.field}>
+                <Text style={modalStyles.fieldLabel}>{f.label}</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  value={(form as any)[f.key] ?? ''}
+                  onChangeText={v => set(f.key as keyof Aluno, v)}
+                  placeholder={f.placeholder}
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+            ))}
+
+            <DatePickerField
+              label="Data de Nascimento"
+              value={form.dataNascimento ?? ''}
+              onChange={v => set('dataNascimento', v)}
+              required
+              style={modalStyles.field}
+              labelStyle={modalStyles.fieldLabel}
+            />
+
+            {[
               { label: 'Município', key: 'municipio', placeholder: 'Município' },
             ].map(f => (
               <View key={f.key} style={modalStyles.field}>

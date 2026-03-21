@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
+import DatePickerField from '@/components/DatePickerField';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth, UserRole, AUTHORIZED_APPROVER_ROLES } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
@@ -853,24 +854,16 @@ export default function AdminScreen() {
                 />
               </View>
 
-              <Text style={styles.fieldLabel}>Data de Início (AAAA-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
+              <DatePickerField
+                label="Data de Início"
                 value={flashForm.dataInicio}
-                onChangeText={v => setFlashForm(f => ({ ...f, dataInicio: v }))}
-                placeholder="2025-01-01"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numbers-and-punctuation"
+                onChange={v => setFlashForm(f => ({ ...f, dataInicio: v }))}
               />
 
-              <Text style={styles.fieldLabel}>Data de Fim (AAAA-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
+              <DatePickerField
+                label="Data de Fim"
                 value={flashForm.dataFim}
-                onChangeText={v => setFlashForm(f => ({ ...f, dataFim: v }))}
-                placeholder="2025-12-31"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numbers-and-punctuation"
+                onChange={v => setFlashForm(f => ({ ...f, dataFim: v }))}
               />
 
               <View style={[styles.configWarnBox, { marginTop: 14 }]}>
@@ -990,10 +983,16 @@ export default function AdminScreen() {
             </View>
             <Text style={styles.fieldLabel}>Ano</Text>
             <TextInput style={styles.input} value={formAno.ano} onChangeText={v => setFormAno(f => ({ ...f, ano: v }))} placeholder="2026" placeholderTextColor={Colors.textMuted} keyboardType="numeric" />
-            <Text style={styles.fieldLabel}>Data de Início</Text>
-            <TextInput style={styles.input} value={formAno.dataInicio} onChangeText={v => setFormAno(f => ({ ...f, dataInicio: v }))} placeholder="2026-02-02" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.fieldLabel}>Data de Fim</Text>
-            <TextInput style={styles.input} value={formAno.dataFim} onChangeText={v => setFormAno(f => ({ ...f, dataFim: v }))} placeholder="2026-11-30" placeholderTextColor={Colors.textMuted} />
+            <DatePickerField
+              label="Data de Início"
+              value={formAno.dataInicio}
+              onChange={v => setFormAno(f => ({ ...f, dataInicio: v }))}
+            />
+            <DatePickerField
+              label="Data de Fim"
+              value={formAno.dataFim}
+              onChange={v => setFormAno(f => ({ ...f, dataFim: v }))}
+            />
             <TouchableOpacity style={styles.saveBtn} onPress={criarAno}>
               <Text style={styles.saveBtnText}>Criar Ano Académico</Text>
             </TouchableOpacity>
