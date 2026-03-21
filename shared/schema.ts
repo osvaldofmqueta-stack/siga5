@@ -524,6 +524,7 @@ export const configGeral = pgTable("config_geral", {
   horarioFuncionamento: text("horarioFuncionamento").notNull().default('Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00'),
   flashScreen: jsonb("flashScreen").notNull().default(sql`'{}'::jsonb`),
   multaConfig: jsonb("multaConfig").notNull().default(sql`'{"percentagem":10,"diasCarencia":5,"ativo":true}'::jsonb`),
+  inscricoesAbertas: boolean("inscricoesAbertas").notNull().default(false),
 
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });

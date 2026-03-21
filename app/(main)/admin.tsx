@@ -537,6 +537,44 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Período de Inscrições */}
+            <View style={styles.card}>
+              <SectionHeader title="Período de Inscrições" icon="person-add" />
+              <Text style={styles.configSectionDesc}>
+                Controla se o botão de solicitação de matrícula está visível no ecrã de Login.
+                Apenas o PCA, Administrador ou Director devem activar este período.
+              </Text>
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.inscricoesAbertas ? '#22C55E22' : Colors.border }]}>
+                    <Ionicons name="person-add-outline" size={18} color={config.inscricoesAbertas ? '#22C55E' : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Inscrições Online</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.inscricoesAbertas
+                        ? 'Abertas — o botão "Solicitar Matrícula" está visível no Login'
+                        : 'Fechadas — o botão não aparece no ecrã de Login'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.inscricoesAbertas}
+                  onValueChange={v => {
+                    updateConfig({ inscricoesAbertas: v });
+                    Alert.alert(
+                      v ? 'Inscrições Abertas' : 'Inscrições Fechadas',
+                      v
+                        ? 'Os encarregados já podem solicitar matrícula pelo ecrã de Login.'
+                        : 'O botão de matrícula foi removido do ecrã de Login.',
+                    );
+                  }}
+                  thumbColor={config.inscricoesAbertas ? '#22C55E' : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: '#22C55E55' }}
+                />
+              </View>
+            </View>
+
             {/* Provas do Trimestre */}
             <View style={styles.card}>
               <SectionHeader title="Provas do Trimestre" icon="document-text" />

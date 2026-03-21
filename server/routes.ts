@@ -1347,6 +1347,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // CONFIGURAÇÕES
   // -----------------------
+
+  // Public endpoint — no auth required (used by login screen)
+  app.get("/api/public/inscricoes-status", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT "inscricoesAbertas" FROM public.config_geral LIMIT 1`, []);
+    const abertas = rows[0] ? Boolean(rows[0].inscricoesAbertas) : false;
+    json(res, 200, { abertas });
+  });
+
   app.get("/api/config", async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.config_geral LIMIT 1`, []);
     if (rows[0]) return json(res, 200, rows[0]);
@@ -1360,7 +1368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","horarioFuncionamento","flashScreen","multaConfig"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {

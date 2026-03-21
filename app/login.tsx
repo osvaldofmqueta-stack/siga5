@@ -58,6 +58,7 @@ export default function LoginScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
+  const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.85)).current;
@@ -91,6 +92,14 @@ export default function LoginScreen() {
   }, [showBiometricWelcome]);
 
   async function initLogin() {
+    try {
+      const res = await fetch('/api/public/inscricoes-status');
+      if (res.ok) {
+        const data = await res.json();
+        setInscricoesAbertas(!!data.abertas);
+      }
+    } catch { /* network silencioso */ }
+
     const hasHardware = await checkBiometricAvailability();
 
     const shouldShowBiometric =
@@ -599,7 +608,7 @@ export default function LoginScreen() {
               showsVerticalScrollIndicator={false}
             >
               {formCard}
-              {registerCard}
+              {inscricoesAbertas && registerCard}
             </ScrollView>
           </View>
         </View>
@@ -641,7 +650,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           {showBiometricWelcome ? biometricWelcomeScreen : formCard}
-          {!showBiometricWelcome && registerCard}
+          {!showBiometricWelcome && inscricoesAbertas && registerCard}
           {footerView}
         </ScrollView>
       </KeyboardAvoidingView>
