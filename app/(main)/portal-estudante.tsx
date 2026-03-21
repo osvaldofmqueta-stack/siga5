@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker';
+import { pickAndUploadPhoto } from '@/lib/uploadPhoto';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -221,39 +221,10 @@ export default function PortalEstudanteScreen() {
   }
 
   async function handlePickPhoto() {
-    if (Platform.OS === 'web') {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = async (e: any) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = async (ev) => {
-          const uri = ev.target?.result as string;
-          if (aluno) await updateAluno(aluno.id, { foto: uri });
-          await updateUser({ avatar: uri });
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
-      return;
-    }
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      const uri = result.assets[0].uri;
-      if (aluno) await updateAluno(aluno.id, { foto: uri });
-      await updateUser({ avatar: uri });
+    const url = await pickAndUploadPhoto();
+    if (url) {
+      if (aluno) await updateAluno(aluno.id, { foto: url });
+      await updateUser({ avatar: url });
     }
   }
 

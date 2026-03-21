@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+import { pickAndUploadPhoto } from '@/lib/uploadPhoto';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
@@ -124,23 +124,9 @@ export default function PerfilScreen() {
   }
 
   async function handlePickPhoto() {
-    if (Platform.OS === 'web') {
-      Alert.alert('Foto de Perfil', 'A seleção de fotos não está disponível no browser.');
-      return;
-    }
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para alterar a sua foto.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await updateUser({ avatar: result.assets[0].uri });
+    const url = await pickAndUploadPhoto();
+    if (url) {
+      await updateUser({ avatar: url });
     }
   }
 
