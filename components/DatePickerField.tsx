@@ -1,15 +1,34 @@
-import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 
 interface DatePickerFieldProps {
   label: string;
-  value: string;
+  value: string; // ISO format: YYYY-MM-DD
   onChange: (v: string) => void;
   required?: boolean;
   style?: any;
   labelStyle?: any;
+}
+
+function isoToDisplay(iso: string): string {
+  if (!iso) return '';
+  const parts = iso.split('-');
+  if (parts.length === 3 && parts[0].length === 4) {
+    return `${parts[2]}-${parts[1]}-${parts[0]}`;
+  }
+  return iso;
+}
+
+function applyMask(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  let result = '';
+  for (let i = 0; i < digits.length; i++) {
+    if (i === 2 || i === 4) result += '-';
+    result += digits[i];
+  }
+  return result;
 }
 
 export default function DatePickerField({
@@ -20,52 +39,25 @@ export default function DatePickerField({
   style,
   labelStyle,
 }: DatePickerFieldProps) {
-  const displayValue = value
-    ? (() => {
-        const parts = value.split('-');
-        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        return value;
-      })()
-    : 'Seleccionar data';
+  const [inputText, setInputText] = useState(() => isoToDisplay(value));
 
-  if (Platform.OS === 'web') {
-    return (
-      <View style={[styles.group, style]}>
-        <View style={styles.labelRow}>
-          <Text style={[styles.label, labelStyle]}>{label}</Text>
-          {required && <Text style={styles.required}>*</Text>}
-        </View>
+  useEffect(() => {
+    setInputText(isoToDisplay(value));
+  }, [value]);
 
-        <div style={{ position: 'relative', display: 'block' }}>
-          <View style={styles.inputWrap} pointerEvents="none">
-            <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
-            <Text style={[styles.displayText, !value && styles.placeholder]}>
-              {displayValue}
-            </Text>
-            <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
-          </View>
-          <input
-            type="date"
-            value={value || ''}
-            onChange={e => onChange(e.target.value)}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              opacity: 0,
-              cursor: 'pointer',
-              border: 'none',
-              padding: 0,
-              margin: 0,
-              zIndex: 2,
-              boxSizing: 'border-box',
-            }}
-          />
-        </div>
-      </View>
-    );
+  function handleChange(text: string) {
+    const digits = text.replace(/\D/g, '').slice(0, 8);
+    const masked = applyMask(text);
+    setInputText(masked);
+
+    if (digits.length === 8) {
+      const dd = digits.slice(0, 2);
+      const mm = digits.slice(2, 4);
+      const yyyy = digits.slice(4, 8);
+      onChange(`${yyyy}-${mm}-${dd}`);
+    } else {
+      onChange('');
+    }
   }
 
   return (
@@ -76,10 +68,15 @@ export default function DatePickerField({
       </View>
       <View style={styles.inputWrap}>
         <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
-        <Text style={[styles.displayText, !value && styles.placeholder]}>
-          {displayValue}
-        </Text>
-        <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+        <TextInput
+          style={styles.textInput}
+          value={inputText}
+          onChangeText={handleChange}
+          placeholder="DD-MM-AAAA"
+          placeholderTextColor={Colors.textMuted}
+          keyboardType="numeric"
+          maxLength={10}
+        />
       </View>
     </View>
   );
@@ -102,11 +99,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   icon: { flexShrink: 0 },
-  displayText: {
+  textInput: {
     flex: 1,
     fontSize: 14,
     fontFamily: 'Inter_400Regular',
     color: Colors.text,
+    padding: 0,
+    margin: 0,
+    outlineStyle: 'none',
   },
-  placeholder: { color: Colors.textMuted },
 });
