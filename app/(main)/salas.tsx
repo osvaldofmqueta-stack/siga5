@@ -365,7 +365,7 @@ export default function SalasScreen() {
 }
 
 const mS = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', alignItems: 'center' },
   container: {
     backgroundColor: Colors.primaryDark,
     borderTopLeftRadius: 24,
@@ -373,6 +373,8 @@ const mS = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
     maxHeight: '90%',
+    width: '100%',
+    maxWidth: 480,
   },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   title: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },

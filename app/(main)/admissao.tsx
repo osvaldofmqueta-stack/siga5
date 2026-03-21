@@ -473,8 +473,8 @@ const styles = StyleSheet.create({
 });
 
 const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  container: { backgroundColor: '#0F1F40', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.1)' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', alignItems: 'center' },
+  container: { backgroundColor: '#0F1F40', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, gap: 14, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.1)', width: '100%', maxWidth: 480 },
   title: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
   name: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
   label: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.45)', letterSpacing: 0.5, textTransform: 'uppercase' },

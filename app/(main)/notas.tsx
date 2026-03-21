@@ -750,10 +750,10 @@ const gS = StyleSheet.create({
 });
 
 const mS = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
     backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '94%',
+    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '94%', width: '100%', maxWidth: 480,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },

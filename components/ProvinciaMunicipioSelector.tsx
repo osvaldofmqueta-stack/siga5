@@ -261,11 +261,14 @@ const modal = StyleSheet.create({
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   container: {
     backgroundColor: '#0F1F40',
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     maxHeight: '75%',
+    width: '100%',
+    maxWidth: 480,
     borderWidth: 1, borderBottomWidth: 0,
     borderColor: 'rgba(255,255,255,0.1)',
   },
