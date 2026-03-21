@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions,
+  ActivityIndicator, Dimensions, Linking,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,8 @@ const TABS = [
   { key: 'financeiro', label: 'Financeiro', icon: 'cash' },
   { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
   { key: 'horario', label: 'Horário', icon: 'time' },
+  { key: 'materiais', label: 'Materiais', icon: 'library' },
+  { key: 'calendario', label: 'Calendário', icon: 'calendar' },
 ] as const;
 
 type TabKey = typeof TABS[number]['key'];
@@ -62,7 +64,7 @@ export default function PortalEncarregadoScreen() {
   const { users } = useUsers();
   const { alunos, turmas, notas, presencas, eventos } = useData();
   const { taxas, pagamentos, getPagamentosAluno, getTaxasByNivel, getMesesEmAtraso, calcularMulta } = useFinanceiro();
-  const { mensagens, sumarios } = useProfessor();
+  const { mensagens, sumarios, materiais, calendarioProvas } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
 
@@ -106,6 +108,17 @@ export default function PortalEncarregadoScreen() {
 
   const eventosAluno = turmaAluno
     ? eventos.filter(e => e.turmasIds.includes(turmaAluno.id) || e.turmasIds.length === 0)
+        .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    : [];
+
+  const materiaisAluno = turmaAluno
+    ? materiais.filter(m => m.turmaId === turmaAluno.id)
+        .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    : [];
+
+  const calendarioAluno = turmaAluno
+    ? calendarioProvas
+        .filter(c => c.publicado && (Array.isArray(c.turmasIds) ? c.turmasIds.includes(turmaAluno.id) || c.turmasIds.length === 0 : true))
         .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     : [];
 
@@ -398,6 +411,88 @@ export default function PortalEncarregadoScreen() {
     );
   }
 
+  function renderMateriais() {
+    const TIPO_ICON: Record<string, string> = {
+      texto: 'document-text', link: 'link', resumo: 'book',
+      pdf: 'document', docx: 'document', ppt: 'easel',
+    };
+    const TIPO_COLOR: Record<string, string> = {
+      texto: Colors.info, link: Colors.success, resumo: Colors.gold,
+      pdf: Colors.danger, docx: Colors.info, ppt: Colors.warning,
+    };
+    return (
+      <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+        {materiaisAluno.length === 0 ? (
+          <View style={styles.emptyTab}>
+            <Ionicons name="library-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptyTabText}>Sem materiais didácticos disponíveis</Text>
+          </View>
+        ) : (
+          materiaisAluno.map(m => (
+            <View key={m.id} style={styles.materialCard}>
+              <View style={[styles.materialIconBox, { backgroundColor: `${TIPO_COLOR[m.tipo] || Colors.info}15` }]}>
+                <Ionicons name={(TIPO_ICON[m.tipo] || 'document') as any} size={22} color={TIPO_COLOR[m.tipo] || Colors.info} />
+              </View>
+              <View style={styles.materialInfo}>
+                <Text style={styles.materialTitulo}>{m.titulo}</Text>
+                <Text style={styles.materialDisc}>{m.disciplina} · {m.turmaNome}</Text>
+                {m.descricao ? <Text style={styles.materialDesc} numberOfLines={2}>{m.descricao}</Text> : null}
+              </View>
+              {m.tipo === 'link' && m.conteudo ? (
+                <TouchableOpacity onPress={() => Linking.openURL(m.conteudo).catch(() => {})}>
+                  <Ionicons name="open-outline" size={20} color={Colors.info} />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ))
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    );
+  }
+
+  function renderCalendario() {
+    const TIPO_BADGE: Record<string, { label: string; color: string }> = {
+      teste: { label: 'Teste', color: Colors.warning },
+      exame: { label: 'Exame', color: Colors.danger },
+      trabalho: { label: 'Trabalho', color: Colors.info },
+      prova_oral: { label: 'Prova Oral', color: Colors.accent },
+    };
+    return (
+      <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+        {calendarioAluno.length === 0 ? (
+          <View style={styles.emptyTab}>
+            <Ionicons name="calendar-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptyTabText}>Sem provas agendadas</Text>
+          </View>
+        ) : (
+          calendarioAluno.map(c => {
+            const badge = TIPO_BADGE[c.tipo] || { label: c.tipo, color: Colors.gold };
+            const dataProva = new Date(c.data);
+            const passado = dataProva < new Date();
+            return (
+              <View key={c.id} style={[styles.provaCard, passado && { opacity: 0.55 }]}>
+                <View style={styles.provaData}>
+                  <Text style={styles.provaDia}>{dataProva.getDate()}</Text>
+                  <Text style={styles.provaMes}>{dataProva.toLocaleString('pt-PT', { month: 'short' })}</Text>
+                </View>
+                <View style={styles.provaInfo}>
+                  <Text style={styles.provaTitulo}>{c.titulo}</Text>
+                  <Text style={styles.provaDisc}>{c.disciplina} · {c.hora}</Text>
+                  <View style={[styles.badge, { backgroundColor: `${badge.color}20`, marginTop: 4 }]}>
+                    <Text style={[styles.badgeText, { color: badge.color }]}>{badge.label}</Text>
+                  </View>
+                </View>
+                {passado && <Ionicons name="checkmark-circle" size={18} color={Colors.textMuted} />}
+              </View>
+            );
+          })
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    );
+  }
+
   const tabContent = {
     painel: renderPainel(),
     notas: renderNotas(),
@@ -405,6 +500,8 @@ export default function PortalEncarregadoScreen() {
     financeiro: renderFinanceiro(),
     mensagens: renderMensagens(),
     horario: renderHorario(),
+    materiais: renderMateriais(),
+    calendario: renderCalendario(),
   };
 
   return (
@@ -531,4 +628,19 @@ const styles = StyleSheet.create({
 
   emptyTab: { alignItems: 'center', gap: 12, paddingTop: 60 },
   emptyTabText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+
+  materialCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 8 },
+  materialIconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  materialInfo: { flex: 1, gap: 3 },
+  materialTitulo: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  materialDisc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  materialDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, lineHeight: 16 },
+
+  provaCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 8 },
+  provaData: { width: 48, alignItems: 'center', backgroundColor: `${Colors.accent}15`, borderRadius: 10, paddingVertical: 8 },
+  provaDia: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.accent },
+  provaMes: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textTransform: 'uppercase' },
+  provaInfo: { flex: 1, gap: 2 },
+  provaTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  provaDisc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
 });

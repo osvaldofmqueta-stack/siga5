@@ -157,7 +157,7 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
   );
 }
 
-function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClose: () => void; creds: { nome: string; email: string; senha: string; nomeAluno: string } | null }) {
+function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClose: () => void; creds: { nome: string; email: string; senha: string; nomeAluno: string; isRegen?: boolean } | null }) {
   if (!creds) return null;
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -168,9 +168,12 @@ function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClo
               <MaterialCommunityIcons name="account-key" size={32} color={Colors.gold} />
             </View>
           </View>
-          <Text style={credStyles.title}>Conta Criada!</Text>
+          <Text style={credStyles.title}>{creds.isRegen ? 'Credenciais Geradas!' : 'Conta Criada!'}</Text>
           <Text style={credStyles.subtitle}>
-            Foram geradas as credenciais de acesso para o encarregado de {creds.nomeAluno}.
+            {creds.isRegen
+              ? `A senha de acesso do encarregado de ${creds.nomeAluno} foi regenerada. A senha anterior já não é válida.`
+              : `Foram criadas as credenciais de acesso ao portal para o encarregado de ${creds.nomeAluno}.`
+            }
           </Text>
 
           <View style={credStyles.credBox}>
@@ -187,7 +190,7 @@ function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClo
 
             <View style={credStyles.separator} />
 
-            <Text style={credStyles.credLabel}>SENHA INICIAL</Text>
+            <Text style={credStyles.credLabel}>{creds.isRegen ? 'NOVA SENHA' : 'SENHA INICIAL'}</Text>
             <View style={credStyles.credRow}>
               <Ionicons name="lock-closed" size={16} color={Colors.gold} />
               <Text style={credStyles.credSenha}>{creds.senha}</Text>
@@ -195,7 +198,7 @@ function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClo
           </View>
 
           <Text style={credStyles.warningText}>
-            Anote estas credenciais e entregue ao encarregado. A senha pode ser alterada no perfil após o primeiro acesso.
+            Anote estas credenciais e entregue ao encarregado. O encarregado acede ao portal em: <Text style={{ color: Colors.info }}>Portal do Encarregado</Text>
           </Text>
 
           <TouchableOpacity style={credStyles.closeBtn} onPress={onClose}>
@@ -210,7 +213,7 @@ function CredenciaisModal({ visible, onClose, creds }: { visible: boolean; onClo
 export default function AlunosScreen() {
   const router = useRouter();
   const { alunos, turmas, addAluno, updateAluno, deleteAluno } = useData();
-  const { addUser } = useUsers();
+  const { addUser, users, updateUser } = useUsers();
   const { config } = useConfig();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
@@ -220,6 +223,7 @@ export default function AlunosScreen() {
   const [qrData, setQrData] = useState<{ data: string; title: string; subtitle: string } | null>(null);
   const [credenciais, setCredenciais] = useState<{ nome: string; email: string; senha: string; nomeAluno: string } | null>(null);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -286,6 +290,56 @@ export default function AlunosScreen() {
     setEditAluno(null);
   }
 
+  async function handleVerCredenciais(aluno: Aluno) {
+    setRegenerating(aluno.id);
+    try {
+      const escola = config?.nomeEscola || 'SIGE Escola';
+      const encExistente = users.find(u => u.alunoId === aluno.id && u.role === 'encarregado');
+
+      if (encExistente) {
+        const novaSenha = gerarSenha();
+        await updateUser(encExistente.id, { senha: novaSenha });
+        setCredenciais({
+          nome: encExistente.nome,
+          email: encExistente.email,
+          senha: novaSenha,
+          nomeAluno: `${aluno.nome} ${aluno.apelido}`,
+          isRegen: true,
+        } as any);
+        setShowCredenciais(true);
+      } else {
+        const nomeEnc = aluno.nomeEncarregado?.trim() || 'Encarregado';
+        const emailBase = normalizeEmail(nomeEnc);
+        const emailEnc = aluno.emailEncarregado?.trim() || `enc.${emailBase}@escola.ao`;
+        const senha = gerarSenha();
+
+        await addUser({
+          nome: nomeEnc,
+          email: emailEnc,
+          senha,
+          role: 'encarregado',
+          escola,
+          ativo: true,
+          alunoId: aluno.id,
+        } as any);
+
+        await updateAluno(aluno.id, { emailEncarregado: emailEnc } as any).catch(() => {});
+
+        setCredenciais({
+          nome: nomeEnc,
+          email: emailEnc,
+          senha,
+          nomeAluno: `${aluno.nome} ${aluno.apelido}`,
+        });
+        setShowCredenciais(true);
+      }
+    } catch (err) {
+      Alert.alert('Erro', 'Não foi possível gerar as credenciais. Tente novamente.');
+    } finally {
+      setRegenerating(null);
+    }
+  }
+
   function confirmDelete(aluno: Aluno) {
     Alert.alert('Remover Aluno', `Remover ${aluno.nome} ${aluno.apelido}?`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -320,6 +374,9 @@ export default function AlunosScreen() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SGAA|ALUNO|${item.id}|${item.numeroMatricula}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroMatricula })}>
             <Ionicons name="qr-code-outline" size={18} color={Colors.gold} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => handleVerCredenciais(item)} disabled={regenerating === item.id}>
+            <MaterialCommunityIcons name="account-key" size={18} color={regenerating === item.id ? Colors.textMuted : '#F97316'} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => { setEditAluno(item); setShowForm(true); }}>
             <Ionicons name="create-outline" size={18} color={Colors.info} />

@@ -19,10 +19,12 @@ import TopBar from '@/components/TopBar';
 const ROLE_LABEL: Record<string, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
   secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno', financeiro: 'Financeiro',
+  encarregado: 'Encarregado',
 };
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#8B5CF6', pca: '#F59E0B', admin: '#3B82F6', director: Colors.accent,
   secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success, financeiro: '#10B981',
+  encarregado: '#F97316',
 };
 
 function initials(nome: string) {
