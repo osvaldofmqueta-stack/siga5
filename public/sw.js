@@ -1,4 +1,4 @@
-const CACHE_NAME = 'siga-v1';
+const CACHE_NAME = 'siga-v2';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
