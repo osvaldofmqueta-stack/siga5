@@ -65,6 +65,7 @@ export default function LoginScreen() {
   const [welcomeModal, setWelcomeModal] = useState<{ visible: boolean; user: AuthUser | null; targetRoute: string }>({ visible: false, user: null, targetRoute: '' });
 
   function showWelcome(user: AuthUser, route: string) {
+    showingWelcome.current = true;
     setIsLoading(false);
     setWelcomeModal({ visible: true, user, targetRoute: route });
   }
@@ -81,13 +82,14 @@ export default function LoginScreen() {
   const footerOpacity = useRef(new Animated.Value(0)).current;
   const biometricPulse = useRef(new Animated.Value(1)).current;
   const biometricGlow = useRef(new Animated.Value(0)).current;
+  const showingWelcome = useRef(false);
 
   useEffect(() => {
     initLogin();
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !showingWelcome.current) {
       if (user.role === 'ceo') {
         router.replace('/(main)/ceo');
       } else if (user.role === 'secretaria') {
@@ -666,6 +668,7 @@ export default function LoginScreen() {
           visible={welcomeModal.visible}
           user={welcomeModal.user}
           onFinish={() => {
+            showingWelcome.current = false;
             setWelcomeModal(p => ({ ...p, visible: false }));
             router.replace(welcomeModal.targetRoute as any);
           }}
@@ -717,6 +720,7 @@ export default function LoginScreen() {
         visible={welcomeModal.visible}
         user={welcomeModal.user}
         onFinish={() => {
+          showingWelcome.current = false;
           setWelcomeModal(p => ({ ...p, visible: false }));
           router.replace(welcomeModal.targetRoute as any);
         }}
