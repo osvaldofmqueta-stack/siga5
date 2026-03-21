@@ -205,6 +205,7 @@ export default function DrawerLeft() {
     {
       title: 'Análise',
       items: [
+        { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' },
         { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
@@ -228,6 +229,7 @@ export default function DrawerLeft() {
         { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
         { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
         { label: 'Notas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
     },
@@ -277,6 +279,7 @@ export default function DrawerLeft() {
     {
       title: 'Análise',
       items: [
+        { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
     },

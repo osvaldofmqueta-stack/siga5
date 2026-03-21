@@ -932,6 +932,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
+  app.post("/api/anos-academicos/:id/transicao", async (req: Request, res: Response) => {
+    try {
+      const { id: toAnoId } = req.params;
+      const { fromAnoId } = requireBodyObject(req) as { fromAnoId: string };
+
+      if (!fromAnoId) return json(res, 400, { error: "fromAnoId é obrigatório." });
+      if (fromAnoId === toAnoId) return json(res, 400, { error: "Ano origem e destino não podem ser iguais." });
+
+      const [anoFrom, anoTo] = await Promise.all([
+        query<JsonObject>(`SELECT * FROM public.anos_academicos WHERE id=$1`, [fromAnoId]),
+        query<JsonObject>(`SELECT * FROM public.anos_academicos WHERE id=$1`, [toAnoId]),
+      ]);
+
+      if (!anoFrom[0]) return json(res, 404, { error: "Ano de origem não encontrado." });
+      if (!anoTo[0]) return json(res, 404, { error: "Ano de destino não encontrado." });
+
+      const turmasOrigem = await query<JsonObject>(
+        `SELECT * FROM public.turmas WHERE "anoLetivo"=$1`,
+        [anoFrom[0].ano as string]
+      );
+
+      if (turmasOrigem.length === 0) {
+        return json(res, 200, { turmasCriadas: 0, anoDestino: anoTo[0].ano, mensagem: "Nenhuma turma encontrada no ano de origem." });
+      }
+
+      const anoDestinoStr = anoTo[0].ano as string;
+      let turmasCriadas = 0;
+
+      for (const turma of turmasOrigem) {
+        const existente = await query<JsonObject>(
+          `SELECT id FROM public.turmas WHERE nome=$1 AND "anoLetivo"=$2`,
+          [turma.nome, anoDestinoStr]
+        );
+        if (existente.length > 0) continue;
+
+        await query<JsonObject>(
+          `INSERT INTO public.turmas (id, nome, classe, turno, "anoLetivo", nivel, "professorId", sala, capacidade, ativo)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+          [
+            Date.now().toString() + Math.random().toString(36).slice(2, 7),
+            turma.nome,
+            turma.classe,
+            turma.turno,
+            anoDestinoStr,
+            turma.nivel,
+            turma.professorId,
+            turma.sala,
+            turma.capacidade,
+            true,
+          ]
+        );
+        turmasCriadas++;
+      }
+
+      json(res, 200, {
+        turmasCriadas,
+        anoDestino: anoDestinoStr,
+        anoOrigem: anoFrom[0].ano,
+        mensagem: `${turmasCriadas} turma(s) criada(s) com sucesso para ${anoDestinoStr}.`,
+      });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   // -----------------------
   // PAUTAS
   // -----------------------

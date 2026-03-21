@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
+import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import StatCard from '@/components/StatCard';
 import TopBar from '@/components/TopBar';
 import { BarChart, PieChart } from '@/components/Charts';
@@ -33,28 +34,47 @@ export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { alunos, professores, turmas, notas, eventos, presencas, isLoading } = useData();
+  const { alunos, professores, turmas, notas, eventos, isLoading } = useData();
+  const { anoSelecionado, anos } = useAnoAcademico();
+
+  const turmasDoAno = useMemo(() =>
+    anoSelecionado ? turmas.filter(t => t.anoLetivo === anoSelecionado.ano) : turmas,
+    [turmas, anoSelecionado]
+  );
+
+  const turmaIdsDoAno = useMemo(() => new Set(turmasDoAno.map(t => t.id)), [turmasDoAno]);
+
+  const alunosDoAno = useMemo(() =>
+    alunos.filter(a => a.ativo && turmaIdsDoAno.has(a.turmaId)),
+    [alunos, turmaIdsDoAno]
+  );
+
+  const notasDoAno = useMemo(() =>
+    anoSelecionado ? notas.filter(n => n.anoLetivo === anoSelecionado.ano) : notas,
+    [notas, anoSelecionado]
+  );
 
   const stats = useMemo(() => ({
-    totalAlunos: alunos.filter(a => a.ativo).length,
+    totalAlunos: alunosDoAno.length,
     totalProfessores: professores.filter(p => p.ativo).length,
-    totalTurmas: turmas.filter(t => t.ativo).length,
-    totalEventos: eventos.length,
-    taxaAprovacao: calcApprovalRate(notas),
-    mediaGeral: notas.length ? (notas.reduce((s, n) => s + n.mac, 0) / notas.length).toFixed(1) : '0',
-  }), [alunos, professores, turmas, notas, eventos]);
+    totalTurmas: turmasDoAno.filter(t => t.ativo).length,
+    taxaAprovacao: calcApprovalRate(notasDoAno),
+    mediaGeral: notasDoAno.length
+      ? (notasDoAno.reduce((s, n) => s + n.mac, 0) / notasDoAno.length).toFixed(1)
+      : '0',
+  }), [alunosDoAno, professores, turmasDoAno, notasDoAno]);
 
   const nivelData = useMemo(() => {
-    const primario = alunos.filter(a => {
-      const t = turmas.find(t => t.id === a.turmaId);
+    const primario = alunosDoAno.filter(a => {
+      const t = turmasDoAno.find(t => t.id === a.turmaId);
       return t?.nivel === 'Primário';
     }).length;
-    const ciclo1 = alunos.filter(a => {
-      const t = turmas.find(t => t.id === a.turmaId);
+    const ciclo1 = alunosDoAno.filter(a => {
+      const t = turmasDoAno.find(t => t.id === a.turmaId);
       return t?.nivel === 'I Ciclo';
     }).length;
-    const ciclo2 = alunos.filter(a => {
-      const t = turmas.find(t => t.id === a.turmaId);
+    const ciclo2 = alunosDoAno.filter(a => {
+      const t = turmasDoAno.find(t => t.id === a.turmaId);
       return t?.nivel === 'II Ciclo';
     }).length;
     return [
@@ -62,17 +82,17 @@ export default function DashboardScreen() {
       { label: 'I Ciclo', value: ciclo1, color: Colors.gold },
       { label: 'II Ciclo', value: ciclo2, color: Colors.accent },
     ];
-  }, [alunos, turmas]);
+  }, [alunosDoAno, turmasDoAno]);
 
   const notasBar = useMemo(() => {
-    const disciplinas = [...new Set(notas.map(n => n.disciplina))].slice(0, 5);
+    const disciplinas = [...new Set(notasDoAno.map(n => n.disciplina))].slice(0, 5);
     return disciplinas.map((d, i) => {
-      const disciplinaNotas = notas.filter(n => n.disciplina === d);
+      const disciplinaNotas = notasDoAno.filter(n => n.disciplina === d);
       const media = disciplinaNotas.reduce((s, n) => s + n.mac, 0) / disciplinaNotas.length;
       const colors = [Colors.gold, Colors.accent, Colors.info, Colors.success, Colors.warning];
       return { label: d.substring(0, 4), value: parseFloat(media.toFixed(1)), color: colors[i % colors.length] };
     });
-  }, [notas]);
+  }, [notasDoAno]);
 
   const proximosEventos = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
@@ -89,6 +109,8 @@ export default function DashboardScreen() {
     return map[tipo] || Colors.textMuted;
   };
 
+  const isMultiAno = anos.length > 1;
+
   return (
     <View style={styles.screen}>
       <TopBar title="Dashboard" subtitle={user?.nome ? `${getGreeting()}, ${user.nome.split(' ')[0]}` : getGreeting()} />
@@ -98,11 +120,25 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={isLoading} colors={[Colors.gold]} tintColor={Colors.gold} />}
       >
+        {anoSelecionado && (
+          <View style={styles.anoBanner}>
+            <Ionicons name="calendar" size={14} color={Colors.gold} />
+            <Text style={styles.anoBannerText}>
+              Ano Lectivo: <Text style={styles.anoBannerAno}>{anoSelecionado.ano}</Text>
+            </Text>
+            {isMultiAno && (
+              <TouchableOpacity onPress={() => router.push('/(main)/visao-geral')}>
+                <Text style={styles.anoBannerLink}>Ver todos os anos →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         <View style={styles.statsGrid}>
           <StatCard label="Alunos" value={stats.totalAlunos} icon={<Ionicons name="people" size={22} color={Colors.info} />} color={Colors.info} subtitle="Matriculados" delay={0} onPress={() => router.push('/(main)/alunos')} />
           <StatCard label="Professores" value={stats.totalProfessores} icon={<FontAwesome5 name="chalkboard-teacher" size={18} color={Colors.gold} />} color={Colors.gold} subtitle="Activos" delay={80} onPress={() => router.push('/(main)/professores')} />
           <StatCard label="Turmas" value={stats.totalTurmas} icon={<MaterialIcons name="class" size={22} color={Colors.success} />} color={Colors.success} subtitle="Activas" delay={160} onPress={() => router.push('/(main)/turmas')} />
-          <StatCard label="Aprovação" value={`${stats.taxaAprovacao}%`} icon={<Ionicons name="checkmark-circle" size={22} color={Colors.accent} />} color={Colors.accent} subtitle="Taxa global" delay={240} />
+          <StatCard label="Aprovação" value={`${stats.taxaAprovacao}%`} icon={<Ionicons name="checkmark-circle" size={22} color={Colors.accent} />} color={Colors.accent} subtitle="Taxa do ano" delay={240} />
         </View>
 
         <View style={styles.section}>
@@ -121,7 +157,7 @@ export default function DashboardScreen() {
             ) : (
               <View style={styles.emptyChart}>
                 <Ionicons name="bar-chart-outline" size={32} color={Colors.textMuted} />
-                <Text style={styles.emptyChartText}>Sem dados de notas</Text>
+                <Text style={styles.emptyChartText}>Sem dados de notas{anoSelecionado ? ` para ${anoSelecionado.ano}` : ''}</Text>
               </View>
             )}
           </View>
@@ -172,6 +208,19 @@ export default function DashboardScreen() {
           )}
         </View>
 
+        {isMultiAno && (
+          <TouchableOpacity style={styles.visaoGeralBanner} onPress={() => router.push('/(main)/visao-geral')} activeOpacity={0.8}>
+            <View style={styles.visaoGeralLeft}>
+              <MaterialCommunityIcons name="chart-line" size={22} color={Colors.gold} />
+              <View>
+                <Text style={styles.visaoGeralTitle}>Visão Geral Multi-Ano</Text>
+                <Text style={styles.visaoGeralSub}>Comparar dados de todos os {anos.length} anos</Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.gold} />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.quickActions}>
           <Text style={styles.qaTitle}>Acções Rápidas</Text>
           <View style={styles.qaGrid}>
@@ -201,50 +250,30 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    padding: 16,
-    gap: 20,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  section: {
-    gap: 10,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitleRow: {
+  screen: { flex: 1, backgroundColor: Colors.background },
+  scroll: { flex: 1 },
+  content: { padding: 16, gap: 20 },
+  anoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    backgroundColor: `${Colors.gold}15`,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: `${Colors.gold}30`,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  sectionDot: {
-    width: 4,
-    height: 18,
-    borderRadius: 2,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-  },
-  seeAll: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    color: Colors.gold,
-  },
+  anoBannerText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, flex: 1 },
+  anoBannerAno: { fontFamily: 'Inter_700Bold', color: Colors.gold },
+  anoBannerLink: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  section: { gap: 10 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionDot: { width: 4, height: 18, borderRadius: 2 },
+  sectionTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+  seeAll: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.gold },
   chartCard: {
     backgroundColor: Colors.backgroundCard,
     borderRadius: 16,
@@ -253,104 +282,47 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  emptyChart: {
-    height: 120,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  emptyChartText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textMuted,
-  },
+  emptyChart: { height: 120, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  emptyChartText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
   emptyEvents: {
-    alignItems: 'center',
-    padding: 28,
-    gap: 8,
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    alignItems: 'center', padding: 28, gap: 8,
+    backgroundColor: Colors.backgroundCard, borderRadius: 16,
+    borderWidth: 1, borderColor: Colors.border,
   },
-  emptyEventsText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontFamily: 'Inter_400Regular',
-  },
+  emptyEventsText: { fontSize: 13, color: Colors.textMuted, fontFamily: 'Inter_400Regular' },
   eventCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', gap: 12,
+  },
+  eventTypeBar: { width: 4, alignSelf: 'stretch' },
+  eventContent: { flex: 1, paddingVertical: 12, gap: 3 },
+  eventTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  eventDate: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  eventTypeBadge: { marginRight: 12, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  eventTypeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  visaoGeralBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: Colors.backgroundCard,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
+    borderColor: `${Colors.gold}40`,
+    padding: 16,
     gap: 12,
   },
-  eventTypeBar: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
-  eventContent: {
-    flex: 1,
-    paddingVertical: 12,
-    gap: 3,
-  },
-  eventTitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.text,
-  },
-  eventDate: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textMuted,
-  },
-  eventTypeBadge: {
-    marginRight: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  eventTypeText: {
-    fontSize: 10,
-    fontFamily: 'Inter_600SemiBold',
-  },
-  quickActions: {
-    gap: 10,
-  },
-  qaTitle: {
-    fontSize: 15,
-    fontFamily: 'Inter_700Bold',
-    color: Colors.text,
-  },
-  qaGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
+  visaoGeralLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  visaoGeralTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  visaoGeralSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  quickActions: { gap: 10 },
+  qaTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+  qaGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   qaButton: {
-    flex: 1,
-    minWidth: '44%',
-    backgroundColor: Colors.backgroundCard,
-    borderRadius: 14,
-    borderWidth: 1,
-    padding: 14,
-    alignItems: 'center',
-    gap: 8,
+    flex: 1, minWidth: '44%',
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    borderWidth: 1, padding: 14, alignItems: 'center', gap: 8,
   },
-  qaIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  qaLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_600SemiBold',
-    color: Colors.textSecondary,
-    textAlign: 'center',
-  },
+  qaIcon: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  qaLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textAlign: 'center' },
 });
