@@ -27,6 +27,7 @@ interface DocTemplate {
   insigniaBase64?: string;
   marcaAguaBase64?: string;
   classeAlvo?: string;
+  bloqueado?: boolean;
 }
 
 // ─── Variables definition ───────────────────────────────────────────────────
@@ -1073,6 +1074,13 @@ export default function EditorDocumentos() {
 
   async function deleteTemplate(id: string) {
     const updated = templates.filter(t => t.id !== id);
+    await saveTemplates(updated);
+  }
+
+  async function toggleBloqueio(id: string) {
+    const updated = templates.map(t =>
+      t.id === id ? { ...t, bloqueado: !t.bloqueado } : t
+    );
     await saveTemplates(updated);
   }
 
@@ -3382,12 +3390,21 @@ export default function EditorDocumentos() {
     const [showMenu, setShowMenu] = useState(false);
     const tipoColor = TIPO_COLORS[template.tipo];
     const preview = template.conteudo.slice(0, 120).replace(/\n/g, ' ');
+    const bloqueado = !!template.bloqueado;
 
     return (
-      <View style={styles.card}>
+      <View style={[styles.card, bloqueado && { opacity: 0.6, borderColor: Colors.danger + '55', borderWidth: 1 }]}>
         <View style={styles.cardHeader}>
-          <View style={[styles.tipoBadge, { backgroundColor: tipoColor + '22' }]}>
-            <Text style={[styles.tipoText, { color: tipoColor }]}>{TIPO_LABELS[template.tipo]}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <View style={[styles.tipoBadge, { backgroundColor: tipoColor + '22' }]}>
+              <Text style={[styles.tipoText, { color: tipoColor }]}>{TIPO_LABELS[template.tipo]}</Text>
+            </View>
+            {bloqueado && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.danger + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Ionicons name="lock-closed" size={11} color={Colors.danger} />
+                <Text style={{ fontSize: 10, color: Colors.danger, fontWeight: '600' }}>Bloqueado</Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity style={styles.menuBtn} onPress={() => setShowMenu(v => !v)}>
             <Ionicons name="ellipsis-vertical" size={18} color={Colors.textSecondary} />
@@ -3398,9 +3415,13 @@ export default function EditorDocumentos() {
         <View style={styles.cardFooter}>
           <Text style={styles.cardDate}>Actualizado: {fmtDate(template.atualizadoEm)}</Text>
           <View style={styles.cardActions}>
-            <TouchableOpacity style={styles.cardActionBtn} onPress={() => openEmit(template)}>
-              <Ionicons name="document-text" size={14} color={Colors.success} />
-              <Text style={[styles.cardActionText, { color: Colors.success }]}>Emitir</Text>
+            <TouchableOpacity
+              style={[styles.cardActionBtn, bloqueado && { opacity: 0.4 }]}
+              onPress={() => !bloqueado && openEmit(template)}
+              disabled={bloqueado}
+            >
+              <Ionicons name={bloqueado ? 'lock-closed' : 'document-text'} size={14} color={bloqueado ? Colors.textMuted : Colors.success} />
+              <Text style={[styles.cardActionText, { color: bloqueado ? Colors.textMuted : Colors.success }]}>Emitir</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.cardActionBtn} onPress={() => openEdit(template)}>
               <Ionicons name="pencil" size={14} color={Colors.info} />
@@ -3414,9 +3435,21 @@ export default function EditorDocumentos() {
               <Ionicons name="pencil-outline" size={16} color={Colors.text} />
               <Text style={styles.dropItemText}>Editar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); openEmit(template); }}>
-              <Ionicons name="document-text-outline" size={16} color={Colors.success} />
-              <Text style={[styles.dropItemText, { color: Colors.success }]}>Emitir documento</Text>
+            {!bloqueado && (
+              <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); openEmit(template); }}>
+                <Ionicons name="document-text-outline" size={16} color={Colors.success} />
+                <Text style={[styles.dropItemText, { color: Colors.success }]}>Emitir documento</Text>
+              </TouchableOpacity>
+            )}
+            <View style={styles.dropDivider} />
+            <TouchableOpacity
+              style={styles.dropItem}
+              onPress={() => { setShowMenu(false); toggleBloqueio(template.id); }}
+            >
+              <Ionicons name={bloqueado ? 'lock-open-outline' : 'lock-closed-outline'} size={16} color={bloqueado ? Colors.success : Colors.warning} />
+              <Text style={[styles.dropItemText, { color: bloqueado ? Colors.success : Colors.warning }]}>
+                {bloqueado ? 'Ativar modelo' : 'Bloquear modelo'}
+              </Text>
             </TouchableOpacity>
             <View style={styles.dropDivider} />
             <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); deleteTemplate(template.id); }}>
