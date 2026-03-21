@@ -1,0 +1,17 @@
+diff --git a/node_modules/expo-font/build/ExpoFontLoader.web.js b/node_modules/expo-font/build/ExpoFontLoader.web.js
+--- a/node_modules/expo-font/build/ExpoFontLoader.web.js
++++ b/node_modules/expo-font/build/ExpoFontLoader.web.js
+@@ -139,7 +139,11 @@
+         if (!isFontLoadingListenerSupported()) {
+             return Promise.resolve();
+         }
+         return new FontObserver(fontFamilyName, {
+             // @ts-expect-error: TODO(@kitten): Typings indicate that the polyfill may not support this?
+             display: resource.display,
+-        }).load(null, 6000);
++        }).load(null, 6000).catch(() => {
++            // Font CSS was already injected via _createWebStyle above.
++            // Swallow fontfaceobserver timeout — the font will still render.
++        });
+     },
+ };
