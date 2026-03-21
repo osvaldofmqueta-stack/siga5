@@ -633,6 +633,36 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
 
 // ─── Mapa de Aproveitamento ──────────────────────────────────────────────────
 
+// ─── Mapa de Aproveitamento — Detalhado por Turma (IIIº Trimestre style) ──────
+
+const SEED_MAPA_TURMA_DETALHADO_ID = 'tpl_seed_mapa_turma_detalhado_v1';
+const SEED_MAPA_TURMA_DETALHADO: DocTemplate = {
+  id: SEED_MAPA_TURMA_DETALHADO_ID,
+  nome: 'Mapa de Aproveitamento — Detalhado por Turma',
+  tipo: 'mapa_aproveitamento',
+  classeAlvo: 'TURMA_DETALHADO',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `MAPA DE APROVEITAMENTO DOS ALUNOS — {{TRIMESTRE}}º TRIMESTRE
+Regime: Diurno/Nocturno — Ano Lectivo de {{ANO_LECTIVO}}
+
+Nome da Escola: {{NOME_ESCOLA}}
+
+Este documento é gerado automaticamente a partir dos dados lançados no sistema.
+
+Colunas por Turma:
+CURSO | CLASSE | PERÍODO | Alunos Matriculados (MF/F) | Alunos Avaliados (MF/F) | Alunos Aprovados (MF/F) | Alunos Reprovados (MF/F) | Alunos Desistentes (MF/F) | Alunos Anulação de Matrícula (MF/F) | Alunos Transferidos (MF/F) | Alunos Excluídos (MF/F) | % Aptos | % N/Aptos
+
+Cada linha corresponde a uma turma activa no sistema.
+Os totais são calculados automaticamente por nível e para toda a escola.
+
+Assinado por: O Subdirector Pedagógico
+
+Para emitir: clique em "Emitir" e seleccione o trimestre pretendido.
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 const SEED_MAPA_APROVEITAMENTO_ID = 'tpl_seed_mapa_aproveitamento_v2';
 const SEED_MAPA_APROVEITAMENTO: DocTemplate = {
   id: SEED_MAPA_APROVEITAMENTO_ID,
@@ -872,7 +902,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -2054,6 +2084,241 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Mapa de Aproveitamento — Detalhado por Turma ────────────────────────
+
+  function buildMapaTurmaDetalhadoHtml(trimestre: 1 | 2 | 3): string {
+    const escola = config.nomeEscola || 'Complexo Escolar';
+    const subdirector = user?.nome || '____________________________';
+    const now = new Date();
+    const dataLocal = `${config.municipio || escola}, ${now.getDate()} / ${String(now.getMonth()+1).padStart(2,'0')} / ${now.getFullYear()}`;
+
+    const sortedTurmas2 = [...turmas].sort((a,b) => b.anoLetivo.localeCompare(a.anoLetivo));
+    const anoLetivo = sortedTurmas2[0]?.anoLetivo || String(now.getFullYear());
+    const anoLetivoSlash2 = anoLetivo.includes('/') ? anoLetivo : `${anoLetivo}/${String(Number(anoLetivo)+1).slice(-2)}`;
+
+    // Sort turmas by nivel order then classe
+    const nivelOrder: Record<string, number> = { 'Primário': 0, 'I Ciclo': 1, 'II Ciclo': 2 };
+    const activeTurmas = [...turmas]
+      .filter(t => t.ativo)
+      .sort((a, b) => {
+        const no = (nivelOrder[a.nivel] ?? 9) - (nivelOrder[b.nivel] ?? 9);
+        if (no !== 0) return no;
+        return a.classe.localeCompare(b.classe, 'pt', { numeric: true });
+      });
+
+    // ── Per-turma stats ─────────────────────────────────────────────────────
+    function getTurmaStats(turmaId: string) {
+      const turmaAlunos = alunos.filter(a => a.ativo && a.turmaId === turmaId);
+      const matMF = turmaAlunos.length;
+      const matF = turmaAlunos.filter(a => a.genero === 'F').length;
+
+      // Notas for this trimestre
+      const notasTri = notas.filter(n => n.turmaId === turmaId && n.trimestre === trimestre);
+      const avaliadosIds = [...new Set(notasTri.map(n => n.alunoId))];
+      const avalMF = avaliadosIds.length;
+      const avalF = turmaAlunos.filter(a => a.genero === 'F' && avaliadosIds.includes(a.id)).length;
+
+      // Avg per student: use nf average across disciplines
+      const aprovadosIds = avaliadosIds.filter(id => {
+        const ns = notasTri.filter(n => n.alunoId === id);
+        if (ns.length === 0) return false;
+        return ns.reduce((s, n) => s + n.nf, 0) / ns.length >= 10;
+      });
+      const aprovMF = aprovadosIds.length;
+      const aprovF = turmaAlunos.filter(a => a.genero === 'F' && aprovadosIds.includes(a.id)).length;
+
+      const reprovMF = avalMF - aprovMF;
+      const reprovF = avalF - aprovF;
+
+      const aptosPct = avalMF > 0 ? Math.round((aprovMF / avalMF) * 100) : 0;
+      const nAptosPct = 100 - aptosPct;
+
+      return { matMF, matF, avalMF, avalF, aprovMF, aprovF, reprovMF, reprovF, aptosPct, nAptosPct };
+    }
+
+    // ── Build table rows grouped by nivel ───────────────────────────────────
+    const nivelLabel: Record<string, string> = {
+      'Primário': 'ENSINO PRIMÁRIO',
+      'I Ciclo': 'Iº CICLO',
+      'II Ciclo': 'IIº CICLO',
+    };
+
+    const zero = { matMF:0, matF:0, avalMF:0, avalF:0, aprovMF:0, aprovF:0, reprovMF:0, reprovF:0 };
+    type TotRow = typeof zero;
+    function addTot(a: TotRow, b: TotRow): TotRow {
+      return { matMF: a.matMF+b.matMF, matF: a.matF+b.matF, avalMF: a.avalMF+b.avalMF, avalF: a.avalF+b.avalF, aprovMF: a.aprovMF+b.aprovMF, aprovF: a.aprovF+b.aprovF, reprovMF: a.reprovMF+b.reprovMF, reprovF: a.reprovF+b.reprovF };
+    }
+    function totPcts(t: TotRow) {
+      const aptos = t.avalMF > 0 ? Math.round((t.aprovMF/t.avalMF)*100) : 0;
+      return { aptos, nAptos: t.avalMF > 0 ? 100 - aptos : 0 };
+    }
+
+    // Group turmas by nivel
+    const grupos = new Map<string, typeof activeTurmas>();
+    for (const t of activeTurmas) {
+      const key = t.nivel || 'Outro';
+      if (!grupos.has(key)) grupos.set(key, []);
+      grupos.get(key)!.push(t);
+    }
+
+    let tableRows = '';
+    let grandTotal: TotRow = { ...zero };
+
+    for (const [nivel, nivelTurmas] of grupos) {
+      let nivelTotal: TotRow = { ...zero };
+      let firstRow = true;
+      const nivelRowspan = nivelTurmas.length + 1; // +1 for total row
+
+      for (const t of nivelTurmas) {
+        const s = getTurmaStats(t.id);
+        const nivelCell = firstRow
+          ? `<td rowspan="${nivelRowspan}" style="font-weight:bold;text-align:center;vertical-align:middle;background:#2d2d2d;color:#fff;border:1px solid #000;white-space:pre-wrap;font-size:8.5px;">${nivelLabel[nivel] || nivel.toUpperCase()}</td>`
+          : '';
+        tableRows += `<tr>
+          ${nivelCell}
+          <td style="border:1px solid #ccc;padding:2px 4px;font-size:9px;">${t.classe} ${t.nome}</td>
+          <td style="border:1px solid #ccc;padding:2px 4px;text-align:center;font-size:9px;">${t.turno}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.matMF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.matF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.avalMF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.avalF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#065f46;font-weight:bold;">${s.aprovMF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.aprovF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#991b1b;">${s.reprovMF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;">${s.reprovF}</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;color:#999;">0</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;font-weight:bold;color:#065f46;">${s.aptosPct}%</td>
+          <td style="border:1px solid #ccc;text-align:center;font-size:9px;font-weight:bold;color:#991b1b;">${s.nAptosPct}%</td>
+        </tr>`;
+        nivelTotal = addTot(nivelTotal, { matMF: s.matMF, matF: s.matF, avalMF: s.avalMF, avalF: s.avalF, aprovMF: s.aprovMF, aprovF: s.aprovF, reprovMF: s.reprovMF, reprovF: s.reprovF });
+        firstRow = false;
+      }
+
+      const np = totPcts(nivelTotal);
+      tableRows += `<tr style="background:#e8e8e8;font-weight:bold;">
+        <td colspan="2" style="border:1px solid #999;padding:2px 6px;font-size:9px;">Total</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.matMF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.matF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.avalMF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.avalF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;color:#065f46;">${nivelTotal.aprovMF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.aprovF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;color:#991b1b;">${nivelTotal.reprovMF}</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;">${nivelTotal.reprovF}</td>
+        <td colspan="8" style="border:1px solid #999;text-align:center;font-size:8.5px;color:#777;">—</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;color:#065f46;">${np.aptos}%</td>
+        <td style="border:1px solid #999;text-align:center;font-size:9px;color:#991b1b;">${np.nAptos}%</td>
+      </tr>`;
+      grandTotal = addTot(grandTotal, nivelTotal);
+    }
+
+    const gp = totPcts(grandTotal);
+    tableRows += `<tr style="background:#c8c8c8;font-weight:bold;font-size:9px;">
+      <td colspan="3" style="border:1px solid #888;padding:3px 6px;">TOTAL GERAL</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.matMF}</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.matF}</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.avalMF}</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.avalF}</td>
+      <td style="border:1px solid #888;text-align:center;color:#065f46;">${grandTotal.aprovMF}</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.aprovF}</td>
+      <td style="border:1px solid #888;text-align:center;color:#991b1b;">${grandTotal.reprovMF}</td>
+      <td style="border:1px solid #888;text-align:center;">${grandTotal.reprovF}</td>
+      <td colspan="8" style="border:1px solid #888;text-align:center;color:#777;">—</td>
+      <td style="border:1px solid #888;text-align:center;color:#065f46;">${gp.aptos}%</td>
+      <td style="border:1px solid #888;text-align:center;color:#991b1b;">${gp.nAptos}%</td>
+    </tr>`;
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Mapa de Aproveitamento — ${trimestre}º Trimestre (Detalhado) ${anoLetivo}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 10px; color: #000; padding: 12px 18px; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .header p { margin: 1px 0; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+    .header p.inst { font-size: 11px; text-decoration: underline; }
+    .titulo { font-size: 10px; font-weight: bold; margin-bottom: 2px; }
+    .escola-label { font-size: 10px; margin-bottom: 8px; }
+    .escola-label span { font-weight: bold; }
+    table { border-collapse: collapse; width: 100%; font-size: 9px; margin-bottom: 16px; }
+    th { border: 1px solid #000; padding: 3px 3px; text-align: center; background: #d0d0d0; font-weight: bold; font-size: 8.5px; line-height: 1.2; vertical-align: middle; }
+    th.dark { background: #2d2d2d; color: #fff; }
+    td { border: 1px solid #ccc; vertical-align: middle; }
+    .sig-row { display: flex; justify-content: flex-end; margin-top: 28px; gap: 60px; }
+    .sig-block { text-align: center; }
+    .sig-label { font-size: 10px; font-weight: bold; margin-bottom: 28px; }
+    .sig-line { width: 220px; border-top: 1px solid #000; margin: 0 auto 3px; }
+    .sig-name { font-size: 10px; font-style: italic; }
+    .date { font-size: 10px; margin: 12px 0 6px; font-weight: bold; }
+    @media print { @page { size: A3 landscape; margin: 7mm 10mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Ministério da Educação</p>
+    <p class="inst">${escola.toUpperCase()}</p>
+  </div>
+
+  <p class="titulo">Mapa de Aproveitamento dos alunos ${trimestre === 1 ? 'Iº' : trimestre === 2 ? 'IIº' : 'IIIº'} Trimestre &mdash; Regime Diurno &mdash; Ano Lectivo de ${anoLetivoSlash2}</p>
+  <p class="escola-label">Nome da Escola: <span>${escola}</span></p>
+
+  <table>
+    <thead>
+      <tr>
+        <th rowspan="2" class="dark">CURSO</th>
+        <th rowspan="2" class="dark">CLASSE</th>
+        <th rowspan="2" class="dark">PERÍODO</th>
+        <th colspan="2">Alunos<br/>Matriculados</th>
+        <th colspan="2">Alunos<br/>Avaliados</th>
+        <th colspan="2">Alunos<br/>Aprovados</th>
+        <th colspan="2">Alunos<br/>Reprovados</th>
+        <th colspan="2">Alunos<br/>Desistentes</th>
+        <th colspan="2">Alunos Anul.<br/>Matrícula</th>
+        <th colspan="2">Alunos<br/>Transferidos</th>
+        <th colspan="2">Alunos<br/>Excluídos</th>
+        <th colspan="2">%</th>
+      </tr>
+      <tr>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th>MF</th><th>F</th>
+        <th style="color:#065f46;">Aptos</th>
+        <th style="color:#991b1b;">N/Aptos</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${tableRows}
+    </tbody>
+  </table>
+
+  <div class="date">${dataLocal}.</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">O Subdirector Pedagógico</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${subdirector}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
+
   // ─── Certificado II Ciclo HTML Builder (10ª, 11ª, 12ª) ───────────────────
 
   function buildCertificadoIiCicloHtml(alunoId: string): string {
@@ -2469,7 +2734,9 @@ export default function EditorDocumentos() {
 
     // ── Mapa de Aproveitamento: generated HTML ────────────────────────────────
     if (emitTemplate?.tipo === 'mapa_aproveitamento') {
-      const html = buildMapaAproveitamentoHtml(emitTrimestre);
+      const html = emitTemplate.classeAlvo === 'TURMA_DETALHADO'
+        ? buildMapaTurmaDetalhadoHtml(emitTrimestre)
+        : buildMapaAproveitamentoHtml(emitTrimestre);
       win.document.write(html);
       win.document.close();
       win.print();
