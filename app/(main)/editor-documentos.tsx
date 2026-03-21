@@ -629,6 +629,34 @@ const DISCIPLINA_NOTA_MAP: Record<string, string[]> = {
   '{{NOTA_CONT_AV}}': ['contabilidade avançada', 'contabilidade avancada'],
 };
 
+// ─── Certificado II Ciclo (10ª, 11ª, 12ª) — Ensino Secundário Geral ─────────
+
+const SEED_CERT_II_CICLO_ID = 'tpl_seed_cert_ii_ciclo_v1';
+const SEED_CERT_II_CICLO: DocTemplate = {
+  id: SEED_CERT_II_CICLO_ID,
+  nome: 'Certificado — II Ciclo (10ª, 11ª, 12ª) Ensino Secundário Geral',
+  tipo: 'certificado',
+  classeAlvo: '12ª-II-CICLO',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `CERTIFICADO — IIº CICLO ENSINO SECUNDÁRIO GERAL (10ª, 11ª, 12ª)
+
+Director(a): {{NOME_DIRECTOR}} — {{NOME_ESCOLA}}
+Aluno: {{NOME_COMPLETO}}
+Filho(a) de {{PAI}} e de {{MAE}}
+Nascido(a) aos {{DIA_NASC}}/{{MES_NASC}}/{{ANO_NASC}}
+Natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVINCIA}}
+BI nº {{BI_NUMERO}}, passado pelo Arquivo de {{BI_LOCAL_EMISSAO}}, aos {{BI_DATA_EMISSAO}}
+
+Concluiu no Ano Lectivo {{ANO_LECTIVO}} o IIº Ciclo do Ensino Secundário Geral
+Área: {{AREA}} | Média Final: {{RESULTADO}} ({{RESULTADO_LETRA}})
+
+Tabela de notas: 10ª Classe | 11ª Classe | 12ª Classe | Média Final | Extenso
+(gerada automaticamente a partir das notas lançadas por classe)
+
+{{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
+};
+
 // ─── Certificado ITAQ — 13ª Classe (Técnico-Profissional) ───────────────────
 
 const SEED_CERT_ITAQ_13_ID = 'tpl_seed_cert_itaq_13_v1';
@@ -814,7 +842,7 @@ export default function EditorDocumentos() {
       let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
 
       // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+      const seeds = [SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
       let changed = false;
       for (const seed of seeds) {
         if (!list.find(t => t.id === seed.id)) {
@@ -1668,6 +1696,203 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  // ─── Certificado II Ciclo HTML Builder (10ª, 11ª, 12ª) ───────────────────
+
+  function buildCertificadoIiCicloHtml(alunoId: string): string {
+    const aluno = alunos.find(a => a.id === alunoId);
+    if (!aluno) return '';
+    const escola = config.nomeEscola || 'Liceu Público';
+    const director = user?.nome || '____________________________';
+    const now = new Date();
+    const dataActual = `${escola.toUpperCase()}, ${now.getDate()} DE ${MESES[now.getMonth()].toUpperCase()} DE ${now.getFullYear()}`;
+    const nome = `${aluno.nome} ${aluno.apelido}`;
+    const diaNasc = aluno.dataNascimento ? String(new Date(aluno.dataNascimento).getDate()).padStart(2,'0') : '__';
+    const mesNascNum = aluno.dataNascimento ? String(new Date(aluno.dataNascimento).getMonth()+1).padStart(2,'0') : '__';
+    const anoNasc = aluno.dataNascimento ? new Date(aluno.dataNascimento).getFullYear() : '____';
+    const municipio = aluno.municipio || '______________';
+    const provincia = aluno.provincia || '______________';
+    const encarregado = aluno.nomeEncarregado || '____________________';
+
+    // ── Gather grades by class year ──────────────────────────────────────────
+    const CLASSES_ALVO = ['10ª', '11ª', '12ª'];
+    const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+
+    // Map classe → Map<disciplina_lower, nf>
+    const gradesByClasse: Record<string, Map<string, number>> = {};
+    for (const classe of CLASSES_ALVO) gradesByClasse[classe] = new Map();
+
+    for (const nota of alunoNotas) {
+      const t = turmas.find(tr => tr.id === nota.turmaId);
+      if (!t) continue;
+      const classeKey = CLASSES_ALVO.find(c => t.classe?.startsWith(c.replace('ª','')) || t.classe === c);
+      if (!classeKey) continue;
+      const discKey = nota.disciplina.toLowerCase().trim();
+      const existing = gradesByClasse[classeKey].get(discKey);
+      if (existing === undefined || nota.nf > existing) {
+        gradesByClasse[classeKey].set(discKey, nota.nf);
+      }
+    }
+
+    // Collect all unique disciplines (preserving display name from first occurrence)
+    const discDisplayMap = new Map<string, string>();
+    for (const nota of alunoNotas) {
+      const key = nota.disciplina.toLowerCase().trim();
+      if (!discDisplayMap.has(key)) discDisplayMap.set(key, nota.disciplina.trim());
+    }
+    const allDiscs = Array.from(discDisplayMap.entries()); // [key, displayName]
+
+    // ── Determine ano lectivo from 12ª turma (latest) ──────────────────────
+    const turmasDo12 = turmas.filter(t => {
+      const c = t.classe || '';
+      return c.startsWith('12') || c === '12ª';
+    });
+    const alunoTurmaIds = new Set(alunoNotas.map(n => n.turmaId));
+    const relevantTurma12 = turmasDo12.find(t => alunoTurmaIds.has(t.id));
+    const anoLetivo = relevantTurma12?.anoLetivo || String(now.getFullYear());
+
+    // ── Build table rows ─────────────────────────────────────────────────────
+    function getGrade(classeKey: string, discKey: string): number | null {
+      return gradesByClasse[classeKey]?.get(discKey) ?? null;
+    }
+
+    let totalMedia = 0;
+    let countMedia = 0;
+
+    const rows = allDiscs.map(([key, display]) => {
+      const grades = CLASSES_ALVO.map(c => getGrade(c, key));
+      const validGrades = grades.filter(g => g !== null) as number[];
+      const mediaFinal = validGrades.length > 0
+        ? Math.round(validGrades.reduce((a,b) => a+b, 0) / validGrades.length)
+        : null;
+      if (mediaFinal !== null) { totalMedia += mediaFinal; countMedia++; }
+      const cols = grades.map(g =>
+        g !== null
+          ? `<td style="text-align:center;color:#1a5276;font-weight:bold;">${Math.round(g)}</td>`
+          : `<td style="text-align:center;color:#aaa;font-size:10px;">====//====</td>`
+      ).join('');
+      const mediaStr = mediaFinal !== null ? String(mediaFinal) : '---';
+      const extensoStr = mediaFinal !== null ? numExtenso(mediaFinal) : '---';
+      return `<tr>
+        <td style="padding:4px 8px;">${display}</td>
+        ${cols}
+        <td style="text-align:center;color:#1a5276;font-weight:bold;">${mediaStr}</td>
+        <td style="text-align:center;color:#555;font-style:italic;">${extensoStr}</td>
+      </tr>`;
+    }).join('');
+
+    const mediaGeral = countMedia > 0 ? Math.round(totalMedia / countMedia) : null;
+    const mediaGeralStr = mediaGeral !== null ? String(mediaGeral) : '___';
+    const mediaGeralExtenso = mediaGeral !== null ? numExtenso(mediaGeral) : '______';
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Certificado II Ciclo — ${nome}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; font-size: 11px; color: #000; padding: 20px 36px; line-height: 1.6; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .header p { margin: 1px 0; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.4px; }
+    .titulo { text-align: center; font-size: 22px; font-weight: bold; text-transform: uppercase; letter-spacing: 4px; margin: 14px 0 12px; }
+    .body { text-align: justify; margin-bottom: 12px; font-size: 11.5px; line-height: 1.8; }
+    .nome-aluno { color: #c00; font-weight: bold; text-decoration: underline; }
+    .media-final-text { color: #000; font-weight: bold; text-decoration: underline; }
+    table { border-collapse: collapse; width: 100%; margin-top: 10px; font-size: 11px; }
+    table th { border: 1px solid #000; padding: 5px 6px; text-align: center; background: #f2f2f2; font-weight: bold; }
+    table th:first-child { text-align: left; }
+    table td { border: 1px solid #999; padding: 4px 6px; }
+    .total-row td { background: #e8e8e8; font-weight: bold; border-top: 2px solid #000; }
+    .legal { font-size: 11px; margin-top: 14px; text-align: justify; line-height: 1.75; }
+    .date-footer { font-weight: bold; margin: 16px 0 20px; font-size: 11px; }
+    .sig-row { display: flex; justify-content: space-between; margin-top: 10px; }
+    .sig-block { text-align: center; min-width: 180px; }
+    .sig-label { font-size: 11px; font-style: italic; margin-bottom: 30px; font-weight: bold; }
+    .sig-line { width: 180px; border-top: 1px solid #000; margin: 0 auto 4px; }
+    .sig-name { font-size: 11px; font-weight: bold; }
+    .conferiu { font-size: 10px; font-style: italic; margin-top: 20px; }
+    .decreto { font-size: 10px; font-weight: bold; margin-top: 6px; text-align: center; border-top: 1px solid #ccc; padding-top: 6px; }
+    @media print { @page { size: A4; margin: 10mm 16mm; } body { padding: 0; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <p>República de Angola</p>
+    <p>Ministério da Educação</p>
+    <p>Governo da Província de ${provincia}</p>
+    <p>${escola}</p>
+  </div>
+
+  <div class="titulo">Certificado</div>
+
+  <div class="body">
+    <strong>${director}</strong>, Director do ${escola},
+    criado sob o Decreto Executivo nº _______ — Iª Série nº ___ de __ de ____________,
+    certifica que <span class="nome-aluno">${nome}</span>,
+    filho de <strong>${encarregado}</strong>
+    e de <strong>____________________</strong>,
+    nascido aos ${diaNasc}/${mesNascNum}/${anoNasc},
+    natural de ______________,
+    Município de <strong>${municipio}</strong>,
+    Província de <strong>${provincia}</strong>,
+    portador do B.I nº ____________________,
+    passado pelo arquivo de Identificação de ${provincia}, aos __ / __ / ______,
+    concluiu no Ano Lectivo de <strong>${anoLetivo}</strong>
+    o Curso do II Ciclo do Ensino Secundário Geral,
+    na área de <strong>____________________________</strong>,
+    conforme o disposto na alínea a) do artigo da LBSEE 17/16 de 07 de Outubro,
+    com a Média Final de <span class="media-final-text">${mediaGeralStr} (${mediaGeralExtenso}) Valores</span>
+    obtida nas seguintes classificações por disciplinas:
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:38%;text-align:left;">Disciplina</th>
+        <th style="width:10%;">10ª Classe</th>
+        <th style="width:10%;">11ª Classe</th>
+        <th style="width:10%;">12ª Classe</th>
+        <th style="width:16%;">Média Final</th>
+        <th style="width:16%;">Média por Extenso</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows}
+      <tr class="total-row">
+        <td colspan="4" style="text-align:right;padding:5px 8px;">Média Geral Final:</td>
+        <td style="text-align:center;">${mediaGeralStr}</td>
+        <td style="text-align:center;font-style:italic;">${mediaGeralExtenso}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="legal">
+    Para efeitos legais lhe é passado o presente <strong>CERTIFICADO</strong>,
+    que consta no livro de registos nº ________,
+    assinado por mim e autenticado com carimbo a óleo branco em uso neste Estabelecimento de Ensino.
+  </div>
+
+  <div class="date-footer">${dataActual}.</div>
+
+  <div class="sig-row">
+    <div class="sig-block">
+      <div class="sig-label">O Subdirector Pedagógico</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">____________________________</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O Director</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+  </div>
+
+  <div class="conferiu">Conferiu: ____________________</div>
+  <div class="decreto">Reconhecido pelo Ministério da Educação de Angola pelo decreto executivo conjunto nº _______ — Iª Série nº ___ de __ de ____________.</div>
+</body>
+</html>`;
+  }
+
   // ─── Certificado ITAQ HTML Builder ────────────────────────────────────────
 
   function buildCertificadoItaqHtml(alunoId: string): string {
@@ -1905,9 +2130,14 @@ export default function EditorDocumentos() {
     // ── Certificado de Habilitações: rich HTML with grade table ───────────────
     if (emitTemplate?.tipo === 'certificado' && emitTemplate?.classeAlvo && emitAlunoId) {
       const classe = emitTemplate.classeAlvo;
-      const html = classe === '13ª-ITAQ'
-        ? buildCertificadoItaqHtml(emitAlunoId)
-        : buildCertificadoHabilitacoesHtml(emitAlunoId, classe);
+      let html = '';
+      if (classe === '12ª-II-CICLO') {
+        html = buildCertificadoIiCicloHtml(emitAlunoId);
+      } else if (classe === '13ª-ITAQ') {
+        html = buildCertificadoItaqHtml(emitAlunoId);
+      } else {
+        html = buildCertificadoHabilitacoesHtml(emitAlunoId, classe);
+      }
       win.document.write(html);
       win.document.close();
       win.print();
