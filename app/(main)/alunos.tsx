@@ -14,8 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
 import DatePickerField from '@/components/DatePickerField';
-
-const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Uíge', 'Malanje', 'Moxico', 'Cuando Cubango', 'Cunene', 'Namibe', 'Huíla', 'Kuanza Norte', 'Kuanza Sul', 'Lunda Norte', 'Lunda Sul', 'Zaire', 'Cabinda', 'Bengo'];
+import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 
 function normalizeEmail(str: string) {
   return str
@@ -100,20 +99,14 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
               labelStyle={modalStyles.fieldLabel}
             />
 
-            {[
-              { label: 'Município', key: 'municipio', placeholder: 'Município' },
-            ].map(f => (
-              <View key={f.key} style={modalStyles.field}>
-                <Text style={modalStyles.fieldLabel}>{f.label}</Text>
-                <TextInput
-                  style={modalStyles.input}
-                  value={(form as any)[f.key] ?? ''}
-                  onChangeText={v => set(f.key as keyof Aluno, v)}
-                  placeholder={f.placeholder}
-                  placeholderTextColor={Colors.textMuted}
-                />
-              </View>
-            ))}
+            <ProvinciaMunicipioSelector
+              provinciaValue={form.provincia ?? ''}
+              municipioValue={form.municipio ?? ''}
+              onProvinciaChange={v => { set('provincia', v); set('municipio', ''); }}
+              onMunicipioChange={v => set('municipio', v)}
+              labelStyle={modalStyles.fieldLabel}
+              fieldStyle={modalStyles.field}
+            />
 
             <View style={modalStyles.field}>
               <Text style={modalStyles.fieldLabel}>Género</Text>

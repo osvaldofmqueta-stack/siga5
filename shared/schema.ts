@@ -12,6 +12,17 @@ import {
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+export const provincias = pgTable("provincias", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  nome: text("nome").notNull().unique(),
+});
+
+export const municipios = pgTable("municipios", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  nome: text("nome").notNull(),
+  provinciaId: integer("provinciaId").notNull().references(() => provincias.id),
+});
+
 export const users = pgTable("users", {
   id: varchar("id")
     .primaryKey()

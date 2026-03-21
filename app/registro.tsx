@@ -11,12 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useRegistro } from '@/context/RegistroContext';
 import DatePickerField from '@/components/DatePickerField';
-
-const PROVINCIAS = [
-  'Luanda', 'Benguela', 'Huambo', 'Bié', 'Uíge', 'Malanje', 'Moxico',
-  'Cuando Cubango', 'Cunene', 'Namibe', 'Huíla', 'Kuanza Norte', 'Kuanza Sul',
-  'Lunda Norte', 'Lunda Sul', 'Zaire', 'Cabinda', 'Bengo',
-];
+import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 
 const NIVEIS = ['Primário', 'I Ciclo', 'II Ciclo'];
 const CLASSES_POR_NIVEL: Record<string, string[]> = {
@@ -270,35 +265,12 @@ export default function RegistroScreen() {
                 required
               />
 
-              <View style={styles.fieldGroup}>
-                <View style={styles.fieldLabelRow}>
-                  <Text style={styles.fieldLabel}>Província</Text>
-                  <Text style={styles.fieldRequired}>*</Text>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                    {PROVINCIAS.map(p => (
-                      <TouchableOpacity
-                        key={p}
-                        style={[styles.chip, form.provincia === p && styles.chipActive]}
-                        onPress={() => set('provincia', p)}
-                        activeOpacity={0.75}
-                      >
-                        {form.provincia === p && (
-                          <Ionicons name="checkmark" size={11} color={Colors.accent} style={{ marginRight: 3 }} />
-                        )}
-                        <Text style={[styles.chipText, form.provincia === p && styles.chipTextActive]}>{p}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              </View>
-
-              <InputField
-                label="Município"
-                value={form.municipio}
-                onChangeText={v => set('municipio', v)}
-                placeholder="ex: Viana, Cazenga, Kilamba Kiaxi..."
+              <ProvinciaMunicipioSelector
+                provinciaValue={form.provincia}
+                municipioValue={form.municipio}
+                onProvinciaChange={v => { set('provincia', v); set('municipio', ''); }}
+                onMunicipioChange={v => set('municipio', v)}
+                required
               />
             </View>
           )}

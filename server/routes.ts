@@ -1567,6 +1567,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // PROVÍNCIAS & MUNICÍPIOS
+  // -----------------------
+
+  const ANGOLA_GEO: Record<string, string[]> = {
+    'Luanda': ['Luanda', 'Belas', 'Cacuaco', 'Cazenga', 'Icolo e Bengo', 'Kilamba Kiaxi', 'Quiçama', 'Sambizanga', 'Viana'],
+    'Benguela': ['Benguela', 'Baía Farta', 'Balombo', 'Bocoio', 'Caimbambo', 'Chongoroi', 'Cubal', 'Ganda', 'Lobito', 'Longonjo'],
+    'Huambo': ['Huambo', 'Bailundo', 'Caála', 'Catchiungo', 'Chinjenje', 'Ecunha', 'Londuimbali', 'Longonjo', 'Mungo', 'Ukuma', 'Chicala-Cholohanga'],
+    'Bié': ['Kuito', 'Andulo', 'Camacupa', 'Catabola', 'Chitembo', 'Cuemba', 'Cunhinga', 'Nharea'],
+    'Uíge': ['Uíge', 'Alto Cauale', 'Ambuíla', 'Bembe', 'Bungo', 'Buza', 'Damba', 'Maquela do Zombo', 'Negage', 'Puri', 'Quitexe', 'Sanza Pombo', 'Songo', 'Yumbi'],
+    'Malanje': ['Malanje', 'Cacuso', 'Calandula', 'Cambundi-Catembo', 'Cangandala', 'Caombo', 'Cuaba Nzoji', 'Cunda-dia-Baza', 'Luquembo', 'Marimba', 'Massango', 'Mucari', 'Quela', 'Quirima'],
+    'Moxico': ['Luena', 'Alto Zambeze', 'Bundas', 'Camanongue', 'Léua', 'Luacano', 'Luchazes', 'Lucusse', 'Lumeje'],
+    'Cuando Cubango': ['Menongue', 'Calai', 'Cuangar', 'Cuchi', 'Dirico', 'Kavango', 'Longa', 'Mavinga', 'Nancova', 'Rivungo'],
+    'Cunene': ['Ondjiva', 'Cahama', 'Cuanhama', 'Cuvelai', 'Namacunde', 'Ombadja'],
+    'Namibe': ['Moçâmedes', 'Bibala', 'Camucuio', 'Tômbwa', 'Virei'],
+    'Huíla': ['Lubango', 'Caconda', 'Cacula', 'Caluquembe', 'Chiange', 'Chibia', 'Chicomba', 'Chipindo', 'Cuvango', 'Gambos', 'Humpata', 'Jamba', 'Matala', 'Quilengues', 'Quipungo'],
+    'Kuanza Norte': ["N'dalatando", 'Alto Dande', 'Ambaca', 'Banga', 'Bolongongo', 'Cambambe', 'Cazengo', 'Golungo Alto', 'Gonguembo', 'Lucala', 'Ngonguembo', 'Quiculungo', 'Samba Caju'],
+    'Kuanza Sul': ['Sumbe', 'Amboim', 'Cassongue', 'Cela', 'Conda', 'Ebo', 'Kibala', 'Mussende', 'Porto Amboim', 'Quibala', 'Quilenda', 'Seles', 'Waku Kungo'],
+    'Lunda Norte': ['Dundo', 'Cambulo', 'Capenda-Camulemba', 'Caungula', 'Chitato', 'Cuango', 'Cuilo', 'Lubalo', 'Lucapa', 'Xá-Muteba'],
+    'Lunda Sul': ['Saurimo', 'Cacolo', 'Dala', 'Muconda'],
+    'Zaire': ["M'banza Kongo", 'Cuimba', 'Nóqui', 'Nzeto', 'Soyo', 'Tomboco'],
+    'Cabinda': ['Cabinda', 'Belize', 'Buco-Zau', 'Cacongo'],
+    'Bengo': ['Caxito', 'Ambriz', 'Bula Atumba', 'Dande', 'Dembos', 'Nambuangongo', 'Pango Aluquém'],
+  };
+
+  async function seedGeoData() {
+    try {
+      const existing = await query<JsonObject>(`SELECT COUNT(*) as count FROM public.provincias`, []);
+      const count = parseInt(String((existing[0] as any).count), 10);
+      if (count > 0) return;
+
+      console.log('[seed] A popular províncias e municípios...');
+      for (const [nomeProv, municipiosArr] of Object.entries(ANGOLA_GEO)) {
+        const provRows = await query<JsonObject>(
+          `INSERT INTO public.provincias (nome) VALUES ($1) ON CONFLICT (nome) DO UPDATE SET nome=EXCLUDED.nome RETURNING id`,
+          [nomeProv]
+        );
+        const provId = (provRows[0] as any).id;
+        for (const nomeMun of municipiosArr) {
+          await query(
+            `INSERT INTO public.municipios (nome, "provinciaId") VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [nomeMun, provId]
+          );
+        }
+      }
+      console.log('[seed] Dados geográficos inseridos com sucesso.');
+    } catch (e) {
+      console.error('[seed] Erro ao popular dados geográficos:', e);
+    }
+  }
+
+  await seedGeoData();
+
+  app.get("/api/provincias", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT id, nome FROM public.provincias ORDER BY nome ASC`, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/municipios", async (req: Request, res: Response) => {
+    try {
+      const { provinciaId } = req.query;
+      if (!provinciaId) return json(res, 400, { error: 'provinciaId é obrigatório.' });
+      const rows = await query<JsonObject>(
+        `SELECT id, nome, "provinciaId" FROM public.municipios WHERE "provinciaId"=$1 ORDER BY nome ASC`,
+        [Number(provinciaId)]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
