@@ -4,6 +4,7 @@ import {
   TextInput, Platform, Alert, Modal, FlatList, ActivityIndicator,
   BackHandler,
 } from 'react-native';
+import * as XLSX from 'xlsx';
 import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -369,6 +370,69 @@ export default function ProfessorPautaScreen() {
 </body></html>`;
   }
 
+  function gerarExcelMiniPauta() {
+    if (!turmaId || !disciplina) {
+      Alert.alert('Atenção', 'Selecione a turma e disciplina antes de exportar.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Alert.alert('Indisponível', 'A exportação Excel está disponível na versão web do sistema.');
+      return;
+    }
+    const turmaObj = minhasTurmas.find(t => t.id === turmaId);
+    const turmaNome = turmaObj?.nome || '—';
+    const nivelClasse = turmaObj?.classe || '—';
+    const anoLetivo = anoSelecionado?.ano || '20__/20__';
+    const profNome = prof ? `${prof.nome} ${prof.apelido}` : '—';
+    const escola = config?.nomeEscola || 'Escola';
+    const now = new Date();
+
+    const header1 = ['REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO'];
+    const header2 = [`MINI-PAUTA — ${disciplina} — ${nivelClasse}ª Classe — Turma ${turmaNome}`];
+    const header3 = [`Escola: ${escola}   Ano Lectivo: ${anoLetivo}   Professor(a): ${profNome}   Data: ${now.toLocaleDateString('pt-AO')}`];
+    const emptyRow: string[] = [];
+    const colHeader = ['Nº', 'Nome Completo', 'MAC T1', 'NPP T1', 'NPT T1', 'MT1', 'MAC T2', 'NPP T2', 'NPT T2', 'MT2', 'MAC T3', 'NPP T3', 'NPT T3', 'MT3', 'MFD', 'Observação'];
+
+    const dataRows = alunosDaTurma.map((aluno, idx) => {
+      const get = (tr: number) => {
+        const n = notas.find(n => n.alunoId === aluno.id && n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === tr);
+        return n ? { mac: n.mac ?? n.mac1 ?? 0, npp: n.pp1 ?? 0, npt: n.ppt ?? 0, mt: n.mt1 ?? 0 } : null;
+      };
+      const t1 = get(1); const t2 = get(2); const t3 = get(3);
+      const mts = [t1?.mt, t2?.mt, t3?.mt].filter((v): v is number => !!v && v > 0);
+      const mfd = mts.length ? Math.round((mts.reduce((a, b) => a + b, 0) / mts.length) * 10) / 10 : '';
+      const fmt = (v: number | null | undefined) => v && v > 0 ? v : '';
+      const aprovado = typeof mfd === 'number' ? (mfd >= (config?.notaMinimaAprovacao ?? 10) ? 'Aprovado' : 'Reprovado') : '';
+      return [
+        idx + 1, `${aluno.nome} ${aluno.apelido}`,
+        fmt(t1?.mac), fmt(t1?.npp), fmt(t1?.npt), fmt(t1?.mt),
+        fmt(t2?.mac), fmt(t2?.npp), fmt(t2?.npt), fmt(t2?.mt),
+        fmt(t3?.mac), fmt(t3?.npp), fmt(t3?.npt), fmt(t3?.mt),
+        mfd, aprovado,
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsData = [header1, header2, header3, emptyRow, colHeader, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 15 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 15 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 15 } },
+    ];
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, ...Array(14).fill({ wch: 8 })];
+    XLSX.utils.book_append_sheet(wb, ws, 'Mini-Pauta');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mini_Pauta_${disciplina}_${turmaNome}_${anoLetivo}.xlsx`.replace(/\//g, '-');
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function enviarMiniPauta() {
     if (!turmaId || !disciplina) {
       Alert.alert('Atenção', 'Selecione a turma e disciplina antes de enviar a mini-pauta.');
@@ -560,9 +624,13 @@ export default function ProfessorPautaScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={[styles.miniPautaBtn, { backgroundColor: '#0d2e0d', borderWidth: 1, borderColor: '#1a7a1a' }]} onPress={gerarExcelMiniPauta}>
+          <Ionicons name="document-outline" size={14} color="#4ade80" />
+          <Text style={[styles.miniPautaBtnText, { color: '#4ade80' }]}>Excel</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.miniPautaBtn} onPress={enviarMiniPauta}>
           <Ionicons name="print-outline" size={14} color={Colors.info} />
-          <Text style={styles.miniPautaBtnText}>Enviar Mini-Pauta</Text>
+          <Text style={styles.miniPautaBtnText}>PDF</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {
           if (pautaAtual?.status === 'aberta') {

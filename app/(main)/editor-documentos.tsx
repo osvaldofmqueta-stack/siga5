@@ -4,6 +4,7 @@ import {
   Platform, Dimensions, FlatList, Image,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import * as XLSX from 'xlsx';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
@@ -1816,7 +1817,7 @@ export default function EditorDocumentos() {
     .sig-row { display: flex; justify-content: space-between; margin-top: 16px; font-size: 7px; }
     .sig-block { text-align: center; min-width: 180px; }
     .sig-line { width: 160px; border-top: 1px solid #000; margin: 20px auto 3px; }
-    @media print { @page { size: A3 landscape; margin: 8mm; } body { margin: 0; font-size: 7px; } }
+    @media print { @page { size: A4 landscape; margin: 8mm; } body { margin: 0; font-size: 6.5px; } }
   </style>
 </head>
 <body>
@@ -1897,6 +1898,176 @@ export default function EditorDocumentos() {
   </div>
 </body>
 </html>`;
+  }
+
+  // ─── Pauta Final Excel Builder ────────────────────────────────────────────
+
+  function buildPautaFinalExcel(turmaId: string) {
+    const turma = turmas.find(t => t.id === turmaId);
+    if (!turma) return;
+
+    const alunosDaTurma = alunos
+      .filter(a => a.ativo && a.turmaId === turmaId)
+      .sort((a, b) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`));
+
+    const notasDaTurma = notas.filter(n => n.turmaId === turmaId);
+
+    const disciplinasSet: string[] = [];
+    for (const n of notasDaTurma) {
+      if (!disciplinasSet.includes(n.disciplina)) disciplinasSet.push(n.disciplina);
+    }
+    const disciplinas = disciplinasSet.sort((a, b) => a.localeCompare(b));
+
+    function getMT(alunoId: string, disc: string, trim: number): string {
+      const n = notasDaTurma.find(x => x.alunoId === alunoId && x.disciplina === disc && x.trimestre === trim);
+      return n ? String(Math.round(n.mt1)) : '';
+    }
+    function getMFD(alunoId: string, disc: string): string {
+      const ns = notasDaTurma.filter(x => x.alunoId === alunoId && x.disciplina === disc);
+      if (ns.length === 0) return '';
+      const withNf = ns.find(x => x.nf);
+      if (withNf) return String(Math.round(withNf.nf));
+      const mts = ns.map(x => x.mt1).filter(v => v > 0);
+      if (mts.length === 0) return '';
+      return String(Math.round(mts.reduce((a, b) => a + b, 0) / mts.length));
+    }
+
+    const escola = config.nomeEscola || '—';
+    const anoLetivo = turma.anoLetivo;
+    const now = new Date();
+
+    // Header rows
+    const headerRow1 = ['REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO'];
+    const headerRow2 = [`PAUTA FINAL — ${turma.classe} ${turma.nome} — Ano Lectivo: ${anoLetivo}`];
+    const headerRow3 = [`Escola: ${escola}   Turno: ${turma.turno}   Data: ${now.toLocaleDateString('pt-AO')}`];
+    const emptyRow: string[] = [];
+
+    // Column headers
+    const colHeader1: string[] = ['Nº', 'Nome do Aluno'];
+    const colHeader2: string[] = ['', ''];
+    for (const d of disciplinas) {
+      colHeader1.push(d, '', '', '');
+      colHeader2.push('MT1', 'MT2', 'MT3', 'MFD');
+    }
+    colHeader1.push('OBS');
+    colHeader2.push('');
+
+    // Data rows
+    const dataRows = alunosDaTurma.map((aluno, idx) => {
+      const row: (string | number)[] = [idx + 1, `${aluno.nome.toUpperCase()} ${aluno.apelido.toUpperCase()}`];
+      for (const disc of disciplinas) {
+        const mt1 = getMT(aluno.id, disc, 1);
+        const mt2 = getMT(aluno.id, disc, 2);
+        const mt3 = getMT(aluno.id, disc, 3);
+        const mfd = getMFD(aluno.id, disc);
+        row.push(mt1 ? Number(mt1) : '', mt2 ? Number(mt2) : '', mt3 ? Number(mt3) : '', mfd ? Number(mfd) : '');
+      }
+      row.push('');
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsData: (string | number)[][] = [
+      headerRow1, headerRow2, headerRow3, emptyRow,
+      colHeader1, colHeader2,
+      ...dataRows,
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Merge title cells
+    const totalCols = 2 + disciplinas.length * 4 + 1;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } },
+    ];
+
+    // Column widths
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, ...disciplinas.flatMap(() => [{ wch: 6 }, { wch: 6 }, { wch: 6 }, { wch: 6 }]), { wch: 10 }];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Pauta Final');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Pauta_Final_${turma.classe}_${turma.nome}_${anoLetivo}.xlsx`.replace(/\//g, '-');
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ─── Mini Pauta Excel Builder ─────────────────────────────────────────────
+
+  function buildMiniPautaExcel(turmaId: string) {
+    const turma = turmas.find(t => t.id === turmaId);
+    if (!turma) return;
+
+    const alunosDaTurma = alunos
+      .filter(a => a.ativo && a.turmaId === turmaId)
+      .sort((a, b) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`));
+
+    const notasDaTurma = notas.filter(n => n.turmaId === turmaId);
+    const disciplinasSet: string[] = [];
+    for (const n of notasDaTurma) {
+      if (!disciplinasSet.includes(n.disciplina)) disciplinasSet.push(n.disciplina);
+    }
+    const disciplinas = disciplinasSet.sort((a, b) => a.localeCompare(b));
+
+    const escola = config.nomeEscola || '—';
+    const anoLetivo = turma.anoLetivo;
+    const now = new Date();
+
+    const header1 = ['REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO'];
+    const header2 = [`MINI-PAUTA — ${turma.classe} ${turma.nome} — Ano Lectivo: ${anoLetivo}`];
+    const header3 = [`Escola: ${escola}   Turno: ${turma.turno}   Data: ${now.toLocaleDateString('pt-AO')}`];
+    const emptyRow: string[] = [];
+
+    const colHeader: string[] = ['Nº', 'Nome do Aluno'];
+    for (const d of disciplinas) {
+      colHeader.push(`${d} MT1`, `${d} MT2`, `${d} MT3`, `${d} MFD`);
+    }
+
+    const dataRows = alunosDaTurma.map((aluno, idx) => {
+      const row: (string | number)[] = [idx + 1, `${aluno.nome.toUpperCase()} ${aluno.apelido.toUpperCase()}`];
+      for (const disc of disciplinas) {
+        for (let tr = 1; tr <= 3; tr++) {
+          const n = notasDaTurma.find(x => x.alunoId === aluno.id && x.disciplina === disc && x.trimestre === tr);
+          row.push(n?.mt1 ? Math.round(n.mt1) : '');
+        }
+        const ns = notasDaTurma.filter(x => x.alunoId === aluno.id && x.disciplina === disc);
+        const withNf = ns.find(x => x.nf);
+        if (withNf) {
+          row.push(Math.round(withNf.nf));
+        } else {
+          const mts = ns.map(x => x.mt1).filter(v => v > 0);
+          row.push(mts.length ? Math.round(mts.reduce((a, b) => a + b, 0) / mts.length) : '');
+        }
+      }
+      return row;
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsData: (string | number)[][] = [header1, header2, header3, emptyRow, colHeader, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const totalCols = 2 + disciplinas.length * 4;
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: totalCols - 1 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: totalCols - 1 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: totalCols - 1 } },
+    ];
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, ...disciplinas.flatMap(() => [{ wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 8 }])];
+
+    XLSX.utils.book_append_sheet(wb, ws, 'Mini-Pauta');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mini_Pauta_${turma.classe}_${turma.nome}_${anoLetivo}.xlsx`.replace(/\//g, '-');
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   // ─── Lista da Turma HTML Builder ──────────────────────────────────────────
@@ -4998,6 +5169,18 @@ export default function EditorDocumentos() {
     win.print();
   }
 
+  function handleExportExcel() {
+    if (Platform.OS !== 'web') return;
+    if (emitTemplate?.tipo === 'pauta_final' && emitTurmaId) {
+      buildPautaFinalExcel(emitTurmaId);
+      return;
+    }
+    if (emitTemplate?.tipo === 'pauta' && emitTurmaId) {
+      buildMiniPautaExcel(emitTurmaId);
+      return;
+    }
+  }
+
   const screenWidth = Dimensions.get('window').width;
   const isWide = screenWidth >= 768;
 
@@ -5393,10 +5576,16 @@ export default function EditorDocumentos() {
             <Text style={styles.headerTitle}>Emitir Documento</Text>
             <Text style={styles.headerSub} numberOfLines={1}>{emitTemplate?.nome}</Text>
           </View>
+          {canPrint && (isPauta || emitTemplate?.tipo === 'pauta_final') && emitTurmaId ? (
+            <TouchableOpacity style={[styles.printBtn, { backgroundColor: '#1a7a1a', marginRight: 6 }]} onPress={handleExportExcel} activeOpacity={0.8}>
+              <Ionicons name="document-outline" size={16} color="#fff" />
+              <Text style={styles.printBtnText}>Excel</Text>
+            </TouchableOpacity>
+          ) : null}
           {canPrint ? (
             <TouchableOpacity style={styles.printBtn} onPress={handlePrint} activeOpacity={0.8}>
               <Ionicons name="print" size={16} color="#fff" />
-              <Text style={styles.printBtnText}>Imprimir</Text>
+              <Text style={styles.printBtnText}>PDF</Text>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -5719,7 +5908,7 @@ export default function EditorDocumentos() {
                 ) : (
                   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
                     <View style={{ backgroundColor: '#1e2a3a', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#dc2626' }}>
-                      <Text style={{ color: '#dc2626', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>PAUTA FINAL — A3 PAISAGEM</Text>
+                      <Text style={{ color: '#dc2626', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>PAUTA FINAL — A4 PAISAGEM</Text>
                       <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedTurmaObj.classe} — {selectedTurmaObj.nome}</Text>
                       <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{selectedTurmaObj.nivel} · Ano Lectivo {selectedTurmaObj.anoLetivo} · Turno {selectedTurmaObj.turno}</Text>
                     </View>
@@ -5749,7 +5938,7 @@ export default function EditorDocumentos() {
                     <View style={{ backgroundColor: '#1a2e1a', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.success, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                       <Ionicons name="information-circle-outline" size={18} color={Colors.success} />
                       <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                        A pauta será gerada em formato A3 paisagem com colunas MT1, MT2, MT3 e MFD por disciplina. Clique em Imprimir para abrir o documento.
+                        A pauta será gerada em formato A4 paisagem com colunas MT1, MT2, MT3 e MFD por disciplina. Clique em PDF para imprimir ou Excel para exportar a folha de cálculo.
                       </Text>
                     </View>
                   </ScrollView>
