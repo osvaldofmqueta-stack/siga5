@@ -87,8 +87,12 @@ function AppProviders() {
 }
 
 export default function RootLayout() {
+  // On web, fonts are loaded via server-injected @font-face CSS (server/index.ts).
+  // Passing an empty map avoids fontfaceobserver which times out on web.
   const [fontsLoaded, fontError] = useFonts(
-    { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold }
+    Platform.OS === 'web'
+      ? {}
+      : { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold }
   );
 
   useEffect(() => {
