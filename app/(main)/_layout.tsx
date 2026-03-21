@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import SessionTimeoutModal, { useSessionTimeout } from '@/components/SessionTimeoutModal';
+import ToastManager from '@/components/ToastManager';
 
 export default function MainLayout() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -92,6 +93,7 @@ export default function MainLayout() {
           onContinue={handleContinue}
           onLogout={handleLogout}
         />
+        <ToastManager />
       </View>
     );
   }
@@ -107,6 +109,7 @@ export default function MainLayout() {
         onContinue={handleContinue}
         onLogout={handleLogout}
       />
+      <ToastManager />
     </View>
   );
 }

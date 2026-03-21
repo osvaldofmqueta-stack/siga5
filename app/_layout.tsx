@@ -28,6 +28,7 @@ import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
 import { PermissoesProvider } from '@/context/PermissoesContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
+import ToastManager from '@/components/ToastManager';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
