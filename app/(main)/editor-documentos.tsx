@@ -1372,12 +1372,18 @@ export default function EditorDocumentos() {
   }
   const quillIframeRef = useRef<any>(null);
   const quillSrcdocRef = useRef<string>('');
+  // Tracks latest iframe HTML without triggering re-renders (web only).
+  // Re-rendering the parent unmounts EditorScreen and reloads the iframe, losing edits.
+  const webEditorContentRef = useRef<string>('');
 
-  // Listen for content changes from the Quill iframe (web only)
+  // Listen for content changes from the iframe (web only).
+  // Update ref only — never state — to avoid re-renders that reload the iframe.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const handler = (e: any) => {
-      if (e.data?.type === 'ck_change') setEditorContent(e.data.html);
+      if (e.data?.type === 'ck_change') {
+        webEditorContentRef.current = e.data.html;
+      }
     };
     (window as any).addEventListener('message', handler);
     return () => (window as any).removeEventListener('message', handler);
@@ -1418,6 +1424,7 @@ export default function EditorDocumentos() {
     setEditorNome('Novo Documento');
     setEditorTipo('declaracao');
     setEditorContent('');
+    webEditorContentRef.current = '';
     setEditorInsignia(undefined);
     setEditorMarcaAgua(undefined);
     setShowVarsPanel(true);
@@ -1431,6 +1438,7 @@ export default function EditorDocumentos() {
     setEditorNome(t.nome);
     setEditorTipo(t.tipo);
     setEditorContent(t.conteudo);
+    webEditorContentRef.current = t.conteudo;
     setEditorInsignia(t.insigniaBase64);
     setEditorMarcaAgua(t.marcaAguaBase64);
     setShowVarsPanel(true);
@@ -1441,17 +1449,20 @@ export default function EditorDocumentos() {
 
   async function saveTemplate() {
     if (!editorNome.trim()) return;
+    // On web, editorContent state is never updated while typing (to avoid iframe reload).
+    // Read the latest content from the ref instead.
+    const contentToSave = Platform.OS === 'web' ? webEditorContentRef.current : editorContent;
     setIsSaving(true);
     try {
       if (editingTemplate) {
         const saved = await api.put<DocTemplate>(`/api/doc-templates/${editingTemplate.id}`, {
-          nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent,
+          nome: editorNome.trim(), tipo: editorTipo, conteudo: contentToSave,
           insigniaBase64: editorInsignia ?? null, marcaAguaBase64: editorMarcaAgua ?? null,
         });
         saveTemplates(templates.map(t => t.id === editingTemplate.id ? saved : t));
       } else {
         const saved = await api.post<DocTemplate>('/api/doc-templates', {
-          nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent,
+          nome: editorNome.trim(), tipo: editorTipo, conteudo: contentToSave,
           insigniaBase64: editorInsignia ?? null, marcaAguaBase64: editorMarcaAgua ?? null,
         });
         saveTemplates([saved, ...templates]);
@@ -5613,8 +5624,9 @@ export default function EditorDocumentos() {
             <TouchableOpacity
               style={{ marginRight: 8, backgroundColor: '#8b5cf622', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}
               onPress={() => {
-                const fakeTpl: DocTemplate = { id: editingTemplate?.id || 'preview', nome: editorNome, tipo: editorTipo, conteudo: editorContent, criadoEm: '', atualizadoEm: '', insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua };
-                previewTemplate(fakeTpl, editorContent);
+                const c = Platform.OS === 'web' ? webEditorContentRef.current : editorContent;
+                const fakeTpl: DocTemplate = { id: editingTemplate?.id || 'preview', nome: editorNome, tipo: editorTipo, conteudo: c, criadoEm: '', atualizadoEm: '', insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua };
+                previewTemplate(fakeTpl, c);
               }}
             >
               <Ionicons name="eye-outline" size={16} color={'#8b5cf6'} />
