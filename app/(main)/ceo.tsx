@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
@@ -12,6 +13,7 @@ import {
   useLicense, TipoPlano, CodigoAtivacao,
   PLANO_LABEL, PLANO_DIAS,
 } from '@/context/LicenseContext';
+import { useData } from '@/context/DataContext';
 
 const PLANO_PRECO: Record<TipoPlano, string> = {
   demo: 'Grátis',
@@ -128,9 +130,12 @@ function CodigoCard({ cod, onCopy, onRevogar }: {
 
 export default function CeoScreen() {
   const { licenca, codigosGerados, isLicencaValida, diasRestantes, gerarCodigo, revogarCodigo, adicionarSaldo } = useLicense();
+  const { alunos, turmas, professores, notas } = useData();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  const [mainTab, setMainTab] = useState<'ceo' | 'escola'>('ceo');
   const [section, setSection] = useState<Section>('dashboard');
   const [showGerar, setShowGerar] = useState(false);
   const [formPlano, setFormPlano] = useState<TipoPlano>('anual');
@@ -202,12 +207,29 @@ export default function CeoScreen() {
     { key: 'historico', label: 'Histórico', icon: 'time' },
   ] as const;
 
+  const alunosActivos = alunos.filter(a => a.activo !== false).length;
+  const turmasActivas = turmas.length;
+  const professoresActivos = professores.filter(p => p.activo !== false).length;
+  const totalNotas = notas.length;
+
+  function EscolaStatCard({ label, value, icon, color }: { label: string; value: string; icon: string; color: string }) {
+    return (
+      <View style={[styles.escolaStatCard, { borderColor: color + '40' }]}>
+        <View style={[styles.escolaStatIcon, { backgroundColor: color + '22' }]}>
+          <Ionicons name={icon as any} size={18} color={color} />
+        </View>
+        <Text style={[styles.escolaStatValue, { color }]}>{value}</Text>
+        <Text style={styles.escolaStatLabel}>{label}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TopBar
         title="Painel CEO"
         subtitle="Gestão do Sistema SGAA"
-        rightAction={{ icon: 'add-circle', onPress: () => setShowGerar(true) }}
+        rightAction={mainTab === 'ceo' ? { icon: 'add-circle', onPress: () => setShowGerar(true) } : undefined}
       />
 
       {/* CEO Badge */}
@@ -215,6 +237,82 @@ export default function CeoScreen() {
         <MaterialCommunityIcons name="crown" size={16} color="#FFD700" />
         <Text style={styles.ceoBadgeText}>Acesso Total ao Sistema · Super Administrador</Text>
       </View>
+
+      {/* ── Abas de Topo: Dashboard CEO / Dashboard Escola ── */}
+      <View style={styles.mainTabBar}>
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'ceo' && styles.mainTabActive]}
+          onPress={() => setMainTab('ceo')}
+        >
+          <MaterialCommunityIcons name="crown" size={15} color={mainTab === 'ceo' ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.mainTabText, mainTab === 'ceo' && styles.mainTabTextActive]}>Dashboard CEO</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'escola' && styles.mainTabActive]}
+          onPress={() => setMainTab('escola')}
+        >
+          <Ionicons name="school" size={15} color={mainTab === 'escola' ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.mainTabText, mainTab === 'escola' && styles.mainTabTextActive]}>Dashboard Escola</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── CONTEÚDO: Dashboard Escola ── */}
+      {mainTab === 'escola' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: bottomPad + 24 }} showsVerticalScrollIndicator={false}>
+          <View style={styles.escolaHeader}>
+            <Ionicons name="school-outline" size={22} color={Colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.escolaHeaderTitle}>Visão Geral da Escola</Text>
+              <Text style={styles.escolaHeaderSub}>Dados do ano lectivo actual</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.escolaDashBtn}
+              onPress={() => router.push('/(main)/dashboard' as any)}
+            >
+              <Text style={styles.escolaDashBtnText}>Ver Completo</Text>
+              <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.escolaStatsGrid}>
+            <EscolaStatCard label="Alunos" value={String(alunosActivos)} icon="people" color={Colors.info} />
+            <EscolaStatCard label="Turmas" value={String(turmasActivas)} icon="grid" color={Colors.warning} />
+            <EscolaStatCard label="Professores" value={String(professoresActivos)} icon="person" color={Colors.success} />
+            <EscolaStatCard label="Lançamentos" value={String(totalNotas)} icon="document-text" color="#8b5cf6" />
+          </View>
+
+          {/* Atalhos rápidos */}
+          <Text style={styles.escolaSectionTitle}>Acesso Rápido</Text>
+          {[
+            { label: 'Alunos', sub: 'Gestão e inscrição', route: '/(main)/alunos', icon: 'people', color: Colors.info },
+            { label: 'Turmas', sub: 'Organização lectiva', route: '/(main)/turmas', icon: 'grid', color: Colors.warning },
+            { label: 'Professores', sub: 'Corpo docente', route: '/(main)/professores', icon: 'person', color: Colors.success },
+            { label: 'Notas', sub: 'Resultados académicos', route: '/(main)/notas', icon: 'document-text', color: '#8b5cf6' },
+            { label: 'Relatórios', sub: 'Estatísticas e análises', route: '/(main)/relatorios', icon: 'bar-chart', color: Colors.gold },
+            { label: 'Visão Multi-Ano', sub: 'Histórico comparativo', route: '/(main)/visao-geral', icon: 'trending-up', color: Colors.accent },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.route}
+              style={styles.escolaShortcut}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.escolaShortcutIcon, { backgroundColor: item.color + '22' }]}>
+                <Ionicons name={item.icon as any} size={18} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.escolaShortcutLabel}>{item.label}</Text>
+                <Text style={styles.escolaShortcutSub}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ── CONTEÚDO: Dashboard CEO ── */}
+      {mainTab === 'ceo' && (
+      <>
 
       {/* Nav Tabs */}
       <View style={styles.tabBar}>

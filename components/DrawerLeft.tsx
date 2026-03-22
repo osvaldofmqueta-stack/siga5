@@ -221,8 +221,7 @@ export default function DrawerLeft() {
     {
       title: 'Painel CEO',
       items: [
-        { label: 'Dashboard CEO', route: '/(main)/ceo', icon: <MaterialCommunityIcons name="crown" size={20} color="inherit" />, permKey: 'ceo_dashboard' },
-        { label: 'Dashboard Escola', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
+        { label: 'Painel CEO', route: '/(main)/ceo', icon: <MaterialCommunityIcons name="crown" size={20} color="inherit" />, permKey: 'ceo_dashboard' },
       ],
     },
     {
