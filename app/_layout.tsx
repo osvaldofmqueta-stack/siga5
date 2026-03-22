@@ -34,6 +34,18 @@ if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
 }
 
+// On web, expo-font internally uses fontfaceobserver which fires an unhandledrejection
+// when fonts take longer than 6s to load (even with an empty font map).
+// Fonts are already loaded via server-injected @font-face CSS, so this is safe to suppress.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const msg: string = event?.reason?.message ?? '';
+    if (msg.includes('timeout exceeded')) {
+      event.preventDefault();
+    }
+  });
+}
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
