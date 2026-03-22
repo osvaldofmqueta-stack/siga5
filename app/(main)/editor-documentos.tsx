@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
   Platform, Dimensions, FlatList, Image, Alert, Animated,
 } from 'react-native';
+import { Editor } from '@tinymce/tinymce-react';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -1619,6 +1620,9 @@ export default function EditorDocumentos() {
   // Tracks latest iframe HTML without triggering re-renders (web only).
   // Re-rendering the parent unmounts EditorScreen and reloads the iframe, losing edits.
   const webEditorContentRef = useRef<string>('');
+  const tinyEditorRef = useRef<any>(null);
+  const [tinyInitContent, setTinyInitContent] = useState<string>('');
+  const [editorKey, setEditorKey] = useState<number>(0);
 
   // Listen for content changes from the iframe (web only).
   // Update ref only — never state — to avoid re-renders that reload the iframe.
@@ -1673,7 +1677,11 @@ export default function EditorDocumentos() {
     setEditorMarcaAgua(undefined);
     setShowVarsPanel(true);
     setShowAppearPanel(true);
-    if (Platform.OS === 'web') quillSrcdocRef.current = buildQuillSrcdoc('');
+    if (Platform.OS === 'web') {
+      quillSrcdocRef.current = buildQuillSrcdoc('');
+      setTinyInitContent('');
+      setEditorKey(k => k + 1);
+    }
     setMode('editor');
   }
 
@@ -1687,7 +1695,13 @@ export default function EditorDocumentos() {
     setEditorMarcaAgua(t.marcaAguaBase64);
     setShowVarsPanel(true);
     setShowAppearPanel(true);
-    if (Platform.OS === 'web') quillSrcdocRef.current = buildQuillSrcdoc(plainTextToHtml(t.conteudo));
+    if (Platform.OS === 'web') {
+      const html = plainTextToHtml(t.conteudo);
+      quillSrcdocRef.current = buildQuillSrcdoc(html);
+      setTinyInitContent(html);
+      webEditorContentRef.current = html;
+      setEditorKey(k => k + 1);
+    }
     setMode('editor');
   }
 
@@ -2703,6 +2717,10 @@ export default function EditorDocumentos() {
 
   // Insert variable into editor at cursor (web-aware)
   function insertVariable(tag: string) {
+    if (Platform.OS === 'web' && tinyEditorRef.current) {
+      tinyEditorRef.current.insertContent(tag);
+      return;
+    }
     if (Platform.OS === 'web' && quillIframeRef.current) {
       quillIframeRef.current.contentWindow?.postMessage({ type: 'ck_insert', text: tag }, '*');
       return;
@@ -5987,11 +6005,62 @@ export default function EditorDocumentos() {
               </TouchableOpacity>
             </View>
             {Platform.OS === 'web' ? (
-              React.createElement('iframe', {
-                ref: quillIframeRef,
-                srcDoc: quillSrcdocRef.current,
-                style: { flex: 1, border: 'none', width: '100%', minHeight: 480 },
-              } as any)
+              <Editor
+                key={editorKey}
+                tinymceScriptSrc="https://cdn.jsdelivr.net/npm/tinymce@7.9.1/tinymce.min.js"
+                onInit={(_evt: any, editor: any) => { tinyEditorRef.current = editor; }}
+                initialValue={tinyInitContent}
+                onEditorChange={(content: string) => { webEditorContentRef.current = content; }}
+                init={{
+                  height: 520,
+                  menubar: true,
+                  branding: false,
+                  promotion: false,
+                  plugins: [
+                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+                    'preview', 'anchor', 'searchreplace', 'visualblocks', 'code',
+                    'fullscreen', 'insertdatetime', 'media', 'table', 'wordcount',
+                  ],
+                  toolbar:
+                    'undo redo | blocks | bold italic underline strikethrough | ' +
+                    'alignleft aligncenter alignright alignjustify | ' +
+                    'bullist numlist outdent indent | link image table | ' +
+                    'forecolor backcolor | removeformat | fullscreen code',
+                  content_style:
+                    "body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.9; color: #111; padding: 20px 28px; }",
+                  skin: 'oxide',
+                  content_css: 'default',
+                  language: 'pt_PT',
+                  resize: false,
+                  statusbar: true,
+                  image_uploadtab: true,
+                  automatic_uploads: false,
+                  file_picker_types: 'image',
+                  file_picker_callback: (cb: any) => {
+                    const input = document.createElement('input');
+                    input.setAttribute('type', 'file');
+                    input.setAttribute('accept', 'image/*');
+                    input.addEventListener('change', (e: any) => {
+                      const file = e.target.files[0];
+                      const reader = new FileReader();
+                      reader.addEventListener('load', () => {
+                        const id = 'blobid' + Date.now();
+                        const blobCache = (tinyEditorRef.current as any)?.editorUpload?.blobCache;
+                        if (blobCache) {
+                          const base64 = (reader.result as string).split(',')[1];
+                          const blobInfo = blobCache.create(id, file, base64);
+                          blobCache.add(blobInfo);
+                          cb(blobInfo.blobUri(), { title: file.name });
+                        } else {
+                          cb(reader.result as string, { title: file.name });
+                        }
+                      });
+                      reader.readAsDataURL(file);
+                    });
+                    input.click();
+                  },
+                } as any}
+              />
             ) : (
               <TextInput
                 ref={inputRef}
