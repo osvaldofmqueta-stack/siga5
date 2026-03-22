@@ -45,6 +45,15 @@ const SECRETARIA_ACCOUNT = {
   escola: 'SIGE — Sistema Integral de Gestão Escolar',
 };
 
+const RH_ACCOUNT = {
+  email: 'rh@sige.ao',
+  senha: 'RH@2025',
+  role: 'rh' as const,
+  nome: 'Gestor de Recursos Humanos',
+  id: 'usr_rh_001',
+  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+};
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -106,6 +115,7 @@ export default function LoginScreen() {
     if (role === 'professor') return '/(main)/professor-hub';
     if (role === 'aluno') return '/(main)/portal-estudante';
     if (role === 'encarregado') return '/(main)/portal-encarregado';
+    if (role === 'rh') return '/(main)/rh-hub';
     return '/(main)/dashboard';
   }
 
