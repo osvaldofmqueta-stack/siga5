@@ -804,4 +804,60 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 12 },
   emptyMsg: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', marginTop: 6 },
+
+  mainTabBar: {
+    flexDirection: 'row', backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  mainTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 11, borderBottomWidth: 3, borderBottomColor: 'transparent',
+  },
+  mainTabActive: { borderBottomColor: Colors.gold },
+  mainTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  mainTabTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
+
+  escolaHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 14,
+  },
+  escolaHeaderTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+  escolaHeaderSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  escolaDashBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: Colors.gold + '18', borderRadius: 10,
+  },
+  escolaDashBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+
+  escolaStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  escolaStatCard: {
+    width: '47%', flexGrow: 1,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    padding: 16, alignItems: 'center', borderWidth: 1,
+  },
+  escolaStatIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  escolaStatValue: { fontSize: 28, fontFamily: 'Inter_700Bold', marginBottom: 4 },
+  escolaStatLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
+
+  escolaSectionTitle: {
+    fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted,
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
+  },
+  escolaShortcut: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  escolaShortcutIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  escolaShortcutLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  escolaShortcutSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
 });
