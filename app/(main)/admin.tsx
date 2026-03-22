@@ -15,6 +15,7 @@ import { useUsers } from '@/context/UsersContext';
 import { useData } from '@/context/DataContext';
 import { useRegistro, SolicitacaoRegistro } from '@/context/RegistroContext';
 import { useConfig } from '@/context/ConfigContext';
+import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -235,6 +236,7 @@ export default function AdminScreen() {
     { key: 'escola', label: 'Escola', icon: 'school' },
     { key: 'anos', label: 'Ano Académico', icon: 'calendar' },
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
+    { key: 'acessos', label: 'Acessos', icon: 'key' },
     { key: 'config', label: 'Configurações', icon: 'settings' },
     { key: 'comunicacoes', label: 'Comunicações', icon: 'megaphone' },
     { key: 'seguranca', label: 'Segurança', icon: 'shield-checkmark' },
@@ -290,6 +292,7 @@ export default function AdminScreen() {
               escola: Colors.info,
               anos: '#9B59B6',
               usuarios: Colors.gold,
+              acessos: '#8B5CF6',
               config: Colors.success,
               comunicacoes: Colors.accent,
               seguranca: Colors.danger,
@@ -996,6 +999,13 @@ export default function AdminScreen() {
                 <Text style={styles.saveBtnText}>Guardar Flash Screen</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        )}
+
+        {/* ACESSOS E PERMISSÕES */}
+        {activeSection === 'acessos' && (
+          <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
+            <GestaoAcessosPanel />
           </View>
         )}
 
