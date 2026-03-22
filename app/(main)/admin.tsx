@@ -672,7 +672,7 @@ export default function AdminScreen() {
                     <Ionicons name="clipboard-outline" size={18} color={config.pptHabilitado ? Colors.accent : Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>PPT — Prova do Trimestre Final</Text>
+                    <Text style={styles.configToggleLabel}>PT — Prova Trimestral</Text>
                     <Text style={styles.configToggleDesc}>
                       {config.pptHabilitado ? 'Activa — incluída no cálculo da MT1' : 'Desactivada — não entra no cálculo'}
                     </Text>
@@ -683,10 +683,10 @@ export default function AdminScreen() {
                   onValueChange={v => {
                     updateConfig({ pptHabilitado: v });
                     Alert.alert(
-                      v ? 'PPT Activada' : 'PPT Desactivada',
+                      v ? 'PT Activada' : 'PT Desactivada',
                       v
-                        ? 'A PPT será incluída no cálculo da Média Total (MT1).'
-                        : 'A PPT não será utilizada no cálculo das notas.',
+                        ? 'A PT será incluída no cálculo da Média Total (MT1).'
+                        : 'A PT não será utilizada no cálculo das notas.',
                     );
                   }}
                   thumbColor={config.pptHabilitado ? Colors.accent : Colors.textMuted}
