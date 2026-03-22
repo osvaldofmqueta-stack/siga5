@@ -68,9 +68,9 @@ function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
             <View style={styles.notasTable}>
               <View style={styles.notasTableHeader}>
                 <Text style={[styles.notasCol, { flex: 1 }]}>Disciplina</Text>
-                <Text style={[styles.notasCol, { width: 40, textAlign: 'center' }]}>MAC1</Text>
-                <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PP1</Text>
-                <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PPT</Text>
+                <Text style={[styles.notasCol, { width: 40, textAlign: 'center' }]}>MAC</Text>
+                <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PP</Text>
+                <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PT</Text>
                 <Text style={[styles.notasCol, { width: 40, textAlign: 'center' }]}>NF</Text>
               </View>
               {notasTrim.map((n: any) => {

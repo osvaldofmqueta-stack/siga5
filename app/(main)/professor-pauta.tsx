@@ -669,8 +669,8 @@ export default function ProfessorPautaScreen() {
             {ALL_AVAL_KEYS.slice(0, nAval).map((_, i) => (
               <Text key={i} style={styles.legendaCol}>A{i + 1}</Text>
             ))}
-            <Text style={styles.legendaCol}>PP1</Text>
-            <Text style={styles.legendaCol}>PPT</Text>
+            <Text style={styles.legendaCol}>PP</Text>
+            <Text style={styles.legendaCol}>PT</Text>
             <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
           </View>
         );

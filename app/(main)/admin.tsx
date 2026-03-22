@@ -746,9 +746,9 @@ export default function AdminScreen() {
                 />
               </View>
 
-              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+              <View style={styles.configFieldRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas</Text>
+                  <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas (MAC)</Text>
                   <Text style={styles.configFieldDesc}>
                     Quantas avaliações (AVAL) por trimestre (1–8). Actualmente: {config.numAvaliacoes ?? 4}
                   </Text>
@@ -778,6 +778,44 @@ export default function AdminScreen() {
                     <Ionicons name="add" size={18} color={(config.numAvaliacoes ?? 4) >= 8 ? Colors.textMuted : Colors.text} />
                   </TouchableOpacity>
                 </View>
+              </View>
+
+              <View style={styles.configFieldRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nota Mínima MAC — Média de Avaliação Contínua</Text>
+                  <Text style={styles.configFieldDesc}>Valor mínimo aceite para MAC (1–20)</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.macMin ?? 1)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 0 && n <= 20) updateConfig({ macMin: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
+              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nota Máxima MAC — Média de Avaliação Contínua</Text>
+                  <Text style={styles.configFieldDesc}>Valor máximo aceite para MAC (1–20)</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.macMax ?? 5)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 1 && n <= 20) updateConfig({ macMax: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
               </View>
             </View>
 

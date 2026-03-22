@@ -52,6 +52,10 @@ export interface NotaLancamentos {
   aval2: boolean;
   aval3: boolean;
   aval4: boolean;
+  aval5?: boolean;
+  aval6?: boolean;
+  aval7?: boolean;
+  aval8?: boolean;
   pp1: boolean;
   ppt: boolean;
 }
@@ -66,6 +70,10 @@ export interface Nota {
   aval2: number;
   aval3: number;
   aval4: number;
+  aval5?: number;
+  aval6?: number;
+  aval7?: number;
+  aval8?: number;
   mac1: number;
   pp1: number;
   ppt: number;

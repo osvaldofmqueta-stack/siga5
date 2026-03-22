@@ -20,6 +20,8 @@ export interface ConfigGeral {
   notaMinimaAprovacao: number;
   maxAlunosTurma: number;
   numAvaliacoes: number;
+  macMin: number;
+  macMax: number;
   horarioFuncionamento: string;
   flashScreen: FlashScreenConfig;
   directorGeral?: string;
@@ -45,6 +47,8 @@ const DEFAULT_CONFIG: ConfigGeral = {
   notaMinimaAprovacao: 10,
   maxAlunosTurma: 35,
   numAvaliacoes: 4,
+  macMin: 1,
+  macMax: 5,
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
   flashScreen: DEFAULT_FLASH,
 };
@@ -73,6 +77,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           notaMinimaAprovacao: (raw.notaMinimaAprovacao as number) ?? DEFAULT_CONFIG.notaMinimaAprovacao,
           maxAlunosTurma: (raw.maxAlunosTurma as number) ?? DEFAULT_CONFIG.maxAlunosTurma,
           numAvaliacoes: (raw.numAvaliacoes as number) ?? DEFAULT_CONFIG.numAvaliacoes,
+          macMin: (raw.macMin as number) ?? DEFAULT_CONFIG.macMin,
+          macMax: (raw.macMax as number) ?? DEFAULT_CONFIG.macMax,
           horarioFuncionamento: (raw.horarioFuncionamento as string) || DEFAULT_CONFIG.horarioFuncionamento,
           flashScreen: { ...DEFAULT_FLASH, ...((raw.flashScreen as Partial<FlashScreenConfig>) || {}) },
           directorGeral: (raw.directorGeral as string) || undefined,
