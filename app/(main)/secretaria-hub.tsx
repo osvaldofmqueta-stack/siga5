@@ -884,9 +884,24 @@ export default function SecretariaHubScreen() {
     { key: 'correspondencia', label: 'Ofícios', icon: 'mail' },
   ] as const;
 
+  const isSupervisor = user?.role === 'ceo' || user?.role === 'pca' || user?.role === 'admin' || user?.role === 'director';
+
   return (
     <View style={styles.container}>
       <TopBar title="Secretaria Académica" subtitle="Painel de Gestão Documental" />
+
+      {/* Banner de Supervisão — visível para CEO, PCA, Admin e Director */}
+      {isSupervisor && (
+        <View style={styles.supervisorBanner}>
+          <MaterialCommunityIcons name="eye-check" size={16} color="#FFD700" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.supervisorBannerTitle}>Modo de Supervisão — {
+              user?.role === 'ceo' ? 'CEO' : user?.role === 'pca' ? 'PCA' : user?.role === 'admin' ? 'Administrador' : 'Director'
+            }</Text>
+            <Text style={styles.supervisorBannerSub}>Está a visualizar e controlar todas as operações da Secretaria em tempo real.</Text>
+          </View>
+        </View>
+      )}
 
       {/* Tabs */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsRow} contentContainerStyle={styles.tabsContent}>
@@ -1186,6 +1201,10 @@ const styles = StyleSheet.create({
   statCard: { flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 12, alignItems: 'center', borderTopWidth: 3 },
   statValue: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   statLabel: { fontSize: 9, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2, textAlign: 'center', lineHeight: 12 },
+
+  supervisorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#FFD70018', marginHorizontal: 12, marginTop: 8, marginBottom: 2, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#FFD70040' },
+  supervisorBannerTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#FFD700', marginBottom: 1 },
+  supervisorBannerSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 15 },
 
   alertBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.warning + '18', marginHorizontal: 12, marginTop: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.warning + '40' },
   alertText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.warning },

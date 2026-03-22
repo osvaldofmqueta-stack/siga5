@@ -114,8 +114,8 @@ const ALL_KEYS: PermKey[] = FEATURE_CATEGORIES.flatMap(c => c.features.map(f => 
 export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   ceo: [...ALL_KEYS],
   pca: [...ALL_KEYS],
-  admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
-  director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula'],
+  admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica', 'secretaria_hub', 'editor_documentos', 'gestao_acessos'],
+  director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos', 'gestao_academica', 'gestao_acessos'],
   secretaria: ['secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios', 'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
   professor: ['professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario', 'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais'],
   aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos'],
