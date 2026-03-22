@@ -628,6 +628,8 @@ export default function CeoScreen() {
           </View>
         </View>
       </Modal>
+      </>
+      )}
     </View>
   );
 }
