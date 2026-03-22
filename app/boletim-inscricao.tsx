@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator, Alert,
+  Platform, ActivityIndicator, Alert, TextInput, FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -508,6 +508,10 @@ export default function BoletimInscricaoScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  const [todos, setTodos] = useState<Registro[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isPickMode, setIsPickMode] = useState(false);
+
   const qrSvgRef = useRef<any>(null);
   const [qrDataUrl, setQrDataUrl] = useState('');
 
@@ -515,7 +519,22 @@ export default function BoletimInscricaoScreen() {
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
 
   const load = useCallback(async () => {
-    if (!registroId) { setIsLoading(false); return; }
+    if (!registroId) {
+      try {
+        const [res, escola] = await Promise.all([
+          fetch('/api/registros'),
+          fetchNomeEscola(),
+        ]);
+        if (res.ok) {
+          const data = await res.json();
+          setTodos(Array.isArray(data) ? data : data.registros ?? []);
+        }
+        setNomeEscola(escola);
+      } catch {}
+      setIsPickMode(true);
+      setIsLoading(false);
+      return;
+    }
     try {
       const [regRes, escola] = await Promise.all([
         fetch(`/api/registros/${registroId}`),
@@ -533,6 +552,17 @@ export default function BoletimInscricaoScreen() {
   }, [registroId]);
 
   useEffect(() => { load(); }, [load]);
+
+  function selecionarRegistro(reg: Registro) {
+    setRegistro(reg);
+    setIsPickMode(false);
+  }
+
+  const registrosFiltrados = todos.filter(r =>
+    r.nomeCompleto.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    codigoInscricao(r).toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (r.telefone || '').includes(searchQuery)
+  );
 
   function handlePrint() {
     if (!registro || Platform.OS !== 'web') return;
@@ -575,7 +605,90 @@ export default function BoletimInscricaoScreen() {
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color={Colors.gold} size="large" />
-        <Text style={styles.loadingText}>A carregar boletim...</Text>
+        <Text style={styles.loadingText}>
+          {registroId ? 'A carregar boletim...' : 'A carregar candidatos...'}
+        </Text>
+      </View>
+    );
+  }
+
+  if (isPickMode) {
+    const statusMap2: Record<string, { label: string; color: string }> = {
+      pendente: { label: 'Pendente', color: Colors.warning },
+      aprovado: { label: 'Aprovado', color: Colors.info },
+      admitido: { label: 'Admitido', color: Colors.success },
+      reprovado_admissao: { label: 'Reprovado', color: Colors.danger },
+      matriculado: { label: 'Matriculado', color: Colors.gold },
+    };
+    return (
+      <View style={[styles.container]}>
+        <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 12 }]}>
+          <View style={styles.headerInner}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={20} color={Colors.text} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.headerTitle}>Boletim de Inscrição</Text>
+              <Text style={styles.headerSub}>Seleccione um candidato</Text>
+            </View>
+          </View>
+        </LinearGradient>
+
+        <View style={pk.searchWrap}>
+          <Ionicons name="search-outline" size={16} color={Colors.textMuted} style={{ marginRight: 8 }} />
+          <TextInput
+            style={pk.searchInput}
+            placeholder="Pesquisar por nome, código ou telefone..."
+            placeholderTextColor={Colors.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoFocus
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {registrosFiltrados.length === 0 ? (
+          <View style={pk.empty}>
+            <Ionicons name="people-outline" size={40} color={Colors.textMuted} />
+            <Text style={pk.emptyText}>
+              {todos.length === 0
+                ? 'Nenhum candidato encontrado no sistema.'
+                : 'Nenhum candidato corresponde à pesquisa.'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={registrosFiltrados}
+            keyExtractor={item => item.id}
+            contentContainerStyle={{ padding: 16, paddingBottom: bottomPad + 24 }}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            renderItem={({ item }) => {
+              const st = statusMap2[item.status] ?? { label: item.status, color: Colors.textMuted };
+              return (
+                <TouchableOpacity style={pk.card} onPress={() => selecionarRegistro(item)} activeOpacity={0.85}>
+                  <View style={pk.cardLeft}>
+                    <View style={[pk.badge, { backgroundColor: '#CC1A1A' + '22' }]}>
+                      <Ionicons name="person" size={18} color={'#CC1A1A'} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={pk.cardName} numberOfLines={1}>{item.nomeCompleto}</Text>
+                      <Text style={pk.cardSub}>{codigoInscricao(item)} · {item.nivel} – {item.classe}</Text>
+                      <Text style={pk.cardSub}>{item.telefone}</Text>
+                    </View>
+                  </View>
+                  <View style={[pk.statusTag, { backgroundColor: st.color + '22' }]}>
+                    <Text style={[pk.statusText, { color: st.color }]}>{st.label}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
       </View>
     );
   }
@@ -607,6 +720,16 @@ export default function BoletimInscricaoScreen() {
             <Text style={styles.headerTitle}>Boletim de Inscrição</Text>
             <Text style={styles.headerSub} numberOfLines={1}>{registro.nomeCompleto}</Text>
           </View>
+          {!registroId && (
+            <TouchableOpacity
+              style={[styles.printBtn, { backgroundColor: 'rgba(255,255,255,0.08)', marginRight: 6 }]}
+              onPress={() => setIsPickMode(true)}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="people-outline" size={16} color={Colors.text} />
+              <Text style={[styles.printBtnText, { color: Colors.text }]}>Outro</Text>
+            </TouchableOpacity>
+          )}
           {Platform.OS === 'web' && (
             <TouchableOpacity
               style={[styles.printBtn, isPrinting && { opacity: 0.6 }]}
@@ -836,4 +959,30 @@ const styles = StyleSheet.create({
   printBtnLarge: { borderRadius: 16, overflow: 'hidden' },
   printBtnLargeGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 10, borderRadius: 16 },
   printBtnLargeText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+});
+
+const pk = StyleSheet.create({
+  searchWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 16, marginVertical: 12, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  searchInput: {
+    flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular',
+    color: Colors.text, outlineStyle: 'none' as any,
+  },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 32 },
+  emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+  card: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, gap: 12,
+  },
+  cardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  badge: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  cardName: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  cardSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  statusTag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, flexShrink: 0 },
+  statusText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });

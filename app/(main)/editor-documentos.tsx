@@ -15,7 +15,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -158,6 +158,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   mapa_frequencias: 'Mapa de Frequências',
   lista_turma: 'Lista da Turma',
   certificado_primario: 'Certificado Primário',
+  ficha_inscricao: 'Boletim de Inscrição',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -172,6 +173,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   mapa_frequencias: '#1e40af',
   lista_turma: '#0369a1',
   certificado_primario: '#7c3aed',
+  ficha_inscricao: '#CC1A1A',
   outro: Colors.textMuted,
 };
 
@@ -1184,6 +1186,38 @@ FREQUÊNCIA ESCOLAR DO ALUNO
 {{NOME_ESCOLA}}, {{DATA_ACTUAL}}`,
 };
 
+// ─── Boletim de Inscrição Seed ──────────────────────────────────────────────
+
+const SEED_BOLETIM_INSCRICAO_ID = 'tpl_seed_boletim_inscricao_v1';
+
+const SEED_BOLETIM_INSCRICAO: DocTemplate = {
+  id: SEED_BOLETIM_INSCRICAO_ID,
+  nome: 'Boletim de Inscrição',
+  tipo: 'ficha_inscricao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `BOLETIM DE INSCRIÇÃO — Processo de Admissão
+
+Este modelo gera o Boletim de Inscrição oficial para candidatos ao processo de admissão.
+
+Ao clicar em "Emitir", poderá pesquisar e seleccionar um candidato pelo nome ou código para gerar o seu boletim individual com QR Code e exportar em PDF.
+
+Dados preenchidos automaticamente:
+• Nome completo do candidato
+• Data de nascimento e género
+• Província e município
+• Contacto e email
+• Nível e classe pretendida
+• Nome do encarregado de educação
+• Estado do processo (pendente, aprovado, admitido, matriculado)
+• Referência RUPE de inscrição (se gerada)
+• Data do exame de admissão (se definida)
+• Nota do exame de admissão (se lançada)
+• Código único de inscrição e QR Code de verificação
+
+O documento é emitido em formato A4 pronto para impressão e inclui declaração sob compromisso de honra com campos de assinatura.`,
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
@@ -1294,7 +1328,7 @@ export default function EditorDocumentos() {
         let list: DocTemplate[] = fetched ?? [];
 
         // Inject seed templates if not yet present in the database
-        const seeds = [SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const seeds = [SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
         const existingIds = new Set(list.map(t => t.id));
         const toInsert = seeds.filter(s => !existingIds.has(s.id));
         for (const seed of toInsert) {
@@ -5378,6 +5412,16 @@ export default function EditorDocumentos() {
     const tipoColor = TIPO_COLORS[template.tipo];
     const preview = template.conteudo.slice(0, 120).replace(/\n/g, ' ');
     const bloqueado = !!template.bloqueado;
+    const isBoletimInscricao = template.id === SEED_BOLETIM_INSCRICAO_ID;
+
+    function handleEmitir() {
+      if (bloqueado) return;
+      if (isBoletimInscricao) {
+        router.push('/boletim-inscricao' as any);
+      } else {
+        openEmit(template);
+      }
+    }
 
     return (
       <View style={[
@@ -5426,7 +5470,7 @@ export default function EditorDocumentos() {
             )}
             <TouchableOpacity
               style={[styles.cardActionBtn, bloqueado && { opacity: 0.35 }]}
-              onPress={() => !bloqueado && openEmit(template)}
+              onPress={handleEmitir}
               disabled={bloqueado}
             >
               <Ionicons name="document-text" size={14} color={bloqueado ? Colors.textMuted : Colors.success} />
@@ -5450,7 +5494,7 @@ export default function EditorDocumentos() {
               <Text style={styles.dropItemText}>Editar</Text>
             </TouchableOpacity>
             {!bloqueado && (
-              <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); openEmit(template); }}>
+              <TouchableOpacity style={styles.dropItem} onPress={() => { setShowMenu(false); handleEmitir(); }}>
                 <Ionicons name="document-text-outline" size={16} color={Colors.success} />
                 <Text style={[styles.dropItemText, { color: Colors.success }]}>Emitir documento</Text>
               </TouchableOpacity>
