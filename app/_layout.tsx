@@ -28,22 +28,9 @@ import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
 import { PermissoesProvider } from '@/context/PermissoesContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
-import ToastManager from '@/components/ToastManager';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
-}
-
-// On web, expo-font internally uses fontfaceobserver which fires an unhandledrejection
-// when fonts take longer than 6s to load (even with an empty font map).
-// Fonts are already loaded via server-injected @font-face CSS, so this is safe to suppress.
-if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    const msg: string = event?.reason?.message ?? '';
-    if (msg.includes('timeout exceeded')) {
-      event.preventDefault();
-    }
-  });
 }
 
 function RootLayoutNav() {
@@ -99,26 +86,35 @@ function AppProviders() {
   );
 }
 
-export default function RootLayout() {
-  // On web, fonts are loaded via server-injected @font-face CSS (server/index.ts).
-  // Passing an empty map avoids fontfaceobserver which times out on web.
-  const [fontsLoaded, fontError] = useFonts(
-    Platform.OS === 'web'
-      ? {}
-      : { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold }
-  );
+// Web layout: fonts are already loaded via @font-face CSS injected by the server.
+// useFonts must NOT be called on web — even with {}, fontfaceobserver triggers a 6s timeout.
+function WebRootLayout() {
+  return <AppProviders />;
+}
+
+// Native layout: load fonts via expo-font, hide splash when ready.
+function NativeRootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
 
   useEffect(() => {
-    if (Platform.OS !== 'web' && (fontsLoaded || fontError)) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync().catch(() => {});
     }
   }, [fontsLoaded, fontError]);
 
-  if (Platform.OS === 'web') {
-    return <AppProviders />;
-  }
-
   if (!fontsLoaded && !fontError) return null;
 
   return <AppProviders />;
+}
+
+export default function RootLayout() {
+  if (Platform.OS === 'web') {
+    return <WebRootLayout />;
+  }
+  return <NativeRootLayout />;
 }
