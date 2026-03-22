@@ -644,7 +644,7 @@ export default function AdminScreen() {
                     <Ionicons name="newspaper-outline" size={18} color={config.pp1Habilitado ? Colors.info : Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>PP1 — Prova do Trimestre</Text>
+                    <Text style={styles.configToggleLabel}>PP — Prova do Professor</Text>
                     <Text style={styles.configToggleDesc}>
                       {config.pp1Habilitado ? 'Activa — incluída no cálculo da MT1' : 'Desactivada — não entra no cálculo'}
                     </Text>
@@ -655,10 +655,10 @@ export default function AdminScreen() {
                   onValueChange={v => {
                     updateConfig({ pp1Habilitado: v });
                     Alert.alert(
-                      v ? 'PP1 Activada' : 'PP1 Desactivada',
+                      v ? 'PP Activada' : 'PP Desactivada',
                       v
-                        ? 'A PP1 será incluída no cálculo da Média Total (MT1).'
-                        : 'A PP1 não será utilizada no cálculo das notas.',
+                        ? 'A PP será incluída no cálculo da Média Total (MT1).'
+                        : 'A PP não será utilizada no cálculo das notas.',
                     );
                   }}
                   thumbColor={config.pp1Habilitado ? Colors.info : Colors.textMuted}
