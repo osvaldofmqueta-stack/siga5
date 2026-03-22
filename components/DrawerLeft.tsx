@@ -416,6 +416,38 @@ export default function DrawerLeft() {
           </TouchableOpacity>
         )}
 
+        {/* ── Super Admin — Acesso Privilegiado ── */}
+        {(isCeo || isPca) && (
+          <TouchableOpacity
+            style={styles.superAdminCTA}
+            onPress={() => { router.push('/(main)/admin' as any); closeLeft && closeLeft(); }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#5C0A0A', '#2D0505', '#1A0000']}
+              style={styles.superAdminCTAGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.superAdminCTALeft}>
+                <View style={styles.superAdminCTAIcon}>
+                  <MaterialCommunityIcons name="shield-crown" size={20} color={Colors.danger} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Text style={styles.superAdminCTATitle}>Super Admin</Text>
+                    <View style={styles.superAdminBadge}>
+                      <Text style={styles.superAdminBadgeText}>RESTRITO</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.superAdminCTASub}>Utilizadores · Escola · Anos · Segurança</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
           {NAV_SECTIONS.map((section) => (
             <View key={section.title} style={styles.section}>
@@ -812,5 +844,62 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
     color: Colors.textSecondary,
+  },
+
+  superAdminCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.danger + '50',
+  },
+  superAdminCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  superAdminCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  superAdminCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.danger + '25',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.danger + '45',
+  },
+  superAdminCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#FF6B6B',
+  },
+  superAdminCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,107,107,0.65)',
+  },
+  superAdminBadge: {
+    backgroundColor: Colors.danger + '30',
+    borderRadius: 5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderWidth: 1,
+    borderColor: Colors.danger + '50',
+  },
+  superAdminBadgeText: {
+    fontSize: 8,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.danger,
+    letterSpacing: 0.8,
   },
 });

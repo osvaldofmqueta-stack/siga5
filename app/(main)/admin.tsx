@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, Modal, Platform, Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
@@ -54,11 +55,15 @@ const ROLE_COLOR: Record<UserRole, string> = {
   secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success,
 };
 
-function SectionHeader({ title, icon }: { title: string; icon: string }) {
+function SectionHeader({ title, icon, color }: { title: string; icon: string; color?: string }) {
+  const c = color || Colors.gold;
   return (
     <View style={styles.sectionHeader}>
-      <Ionicons name={icon as any} size={16} color={Colors.gold} />
-      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <View style={[styles.sectionHeaderIcon, { backgroundColor: c + '20' }]}>
+        <Ionicons name={icon as any} size={14} color={c} />
+      </View>
+      <Text style={[styles.sectionHeaderText, { color: Colors.text }]}>{title}</Text>
+      <View style={[styles.sectionHeaderLine, { backgroundColor: c + '30' }]} />
     </View>
   );
 }
@@ -239,25 +244,75 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
-      <TopBar title="Administração" subtitle="Gestão do sistema" />
+      <TopBar title="Super Admin" subtitle="Gestão do Sistema SIGA" />
 
+      {/* ── Hero Banner ───────────────────────────────────── */}
+      <LinearGradient
+        colors={['#1A0A2E', '#0D1B3E', '#1A1030']}
+        style={styles.heroBanner}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.heroLeft}>
+          <LinearGradient colors={['#CC1A1A', '#8B0000']} style={styles.heroIconWrap}>
+            <MaterialCommunityIcons name="shield-crown" size={24} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.heroTitle}>Painel de Administração</Text>
+            <Text style={styles.heroSub}>{user?.nome} · {user?.role === 'ceo' ? 'CEO / Super Admin' : user?.role === 'pca' ? 'PCA' : 'Administrador'}</Text>
+          </View>
+        </View>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatNum}>{users.length}</Text>
+            <Text style={styles.heroStatLabel}>Utilizad.</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatNum, pendentes.length > 0 && { color: Colors.warning }]}>{pendentes.length}</Text>
+            <Text style={styles.heroStatLabel}>Pendentes</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatNum}>{anos.length}</Text>
+            <Text style={styles.heroStatLabel}>Anos</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* ── Section Navigation ────────────────────────────── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sectionsScroll}>
         <View style={styles.sectionsRow}>
-          {allSections.map(s => (
-            <TouchableOpacity
-              key={s.key}
-              style={[styles.sectionBtn, activeSection === s.key && styles.sectionBtnActive]}
-              onPress={() => setActiveSection(s.key)}
-            >
-              <Ionicons name={s.icon as any} size={15} color={activeSection === s.key ? Colors.gold : Colors.textSecondary} />
-              <Text style={[styles.sectionBtnText, activeSection === s.key && styles.sectionBtnTextActive]}>{s.label}</Text>
-              {s.badge !== undefined && s.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{s.badge}</Text>
+          {allSections.map(s => {
+            const isActive = activeSection === s.key;
+            const sectionColors: Record<string, string> = {
+              matriculas: Colors.warning,
+              escola: Colors.info,
+              anos: '#9B59B6',
+              usuarios: Colors.gold,
+              config: Colors.success,
+              comunicacoes: Colors.accent,
+              seguranca: Colors.danger,
+            };
+            const accent = sectionColors[s.key] || Colors.gold;
+            return (
+              <TouchableOpacity
+                key={s.key}
+                style={[styles.sectionBtn, isActive && { backgroundColor: accent + '22', borderColor: accent + '55' }]}
+                onPress={() => setActiveSection(s.key)}
+              >
+                <View style={[styles.sectionBtnIcon, isActive && { backgroundColor: accent + '33' }]}>
+                  <Ionicons name={s.icon as any} size={15} color={isActive ? accent : Colors.textMuted} />
                 </View>
-              )}
-            </TouchableOpacity>
-          ))}
+                <Text style={[styles.sectionBtnText, isActive && { color: accent, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>
+                {s.badge !== undefined && s.badge > 0 && (
+                  <View style={[styles.badge, { backgroundColor: Colors.danger }]}>
+                    <Text style={styles.badgeText}>{s.badge}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -267,7 +322,7 @@ export default function AdminScreen() {
         {activeSection === 'matriculas' && (
           <View style={[styles.card, { gap: 0 }]}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Solicitações de Matrícula" icon="person-add" />
+              <SectionHeader title="Solicitações de Matrícula" icon="person-add" color={Colors.warning} />
             </View>
 
             {!isApprover ? (
@@ -389,7 +444,7 @@ export default function AdminScreen() {
         {activeSection === 'escola' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Configuração Escolar" icon="school" />
+              <SectionHeader title="Configuração Escolar" icon="school" color={Colors.info} />
               <TouchableOpacity onPress={() => { setTempEscola(escola); setEditEscola(true); }} style={styles.editBtn}>
                 <Ionicons name="pencil" size={15} color={Colors.gold} />
                 <Text style={styles.editBtnText}>Editar</Text>
@@ -425,7 +480,7 @@ export default function AdminScreen() {
         {activeSection === 'anos' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Anos Académicos" icon="calendar" />
+              <SectionHeader title="Anos Académicos" icon="calendar" color={"#9B59B6"} />
               <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovoAno(true)}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.addBtnText}>Novo</Text>
@@ -480,7 +535,7 @@ export default function AdminScreen() {
         {activeSection === 'usuarios' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Gestão de Utilizadores" icon="people" />
+              <SectionHeader title="Gestão de Utilizadores" icon="people" color={Colors.gold} />
               <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovoUser(true)}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.addBtnText}>Novo</Text>
@@ -909,7 +964,7 @@ export default function AdminScreen() {
         {/* SEGURANÇA */}
         {activeSection === 'seguranca' && (
           <View style={styles.card}>
-            <SectionHeader title="Segurança e Backups" icon="shield-checkmark" />
+            <SectionHeader title="Segurança e Backups" icon="shield-checkmark" color={Colors.danger} />
             {[
               { label: 'Último Backup', value: 'Hoje, 03:00', valueColor: Colors.success },
               { label: 'Tipo de Backup', value: 'Automático (Diário)' },
@@ -1078,19 +1133,46 @@ export default function AdminScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  sectionsScroll: { maxHeight: 54, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  sectionsRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  sectionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface },
-  sectionBtnActive: { backgroundColor: 'rgba(240,165,0,0.12)', borderWidth: 1, borderColor: Colors.gold + '44' },
+
+  heroBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.accent + '30',
+  },
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  heroIconWrap: {
+    width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.accent, shadowOpacity: 0.6, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  heroTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  heroSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  heroStats: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  heroStat: { alignItems: 'center', paddingHorizontal: 12 },
+  heroStatNum: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  heroStatLabel: { fontSize: 9, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 1 },
+  heroStatDivider: { width: 1, height: 28, backgroundColor: Colors.border },
+
+  sectionsScroll: { flexGrow: 0, maxHeight: 58, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  sectionsRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 9, gap: 6 },
+  sectionBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: 'transparent',
+  },
+  sectionBtnIcon: {
+    width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
   sectionBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  sectionBtnTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
   badge: { backgroundColor: Colors.danger, borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#fff' },
   scroll: { flex: 1 },
   card: { margin: 16, marginBottom: 0, backgroundColor: Colors.backgroundCard, borderRadius: 18, padding: 16, gap: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.border, flex: 1 },
-  sectionHeaderText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1.2 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, marginBottom: 4 },
+  sectionHeaderIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  sectionHeaderText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  sectionHeaderLine: { height: 1, width: 30, borderRadius: 1 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.gold + '22' },
   editBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: Colors.accent },
