@@ -39,6 +39,18 @@
 - **app/(main)/secretaria-hub.tsx**: Adicionado botão "Boletim de Matrícula" nas Quick Actions (ícone `newspaper`, cor âmbar).
 - **app/(main)/alunos.tsx**: Adicionado botão de atalho (ícone `newspaper-outline`) em cada cartão de aluno para aceder ao Boletim de Matrícula.
 
+## Recent Changes (Latest Session — Centro de Supervisão)
+- **app/(main)/controlo-supervisao.tsx**: Novo ecrã dedicado de supervisão para CEO/PCA/Administrador/Director:
+  - **5 tabs**: Visão Geral, Utilizadores, Secretaria, Académico, Financeiro
+  - **Stats cards** com gradientes por módulo: total de utilizadores, alunos, professores, turmas, pagamentos, notas lançadas, matrículas pendentes
+  - **Distribuição de utilizadores** por perfil com barra de progresso colorida por role
+  - **Atalhos rápidos** para todos os módulos do sistema
+  - **Filtro de utilizadores** por perfil (chips horizontais) com avatares e indicadores de estado activo/inactivo
+  - **Responsive**: layout adaptado desktop/mobile via `useBreakpoint`
+  - **Pull-to-refresh** em todos os dados da API
+- **components/DrawerLeft.tsx**: Adicionado bloco visual "Centro de Supervisão" separado do menu principal — aparece como CTA com gradiente e borda dourada entre o separador e as secções de navegação, exclusivo para CEO/PCA/Administrador/Director; removida a secção "Controlo da Secretaria" das secções normais
+- **app/(main)/_layout.tsx**: Registado `controlo-supervisao` como novo Stack.Screen
+
 An Academic Management System (SGAA Angola) for educational institutions in Angola. Built as a cross-platform application (Web, Android, iOS) using a TypeScript stack.
 
 ## Recent Changes (Latest Session — Mapa de Aproveitamento)

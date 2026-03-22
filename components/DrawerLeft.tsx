@@ -6,6 +6,7 @@ import {
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, usePathname } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useDrawer } from '@/context/DrawerContext';
 import { useAuth } from '@/context/AuthContext';
@@ -222,14 +223,6 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Controlo da Secretaria',
-      items: [
-        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="briefcase" size={20} color="inherit" />, permKey: 'secretaria_hub' },
-        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
-        { label: 'Gestão Académica', route: '/(main)/gestao-academica', icon: <MaterialCommunityIcons name="book-open-variant" size={20} color="inherit" />, permKey: 'gestao_academica' },
-      ],
-    },
-    {
       title: 'Sistema',
       items: [
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
@@ -257,14 +250,6 @@ export default function DrawerLeft() {
         { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
         { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
-      ],
-    },
-    {
-      title: 'Controlo da Secretaria',
-      items: [
-        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="briefcase" size={20} color="inherit" />, permKey: 'secretaria_hub' },
-        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
-        { label: 'Gestão Académica', route: '/(main)/gestao-academica', icon: <MaterialCommunityIcons name="book-open-variant" size={20} color="inherit" />, permKey: 'gestao_academica' },
       ],
     },
     {
@@ -403,6 +388,33 @@ export default function DrawerLeft() {
         )}
 
         <View style={styles.divider} />
+
+        {/* ── Centro de Supervisão — Separado do Menu Principal ── */}
+        {(isCeo || isPca || user?.role === 'admin' || user?.role === 'director') && (
+          <TouchableOpacity
+            style={styles.supervisaoCTA}
+            onPress={() => { router.push('/(main)/controlo-supervisao' as any); closeLeft && closeLeft(); }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#1A2B8A', '#0D1B3E']}
+              style={styles.supervisaoCTAGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.supervisaoCTALeft}>
+                <View style={styles.supervisaoCTAIcon}>
+                  <MaterialCommunityIcons name="eye-check-outline" size={20} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.supervisaoCTATitle}>Centro de Supervisão</Text>
+                  <Text style={styles.supervisaoCTASub}>Monitorizar todos os utilizadores</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
           {NAV_SECTIONS.map((section) => (
@@ -757,5 +769,48 @@ const styles = StyleSheet.create({
   licBarText: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
+  },
+  supervisaoCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.gold + '40',
+  },
+  supervisaoCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  supervisaoCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  supervisaoCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: Colors.gold + '22',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Colors.gold + '40',
+  },
+  supervisaoCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.gold,
+    marginBottom: 2,
+  },
+  supervisaoCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
   },
 });
