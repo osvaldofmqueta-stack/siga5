@@ -42,68 +42,51 @@ export default function MainLayout() {
     !!user
   );
 
-  const stackScreens = (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
-      <Stack.Screen name="dashboard" />
-      <Stack.Screen name="alunos" />
-      <Stack.Screen name="professores" />
-      <Stack.Screen name="turmas" />
-      <Stack.Screen name="salas" />
-      <Stack.Screen name="notas" />
-      <Stack.Screen name="presencas" />
-      <Stack.Screen name="eventos" />
-      <Stack.Screen name="relatorios" />
-      <Stack.Screen name="horario" />
-      <Stack.Screen name="grelha" />
-      <Stack.Screen name="financeiro" />
-      <Stack.Screen name="notificacoes" />
-      <Stack.Screen name="perfil" />
-      <Stack.Screen name="admin" />
-      <Stack.Screen name="historico" />
-      <Stack.Screen name="ceo" />
-      <Stack.Screen name="professor-hub" />
-      <Stack.Screen name="professor-pauta" />
-      <Stack.Screen name="professor-turmas" />
-      <Stack.Screen name="professor-mensagens" />
-      <Stack.Screen name="professor-materiais" />
-      <Stack.Screen name="professor-sumario" />
-      <Stack.Screen name="rh-controle" />
-      <Stack.Screen name="portal-estudante" />
-      <Stack.Screen name="secretaria-hub" />
-      <Stack.Screen name="gestao-academica" />
-      <Stack.Screen name="editor-documentos" />
-      <Stack.Screen name="boletim-matricula" />
-      <Stack.Screen name="boletim-propina" />
-      <Stack.Screen name="gestao-acessos" />
-      <Stack.Screen name="portal-encarregado" />
-      <Stack.Screen name="controlo-supervisao" />
-    </Stack>
-  );
-
-  if (isDesktop) {
-    return (
-      <View style={styles.desktopContainer}>
-        <DrawerLeft />
-        <View style={styles.desktopContent}>
-          {stackScreens}
-          <DrawerRight />
-        </View>
-        <SessionTimeoutModal
-          visible={showModal}
-          countdown={countdown}
-          onContinue={handleContinue}
-          onLogout={handleLogout}
-        />
-        <ToastManager />
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-      {stackScreens}
-      <DrawerLeft />
-      <DrawerRight />
+    <View style={isDesktop ? styles.desktopContainer : styles.container}>
+      {isDesktop && <DrawerLeft />}
+      <View style={isDesktop ? styles.desktopContent : styles.flex}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.background } }}>
+          <Stack.Screen name="dashboard" />
+          <Stack.Screen name="alunos" />
+          <Stack.Screen name="professores" />
+          <Stack.Screen name="turmas" />
+          <Stack.Screen name="salas" />
+          <Stack.Screen name="notas" />
+          <Stack.Screen name="presencas" />
+          <Stack.Screen name="eventos" />
+          <Stack.Screen name="relatorios" />
+          <Stack.Screen name="horario" />
+          <Stack.Screen name="grelha" />
+          <Stack.Screen name="financeiro" />
+          <Stack.Screen name="notificacoes" />
+          <Stack.Screen name="perfil" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="historico" />
+          <Stack.Screen name="ceo" />
+          <Stack.Screen name="professor-hub" />
+          <Stack.Screen name="professor-pauta" />
+          <Stack.Screen name="professor-turmas" />
+          <Stack.Screen name="professor-mensagens" />
+          <Stack.Screen name="professor-materiais" />
+          <Stack.Screen name="professor-sumario" />
+          <Stack.Screen name="rh-controle" />
+          <Stack.Screen name="portal-estudante" />
+          <Stack.Screen name="secretaria-hub" />
+          <Stack.Screen name="gestao-academica" />
+          <Stack.Screen name="editor-documentos" />
+          <Stack.Screen name="boletim-matricula" />
+          <Stack.Screen name="boletim-propina" />
+          <Stack.Screen name="gestao-acessos" />
+          <Stack.Screen name="portal-encarregado" />
+          <Stack.Screen name="controlo-supervisao" />
+          <Stack.Screen name="admissao" />
+          <Stack.Screen name="visao-geral" />
+        </Stack>
+        {isDesktop && <DrawerRight />}
+      </View>
+      {!isDesktop && <DrawerLeft />}
+      {!isDesktop && <DrawerRight />}
       <SessionTimeoutModal
         visible={showModal}
         countdown={countdown}
@@ -116,6 +99,9 @@ export default function MainLayout() {
 }
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+  },
   container: {
     flex: 1,
     backgroundColor: Colors.background,
