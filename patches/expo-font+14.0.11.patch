@@ -1,0 +1,14 @@
+diff --git a/build/ExpoFontLoader.web.js b/build/ExpoFontLoader.web.js
+--- a/build/ExpoFontLoader.web.js
++++ b/build/ExpoFontLoader.web.js
+@@ -139,7 +139,9 @@
+         return new FontObserver(fontFamilyName, {
+             // @ts-expect-error: TODO(@kitten): Typings indicate that the polyfill may not support this?
+             display: resource.display,
+-        }).load(null, 6000);
++        }).load(null, 6000).catch(() => {
++            // Font CSS is already injected; observer timeout is non-fatal on web.
++        });
+     },
+ };
+ const isServer = process.env.EXPO_OS === 'web' && typeof window === 'undefined';
