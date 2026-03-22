@@ -226,6 +226,11 @@ export default function AdmissaoScreen() {
             <Text style={styles.regActionText}>Ver</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={[styles.regActionBtn, styles.btnBoletim]} onPress={() => router.push(`/boletim-inscricao?id=${reg.id}` as any)}>
+            <Ionicons name="document-text-outline" size={14} color={Colors.gold} />
+            <Text style={[styles.regActionText, { color: Colors.gold }]}>Boletim</Text>
+          </TouchableOpacity>
+
           {/* Pendentes actions */}
           {reg.status === 'pendente' && <>
             <TouchableOpacity style={[styles.regActionBtn, styles.btnSuccess]} onPress={() => aprovar(reg)} disabled={isActing}>
@@ -470,6 +475,7 @@ const styles = StyleSheet.create({
   btnSuccess: { borderColor: Colors.success + '50', backgroundColor: 'rgba(39,174,96,0.08)' },
   btnDanger: { borderColor: Colors.danger + '50', backgroundColor: 'rgba(231,76,60,0.08)' },
   btnGold: { borderColor: Colors.gold + '50', backgroundColor: 'rgba(240,165,0,0.08)' },
+  btnBoletim: { borderColor: 'rgba(240,165,0,0.35)', backgroundColor: 'rgba(240,165,0,0.06)' },
 });
 
 const mStyles = StyleSheet.create({

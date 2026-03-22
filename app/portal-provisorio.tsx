@@ -403,6 +403,16 @@ export default function PortalProvisorioScreen() {
           <InfoRow icon="school-outline" label="Nível / Classe" value={`${registro.nivel} — ${registro.classe}`} />
           <InfoRow icon="location-outline" label="Província / Município" value={`${registro.provincia} / ${registro.municipio}`} />
           <InfoRow icon="people-outline" label="Encarregado" value={registro.nomeEncarregado} />
+
+          <TouchableOpacity
+            style={styles.boletimBtn}
+            onPress={() => router.push(`/boletim-inscricao?id=${registro.id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="document-text-outline" size={16} color={Colors.gold} />
+            <Text style={styles.boletimBtnText}>Ver / Imprimir Boletim de Inscrição</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -483,6 +493,9 @@ const styles = StyleSheet.create({
   infoRowIcon: { marginTop: 2 },
   infoRowLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
   infoRowValue: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, marginTop: 2 },
+
+  boletimBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(240,165,0,0.08)', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(240,165,0,0.25)', marginTop: 6 },
+  boletimBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold, flex: 1 },
 });
 
 const tlStyles = StyleSheet.create({
