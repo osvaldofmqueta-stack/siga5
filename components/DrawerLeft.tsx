@@ -80,6 +80,7 @@ export default function DrawerLeft() {
   const isAluno = user?.role === 'aluno';
   const isFinanceiro = user?.role === 'financeiro';
   const isSecretaria = user?.role === 'secretaria';
+  const isChefeSec = user?.role === 'chefe_secretaria';
   const isRH = user?.role === 'director' || user?.role === 'admin';
   const isEncarregado = user?.role === 'encarregado';
 

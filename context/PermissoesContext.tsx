@@ -102,8 +102,8 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Administração',
     icon: 'shield-checkmark',
     features: [
-      { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'ceo', 'pca'] },
-      { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['ceo', 'pca'] },
+      { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
 ];
@@ -114,6 +114,8 @@ const ALL_KEYS: PermKey[] = FEATURE_CATEGORIES.flatMap(c => c.features.map(f => 
 export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   ceo: [...ALL_KEYS],
   pca: [...ALL_KEYS],
+  // Chefe de Secretaria: parametriza tudo excepto dashboard CEO e gestão interna de licenças
+  chefe_secretaria: ALL_KEYS.filter(k => k !== 'ceo_dashboard'),
   admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica', 'secretaria_hub', 'editor_documentos', 'gestao_acessos'],
   director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos', 'gestao_academica', 'gestao_acessos'],
   secretaria: ['secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios', 'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
@@ -183,6 +185,8 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     if (!user) return false;
     // CEO/PCA always have full access (they manage others, cannot self-restrict)
     if (user.role === 'ceo' || user.role === 'pca') return true;
+    // Chefe de Secretaria parametrizes everything (except CEO dashboard)
+    if (user.role === 'chefe_secretaria') return key !== 'ceo_dashboard';
     // If there's an explicit override stored for this user, use it
     if (Object.keys(myPermissoes).length > 0) {
       if (key in myPermissoes) return myPermissoes[key] === true;
