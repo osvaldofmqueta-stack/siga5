@@ -167,14 +167,6 @@ export default function DrawerLeft() {
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
       ],
     },
-    {
-      title: 'Operações',
-      items: [
-        { label: 'Propinas em Atraso', route: '/(main)/financeiro', icon: <Ionicons name="alert-circle" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Rubricas e Multas', route: '/(main)/financeiro', icon: <Ionicons name="pricetag" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Mensagens', route: '/(main)/financeiro', icon: <Ionicons name="chatbubbles" size={20} color="inherit" />, permKey: 'financeiro' },
-      ],
-    },
   ];
 
   const SECRETARIA_SECTIONS: NavSection[] = [
