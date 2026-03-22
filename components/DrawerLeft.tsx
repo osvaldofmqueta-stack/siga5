@@ -372,147 +372,149 @@ export default function DrawerLeft() {
 
         <View style={styles.divider} />
 
-        {/* ── Centro de Supervisão — Separado do Menu Principal ── */}
-        {(isCeo || isPca || user?.role === 'admin' || user?.role === 'director') && (
-          <TouchableOpacity
-            style={styles.supervisaoCTA}
-            onPress={() => { router.push('/(main)/controlo-supervisao' as any); closeLeft && closeLeft(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#1A2B8A', '#0D1B3E']}
-              style={styles.supervisaoCTAGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.supervisaoCTALeft}>
-                <View style={styles.supervisaoCTAIcon}>
-                  <MaterialCommunityIcons name="eye-check-outline" size={20} color={Colors.gold} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.supervisaoCTATitle}>Centro de Supervisão</Text>
-                  <Text style={styles.supervisaoCTASub}>Monitorizar todos os utilizadores</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Super Admin — Acesso Privilegiado ── */}
-        {(isCeo || isPca) && (
-          <TouchableOpacity
-            style={styles.superAdminCTA}
-            onPress={() => { router.push('/(main)/admin' as any); closeLeft && closeLeft(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#5C0A0A', '#2D0505', '#1A0000']}
-              style={styles.superAdminCTAGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.superAdminCTALeft}>
-                <View style={styles.superAdminCTAIcon}>
-                  <MaterialCommunityIcons name="shield-crown" size={20} color={Colors.danger} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                    <Text style={styles.superAdminCTATitle}>Super Admin</Text>
-                    <View style={styles.superAdminBadge}>
-                      <Text style={styles.superAdminBadgeText}>RESTRITO</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.superAdminCTASub}>Utilizadores · Escola · Anos · Segurança</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Controlo Financeiro ── */}
-        {(isCeo || isPca || isAdmin) && (
-          <TouchableOpacity
-            style={styles.financeiroCTA}
-            onPress={() => { router.push('/(main)/financeiro' as any); closeLeft && closeLeft(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#0A3D1A', '#052610', '#021508']}
-              style={styles.financeiroCTAGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.financeiroCTALeft}>
-                <View style={styles.financeiroCTAIcon}>
-                  <MaterialCommunityIcons name="cash-multiple" size={20} color="#4ADE80" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.financeiroCTATitle}>Controlo Financeiro</Text>
-                  <Text style={styles.financeiroCTASub}>Propinas · Pagamentos · Multas · RUPEs</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#4ADE80" />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Editor de Documentos ── */}
-        {(isCeo || isPca || isAdmin) && (
-          <TouchableOpacity
-            style={styles.editorCTA}
-            onPress={() => { router.push('/(main)/editor-documentos' as any); closeLeft && closeLeft(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#7C3A00', '#4A2200', '#2A1200']}
-              style={styles.editorCTAGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.editorCTALeft}>
-                <View style={styles.editorCTAIcon}>
-                  <Ionicons name="newspaper" size={20} color="#F59E0B" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.editorCTATitle}>Editor de Documentos</Text>
-                  <Text style={styles.editorCTASub}>Modelos · Declarações · Certificados</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#F59E0B" />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
-        {/* ── Gestão de Acessos e Permissões ── */}
-        {(isCeo || isPca || isAdmin || isDirector) && (
-          <TouchableOpacity
-            style={styles.acessosCTA}
-            onPress={() => { router.push('/(main)/gestao-acessos' as any); closeLeft && closeLeft(); }}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#0D1F5C', '#071240', '#040B28']}
-              style={styles.acessosCTAGrad}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.acessosCTALeft}>
-                <View style={styles.acessosCTAIcon}>
-                  <MaterialCommunityIcons name="account-key" size={20} color="#818CF8" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.acessosCTATitle}>Gestão de Acessos</Text>
-                  <Text style={styles.acessosCTASub}>Perfis · Permissões · Controlo de Acesso</Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#818CF8" />
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
+          {/* ── Centro de Supervisão ── */}
+          {(isCeo || isPca || user?.role === 'admin' || user?.role === 'director') && (
+            <TouchableOpacity
+              style={styles.supervisaoCTA}
+              onPress={() => { router.push('/(main)/controlo-supervisao' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#1A2B8A', '#0D1B3E']}
+                style={styles.supervisaoCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.supervisaoCTALeft}>
+                  <View style={styles.supervisaoCTAIcon}>
+                    <MaterialCommunityIcons name="eye-check-outline" size={20} color={Colors.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.supervisaoCTATitle}>Centro de Supervisão</Text>
+                    <Text style={styles.supervisaoCTASub}>Monitorizar todos os utilizadores</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Super Admin — Acesso Privilegiado ── */}
+          {(isCeo || isPca) && (
+            <TouchableOpacity
+              style={styles.superAdminCTA}
+              onPress={() => { router.push('/(main)/admin' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#5C0A0A', '#2D0505', '#1A0000']}
+                style={styles.superAdminCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.superAdminCTALeft}>
+                  <View style={styles.superAdminCTAIcon}>
+                    <MaterialCommunityIcons name="shield-crown" size={20} color={Colors.danger} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <Text style={styles.superAdminCTATitle}>Super Admin</Text>
+                      <View style={styles.superAdminBadge}>
+                        <Text style={styles.superAdminBadgeText}>RESTRITO</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.superAdminCTASub}>Utilizadores · Escola · Anos · Segurança</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Controlo Financeiro ── */}
+          {(isCeo || isPca || isAdmin) && (
+            <TouchableOpacity
+              style={styles.financeiroCTA}
+              onPress={() => { router.push('/(main)/financeiro' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#0A3D1A', '#052610', '#021508']}
+                style={styles.financeiroCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.financeiroCTALeft}>
+                  <View style={styles.financeiroCTAIcon}>
+                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#4ADE80" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.financeiroCTATitle}>Controlo Financeiro</Text>
+                    <Text style={styles.financeiroCTASub}>Propinas · Pagamentos · Multas · RUPEs</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#4ADE80" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Editor de Documentos ── */}
+          {(isCeo || isPca || isAdmin) && (
+            <TouchableOpacity
+              style={styles.editorCTA}
+              onPress={() => { router.push('/(main)/editor-documentos' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#7C3A00', '#4A2200', '#2A1200']}
+                style={styles.editorCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.editorCTALeft}>
+                  <View style={styles.editorCTAIcon}>
+                    <Ionicons name="newspaper" size={20} color="#F59E0B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.editorCTATitle}>Editor de Documentos</Text>
+                    <Text style={styles.editorCTASub}>Modelos · Declarações · Certificados</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#F59E0B" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Gestão de Acessos e Permissões ── */}
+          {(isCeo || isPca || isAdmin || isDirector) && (
+            <TouchableOpacity
+              style={styles.acessosCTA}
+              onPress={() => { router.push('/(main)/gestao-acessos' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#0D1F5C', '#071240', '#040B28']}
+                style={styles.acessosCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.acessosCTALeft}>
+                  <View style={styles.acessosCTAIcon}>
+                    <MaterialCommunityIcons name="account-key" size={20} color="#818CF8" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.acessosCTATitle}>Gestão de Acessos</Text>
+                    <Text style={styles.acessosCTASub}>Perfis · Permissões · Controlo de Acesso</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#818CF8" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {(isCeo || isPca || isAdmin || isDirector) && <View style={styles.divider} />}
+
           {NAV_SECTIONS.map((section) => (
             <View key={section.title} style={styles.section}>
               <Text style={styles.sectionTitle}>{section.title}</Text>
