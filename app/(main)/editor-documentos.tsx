@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
-  Platform, Dimensions, FlatList, Image, Alert,
+  Platform, Dimensions, FlatList, Image, Alert, Animated,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
@@ -1242,6 +1242,22 @@ export default function EditorDocumentos() {
   const [emitTrimestre, setEmitTrimestre] = useState<1 | 2 | 3>(1);
 
   const inputRef = useRef<TextInput>(null);
+
+  // ─── Toast notification ───────────────────────────────────────────────────
+  const [toastMsg, setToastMsg] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('success');
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(message: string, type: 'success' | 'error' | 'info' = 'success') {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToastMsg(message);
+    setToastType(type);
+    Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+    toastTimer.current = setTimeout(() => {
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+    }, 3000);
+  }
   const quillIframeRef = useRef<any>(null);
   const quillSrcdocRef = useRef<string>('');
 
@@ -1329,8 +1345,9 @@ export default function EditorDocumentos() {
         saveTemplates([saved, ...templates]);
       }
       setMode('list');
+      showToast(editingTemplate ? 'Modelo actualizado com sucesso.' : 'Novo modelo criado com sucesso.');
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível guardar o modelo. Tente novamente.');
+      showToast('Não foi possível guardar o modelo. Tente novamente.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -1380,11 +1397,13 @@ export default function EditorDocumentos() {
   }
 
   async function deleteTemplate(id: string) {
+    const template = templates.find(t => t.id === id);
     try {
       await api.delete(`/api/doc-templates/${id}`);
       saveTemplates(templates.filter(t => t.id !== id));
+      showToast(`Modelo "${template?.nome ?? ''}" eliminado.`, 'info');
     } catch {
-      Alert.alert('Erro', 'Não foi possível eliminar o modelo.');
+      showToast('Não foi possível eliminar o modelo.', 'error');
     }
   }
 
@@ -1393,7 +1412,7 @@ export default function EditorDocumentos() {
 
   async function toggleBloqueio(id: string) {
     if (!canManageLocks) {
-      Alert.alert('Acesso Restrito', 'Apenas o PCA, CEO, Administrador ou Director podem bloquear/desbloquear modelos de documentos.');
+      showToast('Acesso restrito: apenas PCA, CEO ou Administrador podem bloquear modelos.', 'error');
       return;
     }
     const template = templates.find(t => t.id === id);
@@ -1411,9 +1430,18 @@ export default function EditorDocumentos() {
           style: isBlocking ? 'destructive' : 'default',
           onPress: async () => {
             try {
-              await api.patch(`/api/doc-templates/${id}/bloqueado`, { bloqueado: !template.bloqueado });
-              saveTemplates(templates.map(t => t.id === id ? { ...t, bloqueado: !t.bloqueado } : t));
-            } catch {}
+              const novoBloqueado = !template.bloqueado;
+              await api.patch(`/api/doc-templates/${id}/bloqueado`, { bloqueado: novoBloqueado });
+              saveTemplates(templates.map(t => t.id === id ? { ...t, bloqueado: novoBloqueado } : t));
+              showToast(
+                novoBloqueado
+                  ? `Modelo "${template.nome}" bloqueado com sucesso.`
+                  : `Modelo "${template.nome}" desbloqueado com sucesso.`,
+                novoBloqueado ? 'info' : 'success'
+              );
+            } catch (e) {
+              showToast('Erro ao actualizar o estado do modelo. Tente novamente.', 'error');
+            }
           },
         },
       ]
@@ -5157,10 +5185,34 @@ export default function EditorDocumentos() {
 
   // ─── RENDER ───────────────────────────────────────────────────────────────
 
-  if (mode === 'list') return <ListScreen />;
-  if (mode === 'editor') return <EditorScreen />;
-  if (mode === 'emit') return <EmitScreen />;
-  return null;
+  const toastColors = {
+    success: { bg: '#064E3B', border: '#10B981', icon: 'checkmark-circle' as const, iconColor: '#10B981' },
+    error:   { bg: '#4C0519', border: '#F43F5E', icon: 'close-circle'     as const, iconColor: '#F43F5E' },
+    info:    { bg: '#0C1A6B', border: '#818CF8', icon: 'information-circle' as const, iconColor: '#818CF8' },
+  };
+  const tc = toastColors[toastType];
+
+  return (
+    <View style={{ flex: 1 }}>
+      {mode === 'list' && <ListScreen />}
+      {mode === 'editor' && <EditorScreen />}
+      {mode === 'emit' && <EmitScreen />}
+
+      {/* ── Toast notification overlay ── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.toastContainer,
+          { opacity: toastAnim, transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] },
+        ]}
+      >
+        <View style={[styles.toastInner, { backgroundColor: tc.bg, borderColor: tc.border }]}>
+          <Ionicons name={tc.icon} size={18} color={tc.iconColor} />
+          <Text style={[styles.toastText, { color: tc.iconColor }]}>{toastMsg}</Text>
+        </View>
+      </Animated.View>
+    </View>
+  );
 
   // ─── LIST ─────────────────────────────────────────────────────────────────
 
@@ -6340,4 +6392,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   imageRemoveBtn: { position: 'absolute', top: -6, right: -6 },
+
+  // Toast
+  toastContainer: {
+    position: 'absolute', top: 80, left: 16, right: 16, zIndex: 9999,
+    alignItems: 'center',
+  },
+  toastInner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 18, paddingVertical: 12,
+    borderRadius: 12, borderWidth: 1.5,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35, shadowRadius: 8, elevation: 10,
+    maxWidth: 500, width: '100%' as any,
+  },
+  toastText: {
+    flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', lineHeight: 18,
+  },
 });
