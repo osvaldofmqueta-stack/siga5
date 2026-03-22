@@ -5233,8 +5233,12 @@ export default function EditorDocumentos() {
 
   function ListScreen() {
     const [filtro, setFiltro] = useState<'todos' | 'ativos' | 'bloqueados'>('todos');
+    const [pesquisa, setPesquisa] = useState('');
 
-    const visibleTemplates = canManageLocks
+    const totalBloqueados = templates.filter(t => t.bloqueado).length;
+    const totalAtivos = templates.filter(t => !t.bloqueado).length;
+
+    const byFiltro = canManageLocks
       ? (filtro === 'ativos'
           ? templates.filter(t => !t.bloqueado)
           : filtro === 'bloqueados'
@@ -5242,8 +5246,15 @@ export default function EditorDocumentos() {
             : templates)
       : templates.filter(t => !t.bloqueado);
 
-    const totalBloqueados = templates.filter(t => t.bloqueado).length;
-    const totalAtivos = templates.filter(t => !t.bloqueado).length;
+    const visibleTemplates = pesquisa.trim()
+      ? byFiltro.filter(t => {
+          const q = pesquisa.toLowerCase();
+          return (
+            t.nome.toLowerCase().includes(q) ||
+            (TIPO_LABELS[t.tipo] ?? t.tipo).toLowerCase().includes(q)
+          );
+        })
+      : byFiltro;
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -5296,8 +5307,27 @@ export default function EditorDocumentos() {
           </View>
         )}
 
+        {/* Barra de pesquisa */}
+        <View style={listStyles.searchWrap}>
+          <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+          <TextInput
+            style={listStyles.searchInput}
+            placeholder="Pesquisar modelo por nome ou tipo..."
+            placeholderTextColor={Colors.textMuted}
+            value={pesquisa}
+            onChangeText={setPesquisa}
+            returnKeyType="search"
+            clearButtonMode="while-editing"
+          />
+          {pesquisa.length > 0 && (
+            <TouchableOpacity onPress={() => setPesquisa('')} activeOpacity={0.7}>
+              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Info banner for managers */}
-        {canManageLocks && totalBloqueados > 0 && filtro !== 'bloqueados' && (
+        {canManageLocks && totalBloqueados > 0 && filtro !== 'bloqueados' && !pesquisa && (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 16, marginTop: 10, backgroundColor: Colors.danger + '15', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.danger + '40' }}>
             <Ionicons name="lock-closed" size={14} color={Colors.danger} />
             <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1 }}>
@@ -5308,19 +5338,28 @@ export default function EditorDocumentos() {
 
         {visibleTemplates.length === 0 ? (
           <View style={styles.emptyState}>
-            <FontAwesome5 name="file-alt" size={52} color={Colors.textMuted} />
+            <FontAwesome5 name={pesquisa ? 'search' : 'file-alt'} size={52} color={Colors.textMuted} />
             <Text style={styles.emptyTitle}>
-              {filtro === 'bloqueados' ? 'Sem modelos bloqueados' : filtro === 'ativos' ? 'Sem modelos activos' : 'Nenhum modelo criado'}
+              {pesquisa
+                ? 'Nenhum modelo encontrado'
+                : filtro === 'bloqueados' ? 'Sem modelos bloqueados' : filtro === 'ativos' ? 'Sem modelos activos' : 'Nenhum modelo criado'}
             </Text>
             <Text style={styles.emptyDesc}>
-              {filtro === 'bloqueados' ? 'Nenhum modelo foi bloqueado.' : filtro === 'ativos' ? 'Todos os modelos estão bloqueados.' : 'Crie o primeiro modelo de documento para a sua escola.'}
+              {pesquisa
+                ? `Não foi encontrado nenhum modelo com "${pesquisa}". Tente outro termo.`
+                : filtro === 'bloqueados' ? 'Nenhum modelo foi bloqueado.' : filtro === 'ativos' ? 'Todos os modelos estão bloqueados.' : 'Crie o primeiro modelo de documento para a sua escola.'}
             </Text>
-            {filtro === 'todos' && (
+            {pesquisa ? (
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => setPesquisa('')}>
+                <Ionicons name="close-circle-outline" size={18} color="#fff" />
+                <Text style={styles.emptyBtnText}>Limpar pesquisa</Text>
+              </TouchableOpacity>
+            ) : filtro === 'todos' ? (
               <TouchableOpacity style={styles.emptyBtn} onPress={openNew}>
                 <Ionicons name="add" size={18} color="#fff" />
                 <Text style={styles.emptyBtnText}>Criar primeiro modelo</Text>
               </TouchableOpacity>
-            )}
+            ) : null}
           </View>
         ) : (
           <FlatList
@@ -6423,5 +6462,28 @@ const styles = StyleSheet.create({
   },
   toastText: {
     flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', lineHeight: 18,
+  },
+});
+
+const listStyles = StyleSheet.create({
+  searchWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    backgroundColor: Colors.backgroundElevated,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.text,
   },
 });
