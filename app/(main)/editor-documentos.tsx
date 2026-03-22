@@ -233,7 +233,7 @@ function buildQuillSrcdoc(initialHtml: string): string {
   #toolbar select{color:#94a3b8;padding:3px 4px;font-size:12px;background:#1a2540;outline:none}
   #toolbar select option{background:#1a2540;color:#e2e8f0}
   #toolbar .sep{width:1px;height:18px;background:#2d3a5a;margin:0 3px}
-  #editorWrap{flex:1;overflow-y:auto;background:#fff;padding:0}
+  #editorWrap{flex:1;overflow-y:auto;background:#fff;padding:0;position:relative}
   #editor{
     min-height:100%;padding:28px 36px;
     font-family:'Times New Roman',Times,serif;
@@ -250,10 +250,51 @@ function buildQuillSrcdoc(initialHtml: string): string {
     padding:1px 4px;font-family:monospace;font-size:12px;
     font-style:normal;
   }
+  #editor img{
+    cursor:pointer;transition:outline 0.15s;
+  }
+  #editor img.img-selected{
+    outline:2px solid #3b82f6;
+    outline-offset:2px;
+  }
+  #imgToolbar{
+    display:none;position:fixed;z-index:9999;
+    background:#1a2540;border:1px solid #3b82f6;
+    border-radius:8px;padding:4px 6px;
+    gap:2px;align-items:center;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  }
+  #imgToolbar.visible{display:flex}
+  #imgToolbar button{
+    background:transparent;border:none;color:#94a3b8;cursor:pointer;
+    border-radius:4px;padding:4px 7px;font-size:13px;line-height:1;
+    transition:background 0.15s,color 0.15s;
+    display:inline-flex;align-items:center;justify-content:center;
+    white-space:nowrap;
+  }
+  #imgToolbar button:hover{background:rgba(255,255,255,0.12);color:#fff}
+  #imgToolbar button.act{background:rgba(59,130,246,0.3);color:#60a5fa}
+  #imgToolbar .isep{width:1px;height:16px;background:#2d3a5a;margin:0 2px;flex-shrink:0}
+  #imgSizeLabel{color:#64748b;font-size:11px;padding:0 4px;white-space:nowrap}
 </style>
 </head>
 <body>
 <input type="file" id="imgInput" accept="image/*" style="display:none">
+
+<!-- Floating image toolbar -->
+<div id="imgToolbar">
+  <button id="iBtn_sl" title="Alinhar à esquerda" onclick="imgAlign('left')">&#8676;</button>
+  <button id="iBtn_sc" title="Centralizar" onclick="imgAlign('center')">&#9636;</button>
+  <button id="iBtn_sr" title="Alinhar à direita" onclick="imgAlign('right')">&#8677;</button>
+  <div class="isep"></div>
+  <button title="Reduzir (−20%)" onclick="imgResize(-0.2)">&#8722;</button>
+  <span id="imgSizeLabel">100%</span>
+  <button title="Ampliar (+20%)" onclick="imgResize(+0.2)">&#43;</button>
+  <button title="Largura total" onclick="imgFull()">&#8614;</button>
+  <div class="isep"></div>
+  <button title="Eliminar imagem" onclick="imgDelete()" style="color:#f87171">&#128465;</button>
+</div>
+
 <div id="toolbar">
   <select id="fontSize" title="Tamanho">
     <option value="1">Pequeno</option>
@@ -287,9 +328,140 @@ function buildQuillSrcdoc(initialHtml: string): string {
   var ed = document.getElementById('editor');
   var timer;
   var savedRange = null;
+  var selectedImg = null;
+  var imgToolbar = document.getElementById('imgToolbar');
 
   var initial = ${safeInitial};
   if (initial) { ed.innerHTML = initial; }
+
+  // ── Image selection ──────────────────────────────────────────────────────
+
+  function getImgNaturalWidth(img) {
+    return img.naturalWidth || img.width || 300;
+  }
+
+  function getCurrentWidthPct(img) {
+    var w = img.style.width;
+    if (!w) return 100;
+    if (w.endsWith('%')) return parseFloat(w);
+    // px → convert to percentage of editor width
+    var edW = ed.clientWidth - 72; // subtract padding
+    return Math.round((parseFloat(w) / edW) * 100);
+  }
+
+  function positionImgToolbar(img) {
+    var rect = img.getBoundingClientRect();
+    var tb = imgToolbar;
+    var tbH = tb.offsetHeight || 36;
+    var tbW = tb.offsetWidth || 280;
+    var top = rect.top - tbH - 8;
+    if (top < 0) top = rect.bottom + 8;
+    var left = rect.left + (rect.width - tbW) / 2;
+    if (left < 4) left = 4;
+    if (left + tbW > window.innerWidth - 4) left = window.innerWidth - tbW - 4;
+    tb.style.top = top + 'px';
+    tb.style.left = left + 'px';
+    // update size label
+    document.getElementById('imgSizeLabel').textContent = getCurrentWidthPct(img) + '%';
+    // update alignment buttons
+    var al = img.style.marginLeft;
+    document.getElementById('iBtn_sl').classList.toggle('act', !img.style.marginLeft || img.style.marginLeft === '0px');
+    document.getElementById('iBtn_sc').classList.toggle('act', img.style.marginLeft === 'auto' && img.style.marginRight === 'auto');
+    document.getElementById('iBtn_sr').classList.toggle('act', img.style.marginLeft === 'auto' && img.style.marginRight === '0px');
+  }
+
+  function selectImg(img) {
+    deselectImg();
+    selectedImg = img;
+    img.classList.add('img-selected');
+    imgToolbar.classList.add('visible');
+    positionImgToolbar(img);
+  }
+
+  function deselectImg() {
+    if (selectedImg) {
+      selectedImg.classList.remove('img-selected');
+      selectedImg = null;
+    }
+    imgToolbar.classList.remove('visible');
+  }
+
+  // Click on image in editor → select it
+  ed.addEventListener('click', function(e) {
+    if (e.target && e.target.tagName === 'IMG') {
+      e.preventDefault();
+      selectImg(e.target);
+    } else {
+      deselectImg();
+    }
+  });
+
+  // Hide toolbar when clicking outside
+  document.addEventListener('click', function(e) {
+    if (!imgToolbar.contains(e.target) && e.target !== selectedImg) {
+      deselectImg();
+    }
+  });
+
+  // Reposition toolbar on scroll
+  document.getElementById('editorWrap').addEventListener('scroll', function() {
+    if (selectedImg) positionImgToolbar(selectedImg);
+  });
+
+  // ── Image toolbar actions ────────────────────────────────────────────────
+
+  function imgAlign(dir) {
+    if (!selectedImg) return;
+    selectedImg.style.display = 'block';
+    if (dir === 'center') {
+      selectedImg.style.marginLeft = 'auto';
+      selectedImg.style.marginRight = 'auto';
+      selectedImg.style.float = 'none';
+    } else if (dir === 'left') {
+      selectedImg.style.marginLeft = '0';
+      selectedImg.style.marginRight = 'auto';
+      selectedImg.style.float = 'none';
+    } else if (dir === 'right') {
+      selectedImg.style.marginLeft = 'auto';
+      selectedImg.style.marginRight = '0';
+      selectedImg.style.float = 'none';
+    }
+    positionImgToolbar(selectedImg);
+    sendChange();
+  }
+
+  function imgResize(delta) {
+    if (!selectedImg) return;
+    var edW = ed.clientWidth - 72;
+    var curPct = getCurrentWidthPct(selectedImg);
+    var newPct = Math.max(10, Math.min(100, Math.round(curPct + delta * 100)));
+    selectedImg.style.width = newPct + '%';
+    selectedImg.style.height = 'auto';
+    selectedImg.style.maxWidth = '100%';
+    setTimeout(function(){ positionImgToolbar(selectedImg); }, 50);
+    sendChange();
+  }
+
+  function imgFull() {
+    if (!selectedImg) return;
+    selectedImg.style.width = '100%';
+    selectedImg.style.height = 'auto';
+    selectedImg.style.maxWidth = '100%';
+    selectedImg.style.marginLeft = '0';
+    selectedImg.style.marginRight = '0';
+    selectedImg.style.display = 'block';
+    positionImgToolbar(selectedImg);
+    sendChange();
+  }
+
+  function imgDelete() {
+    if (!selectedImg) return;
+    selectedImg.parentNode && selectedImg.parentNode.removeChild(selectedImg);
+    deselectImg();
+    sendChange();
+  }
+
+  // ── Editor core ──────────────────────────────────────────────────────────
 
   function fmt(cmd, val) {
     ed.focus();
@@ -311,9 +483,10 @@ function buildQuillSrcdoc(initialHtml: string): string {
 
   ed.addEventListener('input', sendChange);
   ed.addEventListener('keyup', updateToolbar);
-  ed.addEventListener('mouseup', updateToolbar);
+  ed.addEventListener('mouseup', function(e) {
+    if (!e.target || e.target.tagName !== 'IMG') updateToolbar();
+  });
 
-  // Save cursor position when focus leaves editor (e.g. clicking toolbar img button)
   ed.addEventListener('blur', function() {
     var sel = window.getSelection();
     if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0).cloneRange();
@@ -333,10 +506,13 @@ function buildQuillSrcdoc(initialHtml: string): string {
     }
     var img = document.createElement('img');
     img.src = dataUrl;
-    img.style.maxWidth = '100%';
+    img.style.width = '60%';
     img.style.height = 'auto';
+    img.style.maxWidth = '100%';
     img.style.display = 'block';
-    img.style.margin = '8px 0';
+    img.style.marginLeft = 'auto';
+    img.style.marginRight = 'auto';
+    img.style.margin = '8px auto';
     if (range) {
       range.deleteContents();
       range.insertNode(img);
@@ -347,6 +523,7 @@ function buildQuillSrcdoc(initialHtml: string): string {
     } else {
       ed.appendChild(img);
     }
+    setTimeout(function(){ selectImg(img); }, 50);
     sendChange();
   }
 
@@ -356,7 +533,6 @@ function buildQuillSrcdoc(initialHtml: string): string {
     reader.readAsDataURL(file);
   }
 
-  // Toolbar image button: pick file
   document.getElementById('imgInput').addEventListener('change', function() {
     var file = this.files[0];
     if (!file) return;
@@ -364,7 +540,6 @@ function buildQuillSrcdoc(initialHtml: string): string {
     this.value = '';
   });
 
-  // Paste: intercept image data from clipboard
   ed.addEventListener('paste', function(e) {
     var items = e.clipboardData && e.clipboardData.items;
     if (!items) return;
