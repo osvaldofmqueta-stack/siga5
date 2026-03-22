@@ -253,6 +253,7 @@ function buildQuillSrcdoc(initialHtml: string): string {
 </style>
 </head>
 <body>
+<input type="file" id="imgInput" accept="image/*" style="display:none">
 <div id="toolbar">
   <select id="fontSize" title="Tamanho">
     <option value="1">Pequeno</option>
@@ -275,6 +276,8 @@ function buildQuillSrcdoc(initialHtml: string): string {
   <button title="Lista com pontos" onclick="fmt('insertUnorderedList')">&#8226;&#8212;</button>
   <button title="Lista numerada" onclick="fmt('insertOrderedList')">1.</button>
   <div class="sep"></div>
+  <button title="Inserir imagem (ou cola com Ctrl+V)" onclick="document.getElementById('imgInput').click()" style="font-size:16px">&#128247;</button>
+  <div class="sep"></div>
   <button title="Limpar formatação" onclick="fmt('removeFormat')" style="font-size:11px">&#10006; fmt</button>
 </div>
 <div id="editorWrap">
@@ -283,6 +286,7 @@ function buildQuillSrcdoc(initialHtml: string): string {
 <script>
   var ed = document.getElementById('editor');
   var timer;
+  var savedRange = null;
 
   var initial = ${safeInitial};
   if (initial) { ed.innerHTML = initial; }
@@ -308,6 +312,71 @@ function buildQuillSrcdoc(initialHtml: string): string {
   ed.addEventListener('input', sendChange);
   ed.addEventListener('keyup', updateToolbar);
   ed.addEventListener('mouseup', updateToolbar);
+
+  // Save cursor position when focus leaves editor (e.g. clicking toolbar img button)
+  ed.addEventListener('blur', function() {
+    var sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) savedRange = sel.getRangeAt(0).cloneRange();
+  });
+
+  function insertImageDataUrl(dataUrl) {
+    ed.focus();
+    var sel = window.getSelection();
+    var range;
+    if (savedRange) {
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+      range = savedRange;
+      savedRange = null;
+    } else if (sel && sel.rangeCount > 0) {
+      range = sel.getRangeAt(0);
+    }
+    var img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.maxWidth = '100%';
+    img.style.height = 'auto';
+    img.style.display = 'block';
+    img.style.margin = '8px 0';
+    if (range) {
+      range.deleteContents();
+      range.insertNode(img);
+      range.setStartAfter(img);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      ed.appendChild(img);
+    }
+    sendChange();
+  }
+
+  function readFileAsDataUrl(file, cb) {
+    var reader = new FileReader();
+    reader.onload = function(e) { cb(e.target.result); };
+    reader.readAsDataURL(file);
+  }
+
+  // Toolbar image button: pick file
+  document.getElementById('imgInput').addEventListener('change', function() {
+    var file = this.files[0];
+    if (!file) return;
+    readFileAsDataUrl(file, insertImageDataUrl);
+    this.value = '';
+  });
+
+  // Paste: intercept image data from clipboard
+  ed.addEventListener('paste', function(e) {
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        e.preventDefault();
+        var file = items[i].getAsFile();
+        if (file) readFileAsDataUrl(file, insertImageDataUrl);
+        return;
+      }
+    }
+  });
 
   function updateToolbar() {
     document.getElementById('btnBold').classList.toggle('active', document.queryCommandState('bold'));
