@@ -75,13 +75,15 @@ export default function DrawerLeft() {
 
   const isCeo = user?.role === 'ceo';
   const isPca = user?.role === 'pca';
+  const isAdmin = user?.role === 'admin';
+  const isDirector = user?.role === 'director';
 
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
   const isFinanceiro = user?.role === 'financeiro';
   const isSecretaria = user?.role === 'secretaria';
   const isChefeSec = user?.role === 'chefe_secretaria';
-  const isRH = user?.role === 'director' || user?.role === 'admin';
+  const isRH = isDirector || isAdmin;
   const isEncarregado = user?.role === 'encarregado';
 
   const { hasPermission } = usePermissoes();
@@ -235,13 +237,6 @@ export default function DrawerLeft() {
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
       ],
     },
-    {
-      title: 'Administração',
-      items: [
-        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
-        { label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" />, permKey: 'admin' },
-      ],
-    },
   ];
 
   const ADMIN_DIRECTOR_SECTIONS: NavSection[] = [
@@ -273,12 +268,6 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Financeiro',
-      items: [
-        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
-      ],
-    },
-    {
       title: 'Análise',
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
@@ -291,13 +280,6 @@ export default function DrawerLeft() {
         { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
       ],
     }] : []),
-    {
-      title: 'Administração',
-      items: [
-        { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' as PermKey },
-        ...(user?.role === 'director' ? [{ label: 'Super Admin', route: '/(main)/admin', icon: <Ionicons name="shield-checkmark" size={20} color="inherit" /> as any, permKey: 'admin' as PermKey }] : []),
-      ],
-    },
   ];
 
   const RAW_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS
@@ -445,6 +427,60 @@ export default function DrawerLeft() {
                 </View>
               </View>
               <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Controlo Financeiro ── */}
+        {(isCeo || isPca || isAdmin) && (
+          <TouchableOpacity
+            style={styles.financeiroCTA}
+            onPress={() => { router.push('/(main)/financeiro' as any); closeLeft && closeLeft(); }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#0A3D1A', '#052610', '#021508']}
+              style={styles.financeiroCTAGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.financeiroCTALeft}>
+                <View style={styles.financeiroCTAIcon}>
+                  <MaterialCommunityIcons name="cash-multiple" size={20} color="#4ADE80" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.financeiroCTATitle}>Controlo Financeiro</Text>
+                  <Text style={styles.financeiroCTASub}>Propinas · Pagamentos · Multas · RUPEs</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#4ADE80" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Gestão de Acessos e Permissões ── */}
+        {(isCeo || isPca || isAdmin || isDirector) && (
+          <TouchableOpacity
+            style={styles.acessosCTA}
+            onPress={() => { router.push('/(main)/gestao-acessos' as any); closeLeft && closeLeft(); }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#0D1F5C', '#071240', '#040B28']}
+              style={styles.acessosCTAGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.acessosCTALeft}>
+                <View style={styles.acessosCTAIcon}>
+                  <MaterialCommunityIcons name="account-key" size={20} color="#818CF8" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.acessosCTATitle}>Gestão de Acessos</Text>
+                  <Text style={styles.acessosCTASub}>Perfis · Permissões · Controlo de Acesso</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#818CF8" />
             </LinearGradient>
           </TouchableOpacity>
         )}
@@ -902,5 +938,93 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     color: Colors.danger,
     letterSpacing: 0.8,
+  },
+
+  financeiroCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#4ADE8050',
+  },
+  financeiroCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  financeiroCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  financeiroCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#4ADE8025',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#4ADE8045',
+  },
+  financeiroCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#4ADE80',
+    marginBottom: 2,
+  },
+  financeiroCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(74,222,128,0.65)',
+  },
+
+  acessosCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#818CF850',
+  },
+  acessosCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  acessosCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  acessosCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#818CF825',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#818CF845',
+  },
+  acessosCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#818CF8',
+    marginBottom: 2,
+  },
+  acessosCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(129,140,248,0.65)',
   },
 });
