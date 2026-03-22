@@ -590,3 +590,23 @@ export const configGeral = pgTable("config_geral", {
 
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// MODELOS DE DOCUMENTOS (EDITOR)
+// -----------------------
+export const docTemplates = pgTable("doc_templates", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  nome: text("nome").notNull(),
+  tipo: text("tipo").notNull(),
+  conteudo: text("conteudo").notNull(),
+  insigniaBase64: text("insignia_base64"),
+  marcaAguaBase64: text("marca_agua_base64"),
+  classeAlvo: text("classe_alvo"),
+  bloqueado: boolean("bloqueado").notNull().default(false),
+
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});

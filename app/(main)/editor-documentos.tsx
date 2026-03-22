@@ -6,8 +6,8 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { api } from '@/lib/api';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -175,7 +175,6 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   outro: Colors.textMuted,
 };
 
-const STORAGE_KEY = '@sgaa_doc_templates';
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Map of all template variables → example values (for preview without real data)
@@ -1256,32 +1255,34 @@ export default function EditorDocumentos() {
     return () => (window as any).removeEventListener('message', handler);
   }, []);
 
-  // Load templates + seed defaults
+  // Load templates + seed defaults from database
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(async raw => {
-      let list: DocTemplate[] = raw ? JSON.parse(raw) : [];
+    (async () => {
+      try {
+        const fetched = await api.get<DocTemplate[]>('/api/doc-templates');
+        let list: DocTemplate[] = fetched ?? [];
 
-      // Inject seed templates if not yet present
-      const seeds = [SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
-      let changed = false;
-      for (const seed of seeds) {
-        if (!list.find(t => t.id === seed.id)) {
-          list = [seed, ...list];
-          changed = true;
+        // Inject seed templates if not yet present in the database
+        const seeds = [SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const existingIds = new Set(list.map(t => t.id));
+        const toInsert = seeds.filter(s => !existingIds.has(s.id));
+        for (const seed of toInsert) {
+          try {
+            const saved = await api.post<DocTemplate>('/api/doc-templates', seed);
+            list = [saved, ...list];
+          } catch {}
         }
-      }
-      if (changed) {
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-      }
 
-      setTemplates(list);
-      setIsLoading(false);
-    }).catch(() => setIsLoading(false));
+        setTemplates(list);
+        setIsLoading(false);
+      } catch {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  async function saveTemplates(list: DocTemplate[]) {
+  function saveTemplates(list: DocTemplate[]) {
     setTemplates(list);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   }
 
   function openNew() {
@@ -1313,25 +1314,26 @@ export default function EditorDocumentos() {
   async function saveTemplate() {
     if (!editorNome.trim()) return;
     setIsSaving(true);
-    const now = new Date().toISOString();
-    let updated: DocTemplate[];
-    if (editingTemplate) {
-      updated = templates.map(t =>
-        t.id === editingTemplate.id
-          ? { ...t, nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent, atualizadoEm: now, insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua }
-          : t
-      );
-    } else {
-      const novo: DocTemplate = {
-        id: genId(), nome: editorNome.trim(), tipo: editorTipo,
-        conteudo: editorContent, criadoEm: now, atualizadoEm: now,
-        insigniaBase64: editorInsignia, marcaAguaBase64: editorMarcaAgua,
-      };
-      updated = [novo, ...templates];
+    try {
+      if (editingTemplate) {
+        const saved = await api.put<DocTemplate>(`/api/doc-templates/${editingTemplate.id}`, {
+          nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent,
+          insigniaBase64: editorInsignia ?? null, marcaAguaBase64: editorMarcaAgua ?? null,
+        });
+        saveTemplates(templates.map(t => t.id === editingTemplate.id ? saved : t));
+      } else {
+        const saved = await api.post<DocTemplate>('/api/doc-templates', {
+          nome: editorNome.trim(), tipo: editorTipo, conteudo: editorContent,
+          insigniaBase64: editorInsignia ?? null, marcaAguaBase64: editorMarcaAgua ?? null,
+        });
+        saveTemplates([saved, ...templates]);
+      }
+      setMode('list');
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível guardar o modelo. Tente novamente.');
+    } finally {
+      setIsSaving(false);
     }
-    await saveTemplates(updated);
-    setIsSaving(false);
-    setMode('list');
   }
 
   // ─── Image picker (web: file input; native: expo-image-picker) ──────────────
@@ -1378,8 +1380,12 @@ export default function EditorDocumentos() {
   }
 
   async function deleteTemplate(id: string) {
-    const updated = templates.filter(t => t.id !== id);
-    await saveTemplates(updated);
+    try {
+      await api.delete(`/api/doc-templates/${id}`);
+      saveTemplates(templates.filter(t => t.id !== id));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível eliminar o modelo.');
+    }
   }
 
   const LOCK_ROLES: string[] = ['pca', 'ceo', 'admin', 'director'];
@@ -1404,10 +1410,10 @@ export default function EditorDocumentos() {
           text: isBlocking ? 'Bloquear' : 'Desbloquear',
           style: isBlocking ? 'destructive' : 'default',
           onPress: async () => {
-            const updated = templates.map(t =>
-              t.id === id ? { ...t, bloqueado: !t.bloqueado } : t
-            );
-            await saveTemplates(updated);
+            try {
+              await api.patch(`/api/doc-templates/${id}/bloqueado`, { bloqueado: !template.bloqueado });
+              saveTemplates(templates.map(t => t.id === id ? { ...t, bloqueado: !t.bloqueado } : t));
+            } catch {}
           },
         },
       ]

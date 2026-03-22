@@ -1778,6 +1778,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   await seedGeoData();
 
+  // -----------------------
+  // DOC TEMPLATES (EDITOR DE DOCUMENTOS)
+  // -----------------------
+  app.get("/api/doc-templates", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT id, nome, tipo, conteudo, insignia_base64 AS "insigniaBase64", marca_agua_base64 AS "marcaAguaBase64", classe_alvo AS "classeAlvo", bloqueado, criado_em AS "criadoEm", atualizado_em AS "atualizadoEm" FROM public.doc_templates ORDER BY criado_em DESC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/doc-templates", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { id, nome, tipo, conteudo, insigniaBase64, marcaAguaBase64, classeAlvo, bloqueado } = b as Record<string, unknown>;
+      if (!nome || !tipo || !conteudo) return json(res, 400, { error: 'nome, tipo e conteudo são obrigatórios.' });
+
+      const idToUse = id && typeof id === 'string' ? id : undefined;
+      let rows: JsonObject[];
+      if (idToUse) {
+        rows = await query<JsonObject>(
+          `INSERT INTO public.doc_templates (id, nome, tipo, conteudo, insignia_base64, marca_agua_base64, classe_alvo, bloqueado)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+           ON CONFLICT (id) DO UPDATE SET nome=EXCLUDED.nome, tipo=EXCLUDED.tipo, conteudo=EXCLUDED.conteudo, insignia_base64=EXCLUDED.insignia_base64, marca_agua_base64=EXCLUDED.marca_agua_base64, classe_alvo=EXCLUDED.classe_alvo, bloqueado=EXCLUDED.bloqueado, atualizado_em=NOW()
+           RETURNING id, nome, tipo, conteudo, insignia_base64 AS "insigniaBase64", marca_agua_base64 AS "marcaAguaBase64", classe_alvo AS "classeAlvo", bloqueado, criado_em AS "criadoEm", atualizado_em AS "atualizadoEm"`,
+          [idToUse, nome, tipo, conteudo, insigniaBase64 ?? null, marcaAguaBase64 ?? null, classeAlvo ?? null, bloqueado ?? false]
+        );
+      } else {
+        rows = await query<JsonObject>(
+          `INSERT INTO public.doc_templates (nome, tipo, conteudo, insignia_base64, marca_agua_base64, classe_alvo, bloqueado)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           RETURNING id, nome, tipo, conteudo, insignia_base64 AS "insigniaBase64", marca_agua_base64 AS "marcaAguaBase64", classe_alvo AS "classeAlvo", bloqueado, criado_em AS "criadoEm", atualizado_em AS "atualizadoEm"`,
+          [nome, tipo, conteudo, insigniaBase64 ?? null, marcaAguaBase64 ?? null, classeAlvo ?? null, bloqueado ?? false]
+        );
+      }
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/doc-templates/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { nome, tipo, conteudo, insigniaBase64, marcaAguaBase64, classeAlvo } = b as Record<string, unknown>;
+      if (!nome || !tipo || !conteudo) return json(res, 400, { error: 'nome, tipo e conteudo são obrigatórios.' });
+      const rows = await query<JsonObject>(
+        `UPDATE public.doc_templates SET nome=$1, tipo=$2, conteudo=$3, insignia_base64=$4, marca_agua_base64=$5, classe_alvo=$6, atualizado_em=NOW()
+         WHERE id=$7
+         RETURNING id, nome, tipo, conteudo, insignia_base64 AS "insigniaBase64", marca_agua_base64 AS "marcaAguaBase64", classe_alvo AS "classeAlvo", bloqueado, criado_em AS "criadoEm", atualizado_em AS "atualizadoEm"`,
+        [nome, tipo, conteudo, insigniaBase64 ?? null, marcaAguaBase64 ?? null, classeAlvo ?? null, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Template não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.patch("/api/doc-templates/:id/bloqueado", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { bloqueado } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.doc_templates SET bloqueado=$1, atualizado_em=NOW() WHERE id=$2
+         RETURNING id, bloqueado`,
+        [bloqueado ?? false, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Template não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/doc-templates/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await query(`DELETE FROM public.doc_templates WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   app.get("/api/provincias", async (_req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(`SELECT id, nome FROM public.provincias ORDER BY nome ASC`, []);
