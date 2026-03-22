@@ -10,9 +10,6 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
-import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
-import { useAnoAcademico } from '@/context/AnoAcademicoContext';
-import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import TopBar from '@/components/TopBar';
 
 const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Malanje', 'Uíge', 'Zaire', 'Cabinda', 'Kwanza Norte', 'Kwanza Sul', 'Lunda Norte', 'Lunda Sul', 'Huíla', 'Namibe', 'Moxico', 'Cuando Cubango', 'Cunene', 'Kuando Kubango'];
@@ -73,8 +70,6 @@ const ROLE_COLOR: Record<string, string> = {
 export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
   const { alunos, professores, turmas, notas, presencas } = useData();
-  const { pagamentos, taxas, bloqueados, getTotalRecebido, getTotalPendente, getMesesEmAtraso } = useFinanceiro();
-  const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -144,159 +139,35 @@ export default function PerfilScreen() {
   // Role-specific stats
   function renderRoleSection() {
     if (user.role === 'ceo' || user.role === 'pca' || user.role === 'admin') {
-      const anoAtual = anoSelecionado?.ano || String(new Date().getFullYear());
       const totalAlunos = alunos.filter(a => a.ativo).length;
       const totalProf = professores.filter(p => p.ativo).length;
       const totalTurmas = turmas.filter(t => t.ativo).length;
       const mediaNotas = notas.length > 0 ? (notas.reduce((s, n) => s + n.mac, 0) / notas.length).toFixed(1) : '—';
 
-      // PCA financial data
-      const totalRecebido = getTotalRecebido(anoAtual);
-      const totalPendente = getTotalPendente(anoAtual);
-      const totalPagamentos = pagamentos.filter(p => p.ano === anoAtual && p.status === 'pago').length;
-      const alunosBloqueados = bloqueados.length;
-      const alunosEmAtraso = alunos.filter(a => a.ativo && getMesesEmAtraso(a.id, anoAtual) > 0).length;
-      const taxaPropina = taxas.find(t => t.tipo === 'propina' && t.ativo);
-      const taxaTotal = taxaPropina ? (taxaPropina.valor * totalAlunos * 11) : 0;
-      const taxaCobranca = taxaTotal > 0 ? Math.round((totalRecebido / taxaTotal) * 100) : 0;
-
-      // Monthly breakdown (paid per month)
-      const MESES_LET = [
-        { num: 9, nome: 'Set' }, { num: 10, nome: 'Out' }, { num: 11, nome: 'Nov' },
-        { num: 12, nome: 'Dez' }, { num: 1, nome: 'Jan' }, { num: 2, nome: 'Fev' },
-        { num: 3, nome: 'Mar' }, { num: 4, nome: 'Abr' }, { num: 5, nome: 'Mai' },
-        { num: 6, nome: 'Jun' }, { num: 7, nome: 'Jul' },
-      ];
-      const anoBase = parseInt(anoAtual.split('/')[0]) || new Date().getFullYear();
-      const mesAtual = new Date().getMonth() + 1;
-
       return (
-        <>
-          <View style={styles.card}>
-            <SectionHeader title="Visão Geral do Sistema" icon="shield-checkmark" />
-            <View style={styles.statsGrid}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: Colors.info }]}>{totalAlunos}</Text>
-                <Text style={styles.statLbl}>Alunos</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: Colors.gold }]}>{totalProf}</Text>
-                <Text style={styles.statLbl}>Professores</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: Colors.success }]}>{totalTurmas}</Text>
-                <Text style={styles.statLbl}>Turmas</Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statNum, { color: Colors.accent }]}>{mediaNotas}</Text>
-                <Text style={styles.statLbl}>Média Geral</Text>
-              </View>
+        <View style={styles.card}>
+          <SectionHeader title="Visão Geral do Sistema" icon="shield-checkmark" />
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNum, { color: Colors.info }]}>{totalAlunos}</Text>
+              <Text style={styles.statLbl}>Alunos</Text>
             </View>
-            <InfoRow label="Cargo" value={roleLabel} />
-            <InfoRow label="Instituição" value={user.escola} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statNum, { color: Colors.gold }]}>{totalProf}</Text>
+              <Text style={styles.statLbl}>Professores</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNum, { color: Colors.success }]}>{totalTurmas}</Text>
+              <Text style={styles.statLbl}>Turmas</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={[styles.statNum, { color: Colors.accent }]}>{mediaNotas}</Text>
+              <Text style={styles.statLbl}>Média Geral</Text>
+            </View>
           </View>
-
-          {/* Painel Financeiro — visível ao PCA e Administradores */}
-          <View style={styles.card}>
-            <SectionHeader title="Controlo Financeiro" icon="cash" />
-
-            {/* KPIs principais */}
-            <View style={styles.statsGrid}>
-              <View style={[styles.statItem, { borderTopWidth: 2, borderTopColor: Colors.success }]}>
-                <Text style={[styles.statNum, { color: Colors.success, fontSize: 13 }]}>{formatAOA(totalRecebido)}</Text>
-                <Text style={styles.statLbl}>Recebido</Text>
-              </View>
-              <View style={[styles.statItem, { borderTopWidth: 2, borderTopColor: Colors.warning }]}>
-                <Text style={[styles.statNum, { color: Colors.warning, fontSize: 13 }]}>{formatAOA(totalPendente)}</Text>
-                <Text style={styles.statLbl}>Pendente</Text>
-              </View>
-              <View style={[styles.statItem, { borderTopWidth: 2, borderTopColor: Colors.info }]}>
-                <Text style={[styles.statNum, { color: Colors.info }]}>{totalPagamentos}</Text>
-                <Text style={styles.statLbl}>Transacções</Text>
-              </View>
-            </View>
-
-            {/* Taxa de cobrança */}
-            <View style={{ marginTop: 10, marginBottom: 4 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text style={styles.statLbl}>Taxa de Cobrança {anoAtual}</Text>
-                <Text style={[styles.statLbl, { color: taxaCobranca >= 80 ? Colors.success : taxaCobranca >= 50 ? Colors.warning : Colors.danger, fontFamily: 'Inter_700Bold' }]}>
-                  {taxaCobranca}%
-                </Text>
-              </View>
-              <View style={{ height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' }}>
-                <View style={{
-                  height: 8, borderRadius: 4,
-                  width: `${Math.min(taxaCobranca, 100)}%`,
-                  backgroundColor: taxaCobranca >= 80 ? Colors.success : taxaCobranca >= 50 ? Colors.warning : Colors.danger,
-                }} />
-              </View>
-            </View>
-
-            {/* Alertas */}
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              <View style={{ flex: 1, minWidth: 120, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.danger + '44' }}>
-                <Ionicons name="alert-circle" size={16} color={Colors.danger} />
-                <Text style={[styles.statNum, { color: Colors.danger }]}>{alunosEmAtraso}</Text>
-                <Text style={styles.statLbl}>Alunos em Atraso</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 120, backgroundColor: Colors.warning + '18', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.warning + '44' }}>
-                <Ionicons name="lock-closed" size={16} color={Colors.warning} />
-                <Text style={[styles.statNum, { color: Colors.warning }]}>{alunosBloqueados}</Text>
-                <Text style={styles.statLbl}>Bloqueados</Text>
-              </View>
-              <View style={{ flex: 1, minWidth: 120, backgroundColor: Colors.success + '18', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.success + '44' }}>
-                <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
-                <Text style={[styles.statNum, { color: Colors.success }]}>{totalAlunos - alunosEmAtraso}</Text>
-                <Text style={styles.statLbl}>Em Dia</Text>
-              </View>
-            </View>
-
-            {/* Distribuição mensal */}
-            <Text style={[styles.statLbl, { marginTop: 14, marginBottom: 6 }]}>PAGAMENTOS POR MÊS — {anoAtual}</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
-              {MESES_LET.map(m => {
-                const anoMes = m.num >= 8 ? anoBase : anoBase + 1;
-                const countPago = pagamentos.filter(p =>
-                  p.mes === m.num && p.ano === String(anoMes) && p.status === 'pago'
-                ).length;
-                const totalMes = pagamentos.filter(p =>
-                  p.mes === m.num && p.ano === String(anoMes)
-                ).reduce((s, p) => s + (p.status === 'pago' ? p.valor : 0), 0);
-                const isAtual = m.num === mesAtual;
-                return (
-                  <View key={m.num} style={{
-                    flex: 1, minWidth: 70, borderRadius: 6, padding: 6,
-                    backgroundColor: countPago > 0 ? Colors.success + '18' : Colors.border,
-                    borderWidth: isAtual ? 2 : 1,
-                    borderColor: isAtual ? Colors.gold : countPago > 0 ? Colors.success + '55' : Colors.border,
-                    alignItems: 'center',
-                  }}>
-                    <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: countPago > 0 ? Colors.success : Colors.textMuted }}>
-                      {m.nome}
-                    </Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: countPago > 0 ? Colors.success : Colors.textMuted }}>
-                      {countPago}
-                    </Text>
-                    {totalMes > 0 && (
-                      <Text style={{ fontSize: 7, color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>
-                        {formatAOA(totalMes)}
-                      </Text>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-
-            <TouchableOpacity
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, backgroundColor: Colors.primary + '22', borderRadius: 8, paddingVertical: 10, borderWidth: 1, borderColor: Colors.primary + '55' }}
-              onPress={() => router.push('/financeiro' as any)}
-            >
-              <Ionicons name="analytics" size={16} color={Colors.primary} />
-              <Text style={{ color: Colors.primary, fontSize: 13, fontFamily: 'Inter_600SemiBold' }}>Abrir Gestão Financeira Completa</Text>
-            </TouchableOpacity>
-          </View>
-        </>
+          <InfoRow label="Cargo" value={roleLabel} />
+          <InfoRow label="Instituição" value={user.escola} />
+        </View>
       );
     }
 
@@ -505,14 +376,6 @@ export default function PerfilScreen() {
           <InfoRow label="Dispositivo" value={Platform.OS === 'web' ? 'Navegador Web' : Platform.OS === 'ios' ? 'iPhone' : 'Android'} />
           <InfoRow label="Versão da app" value="SGAA v1.0.0" />
         </View>
-
-        {/* Centro de Controlo de Acessos — CEO / PCA */}
-        {(user.role === 'ceo' || user.role === 'pca') && (
-          <View style={styles.card}>
-            <SectionHeader title="Controlo de Acessos e Permissões" icon="shield-checkmark" />
-            <GestaoAcessosPanel />
-          </View>
-        )}
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={() => setConfirmLogout(true)}>
