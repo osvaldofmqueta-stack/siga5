@@ -458,6 +458,33 @@ export default function DrawerLeft() {
           </TouchableOpacity>
         )}
 
+        {/* ── Editor de Documentos ── */}
+        {(isCeo || isPca || isAdmin) && (
+          <TouchableOpacity
+            style={styles.editorCTA}
+            onPress={() => { router.push('/(main)/editor-documentos' as any); closeLeft && closeLeft(); }}
+            activeOpacity={0.85}
+          >
+            <LinearGradient
+              colors={['#7C3A00', '#4A2200', '#2A1200']}
+              style={styles.editorCTAGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.editorCTALeft}>
+                <View style={styles.editorCTAIcon}>
+                  <Ionicons name="newspaper" size={20} color="#F59E0B" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.editorCTATitle}>Editor de Documentos</Text>
+                  <Text style={styles.editorCTASub}>Modelos · Declarações · Certificados</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#F59E0B" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         {/* ── Gestão de Acessos e Permissões ── */}
         {(isCeo || isPca || isAdmin || isDirector) && (
           <TouchableOpacity
@@ -984,6 +1011,49 @@ const styles = StyleSheet.create({
     color: 'rgba(74,222,128,0.65)',
   },
 
+  editorCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F59E0B50',
+  },
+  editorCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  editorCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  editorCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#F59E0B25',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#F59E0B45',
+  },
+  editorCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#F59E0B',
+    marginBottom: 2,
+  },
+  editorCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(245,158,11,0.65)',
+  },
   acessosCTA: {
     marginHorizontal: 12,
     marginBottom: 10,
