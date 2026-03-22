@@ -47,6 +47,41 @@ const DEFAULT_ESCOLA: EscolaConfig = {
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
 };
 
+const SECTION_COLORS: Record<string, string> = {
+  matriculas: Colors.warning,
+  escola: Colors.info,
+  anos: '#9B59B6',
+  usuarios: Colors.gold,
+  acessos: '#8B5CF6',
+  config: Colors.success,
+  comunicacoes: Colors.accent,
+  seguranca: Colors.danger,
+};
+
+const GROUPS = [
+  {
+    key: 'academico',
+    label: 'Académico',
+    icon: 'school' as const,
+    color: Colors.warning,
+    sections: ['matriculas', 'anos'],
+  },
+  {
+    key: 'pessoal',
+    label: 'Pessoal & Acesso',
+    icon: 'people' as const,
+    color: '#8B5CF6',
+    sections: ['usuarios', 'acessos'],
+  },
+  {
+    key: 'sistema',
+    label: 'Sistema',
+    icon: 'construct' as const,
+    color: Colors.info,
+    sections: ['escola', 'config', 'comunicacoes', 'seguranca'],
+  },
+];
+
 const ROLE_LABEL: Record<UserRole, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
   secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
@@ -100,6 +135,7 @@ export default function AdminScreen() {
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '' });
   const [activeSection, setActiveSection] = useState<string>('matriculas');
+  const [activeGroup, setActiveGroup] = useState<string>('academico');
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoRegistro | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
   const [showRejeitar, setShowRejeitar] = useState(false);
@@ -282,32 +318,53 @@ export default function AdminScreen() {
         </View>
       </LinearGradient>
 
-      {/* ── Section Navigation ────────────────────────────── */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sectionsScroll}>
-        <View style={styles.sectionsRow}>
-          {allSections.map(s => {
-            const isActive = activeSection === s.key;
-            const sectionColors: Record<string, string> = {
-              matriculas: Colors.warning,
-              escola: Colors.info,
-              anos: '#9B59B6',
-              usuarios: Colors.gold,
-              acessos: '#8B5CF6',
-              config: Colors.success,
-              comunicacoes: Colors.accent,
-              seguranca: Colors.danger,
-            };
-            const accent = sectionColors[s.key] || Colors.gold;
+      {/* ── Group Navigation (Level 1) ────────────────────── */}
+      <View style={styles.groupNav}>
+        {GROUPS.map(g => {
+          const isActive = activeGroup === g.key;
+          const groupBadge = g.sections.reduce((sum, sk) => {
+            const s = allSections.find(sec => sec.key === sk);
+            return sum + (s?.badge || 0);
+          }, 0);
+          return (
+            <TouchableOpacity
+              key={g.key}
+              style={[styles.groupCard, isActive && { borderColor: g.color + '66', backgroundColor: g.color + '15' }]}
+              onPress={() => { setActiveGroup(g.key); setActiveSection(g.sections[0]); }}
+              activeOpacity={0.75}
+            >
+              <View style={{ position: 'relative', alignSelf: 'center' }}>
+                <View style={[styles.groupCardIcon, { backgroundColor: isActive ? g.color + '30' : Colors.surface }]}>
+                  <Ionicons name={g.icon} size={20} color={isActive ? g.color : Colors.textMuted} />
+                </View>
+                {groupBadge > 0 && (
+                  <View style={styles.groupBadge}>
+                    <Text style={styles.groupBadgeText}>{groupBadge}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.groupCardLabel, isActive && { color: g.color, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>{g.label}</Text>
+              <Text style={styles.groupCardCount}>{g.sections.length} secções</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* ── Sub-section Pills (Level 2) ───────────────────── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNavScroll}>
+        <View style={styles.subNavRow}>
+          {GROUPS.find(g => g.key === activeGroup)?.sections.map(sk => {
+            const s = allSections.find(sec => sec.key === sk)!;
+            const isActive = activeSection === sk;
+            const color = SECTION_COLORS[sk] || Colors.gold;
             return (
               <TouchableOpacity
-                key={s.key}
-                style={[styles.sectionBtn, isActive && { backgroundColor: accent + '22', borderColor: accent + '55' }]}
-                onPress={() => setActiveSection(s.key)}
+                key={sk}
+                style={[styles.subNavBtn, isActive && { backgroundColor: color + '22', borderColor: color + '55' }]}
+                onPress={() => setActiveSection(sk)}
               >
-                <View style={[styles.sectionBtnIcon, isActive && { backgroundColor: accent + '33' }]}>
-                  <Ionicons name={s.icon as any} size={15} color={isActive ? accent : Colors.textMuted} />
-                </View>
-                <Text style={[styles.sectionBtnText, isActive && { color: accent, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>
+                <Ionicons name={s.icon as any} size={13} color={isActive ? color : Colors.textMuted} />
+                <Text style={[styles.subNavText, isActive && { color, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>
                 {s.badge !== undefined && s.badge > 0 && (
                   <View style={[styles.badge, { backgroundColor: Colors.danger }]}>
                     <Text style={styles.badgeText}>{s.badge}</Text>
@@ -1200,18 +1257,35 @@ const styles = StyleSheet.create({
   heroStatLabel: { fontSize: 9, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 1 },
   heroStatDivider: { width: 1, height: 28, backgroundColor: Colors.border },
 
-  sectionsScroll: { flexGrow: 0, maxHeight: 58, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  sectionsRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 9, gap: 6 },
-  sectionBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 7,
-    paddingHorizontal: 11, paddingVertical: 7, borderRadius: 20,
+  groupNav: {
+    flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  groupCard: {
+    flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 6,
+    borderRadius: 14, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: 'transparent',
+  },
+  groupCardIcon: {
+    width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 2,
+  },
+  groupCardLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textAlign: 'center' },
+  groupCardCount: { fontSize: 9, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  groupBadge: {
+    position: 'absolute', top: -4, right: -6,
+    backgroundColor: Colors.danger, borderRadius: 9, minWidth: 18, height: 18,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    borderWidth: 1.5, borderColor: Colors.backgroundCard,
+  },
+  groupBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+  subNavScroll: { flexGrow: 0, maxHeight: 46, backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  subNavRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7, gap: 6 },
+  subNavBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
     backgroundColor: Colors.surface, borderWidth: 1, borderColor: 'transparent',
   },
-  sectionBtnIcon: {
-    width: 24, height: 24, borderRadius: 7, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  sectionBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  subNavText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   badge: { backgroundColor: Colors.danger, borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#fff' },
   scroll: { flex: 1 },
