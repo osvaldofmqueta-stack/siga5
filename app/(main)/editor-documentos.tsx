@@ -1258,6 +1258,21 @@ export default function EditorDocumentos() {
       Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
     }, 3000);
   }
+
+  // ─── Confirm modal (replaces Alert.alert — bloqueado por iframes) ──────────
+  const [confirmModal, setConfirmModal] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    danger: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  function showConfirm(opts: {
+    title: string; message: string; confirmLabel: string; danger?: boolean; onConfirm: () => void;
+  }) {
+    setConfirmModal({ ...opts, danger: opts.danger ?? false });
+  }
   const quillIframeRef = useRef<any>(null);
   const quillSrcdocRef = useRef<string>('');
 
