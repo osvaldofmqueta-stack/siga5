@@ -213,69 +213,132 @@ function buildQuillSrcdoc(initialHtml: string): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
-<script src="https://cdn.quilljs.com/1.3.7/quill.js"></script>
 <style>
-  *{box-sizing:border-box;margin:0}
-  html,body{height:100%;overflow:hidden;background:#111827}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#f0f0f0;font-family:sans-serif}
   body{display:flex;flex-direction:column}
-  .ql-toolbar.ql-snow{background:#1a2540;border:none!important;border-bottom:1px solid #2d3a5a!important;flex-shrink:0;padding:6px 8px}
-  .ql-container.ql-snow{flex:1;border:none!important;overflow-y:auto}
-  .ql-editor{min-height:100%;color:#e2e8f0;font-size:14px;line-height:1.85;padding:20px 28px;font-family:'Times New Roman',serif}
-  .ql-editor.ql-blank::before{color:#4a5568;font-style:italic}
-  .ql-toolbar .ql-stroke{stroke:#94a3b8!important}
-  .ql-toolbar .ql-fill{fill:#94a3b8!important}
-  .ql-toolbar .ql-picker{color:#94a3b8}
-  .ql-toolbar .ql-picker-label{color:#94a3b8}
-  .ql-toolbar .ql-picker-options{background:#1a2540;border:1px solid #2d3a5a;color:#e2e8f0}
-  .ql-toolbar .ql-picker-item:hover,.ql-toolbar .ql-picker-item.ql-selected{color:#fff}
-  .ql-toolbar button:hover .ql-stroke,.ql-toolbar button.ql-active .ql-stroke{stroke:#fff!important}
-  .ql-toolbar button:hover .ql-fill,.ql-toolbar button.ql-active .ql-fill{fill:#fff!important}
-  .ql-snow.ql-toolbar button{border-radius:4px}
-  .ql-snow.ql-toolbar button:hover{background:rgba(255,255,255,0.1)}
-  .ql-snow .ql-tooltip{background:#1a2540;border:1px solid #2d3a5a;color:#e2e8f0;box-shadow:0 4px 16px rgba(0,0,0,0.4);border-radius:8px}
-  .ql-snow .ql-tooltip input[type=text]{background:#0d1530;border:1px solid #2d3a5a;color:#e2e8f0}
-  .ql-snow .ql-tooltip a{color:#60a5fa}
-  .ql-color-picker .ql-picker-options,.ql-background .ql-picker-options{background:#1a2540!important;border:1px solid #2d3a5a!important}
-  /* Tag variable styling */
-  .ql-editor .var-tag{background:#1d4ed822;color:#60a5fa;border-radius:3px;padding:1px 3px;font-family:monospace;font-size:12px}
+  #toolbar{
+    display:flex;flex-wrap:wrap;align-items:center;gap:2px;
+    background:#1a2540;border-bottom:1px solid #2d3a5a;
+    padding:5px 8px;flex-shrink:0;
+  }
+  #toolbar button,#toolbar select{
+    background:transparent;border:none;color:#94a3b8;cursor:pointer;
+    border-radius:4px;padding:3px 6px;font-size:13px;line-height:1;
+    transition:background 0.15s,color 0.15s;
+    display:inline-flex;align-items:center;justify-content:center;
+  }
+  #toolbar button:hover,#toolbar select:hover{background:rgba(255,255,255,0.1);color:#fff}
+  #toolbar button.active{background:rgba(255,255,255,0.15);color:#fff}
+  #toolbar select{color:#94a3b8;padding:3px 4px;font-size:12px;background:#1a2540;outline:none}
+  #toolbar select option{background:#1a2540;color:#e2e8f0}
+  #toolbar .sep{width:1px;height:18px;background:#2d3a5a;margin:0 3px}
+  #editorWrap{flex:1;overflow-y:auto;background:#fff;padding:0}
+  #editor{
+    min-height:100%;padding:28px 36px;
+    font-family:'Times New Roman',Times,serif;
+    font-size:14px;line-height:1.9;color:#111;
+    background:#fff;
+    outline:none;white-space:pre-wrap;word-break:break-word;
+  }
+  #editor:empty::before{
+    content:'Escreva o conteúdo do documento aqui...';
+    color:#aaa;font-style:italic;pointer-events:none;
+  }
+  #editor .var-tag{
+    background:#dbeafe;color:#1d4ed8;border-radius:3px;
+    padding:1px 4px;font-family:monospace;font-size:12px;
+    font-style:normal;
+  }
 </style>
 </head>
 <body>
-<div id="editor"></div>
+<div id="toolbar">
+  <select id="fontSize" title="Tamanho">
+    <option value="1">Pequeno</option>
+    <option value="3" selected>Normal</option>
+    <option value="4">Grande</option>
+    <option value="5">Maior</option>
+    <option value="7">Muito grande</option>
+  </select>
+  <div class="sep"></div>
+  <button id="btnBold" title="Negrito" onclick="fmt('bold')"><b>B</b></button>
+  <button id="btnItalic" title="Itálico" onclick="fmt('italic')"><i>I</i></button>
+  <button id="btnUnderline" title="Sublinhado" onclick="fmt('underline')"><u>U</u></button>
+  <button id="btnStrike" title="Rasurado" onclick="fmt('strikeThrough')"><s>S</s></button>
+  <div class="sep"></div>
+  <button title="Alinhar à esquerda" onclick="fmt('justifyLeft')">&#8676;</button>
+  <button title="Centrar" onclick="fmt('justifyCenter')">&#9636;</button>
+  <button title="Alinhar à direita" onclick="fmt('justifyRight')">&#8677;</button>
+  <button title="Justificar" onclick="fmt('justifyFull')">&#9636;&#9636;</button>
+  <div class="sep"></div>
+  <button title="Lista com pontos" onclick="fmt('insertUnorderedList')">&#8226;&#8212;</button>
+  <button title="Lista numerada" onclick="fmt('insertOrderedList')">1.</button>
+  <div class="sep"></div>
+  <button title="Limpar formatação" onclick="fmt('removeFormat')" style="font-size:11px">&#10006; fmt</button>
+</div>
+<div id="editorWrap">
+  <div id="editor" contenteditable="true" spellcheck="true"></div>
+</div>
 <script>
-  var quill = new Quill('#editor', {
-    theme: 'snow',
-    placeholder: 'Escreva o conteúdo do documento aqui...\\n\\nClique numa variável no painel à direita para inserir dados automáticos.',
-    modules: {
-      toolbar: [
-        [{ font: [] }, { size: ['small', false, 'large', 'huge'] }],
-        ['bold', 'italic', 'underline', 'strike'],
-        [{ color: [] }, { background: [] }],
-        [{ align: [] }],
-        [{ list: 'ordered' }, { list: 'bullet' }],
-        [{ indent: '-1' }, { indent: '+1' }],
-        ['link', 'clean']
-      ]
-    }
-  });
-  var initial = ${safeInitial};
-  if (initial) { quill.root.innerHTML = initial; }
+  var ed = document.getElementById('editor');
   var timer;
-  quill.on('text-change', function() {
+
+  var initial = ${safeInitial};
+  if (initial) { ed.innerHTML = initial; }
+
+  function fmt(cmd, val) {
+    ed.focus();
+    document.execCommand(cmd, false, val || null);
+    sendChange();
+    updateToolbar();
+  }
+
+  document.getElementById('fontSize').addEventListener('change', function() {
+    fmt('fontSize', this.value);
+  });
+
+  function sendChange() {
     clearTimeout(timer);
     timer = setTimeout(function() {
-      window.parent.postMessage({ type: 'ck_change', html: quill.root.innerHTML }, '*');
-    }, 350);
-  });
+      window.parent.postMessage({ type: 'ck_change', html: ed.innerHTML }, '*');
+    }, 300);
+  }
+
+  ed.addEventListener('input', sendChange);
+  ed.addEventListener('keyup', updateToolbar);
+  ed.addEventListener('mouseup', updateToolbar);
+
+  function updateToolbar() {
+    document.getElementById('btnBold').classList.toggle('active', document.queryCommandState('bold'));
+    document.getElementById('btnItalic').classList.toggle('active', document.queryCommandState('italic'));
+    document.getElementById('btnUnderline').classList.toggle('active', document.queryCommandState('underline'));
+    document.getElementById('btnStrike').classList.toggle('active', document.queryCommandState('strikeThrough'));
+  }
+
   window.addEventListener('message', function(e) {
     if (!e.data || !e.data.type) return;
     if (e.data.type === 'ck_insert') {
-      var range = quill.getSelection(true);
-      var idx = range ? range.index : quill.getLength();
-      quill.insertText(idx, e.data.text, 'user');
-      quill.setSelection(idx + e.data.text.length, 0);
-      quill.focus();
+      ed.focus();
+      var sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        var span = document.createElement('span');
+        span.className = 'var-tag';
+        span.textContent = e.data.text;
+        range.insertNode(span);
+        range.setStartAfter(span);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        var span2 = document.createElement('span');
+        span2.className = 'var-tag';
+        span2.textContent = e.data.text;
+        ed.appendChild(span2);
+      }
+      sendChange();
     }
   });
 </script>
