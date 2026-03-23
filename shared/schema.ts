@@ -91,6 +91,8 @@ export const alunos = pgTable("alunos", {
     .notNull()
     .references(() => turmas.id),
 
+  cursoId: varchar("cursoId").references(() => cursos.id),
+
   nomeEncarregado: text("nomeEncarregado").notNull(),
   telefoneEncarregado: text("telefoneEncarregado").notNull(),
   emailEncarregado: text("emailEncarregado"),
@@ -530,6 +532,7 @@ export const registros = pgTable("registros", {
   // Escolaridade
   nivel: text("nivel").notNull(),
   classe: text("classe").notNull(),
+  cursoId: varchar("cursoId").references(() => cursos.id),
 
   // Encarregado
   nomeEncarregado: text("nomeEncarregado").notNull(),
@@ -564,6 +567,23 @@ export const userPermissions = pgTable("user_permissions", {
   userId: varchar("user_id").notNull().unique(),
   permissoes: jsonb("permissoes").notNull().default(sql`'{}'::jsonb`),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// CURSOS (II CICLO — 10ª CLASSE)
+// -----------------------
+export const cursos = pgTable("cursos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  nome: text("nome").notNull(),
+  codigo: text("codigo").notNull().default(''),
+  areaFormacao: text("areaFormacao").notNull(),
+  descricao: text("descricao").notNull().default(''),
+  ativo: boolean("ativo").notNull().default(true),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // -----------------------

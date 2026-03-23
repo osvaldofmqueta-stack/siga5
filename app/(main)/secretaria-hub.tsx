@@ -815,6 +815,276 @@ function CredenciaisModal({ visible, onClose }: { visible: boolean; onClose: () 
   );
 }
 
+// ─── MODAL DE CURSOS ─────────────────────────────────────────────────────────
+const AREAS_FORMACAO = [
+  'Ciências Físicas e Biológicas',
+  'Ciências Económicas e Jurídicas',
+  'Humanidades',
+  'Artes Visuais',
+  'Ciências de Informática',
+  'Formação de Professores',
+  'Outro',
+];
+
+interface Curso {
+  id: string;
+  nome: string;
+  codigo: string;
+  areaFormacao: string;
+  descricao: string;
+  ativo: boolean;
+}
+
+function CursosModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const [cursos, setCursos] = useState<Curso[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editando, setEditando] = useState<Curso | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+
+  async function fetchCursos() {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/cursos');
+      if (res.ok) setCursos(await res.json());
+    } catch {}
+    setLoading(false);
+  }
+
+  function abrirFormNovo() {
+    setEditando(null);
+    setForm({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+    setShowForm(true);
+  }
+
+  function abrirFormEditar(curso: Curso) {
+    setEditando(curso);
+    setForm({ nome: curso.nome, codigo: curso.codigo, areaFormacao: curso.areaFormacao, descricao: curso.descricao });
+    setShowForm(true);
+  }
+
+  async function handleSave() {
+    if (!form.nome.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
+    setSaving(true);
+    try {
+      const method = editando ? 'PUT' : 'POST';
+      const url = editando ? `/api/cursos/${editando.id}` : '/api/cursos';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, ativo: true }),
+      });
+      if (!res.ok) throw new Error('Erro ao guardar');
+      await fetchCursos();
+      setShowForm(false);
+    } catch (e: any) {
+      Alert.alert('Erro', e.message);
+    }
+    setSaving(false);
+  }
+
+  async function handleToggleAtivo(curso: Curso) {
+    try {
+      await fetch(`/api/cursos/${curso.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...curso, ativo: !curso.ativo }),
+      });
+      await fetchCursos();
+    } catch {}
+  }
+
+  const cursosAtivos = cursos.filter(c => c.ativo);
+  const cursosInativos = cursos.filter(c => !c.ativo);
+
+  const porArea = cursosAtivos.reduce<Record<string, Curso[]>>((acc, c) => {
+    if (!acc[c.areaFormacao]) acc[c.areaFormacao] = [];
+    acc[c.areaFormacao].push(c);
+    return acc;
+  }, {});
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+        {/* Header */}
+        <LinearGradient colors={['#0D1B3E', '#142247']} style={cStyles.header}>
+          <TouchableOpacity onPress={onClose} style={cStyles.backBtn}>
+            <Ionicons name="arrow-back" size={20} color={Colors.text} />
+          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <Text style={cStyles.headerTitle}>Parametrizar Cursos</Text>
+            <Text style={cStyles.headerSub}>Apenas para 10ª Classe — II Ciclo</Text>
+          </View>
+          {!showForm && (
+            <TouchableOpacity style={cStyles.addBtn} onPress={abrirFormNovo}>
+              <Ionicons name="add" size={18} color="#fff" />
+              <Text style={cStyles.addBtnText}>Novo</Text>
+            </TouchableOpacity>
+          )}
+        </LinearGradient>
+
+        {showForm ? (
+          /* ── FORMULÁRIO ── */
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+            <Text style={cStyles.formTitle}>{editando ? 'Editar Curso' : 'Novo Curso'}</Text>
+
+            <Text style={styles.fieldLabel}>Nome do Curso *</Text>
+            <TextInput
+              style={styles.input}
+              value={form.nome}
+              onChangeText={v => setForm(f => ({ ...f, nome: v }))}
+              placeholder="Ex: Ciências e Tecnologia"
+              placeholderTextColor={Colors.textMuted}
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Código</Text>
+            <TextInput
+              style={styles.input}
+              value={form.codigo}
+              onChangeText={v => setForm(f => ({ ...f, codigo: v }))}
+              placeholder="Ex: CFB"
+              placeholderTextColor={Colors.textMuted}
+              autoCapitalize="characters"
+            />
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Área de Formação *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+              <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
+                {AREAS_FORMACAO.map(a => (
+                  <TouchableOpacity
+                    key={a}
+                    onPress={() => setForm(f => ({ ...f, areaFormacao: a }))}
+                    style={[cStyles.areaChip, form.areaFormacao === a && cStyles.areaChipActive]}
+                  >
+                    <Text style={[cStyles.areaChipText, form.areaFormacao === a && cStyles.areaChipTextActive]}>{a}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+
+            <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Descrição</Text>
+            <TextInput
+              style={[styles.input, { minHeight: 80, textAlignVertical: 'top' }]}
+              value={form.descricao}
+              onChangeText={v => setForm(f => ({ ...f, descricao: v }))}
+              placeholder="Breve descrição do curso..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+            />
+
+            <View style={[styles.modalActions, { marginTop: 24 }]}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.submitBtn, saving && { opacity: 0.6 }]} onPress={handleSave} disabled={saving}>
+                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Text style={styles.submitBtnText}>{saving ? 'A guardar...' : 'Guardar'}</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        ) : (
+          /* ── LISTA ── */
+          <ScrollView style={{ flex: 1 }} onLayout={fetchCursos} contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+            {loading && (
+              <Text style={{ color: Colors.textMuted, textAlign: 'center', marginTop: 32 }}>A carregar cursos...</Text>
+            )}
+
+            {!loading && cursos.length === 0 && (
+              <View style={cStyles.emptyState}>
+                <Ionicons name="school-outline" size={48} color={Colors.textMuted} />
+                <Text style={cStyles.emptyTitle}>Nenhum curso parametrizado</Text>
+                <Text style={cStyles.emptySub}>Toque em "Novo" para adicionar o primeiro curso.</Text>
+              </View>
+            )}
+
+            {Object.entries(porArea).map(([area, lista]) => (
+              <View key={area} style={{ marginBottom: 20 }}>
+                <View style={cStyles.areaHeader}>
+                  <Ionicons name="layers-outline" size={14} color={Colors.gold} />
+                  <Text style={cStyles.areaHeaderText}>{area}</Text>
+                  <View style={cStyles.areaCount}>
+                    <Text style={cStyles.areaCountText}>{lista.length}</Text>
+                  </View>
+                </View>
+                {lista.map(curso => (
+                  <View key={curso.id} style={cStyles.cursoCard}>
+                    <View style={cStyles.cursoLeft}>
+                      {!!curso.codigo && (
+                        <View style={cStyles.codigoBadge}>
+                          <Text style={cStyles.codigoText}>{curso.codigo}</Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={cStyles.cursoNome}>{curso.nome}</Text>
+                        {!!curso.descricao && <Text style={cStyles.cursoDesc} numberOfLines={1}>{curso.descricao}</Text>}
+                      </View>
+                    </View>
+                    <View style={cStyles.cursoActions}>
+                      <TouchableOpacity onPress={() => abrirFormEditar(curso)} style={cStyles.iconBtn}>
+                        <Ionicons name="pencil-outline" size={16} color={Colors.gold} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleToggleAtivo(curso)} style={cStyles.iconBtn}>
+                        <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            {cursosInativos.length > 0 && (
+              <View style={{ marginTop: 8, opacity: 0.55 }}>
+                <View style={cStyles.areaHeader}>
+                  <Ionicons name="eye-off-outline" size={14} color={Colors.textMuted} />
+                  <Text style={[cStyles.areaHeaderText, { color: Colors.textMuted }]}>Inactivos ({cursosInativos.length})</Text>
+                </View>
+                {cursosInativos.map(curso => (
+                  <View key={curso.id} style={[cStyles.cursoCard, { borderColor: 'rgba(255,255,255,0.05)' }]}>
+                    <Text style={[cStyles.cursoNome, { color: Colors.textMuted }]}>{curso.nome}</Text>
+                    <TouchableOpacity onPress={() => handleToggleAtivo(curso)} style={cStyles.iconBtn}>
+                      <Ionicons name="refresh-outline" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </ScrollView>
+        )}
+      </View>
+    </Modal>
+  );
+}
+
+const cStyles = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingTop: 52, paddingBottom: 16 },
+  backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
+  headerSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.accent, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
+  addBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
+  formTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 20 },
+  areaChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  areaChipActive: { backgroundColor: 'rgba(240,165,0,0.15)', borderColor: Colors.gold },
+  areaChipText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  areaChipTextActive: { color: Colors.gold },
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 10 },
+  emptyTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  emptySub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+  areaHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
+  areaHeaderText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold, flex: 1 },
+  areaCount: { backgroundColor: 'rgba(240,165,0,0.15)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 },
+  areaCountText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  cursoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12, marginBottom: 8 },
+  cursoLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  codigoBadge: { backgroundColor: 'rgba(52,152,219,0.2)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
+  codigoText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#3498DB' },
+  cursoNome: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  cursoDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  cursoActions: { flexDirection: 'row', gap: 4 },
+  iconBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+});
+
 // ─── MAIN SCREEN ─────────────────────────────────────────────────────────────
 export default function SecretariaHubScreen() {
   const insets = useSafeAreaInsets();
@@ -828,6 +1098,7 @@ export default function SecretariaHubScreen() {
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
+  const [showCursosModal, setShowCursosModal] = useState(false);
   const [emitirEspecificoTipo, setEmitirEspecificoTipo] = useState<TipoDocEspecifico | null>(null);
 
   function abrirDocEspecifico(t: TipoDocEspecifico) { setEmitirEspecificoTipo(t); }
@@ -875,6 +1146,7 @@ export default function SecretariaHubScreen() {
     { label: 'Boletim de\nMatrícula', icon: 'newspaper', color: '#F59E0B', action: () => router.push('/(main)/boletim-matricula' as any) },
     { label: 'Caderneta\nde Propinas', icon: 'cash', color: '#10B981', action: () => router.push('/(main)/boletim-propina' as any) },
     { label: 'Processo de\nAdmissão', icon: 'school-outline', color: '#3498DB', action: () => router.push('/(main)/admissao' as any) },
+    { label: 'Cursos\n10ª Classe', icon: 'library-outline', color: '#A78BFA', action: () => setShowCursosModal(true) },
   ];
 
   const TABS = [
@@ -1181,6 +1453,7 @@ export default function SecretariaHubScreen() {
         onSave={handleNovoProcesso}
       />
       <CredenciaisModal visible={showCredenciais} onClose={() => setShowCredenciais(false)} />
+      <CursosModal visible={showCursosModal} onClose={() => setShowCursosModal(false)} />
     </View>
   );
 }

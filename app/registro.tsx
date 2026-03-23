@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, Platform, KeyboardAvoidingView, Modal,
@@ -21,6 +21,8 @@ const CLASSES_POR_NIVEL: Record<string, string[]> = {
 
 const STEP_LABELS = ['Dados Pessoais', 'Contacto', 'Escolaridade'];
 
+interface CursoOption { id: string; nome: string; codigo: string; areaFormacao: string; }
+
 interface FormData {
   nomeCompleto: string;
   dataNascimento: string;
@@ -35,6 +37,7 @@ interface FormData {
   numeroCedula: string;
   nivel: string;
   classe: string;
+  cursoId: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
   observacoes: string;

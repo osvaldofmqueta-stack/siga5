@@ -1859,6 +1859,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // CURSOS
+  // -----------------------
+  app.get("/api/cursos", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.cursos ORDER BY "areaFormacao" ASC, nome ASC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/cursos", async (req: Request, res: Response) => {
+    try {
+      const body = requireBodyObject(req);
+      const { nome, codigo, areaFormacao, descricao } = body as Record<string, string>;
+      if (!nome?.trim()) return json(res, 400, { error: 'Nome é obrigatório.' });
+      if (!areaFormacao?.trim()) return json(res, 400, { error: 'Área de formação é obrigatória.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.cursos (nome, codigo, "areaFormacao", descricao, ativo)
+         VALUES ($1, $2, $3, $4, true) RETURNING *`,
+        [nome.trim(), (codigo || '').trim(), areaFormacao.trim(), (descricao || '').trim()]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/cursos/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const body = requireBodyObject(req);
+      const { nome, codigo, areaFormacao, descricao, ativo } = body as Record<string, any>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.cursos SET nome=$1, codigo=$2, "areaFormacao"=$3, descricao=$4, ativo=$5
+         WHERE id=$6 RETURNING *`,
+        [nome?.trim(), (codigo || '').trim(), areaFormacao?.trim(), (descricao || '').trim(), ativo !== false, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Curso não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/cursos/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await query(`UPDATE public.cursos SET ativo=false WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   app.get("/api/provincias", async (_req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(`SELECT id, nome FROM public.provincias ORDER BY nome ASC`, []);
