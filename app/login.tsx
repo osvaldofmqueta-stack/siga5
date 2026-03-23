@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
-  Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image,
+  Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -633,12 +633,17 @@ export default function LoginScreen() {
 
   if (isDesktop) {
     return (
-      <LinearGradient
-        colors={['#061029', '#0A1628', '#0F1F40', '#142247']}
+      <ImageBackground
+        source={require('../assets/login-bg.png')}
         style={styles.container}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
+        resizeMode="cover"
       >
+        <LinearGradient
+          colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.6, y: 1 }}
+        />
         {bgDecorations}
 
         <View style={styles.desktopRow}>
@@ -701,17 +706,22 @@ export default function LoginScreen() {
             router.replace(welcomeModal.targetRoute as any);
           }}
         />
-      </LinearGradient>
+      </ImageBackground>
     );
   }
 
   return (
-    <LinearGradient
-      colors={['#061029', '#0A1628', '#0F1F40', '#142247']}
+    <ImageBackground
+      source={require('../assets/login-bg.png')}
       style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.6, y: 1 }}
+      resizeMode="cover"
     >
+      <LinearGradient
+        colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.6, y: 1 }}
+      />
       {bgDecorations}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -753,7 +763,7 @@ export default function LoginScreen() {
           router.replace(welcomeModal.targetRoute as any);
         }}
       />
-    </LinearGradient>
+    </ImageBackground>
   );
 }
 
