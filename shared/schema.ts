@@ -608,6 +608,14 @@ export const configGeral = pgTable("config_geral", {
   multaConfig: jsonb("multaConfig").notNull().default(sql`'{"percentagem":10,"diasCarencia":5,"ativo":true}'::jsonb`),
   inscricoesAbertas: boolean("inscricoesAbertas").notNull().default(false),
 
+  // Dados bancários para pagamentos
+  numeroEntidade: text("numeroEntidade"),
+  iban: text("iban"),
+  nomeBeneficiario: text("nomeBeneficiario"),
+  bancoTransferencia: text("bancoTransferencia"),
+  telefoneMulticaixaExpress: text("telefoneMulticaixaExpress"),
+  nib: text("nib"),
+
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

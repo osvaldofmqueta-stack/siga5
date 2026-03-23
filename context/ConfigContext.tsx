@@ -27,6 +27,13 @@ export interface ConfigGeral {
   directorGeral?: string;
   directorPedagogico?: string;
   directorProvincialEducacao?: string;
+  // Dados bancários / pagamento
+  numeroEntidade?: string;
+  iban?: string;
+  nomeBeneficiario?: string;
+  bancoTransferencia?: string;
+  telefoneMulticaixaExpress?: string;
+  nib?: string;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -84,6 +91,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           directorGeral: (raw.directorGeral as string) || undefined,
           directorPedagogico: (raw.directorPedagogico as string) || undefined,
           directorProvincialEducacao: (raw.directorProvincialEducacao as string) || undefined,
+          numeroEntidade: (raw.numeroEntidade as string) || undefined,
+          iban: (raw.iban as string) || undefined,
+          nomeBeneficiario: (raw.nomeBeneficiario as string) || undefined,
+          bancoTransferencia: (raw.bancoTransferencia as string) || undefined,
+          telefoneMulticaixaExpress: (raw.telefoneMulticaixaExpress as string) || undefined,
+          nib: (raw.nib as string) || undefined,
         };
         setConfig(parsed);
       })
