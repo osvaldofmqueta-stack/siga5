@@ -1,6 +1,17 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Processo de Admissão Completo)
+## Recent Changes (Latest Session — Hub de Recursos Humanos Completo)
+- **app/(main)/rh-hub.tsx** *(new)*: Perfil RH completo com 6 tabs integradas:
+  - **Painel**: Dashboard com KPIs (profAtivos, sumáriosPendentes, solicitações, provas, pautas, turmas), ranking de professores mais activos por taxa de aceitação de sumários, alerta de solicitações pendentes, estado das pautas, carga horária por professor (via `/api/horarios`).
+  - **Professores**: Lista pesquisável e filtrável (todos/activo/inactivo) com avatar, disciplinas, habilitações, turmas atribuídas, métricas de sumários (total/aceites/rejeitados/taxa). Tap → modal de perfil completo com histórico de sumários.
+  - **Sumários**: Validação com pesquisa full-text + filtro por estado (pendente/aceite/rejeitado/todos). Modal de revisão com aceite/rejeição e observação RH.
+  - **Solicitações**: Gestão de pedidos de reabertura de pautas com resposta e aprovação/rejeição. Integrado com `updatePauta`.
+  - **Calendário**: Agendamento de provas/avaliações (tipo, título, disciplina, data, hora, descrição, turmas). Toggle publicado/rascunho. Eliminar prova.
+  - **Pautas**: Visão geral de todas as pautas (aberta/fechada/pendente_abertura/rejeitada) com link directo para solicitações pendentes.
+- **components/DrawerLeft.tsx**: CTA verde dedicado "Recursos Humanos" no sidebar para admin/director/rh/secretaria. `isRH` expandido para incluir `role === 'rh'`. `RH_SECTIONS` completo para utilizadores com role puro `rh`. Links `rh-controle` actualizados para `rh-hub`.
+- **app/(main)/_layout.tsx**: Registado `rh-hub` como novo Stack.Screen.
+
+## Recent Changes (Previous Session — Processo de Admissão Completo)
 - **shared/schema.ts**: `registros` extended with: `telefone`, `email`, `endereco`, `bairro`, `numeroBi`, `numeroCedula`, `senhaProvisoria`, `dataProva`, `notaAdmissao`, `resultadoAdmissao`, `matriculaCompleta`, `rupeInscricao`, `rupeMatricula`. Status now includes `'admitido' | 'reprovado_admissao' | 'matriculado'`.
 - **server/routes.ts**: New admissions endpoints: `POST /api/login-provisorio`, `GET /api/registros/:id`, `PUT /api/registros/:id/publicar-data-prova`, `PUT /api/registros/:id/lancar-nota`, `POST /api/registros/:id/gerar-rupe`, `POST /api/registros/:id/completar-matricula`. Password: `apelido + reversedBirthYear`.
 - **app/registro.tsx**: Rewritten as 3-step form (Dados Pessoais → Contacto & Identificação → Escolaridade). Shows `CredenciaisModal` with email + provisional password after successful submission.

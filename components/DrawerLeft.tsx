@@ -83,7 +83,8 @@ export default function DrawerLeft() {
   const isFinanceiro = user?.role === 'financeiro';
   const isSecretaria = user?.role === 'secretaria';
   const isChefeSec = user?.role === 'chefe_secretaria';
-  const isRH = isDirector || isAdmin;
+  const isRhRole = user?.role === 'rh';
+  const isRH = isDirector || isAdmin || isRhRole;
   const isEncarregado = user?.role === 'encarregado';
 
   const { hasPermission } = usePermissoes();
@@ -169,6 +170,30 @@ export default function DrawerLeft() {
     },
   ];
 
+  const RH_SECTIONS: NavSection[] = [
+    {
+      title: 'Recursos Humanos',
+      items: [
+        { label: 'Hub RH', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" /> },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount },
+      ],
+    },
+    {
+      title: 'Pessoal Docente',
+      items: [
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" /> },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" /> },
+      ],
+    },
+    {
+      title: 'Controlo',
+      items: [
+        { label: 'Sumários', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" /> },
+        { label: 'Calendário de Provas', route: '/(main)/rh-hub', icon: <Ionicons name="calendar" size={20} color="inherit" /> },
+      ],
+    },
+  ];
+
   const SECRETARIA_SECTIONS: NavSection[] = [
     {
       title: 'Secretaria',
@@ -203,7 +228,7 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
-        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' },
+        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_controle' },
         { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
@@ -268,7 +293,7 @@ export default function DrawerLeft() {
     ...(isRH ? [{
       title: 'Recursos Humanos',
       items: [
-        { label: 'Controlo RH', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-check" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
+        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
       ],
     }] : []),
   ];
@@ -279,6 +304,7 @@ export default function DrawerLeft() {
     : isAluno ? ALUNO_SECTIONS
     : isEncarregado ? ENCARREGADO_SECTIONS
     : isFinanceiro ? FINANCEIRO_SECTIONS
+    : isRhRole ? RH_SECTIONS
     : ADMIN_DIRECTOR_SECTIONS;
 
   // CEO/PCA always see everything; others get filtered by permissions
@@ -473,6 +499,33 @@ export default function DrawerLeft() {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#F59E0B" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Hub de Recursos Humanos ── */}
+          {isRH && (
+            <TouchableOpacity
+              style={styles.rhCTA}
+              onPress={() => { router.push('/(main)/rh-hub' as any); if (!isDesktop) closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#1A4A3A', '#0D2B22', '#061A14']}
+                style={styles.rhCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.rhCTALeft}>
+                  <View style={styles.rhCTAIcon}>
+                    <MaterialCommunityIcons name="account-tie" size={20} color="#34D399" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.rhCTATitle}>Recursos Humanos</Text>
+                    <Text style={styles.rhCTASub}>Sumários · Pautas · Calendário · Professores</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#34D399" />
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -1089,5 +1142,48 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(129,140,248,0.65)',
+  },
+  rhCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#34D39950',
+  },
+  rhCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  rhCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  rhCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#34D39925',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#34D39945',
+  },
+  rhCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#34D399',
+    marginBottom: 2,
+  },
+  rhCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(52,211,153,0.65)',
   },
 });
