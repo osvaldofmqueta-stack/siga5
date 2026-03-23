@@ -167,6 +167,8 @@ export default function RegistroScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string } | null>(null);
+  const [cursosDisponiveis, setCursosDisponiveis] = useState<CursoOption[]>([]);
+  const [loadingCursos, setLoadingCursos] = useState(false);
 
   const [form, setForm] = useState<FormData>({
     nomeCompleto: '',
@@ -182,12 +184,29 @@ export default function RegistroScreen() {
     numeroCedula: '',
     nivel: '',
     classe: '',
+    cursoId: '',
     nomeEncarregado: '',
     telefoneEncarregado: '',
     observacoes: '',
   });
 
   const set = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
+
+  useEffect(() => {
+    if (form.nivel === 'II Ciclo' && form.classe === '10ª Classe') {
+      setLoadingCursos(true);
+      fetch('/api/cursos')
+        .then(r => r.json())
+        .then((data: CursoOption[]) => {
+          setCursosDisponiveis((data || []).filter((c: any) => c.ativo !== false));
+        })
+        .catch(() => {})
+        .finally(() => setLoadingCursos(false));
+    } else {
+      setCursosDisponiveis([]);
+      set('cursoId', '');
+    }
+  }, [form.nivel, form.classe]);
 
   function validateStep1() {
     if (!form.nomeCompleto.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome completo.'); return false; }
@@ -207,6 +226,9 @@ export default function RegistroScreen() {
   function validateStep3() {
     if (!form.nivel) { Alert.alert('Campo obrigatório', 'Seleccione o nível de ensino.'); return false; }
     if (!form.classe) { Alert.alert('Campo obrigatório', 'Seleccione a classe.'); return false; }
+    if (form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
+      Alert.alert('Curso obrigatório', 'Seleccione o curso para a 10ª Classe.'); return false;
+    }
     if (!form.nomeEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do encarregado.'); return false; }
     if (!form.telefoneEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o contacto do encarregado.'); return false; }
     return true;
@@ -240,6 +262,7 @@ export default function RegistroScreen() {
           numeroCedula: form.numeroCedula.trim(),
           nivel: form.nivel,
           classe: form.classe,
+          cursoId: form.cursoId || null,
           nomeEncarregado: form.nomeEncarregado.trim(),
           telefoneEncarregado: form.telefoneEncarregado.trim(),
           observacoes: form.observacoes.trim(),
@@ -387,7 +410,65 @@ export default function RegistroScreen() {
               />
 
               {classeOptions.length > 0 && (
-                <ChipSelector label="Classe" options={classeOptions} value={form.classe} onSelect={v => set('classe', v)} required />
+                <ChipSelector label="Classe" options={classeOptions} value={form.classe} onSelect={v => { set('classe', v); set('cursoId', ''); }} required />
+              )}
+
+              {form.classe === '10ª Classe' && (
+                <View style={styles.fieldGroup}>
+                  <View style={styles.fieldLabelRow}>
+                    <Text style={styles.fieldLabel}>Curso</Text>
+                    <Text style={styles.fieldRequired}>*</Text>
+                  </View>
+                  <Text style={styles.fieldHint}>Apenas disponível para a 10ª Classe — II Ciclo</Text>
+                  {loadingCursos ? (
+                    <View style={styles.cursoLoadingBox}>
+                      <Text style={styles.cursoLoadingText}>A carregar cursos...</Text>
+                    </View>
+                  ) : cursosDisponiveis.length === 0 ? (
+                    <View style={styles.cursoEmptyBox}>
+                      <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
+                      <Text style={styles.cursoEmptyText}>Sem cursos parametrizados. Contacte a secretaria.</Text>
+                    </View>
+                  ) : (
+                    <View style={styles.cursoGrid}>
+                      {cursosDisponiveis.reduce<Record<string, CursoOption[]>>((acc, c) => {
+                        if (!acc[c.areaFormacao]) acc[c.areaFormacao] = [];
+                        acc[c.areaFormacao].push(c);
+                        return acc;
+                      }, {}) && Object.entries(
+                        cursosDisponiveis.reduce<Record<string, CursoOption[]>>((acc, c) => {
+                          if (!acc[c.areaFormacao]) acc[c.areaFormacao] = [];
+                          acc[c.areaFormacao].push(c);
+                          return acc;
+                        }, {})
+                      ).map(([area, lista]) => (
+                        <View key={area} style={styles.cursoAreaGroup}>
+                          <Text style={styles.cursoAreaLabel}>{area}</Text>
+                          {lista.map(curso => (
+                            <TouchableOpacity
+                              key={curso.id}
+                              style={[styles.cursoOption, form.cursoId === curso.id && styles.cursoOptionActive]}
+                              onPress={() => set('cursoId', curso.id)}
+                              activeOpacity={0.75}
+                            >
+                              {form.cursoId === curso.id && (
+                                <Ionicons name="checkmark-circle" size={15} color={Colors.accent} style={{ marginRight: 6 }} />
+                              )}
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.cursoOptionNome, form.cursoId === curso.id && styles.cursoOptionNomeActive]}>
+                                  {curso.nome}
+                                </Text>
+                                {!!curso.codigo && (
+                                  <Text style={styles.cursoOptionCodigo}>{curso.codigo}</Text>
+                                )}
+                              </View>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
               )}
 
               <View style={styles.sectionLabel}>
@@ -519,6 +600,19 @@ const styles = StyleSheet.create({
   approvalStepNum: { width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(240,165,0,0.2)', alignItems: 'center', justifyContent: 'center' },
   approvalStepNumText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold },
   approvalStepText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1 },
+
+  cursoGrid: { gap: 10 },
+  cursoAreaGroup: { gap: 6 },
+  cursoAreaLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.gold, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 2 },
+  cursoOption: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 11, borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 14, paddingVertical: 12 },
+  cursoOptionActive: { backgroundColor: 'rgba(204,26,26,0.1)', borderColor: Colors.accent },
+  cursoOptionNome: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  cursoOptionNomeActive: { color: Colors.text, fontFamily: 'Inter_600SemiBold' },
+  cursoOptionCodigo: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  cursoLoadingBox: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 16, alignItems: 'center' },
+  cursoLoadingText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  cursoEmptyBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 14 },
+  cursoEmptyText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1 },
 
   footer: { backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingTop: 12, alignItems: 'center' },
   footerActions: { flexDirection: 'row', gap: 12, maxWidth: 480, width: '100%' },

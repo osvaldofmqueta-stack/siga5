@@ -47,8 +47,23 @@ const DEFAULT_ESCOLA: EscolaConfig = {
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
 };
 
+const AREAS_FORMACAO = [
+  'Ciências Físicas e Biológicas',
+  'Ciências Económicas e Jurídicas',
+  'Humanidades',
+  'Artes Visuais',
+  'Ciências de Informática',
+  'Formação de Professores',
+  'Outro',
+];
+
+interface Curso {
+  id: string; nome: string; codigo: string; areaFormacao: string; descricao: string; ativo: boolean;
+}
+
 const SECTION_COLORS: Record<string, string> = {
   matriculas: Colors.warning,
+  cursos: '#A78BFA',
   escola: Colors.info,
   anos: '#9B59B6',
   usuarios: Colors.gold,
@@ -64,7 +79,7 @@ const GROUPS = [
     label: 'Académico',
     icon: 'school' as const,
     color: Colors.warning,
-    sections: ['matriculas', 'anos'],
+    sections: ['matriculas', 'cursos', 'anos'],
   },
   {
     key: 'pessoal',
@@ -130,6 +145,63 @@ export default function AdminScreen() {
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
   const [editEscola, setEditEscola] = useState(false);
   const [tempEscola, setTempEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
+
+  const [cursosList, setCursosList] = useState<Curso[]>([]);
+  const [loadingCursos, setLoadingCursos] = useState(false);
+  const [showCursoForm, setShowCursoForm] = useState(false);
+  const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
+  const [savingCurso, setSavingCurso] = useState(false);
+  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+
+  async function fetchCursos() {
+    setLoadingCursos(true);
+    try {
+      const res = await fetch('/api/cursos');
+      if (res.ok) setCursosList(await res.json());
+    } catch {}
+    setLoadingCursos(false);
+  }
+
+  function abrirNovoCurso() {
+    setEditingCurso(null);
+    setCursoForm({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+    setShowCursoForm(true);
+  }
+
+  function abrirEditarCurso(c: Curso) {
+    setEditingCurso(c);
+    setCursoForm({ nome: c.nome, codigo: c.codigo, areaFormacao: c.areaFormacao, descricao: c.descricao });
+    setShowCursoForm(true);
+  }
+
+  async function salvarCurso() {
+    if (!cursoForm.nome.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
+    setSavingCurso(true);
+    try {
+      const method = editingCurso ? 'PUT' : 'POST';
+      const url = editingCurso ? `/api/cursos/${editingCurso.id}` : '/api/cursos';
+      const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...cursoForm, ativo: true }),
+      });
+      if (!res.ok) throw new Error('Erro ao guardar');
+      await fetchCursos();
+      setShowCursoForm(false);
+      Alert.alert('Sucesso', editingCurso ? 'Curso actualizado.' : 'Curso criado com sucesso.');
+    } catch (e: any) { Alert.alert('Erro', e.message); }
+    setSavingCurso(false);
+  }
+
+  async function toggleCursoAtivo(c: Curso) {
+    try {
+      await fetch(`/api/cursos/${c.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...c, ativo: !c.ativo }),
+      });
+      await fetchCursos();
+    } catch {}
+  }
+
   const [showNovoAno, setShowNovoAno] = useState(false);
   const [showNovoUser, setShowNovoUser] = useState(false);
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
@@ -269,6 +341,7 @@ export default function AdminScreen() {
 
   const allSections = [
     { key: 'matriculas', label: 'Matrículas', icon: 'person-add', badge: pendentes.length },
+    { key: 'cursos', label: 'Cursos', icon: 'library' },
     { key: 'escola', label: 'Escola', icon: 'school' },
     { key: 'anos', label: 'Ano Académico', icon: 'calendar' },
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
@@ -496,6 +569,186 @@ export default function AdminScreen() {
                   ))
                 )}
               </>
+            )}
+          </View>
+        )}
+
+        {/* CURSOS */}
+        {activeSection === 'cursos' && (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <SectionHeader title="Parametrizar Cursos" icon="library" color="#A78BFA" />
+              {!showCursoForm && (
+                <TouchableOpacity
+                  style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
+                  onPress={() => { abrirNovoCurso(); fetchCursos(); }}
+                >
+                  <Ionicons name="add" size={15} color="#A78BFA" />
+                  <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(167,139,250,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)', padding: 12, marginBottom: 4 }}>
+              <Ionicons name="information-circle-outline" size={16} color="#A78BFA" />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                Os cursos parametrizados aqui são disponibilizados apenas para inscrições da <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#A78BFA' }}>10ª Classe (II Ciclo)</Text>. Organize-os por Área de Formação.
+              </Text>
+            </View>
+
+            {showCursoForm ? (
+              <View style={{ gap: 14 }}>
+                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 }}>
+                  {editingCurso ? 'Editar Curso' : 'Novo Curso'}
+                </Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Nome do Curso *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.nome}
+                    onChangeText={v => setCursoForm(f => ({ ...f, nome: v }))}
+                    placeholder="Ex: Ciências e Tecnologia"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Código</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.codigo}
+                    onChangeText={v => setCursoForm(f => ({ ...f, codigo: v }))}
+                    placeholder="Ex: CT, CEJ, HUM..."
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Área de Formação *</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
+                      {AREAS_FORMACAO.map(a => (
+                        <TouchableOpacity
+                          key={a}
+                          onPress={() => setCursoForm(f => ({ ...f, areaFormacao: a }))}
+                          style={[
+                            { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+                            cursoForm.areaFormacao === a && { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: '#A78BFA' },
+                          ]}
+                        >
+                          <Text style={[
+                            { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+                            cursoForm.areaFormacao === a && { color: '#A78BFA', fontFamily: 'Inter_600SemiBold' },
+                          ]}>{a}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Descrição</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 12 }]}
+                    value={cursoForm.descricao}
+                    onChangeText={v => setCursoForm(f => ({ ...f, descricao: v }))}
+                    placeholder="Breve descrição do curso..."
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                  />
+                </View>
+
+                <View style={[styles.modalActions, { marginTop: 6 }]}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCursoForm(false)}>
+                    <Text style={styles.cancelBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, savingCurso && { opacity: 0.6 }]}
+                    onPress={salvarCurso}
+                    disabled={savingCurso}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.submitBtnText}>{savingCurso ? 'A guardar...' : 'Guardar Curso'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View onLayout={fetchCursos} style={{ gap: 4 }}>
+                {loadingCursos && (
+                  <Text style={{ color: Colors.textMuted, textAlign: 'center', paddingVertical: 20, fontFamily: 'Inter_400Regular', fontSize: 13 }}>
+                    A carregar cursos...
+                  </Text>
+                )}
+                {!loadingCursos && cursosList.length === 0 && (
+                  <View style={{ alignItems: 'center', paddingVertical: 32, gap: 10 }}>
+                    <Ionicons name="school-outline" size={44} color={Colors.textMuted} />
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary }}>Nenhum curso parametrizado</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
+                      Toque em "Novo Curso" para adicionar o primeiro curso para a 10ª Classe.
+                    </Text>
+                  </View>
+                )}
+                {Object.entries(
+                  cursosList.filter(c => c.ativo).reduce<Record<string, Curso[]>>((acc, c) => {
+                    if (!acc[c.areaFormacao]) acc[c.areaFormacao] = [];
+                    acc[c.areaFormacao].push(c);
+                    return acc;
+                  }, {})
+                ).map(([area, lista]) => (
+                  <View key={area} style={{ marginBottom: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <Ionicons name="layers-outline" size={13} color="#A78BFA" />
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#A78BFA', flex: 1 }}>{area}</Text>
+                      <View style={{ backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#A78BFA' }}>{lista.length}</Text>
+                      </View>
+                    </View>
+                    {lista.map(c => (
+                      <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12, marginBottom: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          {!!c.codigo && (
+                            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(167,139,250,0.18)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 }}>
+                              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{c.codigo}</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{c.nome}</Text>
+                          {!!c.descricao && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>{c.descricao}</Text>}
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity onPress={() => abrirEditarCurso(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.gold + '44' }]}>
+                            <Ionicons name="pencil-outline" size={15} color={Colors.gold} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => {
+                            Alert.alert('Desactivar Curso', `Desactivar "${c.nome}"?`, [
+                              { text: 'Cancelar', style: 'cancel' },
+                              { text: 'Desactivar', style: 'destructive', onPress: () => toggleCursoAtivo(c) },
+                            ]);
+                          }} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.danger + '44', backgroundColor: Colors.danger + '11' }]}>
+                            <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+                {cursosList.filter(c => !c.ativo).length > 0 && (
+                  <View style={{ marginTop: 6, opacity: 0.5 }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, marginBottom: 8 }}>
+                      INACTIVOS ({cursosList.filter(c => !c.ativo).length})
+                    </Text>
+                    {cursosList.filter(c => !c.ativo).map(c => (
+                      <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 12, marginBottom: 6 }}>
+                        <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{c.nome}</Text>
+                        <TouchableOpacity onPress={() => toggleCursoAtivo(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0 }]}>
+                          <Ionicons name="refresh-outline" size={15} color={Colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
             )}
           </View>
         )}
