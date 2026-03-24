@@ -338,12 +338,53 @@ export default function HorarioScreen() {
 
         <View style={styles.legendaContainer}>
           <Text style={styles.legendaTitle}>Legenda de Períodos</Text>
-          {PERIODOS.map(p => (
-            <View key={p.numero} style={styles.legendaRow}>
-              <Text style={styles.legendaNum}>{p.numero}º Período</Text>
-              <Text style={styles.legendaTime}>{p.inicio} — {p.fim}</Text>
-            </View>
-          ))}
+          {PERIODOS.map(p => {
+            const aulasNoPeriodo = horariosTurma.filter(h => h.periodo === p.numero);
+            const seen = new Set<string>();
+            const aulasUnicas = aulasNoPeriodo.filter(h => {
+              const key = `${h.disciplina}-${h.professorId}`;
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+            return (
+              <View key={p.numero} style={styles.legendaRow}>
+                <View style={styles.legendaPeriodoHeader}>
+                  <Text style={styles.legendaNum}>{p.numero}º Período</Text>
+                  <Text style={styles.legendaTime}>{p.inicio} — {p.fim}</Text>
+                </View>
+                {aulasUnicas.length > 0 ? (
+                  aulasUnicas.map((aula, i) => {
+                    const prof = professores.find(pr => pr.id === aula.professorId);
+                    return (
+                      <View key={i} style={styles.legendaAulaCard}>
+                        <View style={styles.legendaAulaRow}>
+                          <Ionicons name="book-outline" size={11} color={Colors.gold} />
+                          <Text style={styles.legendaAulaDisciplina}>{aula.disciplina}</Text>
+                        </View>
+                        {prof && (
+                          <>
+                            <View style={styles.legendaAulaRow}>
+                              <Ionicons name="person-outline" size={11} color={Colors.info} />
+                              <Text style={styles.legendaAulaProf}>{prof.nome} {prof.apelido}</Text>
+                            </View>
+                            {prof.habilitacoes ? (
+                              <View style={styles.legendaAulaRow}>
+                                <Ionicons name="school-outline" size={11} color={Colors.textMuted} />
+                                <Text style={styles.legendaAulaHab}>{prof.habilitacoes}</Text>
+                              </View>
+                            ) : null}
+                          </>
+                        )}
+                      </View>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.legendaVazio}>— Sem aulas registadas —</Text>
+                )}
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -522,9 +563,16 @@ const styles = StyleSheet.create({
   cellSala: { fontSize: 9, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
   legendaContainer: { margin: 16, backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14 },
   legendaTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.8 },
-  legendaRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  legendaNum: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text },
-  legendaTime: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  legendaRow: { flexDirection: 'column', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  legendaPeriodoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  legendaNum: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
+  legendaTime: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  legendaAulaCard: { backgroundColor: Colors.surface, borderRadius: 8, padding: 8, marginTop: 4, gap: 3 },
+  legendaAulaRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  legendaAulaDisciplina: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold, flex: 1 },
+  legendaAulaProf: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1 },
+  legendaAulaHab: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1 },
+  legendaVazio: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic', marginTop: 4, textAlign: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
   modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '90%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
