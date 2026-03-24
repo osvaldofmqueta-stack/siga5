@@ -178,6 +178,7 @@ export default function DashboardScreen() {
             {[
               { label: 'Novo Aluno', icon: 'person-add', route: '/(main)/alunos', color: Colors.info },
               { label: 'Lançar Notas', icon: 'document-text', route: '/(main)/notas', color: Colors.gold },
+              { label: 'Desempenho', icon: 'stats-chart', route: '/(main)/desempenho', color: '#8B5CF6' },
               { label: 'Marcar Presenças', icon: 'qr-code', route: '/(main)/presencas', color: Colors.success },
               { label: 'Novo Evento', icon: 'calendar', route: '/(main)/eventos', color: Colors.accent },
             ].map(qa => (
