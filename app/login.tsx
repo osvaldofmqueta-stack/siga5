@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image,
+  View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
+  Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,8 +11,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
+import type { AuthUser } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import WelcomeModal from '@/components/WelcomeModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -43,6 +45,15 @@ const SECRETARIA_ACCOUNT = {
   escola: 'SIGE — Sistema Integral de Gestão Escolar',
 };
 
+const RH_ACCOUNT = {
+  email: 'rh@sige.ao',
+  senha: 'RH@2025',
+  role: 'rh' as const,
+  nome: 'Gestor de Recursos Humanos',
+  id: 'usr_rh_001',
+  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+};
+
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -58,6 +69,19 @@ export default function LoginScreen() {
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
+  const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
+  const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'success' }>({ visible: false, title: '', message: '', type: 'error' });
+  const [welcomeModal, setWelcomeModal] = useState<{ visible: boolean; user: AuthUser | null; targetRoute: string }>({ visible: false, user: null, targetRoute: '' });
+
+  function showWelcome(user: AuthUser, route: string) {
+    showingWelcome.current = true;
+    setIsLoading(false);
+    setWelcomeModal({ visible: true, user, targetRoute: route });
+  }
+
+  function showAlert(title: string, message: string, type: 'error' | 'success' = 'error') {
+    setAlertModal({ visible: true, title, message, type });
+  }
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.85)).current;
@@ -67,13 +91,14 @@ export default function LoginScreen() {
   const footerOpacity = useRef(new Animated.Value(0)).current;
   const biometricPulse = useRef(new Animated.Value(1)).current;
   const biometricGlow = useRef(new Animated.Value(0)).current;
+  const showingWelcome = useRef(false);
 
   useEffect(() => {
     initLogin();
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !showingWelcome.current) {
       if (user.role === 'ceo') {
         router.replace('/(main)/ceo');
       } else if (user.role === 'secretaria') {
@@ -84,6 +109,16 @@ export default function LoginScreen() {
     }
   }, [user, authLoading]);
 
+  function getRouteForRole(role: string): string {
+    if (role === 'ceo' || role === 'pca') return '/(main)/ceo';
+    if (role === 'secretaria') return '/(main)/secretaria-hub';
+    if (role === 'professor') return '/(main)/professor-hub';
+    if (role === 'aluno') return '/(main)/portal-estudante';
+    if (role === 'encarregado') return '/(main)/portal-encarregado';
+    if (role === 'rh') return '/(main)/rh-hub';
+    return '/(main)/dashboard';
+  }
+
   useEffect(() => {
     if (showBiometricWelcome) {
       startBiometricAnimation();
@@ -91,6 +126,14 @@ export default function LoginScreen() {
   }, [showBiometricWelcome]);
 
   async function initLogin() {
+    try {
+      const res = await fetch('/api/public/inscricoes-status');
+      if (res.ok) {
+        const data = await res.json();
+        setInscricoesAbertas(!!data.abertas);
+      }
+    } catch { /* network silencioso */ }
+
     const hasHardware = await checkBiometricAvailability();
 
     const shouldShowBiometric =
@@ -169,14 +212,10 @@ export default function LoginScreen() {
       if (result.success) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setIsLoading(true);
-        await login({ ...lastUser, biometricEnabled: true, avatar: lastUser.avatar });
-        if (lastUser.role === 'ceo') {
-          router.replace('/(main)/ceo');
-        } else if (lastUser.role === 'secretaria') {
-          router.replace('/(main)/secretaria-hub');
-        } else {
-          router.replace('/(main)/dashboard');
-        }
+        const authUser: AuthUser = { ...lastUser, biometricEnabled: true, avatar: lastUser.avatar };
+        await login(authUser);
+        const route = getRouteForRole(lastUser.role);
+        showWelcome(authUser, route);
       }
     } catch (e) {
       console.error('Biometric auth error:', e);
@@ -187,7 +226,7 @@ export default function LoginScreen() {
 
   async function handleBiometricAuth() {
     if (Platform.OS === 'web') {
-      Alert.alert('Não disponível', 'Autenticação biométrica não está disponível na versão web.');
+      showAlert('Não disponível', 'Autenticação biométrica não está disponível na versão web.');
       return;
     }
     if (showBiometricWelcome && lastUser) {
@@ -206,27 +245,27 @@ export default function LoginScreen() {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const emailTrimmed = email.toLowerCase().trim();
         if (!emailTrimmed) {
-          Alert.alert('Email necessário', 'Introduza primeiro o seu email e depois use a autenticação biométrica.');
+          showAlert('Email necessário', 'Introduza primeiro o seu email e depois use a autenticação biométrica.');
           return;
         }
         setIsLoading(true);
         const bioAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
         if (emailTrimmed === CEO_ACCOUNT.email) {
-          await login({ id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
-          router.replace('/(main)/ceo');
+          const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
+          await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
         } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email) {
-          await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
-          router.replace('/(main)/dashboard');
+          const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
+          await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
         } else if (emailTrimmed === SECRETARIA_ACCOUNT.email) {
-          await login({ id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar });
-          router.replace('/(main)/secretaria-hub');
+          const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
+          await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
-            await login({ id: found.id, nome: found.nome, email: found.email, role: found.role, escola: found.escola, biometricEnabled: true, avatar: bioAvatar });
-            router.replace('/(main)/dashboard');
+            const u: AuthUser = { id: found.id, nome: found.nome, email: found.email, role: found.role, escola: found.escola, biometricEnabled: true, avatar: bioAvatar };
+            await login(u); showWelcome(u, getRouteForRole(found.role));
           } else {
-            Alert.alert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
+            showAlert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
           }
         }
       }
@@ -238,9 +277,19 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
-    if (!email.trim() || !senha.trim()) {
+    if (!email.trim() && !senha.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Campos obrigatórios', 'Por favor, preencha o email e a senha.');
+      showAlert('Campos Obrigatórios', 'Por favor, preencha o email e a senha para continuar.');
+      return;
+    }
+    if (!email.trim()) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert('Email em falta', 'Por favor, introduza o seu email institucional.');
+      return;
+    }
+    if (!senha.trim()) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert('Senha em falta', 'Por favor, introduza a sua senha de acesso.');
       return;
     }
     setIsLoading(true);
@@ -249,28 +298,28 @@ export default function LoginScreen() {
     const savedAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
     if (emailTrimmed === CEO_ACCOUNT.email && senha === CEO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await login({ id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
-      router.replace('/(main)/ceo');
+      const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
+      await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
     } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email && senha === FINANCEIRO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await login({ id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
-      router.replace('/(main)/dashboard');
+      const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
+      await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
     } else if (emailTrimmed === SECRETARIA_ACCOUNT.email && senha === SECRETARIA_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      await login({ id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar });
-      router.replace('/(main)/secretaria-hub');
+      const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
+      await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        await login({ id: account.id, nome: account.nome, email: account.email, role: account.role, escola: account.escola, biometricEnabled: false, avatar: savedAvatar });
-        router.replace('/(main)/dashboard');
+        const u: AuthUser = { id: account.id, nome: account.nome, email: account.email, role: account.role, escola: account.escola, biometricEnabled: false, avatar: savedAvatar };
+        await login(u); showWelcome(u, getRouteForRole(account.role));
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        Alert.alert('Credenciais Inválidas', 'Email ou senha incorrectos.\nVerifique e tente novamente.');
+        showAlert('Credenciais Inválidas', 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
+        setIsLoading(false);
       }
     }
-    setIsLoading(false);
   }
 
   function handleSwitchAccount() {
@@ -515,10 +564,19 @@ export default function LoginScreen() {
           onPress={() => router.push('/registro' as any)}
           activeOpacity={0.85}
         >
-          <Text style={styles.registerBtnText}>Solicitar</Text>
+          <Text style={styles.registerBtnText}>Inscrição</Text>
           <Ionicons name="arrow-forward" size={13} color="#3498DB" />
         </TouchableOpacity>
       </View>
+      <TouchableOpacity
+        style={styles.provisorioBtn}
+        onPress={() => router.push('/login-provisorio' as any)}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="person-circle-outline" size={15} color={Colors.gold} />
+        <Text style={styles.provisorioBtnText}>Já tenho uma inscrição — Acompanhar processo</Text>
+        <Ionicons name="chevron-forward" size={13} color={Colors.gold} />
+      </TouchableOpacity>
     </Animated.View>
   );
 
@@ -528,9 +586,39 @@ export default function LoginScreen() {
         <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
         <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
       </View>
-      <Text style={styles.footerText}>República de Angola  ·  SIGE v1.0</Text>
-      <Text style={styles.footerSub}>Sistema Integral de Gestão Escolar</Text>
+      <Text style={styles.footerText}>Desenvolvido por Isaias Osvaldo & Gemima Delfina  ·  SIGE v1.0</Text>
+      <Text style={styles.footerSub}>Isaias Osvaldo & Gemima Delfina - Queta</Text>
     </Animated.View>
+  );
+
+  const alertModalView = (
+    <Modal
+      visible={alertModal.visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setAlertModal(p => ({ ...p, visible: false }))}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <View style={[styles.modalIconWrap, { backgroundColor: alertModal.type === 'error' ? '#FF453A22' : '#22C55E22' }]}>
+            <Ionicons
+              name={alertModal.type === 'error' ? 'alert-circle' : 'checkmark-circle'}
+              size={36}
+              color={alertModal.type === 'error' ? '#FF453A' : '#22C55E'}
+            />
+          </View>
+          <Text style={styles.modalTitle}>{alertModal.title}</Text>
+          <Text style={styles.modalMessage}>{alertModal.message}</Text>
+          <TouchableOpacity
+            style={[styles.modalBtn, { backgroundColor: alertModal.type === 'error' ? '#FF453A' : '#22C55E' }]}
+            onPress={() => setAlertModal(p => ({ ...p, visible: false }))}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.modalBtnText}>OK, entendi</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
   );
 
   const bgDecorations = (
@@ -545,12 +633,17 @@ export default function LoginScreen() {
 
   if (isDesktop) {
     return (
-      <LinearGradient
-        colors={['#061029', '#0A1628', '#0F1F40', '#142247']}
+      <ImageBackground
+        source={require('../assets/login-bg.png')}
         style={styles.container}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
+        resizeMode="cover"
       >
+        <LinearGradient
+          colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+          style={StyleSheet.absoluteFill}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0.6, y: 1 }}
+        />
         {bgDecorations}
 
         <View style={styles.desktopRow}>
@@ -588,7 +681,7 @@ export default function LoginScreen() {
                 <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
                 <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
               </View>
-              <Text style={styles.footerText}>República de Angola  ·  SIGE v1.0</Text>
+              <Text style={styles.footerText}>Desenvolvido por Isaias Osvaldo & Gemima Delfina  ·  SIGE v1.0</Text>
             </View>
           </Animated.View>
 
@@ -599,21 +692,36 @@ export default function LoginScreen() {
               showsVerticalScrollIndicator={false}
             >
               {formCard}
-              {registerCard}
+              {inscricoesAbertas && registerCard}
             </ScrollView>
           </View>
         </View>
-      </LinearGradient>
+        {alertModalView}
+        <WelcomeModal
+          visible={welcomeModal.visible}
+          user={welcomeModal.user}
+          onFinish={() => {
+            showingWelcome.current = false;
+            setWelcomeModal(p => ({ ...p, visible: false }));
+            router.replace(welcomeModal.targetRoute as any);
+          }}
+        />
+      </ImageBackground>
     );
   }
 
   return (
-    <LinearGradient
-      colors={['#061029', '#0A1628', '#0F1F40', '#142247']}
+    <ImageBackground
+      source={require('../assets/login-bg.png')}
       style={styles.container}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 0.6, y: 1 }}
+      resizeMode="cover"
     >
+      <LinearGradient
+        colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+        style={StyleSheet.absoluteFill}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0.6, y: 1 }}
+      />
       {bgDecorations}
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -641,11 +749,21 @@ export default function LoginScreen() {
           </Animated.View>
 
           {showBiometricWelcome ? biometricWelcomeScreen : formCard}
-          {!showBiometricWelcome && registerCard}
+          {!showBiometricWelcome && inscricoesAbertas && registerCard}
           {footerView}
         </ScrollView>
       </KeyboardAvoidingView>
-    </LinearGradient>
+      {alertModalView}
+      <WelcomeModal
+        visible={welcomeModal.visible}
+        user={welcomeModal.user}
+        onFinish={() => {
+          showingWelcome.current = false;
+          setWelcomeModal(p => ({ ...p, visible: false }));
+          router.replace(welcomeModal.targetRoute as any);
+        }}
+      />
+    </ImageBackground>
   );
 }
 
@@ -899,6 +1017,17 @@ const styles = StyleSheet.create({
   },
   registerBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#3498DB' },
 
+  provisorioBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginTop: 8, paddingVertical: 11, paddingHorizontal: 14,
+    backgroundColor: 'rgba(240,165,0,0.07)',
+    borderRadius: 12, borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.18)',
+  },
+  provisorioBtnText: {
+    flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.gold,
+  },
+
   footer: { alignItems: 'center', marginTop: 20, gap: 6 },
   angolaBanner: { flexDirection: 'row', height: 4, width: 36, borderRadius: 2, overflow: 'hidden', gap: 1 },
   angolaStripe: { flex: 1 },
@@ -1042,5 +1171,62 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: 'Inter_500Medium',
     color: Colors.textMuted,
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  modalCard: {
+    backgroundColor: '#0F1F40',
+    borderRadius: 20,
+    paddingVertical: 32,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 24,
+  },
+  modalIconWrap: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  modalMessage: {
+    fontSize: 14,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  modalBtn: {
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 40,
+    alignItems: 'center',
+  },
+  modalBtnText: {
+    fontSize: 15,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#fff',
   },
 });

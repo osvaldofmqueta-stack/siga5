@@ -2,10 +2,16 @@ import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
 /**
- * Gets the base URL for the Express API server (e.g., "http://localhost:3000")
- * @returns {string} The API base URL
+ * Gets the base URL for the Express API server.
+ * In a web/browser context, use relative URLs so requests go through the same
+ * origin (Express server on port 5000 which proxies Expo web on port 8000).
+ * In native contexts, use the EXPO_PUBLIC_DOMAIN env var.
  */
 export function getApiUrl(): string {
+  if (typeof window !== "undefined" && typeof document !== "undefined") {
+    return window.location.origin;
+  }
+
   let host = process.env.EXPO_PUBLIC_DOMAIN;
 
   if (!host) {

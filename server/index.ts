@@ -14,6 +14,14 @@ declare module "http" {
   }
 }
 
+const FONT_STYLE = `
+  <style>
+    @font-face { font-family: 'Inter_400Regular'; src: url('/fonts/Inter_400Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Inter_500Medium';  src: url('/fonts/Inter_500Medium.ttf')  format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Inter_600SemiBold';src: url('/fonts/Inter_600SemiBold.ttf')format('truetype'); font-weight: 600; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Inter_700Bold';    src: url('/fonts/Inter_700Bold.ttf')    format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+  </style>`;
+
 const PWA_TAGS = `
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0D1B3E" />
@@ -39,7 +47,7 @@ const SW_SCRIPT = `
 
 function injectPwaTags(html: string): string {
   if (html.includes('rel="manifest"')) return html;
-  let result = html.replace("</head>", `${PWA_TAGS}\n</head>`);
+  let result = html.replace("</head>", `${FONT_STYLE}\n${PWA_TAGS}\n</head>`);
   result = result.replace("</body>", `${SW_SCRIPT}\n</body>`);
   return result;
 }
@@ -183,6 +191,8 @@ function setupWebProxy(app: express.Application) {
       changeOrigin: true,
       ws: true,
       selfHandleResponse: true,
+      proxyTimeout: 60000,
+      timeout: 60000,
       headers: {
         host: `localhost:${EXPO_WEB_PORT}`,
       },
@@ -202,7 +212,7 @@ function setupWebProxy(app: express.Application) {
               <div style="text-align:center">
                 <h2>A iniciar o servidor web...</h2>
                 <p>Aguarda um momento enquanto o servidor Expo web arranca.</p>
-                <script>setTimeout(()=>location.reload(),3000)</script>
+                <script>setTimeout(()=>location.reload(),8000)</script>
               </div>
               </body></html>`,
             );
@@ -286,4 +296,8 @@ function setupErrorHandler(app: express.Application) {
       }
     },
   );
+
+  server.setTimeout(120000);
+  server.headersTimeout = 120000;
+  server.requestTimeout = 120000;
 })();

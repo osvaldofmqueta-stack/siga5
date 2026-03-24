@@ -247,8 +247,8 @@ export default function PresencasScreen() {
 }
 
 const scanStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  container: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, alignItems: 'center', gap: 16 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end', alignItems: 'center' },
+  container: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, alignItems: 'center', gap: 16, width: '100%', maxWidth: 480 },
   loadingText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
   permissionView: { flex: 1, backgroundColor: Colors.background, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
   permissionText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center' },

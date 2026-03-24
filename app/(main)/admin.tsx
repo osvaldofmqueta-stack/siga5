@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, Modal, Platform, Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
+import DatePickerField from '@/components/DatePickerField';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth, UserRole, AUTHORIZED_APPROVER_ROLES } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useData } from '@/context/DataContext';
 import { useRegistro, SolicitacaoRegistro } from '@/context/RegistroContext';
 import { useConfig } from '@/context/ConfigContext';
+import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -44,20 +48,78 @@ const DEFAULT_ESCOLA: EscolaConfig = {
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
 };
 
+const AREAS_FORMACAO = [
+  'Ciências Físicas e Biológicas',
+  'Ciências Económicas e Jurídicas',
+  'Humanidades',
+  'Artes Visuais',
+  'Ciências de Informática',
+  'Formação de Professores',
+  'Outro',
+];
+
+interface Curso {
+  id: string; nome: string; codigo: string; areaFormacao: string; descricao: string; ativo: boolean;
+}
+
+const SECTION_COLORS: Record<string, string> = {
+  matriculas: Colors.warning,
+  cursos: '#A78BFA',
+  escola: Colors.info,
+  anos: '#9B59B6',
+  usuarios: Colors.gold,
+  acessos: '#8B5CF6',
+  config: Colors.success,
+  comunicacoes: Colors.accent,
+  seguranca: Colors.danger,
+};
+
+const GROUPS = [
+  {
+    key: 'academico',
+    label: 'Académico',
+    icon: 'school' as const,
+    color: Colors.warning,
+    sections: ['matriculas', 'cursos', 'anos'],
+  },
+  {
+    key: 'pessoal',
+    label: 'Pessoal & Acesso',
+    icon: 'people' as const,
+    color: '#8B5CF6',
+    sections: ['usuarios', 'acessos'],
+  },
+  {
+    key: 'sistema',
+    label: 'Sistema',
+    icon: 'construct' as const,
+    color: Colors.info,
+    sections: ['escola', 'config', 'comunicacoes', 'seguranca'],
+  },
+];
+
 const ROLE_LABEL: Record<UserRole, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
+  chefe_secretaria: 'Chefe de Secretaria',
   secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
+  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 const ROLE_COLOR: Record<UserRole, string> = {
   ceo: '#FFD700', pca: '#9B59B6', admin: '#E67E22', director: Colors.accent,
+  chefe_secretaria: '#E11D48',
   secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success,
+  financeiro: '#10B981', encarregado: '#F97316', rh: '#06B6D4',
 };
 
-function SectionHeader({ title, icon }: { title: string; icon: string }) {
+function SectionHeader({ title, icon, color }: { title: string; icon: string; color?: string }) {
+  const c = color || Colors.gold;
   return (
     <View style={styles.sectionHeader}>
-      <Ionicons name={icon as any} size={16} color={Colors.gold} />
-      <Text style={styles.sectionHeaderText}>{title}</Text>
+      <View style={[styles.sectionHeaderIcon, { backgroundColor: c + '20' }]}>
+        <Ionicons name={icon as any} size={14} color={c} />
+      </View>
+      <Text style={[styles.sectionHeaderText, { color: Colors.text }]}>{title}</Text>
+      <View style={[styles.sectionHeaderLine, { backgroundColor: c + '30' }]} />
     </View>
   );
 }
@@ -78,6 +140,7 @@ function StatusBadge({ status }: { status: SolicitacaoRegistro['status'] }) {
 }
 
 export default function AdminScreen() {
+  const { section: paramSection, group: paramGroup } = useLocalSearchParams<{ section?: string; group?: string }>();
   const { anos, anoAtivo, addAno, updateAno, ativarAno, deleteAno } = useAnoAcademico();
   const { user } = useAuth();
   const { users, addUser, deleteUser } = useUsers();
@@ -88,11 +151,78 @@ export default function AdminScreen() {
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
   const [editEscola, setEditEscola] = useState(false);
   const [tempEscola, setTempEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
+
+  const [cursosList, setCursosList] = useState<Curso[]>([]);
+  const [loadingCursos, setLoadingCursos] = useState(false);
+  const [showCursoForm, setShowCursoForm] = useState(false);
+  const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
+  const [savingCurso, setSavingCurso] = useState(false);
+  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+
+  async function fetchCursos() {
+    setLoadingCursos(true);
+    try {
+      const res = await fetch('/api/cursos');
+      if (res.ok) setCursosList(await res.json());
+    } catch {}
+    setLoadingCursos(false);
+  }
+
+  function abrirNovoCurso() {
+    setEditingCurso(null);
+    setCursoForm({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+    setShowCursoForm(true);
+  }
+
+  function abrirEditarCurso(c: Curso) {
+    setEditingCurso(c);
+    setCursoForm({ nome: c.nome, codigo: c.codigo, areaFormacao: c.areaFormacao, descricao: c.descricao });
+    setShowCursoForm(true);
+  }
+
+  async function salvarCurso() {
+    if (!cursoForm.nome.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
+    setSavingCurso(true);
+    try {
+      const method = editingCurso ? 'PUT' : 'POST';
+      const url = editingCurso ? `/api/cursos/${editingCurso.id}` : '/api/cursos';
+      const res = await fetch(url, {
+        method, headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...cursoForm, ativo: true }),
+      });
+      if (!res.ok) throw new Error('Erro ao guardar');
+      await fetchCursos();
+      setShowCursoForm(false);
+      Alert.alert('Sucesso', editingCurso ? 'Curso actualizado.' : 'Curso criado com sucesso.');
+    } catch (e: any) { Alert.alert('Erro', e.message); }
+    setSavingCurso(false);
+  }
+
+  async function toggleCursoAtivo(c: Curso) {
+    try {
+      await fetch(`/api/cursos/${c.id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...c, ativo: !c.ativo }),
+      });
+      await fetchCursos();
+    } catch {}
+  }
+
   const [showNovoAno, setShowNovoAno] = useState(false);
   const [showNovoUser, setShowNovoUser] = useState(false);
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '' });
-  const [activeSection, setActiveSection] = useState<string>('matriculas');
+  const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
+  const [activeGroup, setActiveGroup] = useState<string>(paramGroup || 'academico');
+
+  const initialised = useRef(false);
+  useEffect(() => {
+    if (!initialised.current && paramSection) {
+      setActiveSection(paramSection);
+      if (paramGroup) setActiveGroup(paramGroup);
+      initialised.current = true;
+    }
+  }, [paramSection, paramGroup]);
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoRegistro | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
   const [showRejeitar, setShowRejeitar] = useState(false);
@@ -226,9 +356,11 @@ export default function AdminScreen() {
 
   const allSections = [
     { key: 'matriculas', label: 'Matrículas', icon: 'person-add', badge: pendentes.length },
+    { key: 'cursos', label: 'Cursos', icon: 'library' },
     { key: 'escola', label: 'Escola', icon: 'school' },
     { key: 'anos', label: 'Ano Académico', icon: 'calendar' },
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
+    { key: 'acessos', label: 'Acessos', icon: 'key' },
     { key: 'config', label: 'Configurações', icon: 'settings' },
     { key: 'comunicacoes', label: 'Comunicações', icon: 'megaphone' },
     { key: 'seguranca', label: 'Segurança', icon: 'shield-checkmark' },
@@ -238,25 +370,97 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
-      <TopBar title="Administração" subtitle="Gestão do sistema" />
+      <TopBar title="Super Admin" subtitle="Gestão do Sistema SIGA" />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sectionsScroll}>
-        <View style={styles.sectionsRow}>
-          {allSections.map(s => (
+      {/* ── Hero Banner ───────────────────────────────────── */}
+      <LinearGradient
+        colors={['#1A0A2E', '#0D1B3E', '#1A1030']}
+        style={styles.heroBanner}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.heroLeft}>
+          <LinearGradient colors={['#CC1A1A', '#8B0000']} style={styles.heroIconWrap}>
+            <MaterialCommunityIcons name="shield-crown" size={24} color="#fff" />
+          </LinearGradient>
+          <View>
+            <Text style={styles.heroTitle}>Painel de Administração</Text>
+            <Text style={styles.heroSub}>{user?.nome} · {user?.role === 'ceo' ? 'CEO / Super Admin' : user?.role === 'pca' ? 'PCA' : 'Administrador'}</Text>
+          </View>
+        </View>
+        <View style={styles.heroStats}>
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatNum}>{users.length}</Text>
+            <Text style={styles.heroStatLabel}>Utilizad.</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStat}>
+            <Text style={[styles.heroStatNum, pendentes.length > 0 && { color: Colors.warning }]}>{pendentes.length}</Text>
+            <Text style={styles.heroStatLabel}>Pendentes</Text>
+          </View>
+          <View style={styles.heroStatDivider} />
+          <View style={styles.heroStat}>
+            <Text style={styles.heroStatNum}>{anos.length}</Text>
+            <Text style={styles.heroStatLabel}>Anos</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* ── Group Navigation (Level 1) ────────────────────── */}
+      <View style={styles.groupNav}>
+        {GROUPS.map(g => {
+          const isActive = activeGroup === g.key;
+          const groupBadge = g.sections.reduce((sum, sk) => {
+            const s = allSections.find(sec => sec.key === sk);
+            return sum + (s?.badge || 0);
+          }, 0);
+          return (
             <TouchableOpacity
-              key={s.key}
-              style={[styles.sectionBtn, activeSection === s.key && styles.sectionBtnActive]}
-              onPress={() => setActiveSection(s.key)}
+              key={g.key}
+              style={[styles.groupCard, isActive && { borderColor: g.color + '66', backgroundColor: g.color + '15' }]}
+              onPress={() => { setActiveGroup(g.key); setActiveSection(g.sections[0]); }}
+              activeOpacity={0.75}
             >
-              <Ionicons name={s.icon as any} size={15} color={activeSection === s.key ? Colors.gold : Colors.textSecondary} />
-              <Text style={[styles.sectionBtnText, activeSection === s.key && styles.sectionBtnTextActive]}>{s.label}</Text>
-              {s.badge !== undefined && s.badge > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{s.badge}</Text>
+              <View style={{ position: 'relative', alignSelf: 'center' }}>
+                <View style={[styles.groupCardIcon, { backgroundColor: isActive ? g.color + '30' : Colors.surface }]}>
+                  <Ionicons name={g.icon} size={20} color={isActive ? g.color : Colors.textMuted} />
                 </View>
-              )}
+                {groupBadge > 0 && (
+                  <View style={styles.groupBadge}>
+                    <Text style={styles.groupBadgeText}>{groupBadge}</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={[styles.groupCardLabel, isActive && { color: g.color, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>{g.label}</Text>
+              <Text style={styles.groupCardCount}>{g.sections.length} secções</Text>
             </TouchableOpacity>
-          ))}
+          );
+        })}
+      </View>
+
+      {/* ── Sub-section Pills (Level 2) ───────────────────── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNavScroll}>
+        <View style={styles.subNavRow}>
+          {GROUPS.find(g => g.key === activeGroup)?.sections.map(sk => {
+            const s = allSections.find(sec => sec.key === sk)!;
+            const isActive = activeSection === sk;
+            const color = SECTION_COLORS[sk] || Colors.gold;
+            return (
+              <TouchableOpacity
+                key={sk}
+                style={[styles.subNavBtn, isActive && { backgroundColor: color + '22', borderColor: color + '55' }]}
+                onPress={() => setActiveSection(sk)}
+              >
+                <Ionicons name={s.icon as any} size={13} color={isActive ? color : Colors.textMuted} />
+                <Text style={[styles.subNavText, isActive && { color, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>
+                {s.badge !== undefined && s.badge > 0 && (
+                  <View style={[styles.badge, { backgroundColor: Colors.danger }]}>
+                    <Text style={styles.badgeText}>{s.badge}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -266,7 +470,7 @@ export default function AdminScreen() {
         {activeSection === 'matriculas' && (
           <View style={[styles.card, { gap: 0 }]}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Solicitações de Matrícula" icon="person-add" />
+              <SectionHeader title="Solicitações de Matrícula" icon="person-add" color={Colors.warning} />
             </View>
 
             {!isApprover ? (
@@ -384,11 +588,191 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {/* CURSOS */}
+        {activeSection === 'cursos' && (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+              <SectionHeader title="Parametrizar Cursos" icon="library" color="#A78BFA" />
+              {!showCursoForm && (
+                <TouchableOpacity
+                  style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
+                  onPress={() => { abrirNovoCurso(); fetchCursos(); }}
+                >
+                  <Ionicons name="add" size={15} color="#A78BFA" />
+                  <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(167,139,250,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)', padding: 12, marginBottom: 4 }}>
+              <Ionicons name="information-circle-outline" size={16} color="#A78BFA" />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                Os cursos parametrizados aqui são disponibilizados apenas para inscrições da <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#A78BFA' }}>10ª Classe (II Ciclo)</Text>. Organize-os por Área de Formação.
+              </Text>
+            </View>
+
+            {showCursoForm ? (
+              <View style={{ gap: 14 }}>
+                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 }}>
+                  {editingCurso ? 'Editar Curso' : 'Novo Curso'}
+                </Text>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Nome do Curso *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.nome}
+                    onChangeText={v => setCursoForm(f => ({ ...f, nome: v }))}
+                    placeholder="Ex: Ciências e Tecnologia"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Código</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.codigo}
+                    onChangeText={v => setCursoForm(f => ({ ...f, codigo: v }))}
+                    placeholder="Ex: CT, CEJ, HUM..."
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Área de Formação *</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
+                      {AREAS_FORMACAO.map(a => (
+                        <TouchableOpacity
+                          key={a}
+                          onPress={() => setCursoForm(f => ({ ...f, areaFormacao: a }))}
+                          style={[
+                            { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+                            cursoForm.areaFormacao === a && { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: '#A78BFA' },
+                          ]}
+                        >
+                          <Text style={[
+                            { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+                            cursoForm.areaFormacao === a && { color: '#A78BFA', fontFamily: 'Inter_600SemiBold' },
+                          ]}>{a}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Descrição</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 12 }]}
+                    value={cursoForm.descricao}
+                    onChangeText={v => setCursoForm(f => ({ ...f, descricao: v }))}
+                    placeholder="Breve descrição do curso..."
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                  />
+                </View>
+
+                <View style={[styles.modalActions, { marginTop: 6 }]}>
+                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCursoForm(false)}>
+                    <Text style={styles.cancelBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.submitBtn, savingCurso && { opacity: 0.6 }]}
+                    onPress={salvarCurso}
+                    disabled={savingCurso}
+                  >
+                    <Ionicons name="checkmark" size={16} color="#fff" />
+                    <Text style={styles.submitBtnText}>{savingCurso ? 'A guardar...' : 'Guardar Curso'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View onLayout={fetchCursos} style={{ gap: 4 }}>
+                {loadingCursos && (
+                  <Text style={{ color: Colors.textMuted, textAlign: 'center', paddingVertical: 20, fontFamily: 'Inter_400Regular', fontSize: 13 }}>
+                    A carregar cursos...
+                  </Text>
+                )}
+                {!loadingCursos && cursosList.length === 0 && (
+                  <View style={{ alignItems: 'center', paddingVertical: 32, gap: 10 }}>
+                    <Ionicons name="school-outline" size={44} color={Colors.textMuted} />
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary }}>Nenhum curso parametrizado</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
+                      Toque em "Novo Curso" para adicionar o primeiro curso para a 10ª Classe.
+                    </Text>
+                  </View>
+                )}
+                {Object.entries(
+                  cursosList.filter(c => c.ativo).reduce<Record<string, Curso[]>>((acc, c) => {
+                    if (!acc[c.areaFormacao]) acc[c.areaFormacao] = [];
+                    acc[c.areaFormacao].push(c);
+                    return acc;
+                  }, {})
+                ).map(([area, lista]) => (
+                  <View key={area} style={{ marginBottom: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <Ionicons name="layers-outline" size={13} color="#A78BFA" />
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#A78BFA', flex: 1 }}>{area}</Text>
+                      <View style={{ backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 1 }}>
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: '#A78BFA' }}>{lista.length}</Text>
+                      </View>
+                    </View>
+                    {lista.map(c => (
+                      <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12, marginBottom: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          {!!c.codigo && (
+                            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(167,139,250,0.18)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 }}>
+                              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{c.codigo}</Text>
+                            </View>
+                          )}
+                          <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{c.nome}</Text>
+                          {!!c.descricao && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>{c.descricao}</Text>}
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity onPress={() => abrirEditarCurso(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.gold + '44' }]}>
+                            <Ionicons name="pencil-outline" size={15} color={Colors.gold} />
+                          </TouchableOpacity>
+                          <TouchableOpacity onPress={() => {
+                            Alert.alert('Desactivar Curso', `Desactivar "${c.nome}"?`, [
+                              { text: 'Cancelar', style: 'cancel' },
+                              { text: 'Desactivar', style: 'destructive', onPress: () => toggleCursoAtivo(c) },
+                            ]);
+                          }} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.danger + '44', backgroundColor: Colors.danger + '11' }]}>
+                            <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+                {cursosList.filter(c => !c.ativo).length > 0 && (
+                  <View style={{ marginTop: 6, opacity: 0.5 }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, marginBottom: 8 }}>
+                      INACTIVOS ({cursosList.filter(c => !c.ativo).length})
+                    </Text>
+                    {cursosList.filter(c => !c.ativo).map(c => (
+                      <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)', padding: 12, marginBottom: 6 }}>
+                        <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{c.nome}</Text>
+                        <TouchableOpacity onPress={() => toggleCursoAtivo(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0 }]}>
+                          <Ionicons name="refresh-outline" size={15} color={Colors.textMuted} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
         {/* ESCOLA */}
         {activeSection === 'escola' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Configuração Escolar" icon="school" />
+              <SectionHeader title="Configuração Escolar" icon="school" color={Colors.info} />
               <TouchableOpacity onPress={() => { setTempEscola(escola); setEditEscola(true); }} style={styles.editBtn}>
                 <Ionicons name="pencil" size={15} color={Colors.gold} />
                 <Text style={styles.editBtnText}>Editar</Text>
@@ -424,7 +808,7 @@ export default function AdminScreen() {
         {activeSection === 'anos' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Anos Académicos" icon="calendar" />
+              <SectionHeader title="Anos Académicos" icon="calendar" color={"#9B59B6"} />
               <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovoAno(true)}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.addBtnText}>Novo</Text>
@@ -479,7 +863,7 @@ export default function AdminScreen() {
         {activeSection === 'usuarios' && (
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
-              <SectionHeader title="Gestão de Utilizadores" icon="people" />
+              <SectionHeader title="Gestão de Utilizadores" icon="people" color={Colors.gold} />
               <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovoUser(true)}>
                 <Ionicons name="add" size={16} color="#fff" />
                 <Text style={styles.addBtnText}>Novo</Text>
@@ -537,6 +921,44 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Período de Inscrições */}
+            <View style={styles.card}>
+              <SectionHeader title="Período de Inscrições" icon="person-add" />
+              <Text style={styles.configSectionDesc}>
+                Controla se o botão de solicitação de matrícula está visível no ecrã de Login.
+                Apenas o PCA, Administrador ou Director devem activar este período.
+              </Text>
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.inscricoesAbertas ? '#22C55E22' : Colors.border }]}>
+                    <Ionicons name="person-add-outline" size={18} color={config.inscricoesAbertas ? '#22C55E' : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Inscrições Online</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.inscricoesAbertas
+                        ? 'Abertas — o botão "Solicitar Matrícula" está visível no Login'
+                        : 'Fechadas — o botão não aparece no ecrã de Login'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.inscricoesAbertas}
+                  onValueChange={v => {
+                    updateConfig({ inscricoesAbertas: v });
+                    Alert.alert(
+                      v ? 'Inscrições Abertas' : 'Inscrições Fechadas',
+                      v
+                        ? 'Os encarregados já podem solicitar matrícula pelo ecrã de Login.'
+                        : 'O botão de matrícula foi removido do ecrã de Login.',
+                    );
+                  }}
+                  thumbColor={config.inscricoesAbertas ? '#22C55E' : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: '#22C55E55' }}
+                />
+              </View>
+            </View>
+
             {/* Provas do Trimestre */}
             <View style={styles.card}>
               <SectionHeader title="Provas do Trimestre" icon="document-text" />
@@ -550,7 +972,7 @@ export default function AdminScreen() {
                     <Ionicons name="newspaper-outline" size={18} color={config.pp1Habilitado ? Colors.info : Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>PP1 — Prova do Trimestre</Text>
+                    <Text style={styles.configToggleLabel}>PP — Prova do Professor</Text>
                     <Text style={styles.configToggleDesc}>
                       {config.pp1Habilitado ? 'Activa — incluída no cálculo da MT1' : 'Desactivada — não entra no cálculo'}
                     </Text>
@@ -561,10 +983,10 @@ export default function AdminScreen() {
                   onValueChange={v => {
                     updateConfig({ pp1Habilitado: v });
                     Alert.alert(
-                      v ? 'PP1 Activada' : 'PP1 Desactivada',
+                      v ? 'PP Activada' : 'PP Desactivada',
                       v
-                        ? 'A PP1 será incluída no cálculo da Média Total (MT1).'
-                        : 'A PP1 não será utilizada no cálculo das notas.',
+                        ? 'A PP será incluída no cálculo da Média Total (MT1).'
+                        : 'A PP não será utilizada no cálculo das notas.',
                     );
                   }}
                   thumbColor={config.pp1Habilitado ? Colors.info : Colors.textMuted}
@@ -578,7 +1000,7 @@ export default function AdminScreen() {
                     <Ionicons name="clipboard-outline" size={18} color={config.pptHabilitado ? Colors.accent : Colors.textMuted} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>PPT — Prova do Trimestre Final</Text>
+                    <Text style={styles.configToggleLabel}>PT — Prova Trimestral</Text>
                     <Text style={styles.configToggleDesc}>
                       {config.pptHabilitado ? 'Activa — incluída no cálculo da MT1' : 'Desactivada — não entra no cálculo'}
                     </Text>
@@ -589,10 +1011,10 @@ export default function AdminScreen() {
                   onValueChange={v => {
                     updateConfig({ pptHabilitado: v });
                     Alert.alert(
-                      v ? 'PPT Activada' : 'PPT Desactivada',
+                      v ? 'PT Activada' : 'PT Desactivada',
                       v
-                        ? 'A PPT será incluída no cálculo da Média Total (MT1).'
-                        : 'A PPT não será utilizada no cálculo das notas.',
+                        ? 'A PT será incluída no cálculo da Média Total (MT1).'
+                        : 'A PT não será utilizada no cálculo das notas.',
                     );
                   }}
                   thumbColor={config.pptHabilitado ? Colors.accent : Colors.textMuted}
@@ -633,7 +1055,7 @@ export default function AdminScreen() {
                 />
               </View>
 
-              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+              <View style={[styles.configFieldRow, { borderBottomWidth: 1, borderBottomColor: Colors.border }]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.configFieldLabel}>Máx. Alunos por Turma</Text>
                   <Text style={styles.configFieldDesc}>Limite de alunos por turma</Text>
@@ -647,6 +1069,78 @@ export default function AdminScreen() {
                   }}
                   keyboardType="number-pad"
                   maxLength={3}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
+              <View style={styles.configFieldRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas (MAC)</Text>
+                  <Text style={styles.configFieldDesc}>
+                    Quantas avaliações (AVAL) por trimestre (1–8). Actualmente: {config.numAvaliacoes ?? 4}
+                  </Text>
+                </View>
+                <View style={styles.avalStepper}>
+                  <TouchableOpacity
+                    style={[styles.avalStepBtn, (config.numAvaliacoes ?? 4) <= 1 && styles.avalStepBtnDisabled]}
+                    onPress={() => {
+                      const cur = config.numAvaliacoes ?? 4;
+                      if (cur > 1) updateConfig({ numAvaliacoes: cur - 1 });
+                    }}
+                    disabled={(config.numAvaliacoes ?? 4) <= 1}
+                  >
+                    <Ionicons name="remove" size={18} color={(config.numAvaliacoes ?? 4) <= 1 ? Colors.textMuted : Colors.text} />
+                  </TouchableOpacity>
+                  <View style={styles.avalStepValue}>
+                    <Text style={styles.avalStepValueText}>{config.numAvaliacoes ?? 4}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.avalStepBtn, (config.numAvaliacoes ?? 4) >= 8 && styles.avalStepBtnDisabled]}
+                    onPress={() => {
+                      const cur = config.numAvaliacoes ?? 4;
+                      if (cur < 8) updateConfig({ numAvaliacoes: cur + 1 });
+                    }}
+                    disabled={(config.numAvaliacoes ?? 4) >= 8}
+                  >
+                    <Ionicons name="add" size={18} color={(config.numAvaliacoes ?? 4) >= 8 ? Colors.textMuted : Colors.text} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.configFieldRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nota Mínima MAC — Média de Avaliação Contínua</Text>
+                  <Text style={styles.configFieldDesc}>Valor mínimo aceite para MAC (1–20)</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.macMin ?? 1)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 0 && n <= 20) updateConfig({ macMin: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
+              <View style={[styles.configFieldRow, { borderBottomWidth: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Nota Máxima MAC — Média de Avaliação Contínua</Text>
+                  <Text style={styles.configFieldDesc}>Valor máximo aceite para MAC (1–20)</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.macMax ?? 5)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 1 && n <= 20) updateConfig({ macMax: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
                   selectTextOnFocus
                   placeholderTextColor={Colors.textMuted}
                 />
@@ -781,24 +1275,16 @@ export default function AdminScreen() {
                 />
               </View>
 
-              <Text style={styles.fieldLabel}>Data de Início (AAAA-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
+              <DatePickerField
+                label="Data de Início"
                 value={flashForm.dataInicio}
-                onChangeText={v => setFlashForm(f => ({ ...f, dataInicio: v }))}
-                placeholder="2025-01-01"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numbers-and-punctuation"
+                onChange={v => setFlashForm(f => ({ ...f, dataInicio: v }))}
               />
 
-              <Text style={styles.fieldLabel}>Data de Fim (AAAA-MM-DD)</Text>
-              <TextInput
-                style={styles.input}
+              <DatePickerField
+                label="Data de Fim"
                 value={flashForm.dataFim}
-                onChangeText={v => setFlashForm(f => ({ ...f, dataFim: v }))}
-                placeholder="2025-12-31"
-                placeholderTextColor={Colors.textMuted}
-                keyboardType="numbers-and-punctuation"
+                onChange={v => setFlashForm(f => ({ ...f, dataFim: v }))}
               />
 
               <View style={[styles.configWarnBox, { marginTop: 14 }]}>
@@ -841,10 +1327,17 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {/* ACESSOS E PERMISSÕES */}
+        {activeSection === 'acessos' && (
+          <View style={[styles.card, { padding: 0, overflow: 'hidden' }]}>
+            <GestaoAcessosPanel />
+          </View>
+        )}
+
         {/* SEGURANÇA */}
         {activeSection === 'seguranca' && (
           <View style={styles.card}>
-            <SectionHeader title="Segurança e Backups" icon="shield-checkmark" />
+            <SectionHeader title="Segurança e Backups" icon="shield-checkmark" color={Colors.danger} />
             {[
               { label: 'Último Backup', value: 'Hoje, 03:00', valueColor: Colors.success },
               { label: 'Tipo de Backup', value: 'Automático (Diário)' },
@@ -918,10 +1411,16 @@ export default function AdminScreen() {
             </View>
             <Text style={styles.fieldLabel}>Ano</Text>
             <TextInput style={styles.input} value={formAno.ano} onChangeText={v => setFormAno(f => ({ ...f, ano: v }))} placeholder="2026" placeholderTextColor={Colors.textMuted} keyboardType="numeric" />
-            <Text style={styles.fieldLabel}>Data de Início</Text>
-            <TextInput style={styles.input} value={formAno.dataInicio} onChangeText={v => setFormAno(f => ({ ...f, dataInicio: v }))} placeholder="2026-02-02" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.fieldLabel}>Data de Fim</Text>
-            <TextInput style={styles.input} value={formAno.dataFim} onChangeText={v => setFormAno(f => ({ ...f, dataFim: v }))} placeholder="2026-11-30" placeholderTextColor={Colors.textMuted} />
+            <DatePickerField
+              label="Data de Início"
+              value={formAno.dataInicio}
+              onChange={v => setFormAno(f => ({ ...f, dataInicio: v }))}
+            />
+            <DatePickerField
+              label="Data de Fim"
+              value={formAno.dataFim}
+              onChange={v => setFormAno(f => ({ ...f, dataFim: v }))}
+            />
             <TouchableOpacity style={styles.saveBtn} onPress={criarAno}>
               <Text style={styles.saveBtnText}>Criar Ano Académico</Text>
             </TouchableOpacity>
@@ -945,7 +1444,7 @@ export default function AdminScreen() {
             <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
             <Text style={styles.fieldLabel}>Função</Text>
             <View style={styles.rolesRow}>
-              {(['pca', 'admin', 'director', 'secretaria', 'professor', 'aluno'] as UserRole[]).map(r => (
+              {(['pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'professor', 'financeiro', 'aluno'] as UserRole[]).map(r => (
                 <TouchableOpacity
                   key={r}
                   style={[styles.roleBtn, formUser.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.textMuted) + '33', borderColor: ROLE_COLOR[r] || Colors.textMuted }]}
@@ -1007,19 +1506,63 @@ export default function AdminScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  sectionsScroll: { maxHeight: 54, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  sectionsRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  sectionBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface },
-  sectionBtnActive: { backgroundColor: 'rgba(240,165,0,0.12)', borderWidth: 1, borderColor: Colors.gold + '44' },
-  sectionBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  sectionBtnTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
+
+  heroBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, gap: 12,
+    borderBottomWidth: 1, borderBottomColor: Colors.accent + '30',
+  },
+  heroLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  heroIconWrap: {
+    width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center',
+    shadowColor: Colors.accent, shadowOpacity: 0.6, shadowRadius: 10, shadowOffset: { width: 0, height: 4 },
+  },
+  heroTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  heroSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  heroStats: { flexDirection: 'row', alignItems: 'center', gap: 0 },
+  heroStat: { alignItems: 'center', paddingHorizontal: 12 },
+  heroStatNum: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  heroStatLabel: { fontSize: 9, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 1 },
+  heroStatDivider: { width: 1, height: 28, backgroundColor: Colors.border },
+
+  groupNav: {
+    flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10,
+    backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  groupCard: {
+    flex: 1, alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 6,
+    borderRadius: 14, backgroundColor: Colors.surface, borderWidth: 1.5, borderColor: 'transparent',
+  },
+  groupCardIcon: {
+    width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    marginBottom: 2,
+  },
+  groupCardLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textAlign: 'center' },
+  groupCardCount: { fontSize: 9, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  groupBadge: {
+    position: 'absolute', top: -4, right: -6,
+    backgroundColor: Colors.danger, borderRadius: 9, minWidth: 18, height: 18,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    borderWidth: 1.5, borderColor: Colors.backgroundCard,
+  },
+  groupBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+  subNavScroll: { flexGrow: 0, maxHeight: 46, backgroundColor: Colors.background, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  subNavRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 7, gap: 6 },
+  subNavBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: 'transparent',
+  },
+  subNavText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   badge: { backgroundColor: Colors.danger, borderRadius: 10, minWidth: 18, height: 18, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#fff' },
   scroll: { flex: 1 },
   card: { margin: 16, marginBottom: 0, backgroundColor: Colors.backgroundCard, borderRadius: 18, padding: 16, gap: 14 },
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: Colors.border, flex: 1 },
-  sectionHeaderText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, textTransform: 'uppercase', letterSpacing: 1.2 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 12, marginBottom: 4 },
+  sectionHeaderIcon: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  sectionHeaderText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  sectionHeaderLine: { height: 1, width: 30, borderRadius: 1 },
   editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.gold + '22' },
   editBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: Colors.accent },
@@ -1113,8 +1656,8 @@ const styles = StyleSheet.create({
   rolesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
   roleBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   roleBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end', alignItems: 'center' },
+  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
   inputGroup: { marginBottom: 0 },
@@ -1122,4 +1665,9 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.border },
   saveBtn: { backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 20, marginBottom: 8 },
   saveBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+  avalStepper: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  avalStepBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  avalStepBtnDisabled: { opacity: 0.35 },
+  avalStepValue: { width: 44, height: 36, borderRadius: 10, backgroundColor: Colors.backgroundElevated, borderWidth: 1, borderColor: Colors.gold + '55', alignItems: 'center', justifyContent: 'center', marginHorizontal: 4 },
+  avalStepValueText: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.gold },
 });

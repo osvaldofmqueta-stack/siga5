@@ -15,6 +15,7 @@ import {
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
+import { useRouter } from 'expo-router';
 
 const TIPO_LABEL: Record<TipoTaxa, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -40,8 +41,15 @@ const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
 ];
-const TABS_MAIN = ['resumo','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
+const TABS_MAIN = ['painel','resumo','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
 type TabKey = typeof TABS_MAIN[number];
+
+const MESES_PAINEL = [
+  { num: 9, nome: 'Set' }, { num: 10, nome: 'Out' }, { num: 11, nome: 'Nov' },
+  { num: 12, nome: 'Dez' }, { num: 1, nome: 'Jan' }, { num: 2, nome: 'Fev' },
+  { num: 3, nome: 'Mar' }, { num: 4, nome: 'Abr' }, { num: 5, nome: 'Mai' },
+  { num: 6, nome: 'Jun' }, { num: 7, nome: 'Jul' },
+];
 
 function Badge({ label, color }: { label: string; color: string }) {
   return (
@@ -66,13 +74,14 @@ export default function FinanceiroScreen() {
   const { alunos, turmas } = useData();
   const { anoSelecionado } = useAnoAcademico();
   const { user } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 24 : insets.bottom;
 
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
   const nomeRemetente = user?.nome || 'Departamento Financeiro';
 
-  const [tab, setTab]         = useState<TabKey>('resumo');
+  const [tab, setTab]         = useState<TabKey>('painel');
   const [statusFilter, setStatusFilter] = useState<'todos' | StatusPagamento>('todos');
   const [tipoFilter, setTipoFilter]     = useState<'todos' | TipoTaxa>('todos');
   const [searchAluno, setSearchAluno]   = useState('');
@@ -313,6 +322,108 @@ export default function FinanceiroScreen() {
   }
 
   const maxMes = Math.max(...Object.values(resumoPorMes), 1);
+
+  function renderPainel() {
+    const totalAlunos = alunosAtivos.length;
+    const alunosEmDia = totalAlunos - alunosEmAtraso.length;
+    const taxaPropina = taxasAtivas.find(t => t.tipo === 'propina');
+    const taxaTotal = taxaPropina ? taxaPropina.valor * totalAlunos * 11 : 0;
+    const taxaCobranca = taxaTotal > 0 ? Math.min(100, Math.round((totalRecebido / taxaTotal) * 100)) : 0;
+    const anoBase = parseInt(anoAtual.split('/')[0]) || new Date().getFullYear();
+    const mesAtual = new Date().getMonth() + 1;
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
+          <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.success }]}>
+            <Ionicons name="trending-up" size={16} color={Colors.success} />
+            <Text style={[st.kpiVal, { color: Colors.success, fontSize: 13 }]}>{formatAOA(totalRecebido)}</Text>
+            <Text style={st.kpiLbl}>Recebido</Text>
+          </View>
+          <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.warning }]}>
+            <Ionicons name="time" size={16} color={Colors.warning} />
+            <Text style={[st.kpiVal, { color: Colors.warning, fontSize: 13 }]}>{formatAOA(totalPendente)}</Text>
+            <Text style={st.kpiLbl}>Pendente</Text>
+          </View>
+          <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.info }]}>
+            <Ionicons name="receipt" size={16} color={Colors.info} />
+            <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{nTransacoes}</Text>
+            <Text style={st.kpiLbl}>Transacções</Text>
+          </View>
+        </View>
+
+        <View style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+            <Text style={st.kpiLbl}>Taxa de Cobrança {anoAtual}</Text>
+            <Text style={[st.kpiLbl, {
+              color: taxaCobranca >= 80 ? Colors.success : taxaCobranca >= 50 ? Colors.warning : Colors.danger,
+              fontFamily: 'Inter_700Bold',
+            }]}>{taxaCobranca}%</Text>
+          </View>
+          <View style={{ height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' }}>
+            <View style={{
+              height: 8, borderRadius: 4,
+              width: `${Math.min(taxaCobranca, 100)}%` as any,
+              backgroundColor: taxaCobranca >= 80 ? Colors.success : taxaCobranca >= 50 ? Colors.warning : Colors.danger,
+            }} />
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <View style={{ flex: 1, minWidth: 100, backgroundColor: Colors.danger + '18', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.danger + '44' }}>
+            <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+            <Text style={[st.kpiVal, { color: Colors.danger, fontSize: 22 }]}>{alunosEmAtraso.length}</Text>
+            <Text style={st.kpiLbl}>Alunos em Atraso</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 100, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.warning + '44' }}>
+            <Ionicons name="lock-closed" size={16} color={Colors.warning} />
+            <Text style={[st.kpiVal, { color: Colors.warning, fontSize: 22 }]}>{bloqueados.length}</Text>
+            <Text style={st.kpiLbl}>Bloqueados</Text>
+          </View>
+          <View style={{ flex: 1, minWidth: 100, backgroundColor: Colors.success + '18', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.success + '44' }}>
+            <Ionicons name="checkmark-circle" size={16} color={Colors.success} />
+            <Text style={[st.kpiVal, { color: Colors.success, fontSize: 22 }]}>{alunosEmDia}</Text>
+            <Text style={st.kpiLbl}>Em Dia</Text>
+          </View>
+        </View>
+
+        <Text style={[st.secLabel, { marginBottom: 8 }]}>PAGAMENTOS POR MÊS — {anoAtual}</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
+          {MESES_PAINEL.map(m => {
+            const anoMes = m.num >= 8 ? anoBase : anoBase + 1;
+            const countPago = pagamentos.filter(p =>
+              p.mes === m.num && p.ano === String(anoMes) && p.status === 'pago'
+            ).length;
+            const totalMes = pagamentos.filter(p =>
+              p.mes === m.num && p.ano === String(anoMes)
+            ).reduce((s, p) => s + (p.status === 'pago' ? p.valor : 0), 0);
+            const isAtual = m.num === mesAtual;
+            return (
+              <View key={m.num} style={{
+                flex: 1, minWidth: 64, borderRadius: 8, padding: 7,
+                backgroundColor: countPago > 0 ? Colors.success + '18' : Colors.border,
+                borderWidth: isAtual ? 2 : 1,
+                borderColor: isAtual ? Colors.gold : countPago > 0 ? Colors.success + '55' : Colors.border,
+                alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: countPago > 0 ? Colors.success : Colors.textMuted }}>
+                  {m.nome}
+                </Text>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: countPago > 0 ? Colors.success : Colors.textMuted }}>
+                  {countPago}
+                </Text>
+                {totalMes > 0 && (
+                  <Text style={{ fontSize: 7, color: Colors.textMuted, fontFamily: 'Inter_400Regular', textAlign: 'center' }}>
+                    {formatAOA(totalMes)}
+                  </Text>
+                )}
+              </View>
+            );
+          })}
+        </View>
+      </ScrollView>
+    );
+  }
 
   function renderResumo() {
     const recentes = [...pagamentosAno]
@@ -842,6 +953,10 @@ export default function FinanceiroScreen() {
                 <Ionicons name={bloqueado ? 'lock-open' : 'lock-closed'} size={15} color={bloqueado ? Colors.success : Colors.danger} />
                 <Text style={[st.perfilActionTxt, { color: bloqueado ? Colors.success : Colors.danger }]}>{bloqueado ? 'Desbloquear' : 'Bloquear'}</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={st.perfilActionBtn} onPress={() => router.push('/boletim-propina' as any)}>
+                <Ionicons name="document-text" size={15} color={Colors.success} />
+                <Text style={[st.perfilActionTxt, { color: Colors.success }]}>Caderneta</Text>
+              </TouchableOpacity>
             </View>
 
             {rupesAluno.length > 0 && (
@@ -980,6 +1095,7 @@ export default function FinanceiroScreen() {
   }
 
   const tabsConfig = [
+    ['painel', 'pie-chart', 'Painel'],
     ['resumo', 'stats-chart', 'Resumo'],
     ['em_atraso', 'alert-circle', 'Em Atraso'],
     ['mensagens', 'chatbubbles', 'Mensagens'],
@@ -1011,6 +1127,7 @@ export default function FinanceiroScreen() {
         ))}
       </ScrollView>
 
+      {tab === 'painel'      && renderPainel()}
       {tab === 'resumo'      && renderResumo()}
       {tab === 'em_atraso'   && renderEmAtraso()}
       {tab === 'mensagens'   && renderMensagens()}
@@ -1415,8 +1532,8 @@ const st = StyleSheet.create({
   empty: { alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
   emptyTitle: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textAlign: 'center' },
   emptySub: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 18 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', alignItems: 'center' },
+  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
   fieldLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },

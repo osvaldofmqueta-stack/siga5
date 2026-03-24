@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, Platform, Clipboard,
+  TextInput, Modal, Alert, Platform, Clipboard, Animated,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
@@ -12,6 +13,8 @@ import {
   useLicense, TipoPlano, CodigoAtivacao,
   PLANO_LABEL, PLANO_DIAS,
 } from '@/context/LicenseContext';
+import { useData } from '@/context/DataContext';
+import { api } from '@/lib/api';
 
 const PLANO_PRECO: Record<TipoPlano, string> = {
   demo: 'Grátis',
@@ -128,9 +131,12 @@ function CodigoCard({ cod, onCopy, onRevogar }: {
 
 export default function CeoScreen() {
   const { licenca, codigosGerados, isLicencaValida, diasRestantes, gerarCodigo, revogarCodigo, adicionarSaldo } = useLicense();
+  const { alunos, turmas, professores, notas } = useData();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  const [mainTab, setMainTab] = useState<'ceo' | 'escola'>('ceo');
   const [section, setSection] = useState<Section>('dashboard');
   const [showGerar, setShowGerar] = useState(false);
   const [formPlano, setFormPlano] = useState<TipoPlano>('anual');
@@ -202,12 +208,125 @@ export default function CeoScreen() {
     { key: 'historico', label: 'Histórico', icon: 'time' },
   ] as const;
 
+  const alunosActivos = alunos.filter(a => a.activo !== false).length;
+  const turmasActivas = turmas.length;
+  const professoresActivos = professores.filter(p => p.activo !== false).length;
+  const totalNotas = notas.length;
+
+  // ── Pagamentos em Tempo Real ─────────────────────────────────────────────
+  type Pagamento = {
+    id: string; alunoId: string; taxaId: string; valor: number;
+    data: string; status: string; metodoPagamento: string;
+    referencia?: string; observacao?: string; createdAt: string;
+  };
+  type Taxa = { id: string; tipo: string; descricao: string };
+
+  const [pagamentosAoVivo, setPagamentosAoVivo] = useState<Pagamento[]>([]);
+  const [taxasMap, setTaxasMap] = useState<Record<string, Taxa>>({});
+  const [ultimoUpdate, setUltimoUpdate] = useState<Date | null>(null);
+  const [isLive, setIsLive] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const newItemAnim = useRef<Record<string, Animated.Value>>({});
+  const previousIds = useRef<Set<string>>(new Set());
+
+  const pulseLoop = useCallback(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulseAnim]);
+
+  const fetchPagamentos = useCallback(async () => {
+    try {
+      const [pags, txs] = await Promise.all([
+        api.get<Pagamento[]>('/api/pagamentos'),
+        api.get<Taxa[]>('/api/taxas'),
+      ]);
+      const sorted = (pags || [])
+        .filter(p => p.status === 'pago')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 20);
+      const map: Record<string, Taxa> = {};
+      (txs || []).forEach(t => { map[t.id] = t; });
+      const newIds = new Set(sorted.map(p => p.id));
+      const hasNew = sorted.some(p => !previousIds.current.has(p.id));
+      if (hasNew && previousIds.current.size > 0) {
+        sorted.forEach(p => {
+          if (!previousIds.current.has(p.id)) {
+            newItemAnim.current[p.id] = new Animated.Value(0);
+            Animated.timing(newItemAnim.current[p.id], {
+              toValue: 1, duration: 600, useNativeDriver: true,
+            }).start();
+          }
+        });
+        if (Platform.OS !== 'web') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+      previousIds.current = newIds;
+      setPagamentosAoVivo(sorted);
+      setTaxasMap(map);
+      setUltimoUpdate(new Date());
+      setIsLive(true);
+    } catch { setIsLive(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchPagamentos();
+    pulseLoop();
+    const interval = setInterval(fetchPagamentos, 6000);
+    return () => clearInterval(interval);
+  }, [fetchPagamentos, pulseLoop]);
+
+  function tempoRelativo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const s = Math.floor(diff / 1000);
+    if (s < 60) return `${s}s atrás`;
+    const m = Math.floor(s / 60);
+    if (m < 60) return `${m}m atrás`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h atrás`;
+    return new Date(dateStr).toLocaleDateString('pt-AO', { day: '2-digit', month: 'short' });
+  }
+
+  function formatAOA(valor: number): string {
+    return valor.toLocaleString('pt-AO', { minimumFractionDigits: 0 }) + ' AOA';
+  }
+
+  const METODO_ICON: Record<string, string> = {
+    dinheiro: 'cash-outline',
+    transferencia: 'swap-horizontal-outline',
+    multicaixa: 'card-outline',
+  };
+
+  const totalHoje = pagamentosAoVivo
+    .filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString())
+    .reduce((acc, p) => acc + p.valor, 0);
+
+  const alunosMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    alunos.forEach(a => { m[a.id] = (a.nome || '') + (a.apelido ? ' ' + a.apelido : ''); });
+    return m;
+  }, [alunos]);
+
+  function EscolaStatCard({ label, value, icon, color }: { label: string; value: string; icon: string; color: string }) {
+    return (
+      <View style={[styles.escolaStatCard, { borderColor: color + '40' }]}>
+        <View style={[styles.escolaStatIcon, { backgroundColor: color + '22' }]}>
+          <Ionicons name={icon as any} size={18} color={color} />
+        </View>
+        <Text style={[styles.escolaStatValue, { color }]}>{value}</Text>
+        <Text style={styles.escolaStatLabel}>{label}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TopBar
         title="Painel CEO"
         subtitle="Gestão do Sistema SGAA"
-        rightAction={{ icon: 'add-circle', onPress: () => setShowGerar(true) }}
+        rightAction={mainTab === 'ceo' ? { icon: 'add-circle', onPress: () => setShowGerar(true) } : undefined}
       />
 
       {/* CEO Badge */}
@@ -215,6 +334,185 @@ export default function CeoScreen() {
         <MaterialCommunityIcons name="crown" size={16} color="#FFD700" />
         <Text style={styles.ceoBadgeText}>Acesso Total ao Sistema · Super Administrador</Text>
       </View>
+
+      {/* ── Abas de Topo: Dashboard CEO / Dashboard Escola ── */}
+      <View style={styles.mainTabBar}>
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'ceo' && styles.mainTabActive]}
+          onPress={() => setMainTab('ceo')}
+        >
+          <MaterialCommunityIcons name="crown" size={15} color={mainTab === 'ceo' ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.mainTabText, mainTab === 'ceo' && styles.mainTabTextActive]}>Dashboard CEO</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.mainTab, mainTab === 'escola' && styles.mainTabActive]}
+          onPress={() => setMainTab('escola')}
+        >
+          <Ionicons name="school" size={15} color={mainTab === 'escola' ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.mainTabText, mainTab === 'escola' && styles.mainTabTextActive]}>Dashboard Escola</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* ── CONTEÚDO: Dashboard Escola ── */}
+      {mainTab === 'escola' && (
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: bottomPad + 24 }} showsVerticalScrollIndicator={false}>
+          <View style={styles.escolaHeader}>
+            <Ionicons name="school-outline" size={22} color={Colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.escolaHeaderTitle}>Visão Geral da Escola</Text>
+              <Text style={styles.escolaHeaderSub}>Dados do ano lectivo actual</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.escolaDashBtn}
+              onPress={() => router.push('/(main)/dashboard' as any)}
+            >
+              <Text style={styles.escolaDashBtnText}>Ver Completo</Text>
+              <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.escolaStatsGrid}>
+            <EscolaStatCard label="Alunos" value={String(alunosActivos)} icon="people" color={Colors.info} />
+            <EscolaStatCard label="Turmas" value={String(turmasActivas)} icon="grid" color={Colors.warning} />
+            <EscolaStatCard label="Professores" value={String(professoresActivos)} icon="person" color={Colors.success} />
+            <EscolaStatCard label="Lançamentos" value={String(totalNotas)} icon="document-text" color="#8b5cf6" />
+          </View>
+
+          {/* ── Pagamentos em Tempo Real ── */}
+          <View style={styles.liveHeader}>
+            <View style={styles.liveBadge}>
+              <Animated.View style={[styles.liveDot, { opacity: pulseAnim }]} />
+              <Text style={styles.liveText}>AO VIVO</Text>
+            </View>
+            <Text style={styles.liveTitleText}>Pagamentos Recentes</Text>
+            <TouchableOpacity onPress={fetchPagamentos} style={styles.liveRefreshBtn}>
+              <Ionicons name="refresh-outline" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Resumo do dia */}
+          <View style={styles.liveSummaryRow}>
+            <View style={styles.liveSummaryCard}>
+              <Ionicons name="today-outline" size={16} color={Colors.success} />
+              <View>
+                <Text style={styles.liveSummaryLabel}>Total Hoje</Text>
+                <Text style={[styles.liveSummaryValue, { color: Colors.success }]}>{formatAOA(totalHoje)}</Text>
+              </View>
+            </View>
+            <View style={styles.liveSummaryCard}>
+              <Ionicons name="receipt-outline" size={16} color={Colors.info} />
+              <View>
+                <Text style={styles.liveSummaryLabel}>Transacções</Text>
+                <Text style={[styles.liveSummaryValue, { color: Colors.info }]}>
+                  {pagamentosAoVivo.filter(p => new Date(p.createdAt).toDateString() === new Date().toDateString()).length}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.liveSummaryCard}>
+              <Animated.View style={{ opacity: pulseAnim }}>
+                <Ionicons name="wifi-outline" size={16} color={isLive ? Colors.success : Colors.danger} />
+              </Animated.View>
+              <View>
+                <Text style={styles.liveSummaryLabel}>Estado</Text>
+                <Text style={[styles.liveSummaryValue, { color: isLive ? Colors.success : Colors.danger }]}>
+                  {isLive ? 'Ligado' : 'Erro'}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {ultimoUpdate && (
+            <Text style={styles.liveLastUpdate}>
+              Actualizado: {ultimoUpdate.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            </Text>
+          )}
+
+          {pagamentosAoVivo.length === 0 ? (
+            <View style={styles.liveEmpty}>
+              <Ionicons name="wallet-outline" size={36} color={Colors.textMuted} />
+              <Text style={styles.liveEmptyText}>Sem pagamentos registados ainda</Text>
+            </View>
+          ) : (
+            pagamentosAoVivo.map((p) => {
+              const isNew = newItemAnim.current[p.id];
+              const taxa = taxasMap[p.taxaId];
+              const nomeAluno = alunosMap[p.alunoId] || 'Aluno';
+              const metIcon = METODO_ICON[p.metodoPagamento] || 'cash-outline';
+              const metColor: Record<string, string> = {
+                dinheiro: Colors.success,
+                transferencia: Colors.info,
+                multicaixa: Colors.warning,
+              };
+              const cor = metColor[p.metodoPagamento] || Colors.textMuted;
+              return (
+                <Animated.View
+                  key={p.id}
+                  style={[
+                    styles.liveItem,
+                    isNew && {
+                      opacity: isNew,
+                      transform: [{ translateY: isNew.interpolate({ inputRange: [0, 1], outputRange: [-10, 0] }) }],
+                    },
+                  ]}
+                >
+                  <View style={[styles.liveItemIcon, { backgroundColor: cor + '20' }]}>
+                    <Ionicons name={metIcon as any} size={18} color={cor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.liveItemName} numberOfLines={1}>{nomeAluno}</Text>
+                    <Text style={styles.liveItemTaxa} numberOfLines={1}>
+                      {taxa ? taxa.descricao : p.taxaId}
+                    </Text>
+                  </View>
+                  <View style={styles.liveItemRight}>
+                    <Text style={[styles.liveItemValor, { color: Colors.success }]}>+{formatAOA(p.valor)}</Text>
+                    <Text style={styles.liveItemTime}>{tempoRelativo(p.createdAt)}</Text>
+                  </View>
+                </Animated.View>
+              );
+            })
+          )}
+
+          <TouchableOpacity
+            style={styles.liveVerTudoBtn}
+            onPress={() => router.push('/(main)/financeiro' as any)}
+          >
+            <Text style={styles.liveVerTudoText}>Ver módulo financeiro completo</Text>
+            <Ionicons name="arrow-forward" size={14} color={Colors.gold} />
+          </TouchableOpacity>
+
+          {/* Atalhos rápidos */}
+          <Text style={styles.escolaSectionTitle}>Acesso Rápido</Text>
+          {[
+            { label: 'Alunos', sub: 'Gestão e inscrição', route: '/(main)/alunos', icon: 'people', color: Colors.info },
+            { label: 'Turmas', sub: 'Organização lectiva', route: '/(main)/turmas', icon: 'grid', color: Colors.warning },
+            { label: 'Professores', sub: 'Corpo docente', route: '/(main)/professores', icon: 'person', color: Colors.success },
+            { label: 'Notas', sub: 'Resultados académicos', route: '/(main)/notas', icon: 'document-text', color: '#8b5cf6' },
+            { label: 'Relatórios', sub: 'Estatísticas e análises', route: '/(main)/relatorios', icon: 'bar-chart', color: Colors.gold },
+            { label: 'Visão Multi-Ano', sub: 'Histórico comparativo', route: '/(main)/visao-geral', icon: 'trending-up', color: Colors.accent },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.route}
+              style={styles.escolaShortcut}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.escolaShortcutIcon, { backgroundColor: item.color + '22' }]}>
+                <Ionicons name={item.icon as any} size={18} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.escolaShortcutLabel}>{item.label}</Text>
+                <Text style={styles.escolaShortcutSub}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ── CONTEÚDO: Dashboard CEO ── */}
+      {mainTab === 'ceo' && (
+      <>
 
       {/* Nav Tabs */}
       <View style={styles.tabBar}>
@@ -530,6 +828,8 @@ export default function CeoScreen() {
           </View>
         </View>
       </Modal>
+      </>
+      )}
     </View>
   );
 }
@@ -568,10 +868,10 @@ const cS = StyleSheet.create({
 });
 
 const mS = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
     backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '92%',
+    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '92%', width: '100%', maxWidth: 480,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   title: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
@@ -704,4 +1004,123 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingVertical: 48 },
   emptyTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 12 },
   emptyMsg: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', marginTop: 6 },
+
+  mainTabBar: {
+    flexDirection: 'row', backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  mainTab: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 11, borderBottomWidth: 3, borderBottomColor: 'transparent',
+  },
+  mainTabActive: { borderBottomColor: Colors.gold },
+  mainTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  mainTabTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
+
+  escolaHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: Colors.border, marginBottom: 14,
+  },
+  escolaHeaderTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+  escolaHeaderSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  escolaDashBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 10, paddingVertical: 6,
+    backgroundColor: Colors.gold + '18', borderRadius: 10,
+  },
+  escolaDashBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+
+  escolaStatsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 20 },
+  escolaStatCard: {
+    width: '47%', flexGrow: 1,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    padding: 16, alignItems: 'center', borderWidth: 1,
+  },
+  escolaStatIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 10,
+  },
+  escolaStatValue: { fontSize: 28, fontFamily: 'Inter_700Bold', marginBottom: 4 },
+  escolaStatLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
+
+  escolaSectionTitle: {
+    fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted,
+    textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10,
+  },
+  escolaShortcut: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  escolaShortcutIcon: {
+    width: 44, height: 44, borderRadius: 12,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  escolaShortcutLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  escolaShortcutSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+
+  liveHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
+  },
+  liveBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#dc2626' + '20', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: '#dc2626' + '40',
+  },
+  liveDot: {
+    width: 7, height: 7, borderRadius: 4, backgroundColor: '#dc2626',
+  },
+  liveText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: '#dc2626', letterSpacing: 1 },
+  liveTitleText: { flex: 1, fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  liveRefreshBtn: {
+    padding: 6, borderRadius: 8, backgroundColor: Colors.surface,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+
+  liveSummaryRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  liveSummaryCard: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.backgroundCard, borderRadius: 12,
+    padding: 12, borderWidth: 1, borderColor: Colors.border,
+  },
+  liveSummaryLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  liveSummaryValue: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+
+  liveLastUpdate: {
+    fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
+    textAlign: 'right', marginBottom: 10,
+  },
+
+  liveEmpty: {
+    alignItems: 'center', paddingVertical: 32,
+    backgroundColor: Colors.backgroundCard, borderRadius: 14,
+    marginBottom: 14, borderWidth: 1, borderColor: Colors.border,
+  },
+  liveEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 10 },
+
+  liveItem: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.backgroundCard, borderRadius: 12,
+    padding: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  liveItemIcon: {
+    width: 40, height: 40, borderRadius: 10,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  liveItemName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  liveItemTaxa: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  liveItemRight: { alignItems: 'flex-end' },
+  liveItemValor: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  liveItemTime: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+
+  liveVerTudoBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 12, marginBottom: 20,
+    backgroundColor: Colors.gold + '12', borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.gold + '30',
+  },
+  liveVerTudoText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
 });

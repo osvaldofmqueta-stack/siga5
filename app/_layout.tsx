@@ -26,6 +26,7 @@ import { UsersProvider } from '@/context/UsersContext';
 import { RegistroProvider } from '@/context/RegistroContext';
 import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
+import { PermissoesProvider } from '@/context/PermissoesContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 
 if (Platform.OS !== 'web') {
@@ -44,24 +45,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
-  const [fontsLoaded, fontError] = useFonts({
-    Inter_400Regular,
-    Inter_500Medium,
-    Inter_600SemiBold,
-    Inter_700Bold,
-  });
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' && (fontsLoaded || fontError)) {
-      SplashScreen.hideAsync().catch(() => {});
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (Platform.OS !== 'web' && !fontsLoaded && !fontError) {
-    return null;
-  }
-
+function AppProviders() {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -70,26 +54,28 @@ export default function RootLayout() {
             <KeyboardProvider>
               <ConfigProvider>
                 <AuthProvider>
-                  <LicenseProvider>
-                    <UsersProvider>
-                      <RegistroProvider>
-                        <DataProvider>
-                          <AnoAcademicoProvider>
-                            <FinanceiroProvider>
-                              <NotificacoesProvider>
-                                <ProfessorProvider>
-                                  <DrawerProvider>
-                                    <RootLayoutNav />
-                                    <FlashScreenOverlay />
-                                  </DrawerProvider>
-                                </ProfessorProvider>
-                              </NotificacoesProvider>
-                            </FinanceiroProvider>
-                          </AnoAcademicoProvider>
-                        </DataProvider>
-                      </RegistroProvider>
-                    </UsersProvider>
-                  </LicenseProvider>
+                  <PermissoesProvider>
+                    <LicenseProvider>
+                      <UsersProvider>
+                        <RegistroProvider>
+                          <DataProvider>
+                            <AnoAcademicoProvider>
+                              <FinanceiroProvider>
+                                <NotificacoesProvider>
+                                  <ProfessorProvider>
+                                    <DrawerProvider>
+                                      <RootLayoutNav />
+                                      <FlashScreenOverlay />
+                                    </DrawerProvider>
+                                  </ProfessorProvider>
+                                </NotificacoesProvider>
+                              </FinanceiroProvider>
+                            </AnoAcademicoProvider>
+                          </DataProvider>
+                        </RegistroProvider>
+                      </UsersProvider>
+                    </LicenseProvider>
+                  </PermissoesProvider>
                 </AuthProvider>
               </ConfigProvider>
             </KeyboardProvider>
@@ -98,4 +84,37 @@ export default function RootLayout() {
       </QueryClientProvider>
     </ErrorBoundary>
   );
+}
+
+// Web layout: fonts are already loaded via @font-face CSS injected by the server.
+// useFonts must NOT be called on web — even with {}, fontfaceobserver triggers a 6s timeout.
+function WebRootLayout() {
+  return <AppProviders />;
+}
+
+// Native layout: load fonts via expo-font, hide splash when ready.
+function NativeRootLayout() {
+  const [fontsLoaded, fontError] = useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+  });
+
+  useEffect(() => {
+    if (fontsLoaded || fontError) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) return null;
+
+  return <AppProviders />;
+}
+
+export default function RootLayout() {
+  if (Platform.OS === 'web') {
+    return <WebRootLayout />;
+  }
+  return <NativeRootLayout />;
 }

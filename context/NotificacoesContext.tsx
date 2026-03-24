@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../lib/api';
 
 export type TipoNotificacao = 'info' | 'aviso' | 'urgente' | 'sucesso';
 
@@ -27,13 +27,7 @@ interface NotificacoesContextValue {
 
 const NotificacoesContext = createContext<NotificacoesContextValue | null>(null);
 
-const STORAGE_KEY = '@sgaa_notificacoes';
-
-function genId() {
-  return Date.now().toString() + Math.random().toString(36).substr(2, 9);
-}
-
-function timeAgo(dateStr: string): string {
+export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
   const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
@@ -45,74 +39,63 @@ function timeAgo(dateStr: string): string {
   return `há ${days} dias`;
 }
 
-
-export { timeAgo };
-
 export function NotificacoesProvider({ children }: { children: ReactNode }) {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadNotificacoes();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  async function loadNotificacoes() {
+  async function load() {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      const data = raw ? JSON.parse(raw) : [];
+      const data = await api.get<Notificacao[]>('/api/notificacoes');
       setNotificacoes(data);
     } catch (e) {
-      setNotificacoes([]);
+      console.error('NotificacoesContext load error', e);
     } finally {
       setIsLoading(false);
     }
   }
 
-  async function persist(data: Notificacao[]) {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  }
-
   async function addNotificacao(n: Omit<Notificacao, 'id' | 'createdAt' | 'lida'>) {
-    const nova: Notificacao = { ...n, id: genId(), lida: false, createdAt: new Date().toISOString() };
-    const updated = [nova, ...notificacoes];
-    setNotificacoes(updated);
-    await persist(updated);
+    const nova = await api.post<Notificacao>('/api/notificacoes', { ...n, lida: false });
+    setNotificacoes(prev => [nova, ...prev]);
   }
 
   async function marcarLida(id: string) {
-    const updated = notificacoes.map(n => n.id === id ? { ...n, lida: true } : n);
-    setNotificacoes(updated);
-    await persist(updated);
+    await api.put(`/api/notificacoes/${id}`, { lida: true });
+    setNotificacoes(prev => prev.map(n => n.id === id ? { ...n, lida: true } : n));
   }
 
   async function marcarTodasLidas() {
-    const updated = notificacoes.map(n => ({ ...n, lida: true }));
-    setNotificacoes(updated);
-    await persist(updated);
+    const unread = notificacoes.filter(n => !n.lida);
+    await Promise.all(unread.map(n => api.put(`/api/notificacoes/${n.id}`, { lida: true })));
+    setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
   }
 
   async function deletarNotificacao(id: string) {
-    const updated = notificacoes.filter(n => n.id !== id);
-    setNotificacoes(updated);
-    await persist(updated);
+    await api.delete(`/api/notificacoes/${id}`);
+    setNotificacoes(prev => prev.filter(n => n.id !== id));
   }
 
   async function limparTodas() {
+    await api.delete('/api/notificacoes');
     setNotificacoes([]);
-    await AsyncStorage.removeItem(STORAGE_KEY);
   }
 
   const unreadCount = useMemo(() => notificacoes.filter(n => !n.lida).length, [notificacoes]);
 
-  const value = useMemo<NotificacoesContextValue>(() => ({
-    notificacoes, unreadCount, isLoading,
-    addNotificacao, marcarLida, marcarTodasLidas, deletarNotificacao, limparTodas,
-  }), [notificacoes, unreadCount, isLoading]);
-
-  return <NotificacoesContext.Provider value={value}>{children}</NotificacoesContext.Provider>;
+  return (
+    <NotificacoesContext.Provider value={{
+      notificacoes, unreadCount, isLoading,
+      addNotificacao, marcarLida, marcarTodasLidas,
+      deletarNotificacao, limparTodas,
+    }}>
+      {children}
+    </NotificacoesContext.Provider>
+  );
 }
 
-export function useNotificacoes() {
+export function useNotificacoes(): NotificacoesContextValue {
   const ctx = useContext(NotificacoesContext);
   if (!ctx) throw new Error('useNotificacoes must be used within NotificacoesProvider');
   return ctx;

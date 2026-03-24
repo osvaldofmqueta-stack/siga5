@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
+import { pickAndUploadPhoto } from '@/lib/uploadPhoto';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
@@ -55,6 +55,17 @@ function InfoRow({ label, value, editable, onEdit }: { label: string; value: str
     </View>
   );
 }
+
+const ROLE_LABEL: Record<string, string> = {
+  ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
+  secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno', financeiro: 'Financeiro',
+  encarregado: 'Encarregado',
+};
+const ROLE_COLOR: Record<string, string> = {
+  ceo: '#8B5CF6', pca: '#F59E0B', admin: '#3B82F6', director: Colors.accent,
+  secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success,
+  financeiro: '#10B981', encarregado: '#F97316',
+};
 
 export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
@@ -108,23 +119,9 @@ export default function PerfilScreen() {
   }
 
   async function handlePickPhoto() {
-    if (Platform.OS === 'web') {
-      Alert.alert('Foto de Perfil', 'A seleção de fotos não está disponível no browser.');
-      return;
-    }
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para alterar a sua foto.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-    if (!result.canceled && result.assets[0]?.uri) {
-      await updateUser({ avatar: result.assets[0].uri });
+    const url = await pickAndUploadPhoto();
+    if (url) {
+      await updateUser({ avatar: url });
     }
   }
 
@@ -146,6 +143,7 @@ export default function PerfilScreen() {
       const totalProf = professores.filter(p => p.ativo).length;
       const totalTurmas = turmas.filter(t => t.ativo).length;
       const mediaNotas = notas.length > 0 ? (notas.reduce((s, n) => s + n.mac, 0) / notas.length).toFixed(1) : '—';
+
       return (
         <View style={styles.card}>
           <SectionHeader title="Visão Geral do Sistema" icon="shield-checkmark" />

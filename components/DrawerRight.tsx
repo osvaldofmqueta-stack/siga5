@@ -17,11 +17,15 @@ const DRAWER_WIDTH = Math.min(width * 0.75, 290);
 
 const roleColors: Record<string, string> = {
   ceo: '#8B5CF6', pca: Colors.gold, admin: Colors.info, director: Colors.gold,
-  secretaria: Colors.info, professor: Colors.success, aluno: Colors.success, financeiro: Colors.warning,
+  chefe_secretaria: '#E11D48',
+  secretaria: Colors.info, professor: Colors.success, aluno: Colors.success,
+  financeiro: Colors.warning, encarregado: '#F97316', rh: '#06B6D4',
 };
 const roleLabels: Record<string, string> = {
   ceo: 'CEO', pca: 'Presidente', admin: 'Administrador', director: 'Director',
-  secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno', financeiro: 'Gestor Financeiro',
+  chefe_secretaria: 'Chefe de Secretaria',
+  secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno',
+  financeiro: 'Gestor Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 
 export default function DrawerRight() {

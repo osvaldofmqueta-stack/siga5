@@ -4,6 +4,7 @@ import {
   TextInput, Platform, Alert, Modal, FlatList, ActivityIndicator,
   BackHandler,
 } from 'react-native';
+import * as XLSX from 'xlsx';
 import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,12 +25,19 @@ interface NotaForm {
   aval2: string;
   aval3: string;
   aval4: string;
+  aval5: string;
+  aval6: string;
+  aval7: string;
+  aval8: string;
   pp1: string;
   ppt: string;
 }
 
-function calcMac(aval1: number, aval2: number, aval3: number, aval4: number): number {
-  const vals = [aval1, aval2, aval3, aval4].filter(v => v > 0);
+type AvalKey = 'aval1' | 'aval2' | 'aval3' | 'aval4' | 'aval5' | 'aval6' | 'aval7' | 'aval8';
+const ALL_AVAL_KEYS: AvalKey[] = ['aval1', 'aval2', 'aval3', 'aval4', 'aval5', 'aval6', 'aval7', 'aval8'];
+
+function calcMac(avais: number[]): number {
+  const vals = avais.filter(v => v > 0);
   if (vals.length === 0) return 0;
   return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
 }
@@ -122,10 +130,14 @@ export default function ProfessorPautaScreen() {
       const nota = notasExistentes.find(n => n.alunoId === aluno.id);
       return {
         alunoId: aluno.id,
-        aval1: nota ? String(nota.aval1) : '',
-        aval2: nota ? String(nota.aval2) : '',
-        aval3: nota ? String(nota.aval3) : '',
-        aval4: nota ? String(nota.aval4) : '',
+        aval1: nota ? String(nota.aval1 ?? '') : '',
+        aval2: nota ? String(nota.aval2 ?? '') : '',
+        aval3: nota ? String(nota.aval3 ?? '') : '',
+        aval4: nota ? String(nota.aval4 ?? '') : '',
+        aval5: nota ? String(nota.aval5 ?? '') : '',
+        aval6: nota ? String(nota.aval6 ?? '') : '',
+        aval7: nota ? String(nota.aval7 ?? '') : '',
+        aval8: nota ? String(nota.aval8 ?? '') : '',
         pp1: nota ? String(nota.pp1) : '',
         ppt: nota ? String(nota.ppt) : '',
       };
@@ -147,29 +159,31 @@ export default function ProfessorPautaScreen() {
         n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre
       );
 
+      const numAvais = config.numAvaliacoes ?? 4;
+      const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvais);
+
       for (const form of notasForms) {
-        const a1 = parseNum(form.aval1);
-        const a2 = parseNum(form.aval2);
-        const a3 = parseNum(form.aval3);
-        const a4 = parseNum(form.aval4);
+        const avalValues = activeAvalKeys.map(k => parseNum(form[k]));
         const pp = parseNum(form.pp1);
         const ppt = parseNum(form.ppt);
-        const mac = calcMac(a1, a2, a3, a4);
+        const mac = calcMac(avalValues);
         const mt1 = calcMt1(mac, pp);
         const nf = calcNF(mt1, ppt);
 
         const notaExistente = notasExistentes.find(n => n.alunoId === form.alunoId);
-        const notaData = {
+        const notaData: Record<string, unknown> = {
           alunoId: form.alunoId,
           turmaId,
           disciplina,
           trimestre,
-          aval1: a1, aval2: a2, aval3: a3, aval4: a4,
-          mac1: mac, pp1: pp, ppt, mt1, nf, mac,
+          pp1: pp, ppt, mac1: mac, mt1, nf, mac,
           anoLetivo: anoSelecionado?.ano || '2025',
           professorId: prof.id,
           data: new Date().toISOString().split('T')[0],
         };
+        ALL_AVAL_KEYS.forEach((k, i) => {
+          notaData[k] = i < numAvais ? avalValues[i] : 0;
+        });
 
         if (notaExistente) {
           await updateNota(notaExistente.id, notaData);
@@ -369,6 +383,69 @@ export default function ProfessorPautaScreen() {
 </body></html>`;
   }
 
+  function gerarExcelMiniPauta() {
+    if (!turmaId || !disciplina) {
+      Alert.alert('Atenção', 'Selecione a turma e disciplina antes de exportar.');
+      return;
+    }
+    if (Platform.OS !== 'web') {
+      Alert.alert('Indisponível', 'A exportação Excel está disponível na versão web do sistema.');
+      return;
+    }
+    const turmaObj = minhasTurmas.find(t => t.id === turmaId);
+    const turmaNome = turmaObj?.nome || '—';
+    const nivelClasse = turmaObj?.classe || '—';
+    const anoLetivo = anoSelecionado?.ano || '20__/20__';
+    const profNome = prof ? `${prof.nome} ${prof.apelido}` : '—';
+    const escola = config?.nomeEscola || 'Escola';
+    const now = new Date();
+
+    const header1 = ['REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO'];
+    const header2 = [`MINI-PAUTA — ${disciplina} — ${nivelClasse}ª Classe — Turma ${turmaNome}`];
+    const header3 = [`Escola: ${escola}   Ano Lectivo: ${anoLetivo}   Professor(a): ${profNome}   Data: ${now.toLocaleDateString('pt-AO')}`];
+    const emptyRow: string[] = [];
+    const colHeader = ['Nº', 'Nome Completo', 'MAC T1', 'NPP T1', 'NPT T1', 'MT1', 'MAC T2', 'NPP T2', 'NPT T2', 'MT2', 'MAC T3', 'NPP T3', 'NPT T3', 'MT3', 'MFD', 'Observação'];
+
+    const dataRows = alunosDaTurma.map((aluno, idx) => {
+      const get = (tr: number) => {
+        const n = notas.find(n => n.alunoId === aluno.id && n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === tr);
+        return n ? { mac: n.mac ?? n.mac1 ?? 0, npp: n.pp1 ?? 0, npt: n.ppt ?? 0, mt: n.mt1 ?? 0 } : null;
+      };
+      const t1 = get(1); const t2 = get(2); const t3 = get(3);
+      const mts = [t1?.mt, t2?.mt, t3?.mt].filter((v): v is number => !!v && v > 0);
+      const mfd = mts.length ? Math.round((mts.reduce((a, b) => a + b, 0) / mts.length) * 10) / 10 : '';
+      const fmt = (v: number | null | undefined) => v && v > 0 ? v : '';
+      const aprovado = typeof mfd === 'number' ? (mfd >= (config?.notaMinimaAprovacao ?? 10) ? 'Aprovado' : 'Reprovado') : '';
+      return [
+        idx + 1, `${aluno.nome} ${aluno.apelido}`,
+        fmt(t1?.mac), fmt(t1?.npp), fmt(t1?.npt), fmt(t1?.mt),
+        fmt(t2?.mac), fmt(t2?.npp), fmt(t2?.npt), fmt(t2?.mt),
+        fmt(t3?.mac), fmt(t3?.npp), fmt(t3?.npt), fmt(t3?.mt),
+        mfd, aprovado,
+      ];
+    });
+
+    const wb = XLSX.utils.book_new();
+    const wsData = [header1, header2, header3, emptyRow, colHeader, ...dataRows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 15 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 15 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 15 } },
+    ];
+    ws['!cols'] = [{ wch: 5 }, { wch: 30 }, ...Array(14).fill({ wch: 8 })];
+    XLSX.utils.book_append_sheet(wb, ws, 'Mini-Pauta');
+
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Mini_Pauta_${disciplina}_${turmaNome}_${anoLetivo}.xlsx`.replace(/\//g, '-');
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function enviarMiniPauta() {
     if (!turmaId || !disciplina) {
       Alert.alert('Atenção', 'Selecione a turma e disciplina antes de enviar a mini-pauta.');
@@ -560,9 +637,13 @@ export default function ProfessorPautaScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        <TouchableOpacity style={[styles.miniPautaBtn, { backgroundColor: '#0d2e0d', borderWidth: 1, borderColor: '#1a7a1a' }]} onPress={gerarExcelMiniPauta}>
+          <Ionicons name="document-outline" size={14} color="#4ade80" />
+          <Text style={[styles.miniPautaBtnText, { color: '#4ade80' }]}>Excel</Text>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.miniPautaBtn} onPress={enviarMiniPauta}>
           <Ionicons name="print-outline" size={14} color={Colors.info} />
-          <Text style={styles.miniPautaBtnText}>Enviar Mini-Pauta</Text>
+          <Text style={styles.miniPautaBtnText}>PDF</Text>
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {
           if (pautaAtual?.status === 'aberta') {
@@ -579,17 +660,21 @@ export default function ProfessorPautaScreen() {
       </View>
 
       {/* Grade Fields Legend */}
-      <View style={styles.legendaBar}>
-        <Text style={[styles.legendaCol, { width: 44 }]}>Nº</Text>
-        <Text style={[styles.legendaCol, { flex: 1 }]}>Aluno</Text>
-        <Text style={styles.legendaCol}>A1</Text>
-        <Text style={styles.legendaCol}>A2</Text>
-        <Text style={styles.legendaCol}>A3</Text>
-        <Text style={styles.legendaCol}>A4</Text>
-        <Text style={styles.legendaCol}>PP1</Text>
-        <Text style={styles.legendaCol}>PPT</Text>
-        <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
-      </View>
+      {(() => {
+        const nAval = config.numAvaliacoes ?? 4;
+        return (
+          <View style={styles.legendaBar}>
+            <Text style={[styles.legendaCol, { width: 44 }]}>Nº</Text>
+            <Text style={[styles.legendaCol, { flex: 1 }]}>Aluno</Text>
+            {ALL_AVAL_KEYS.slice(0, nAval).map((_, i) => (
+              <Text key={i} style={styles.legendaCol}>A{i + 1}</Text>
+            ))}
+            <Text style={styles.legendaCol}>PP</Text>
+            <Text style={styles.legendaCol}>PT</Text>
+            <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
+          </View>
+        );
+      })()}
 
       <FlatList
         data={notasForms}
@@ -598,17 +683,18 @@ export default function ProfessorPautaScreen() {
         renderItem={({ item: form, index }) => {
           const aluno = alunos.find(a => a.id === form.alunoId);
           if (!aluno) return null;
-          const a1 = parseNum(form.aval1);
-          const a2 = parseNum(form.aval2);
-          const a3 = parseNum(form.aval3);
-          const a4 = parseNum(form.aval4);
+          const nAval = config.numAvaliacoes ?? 4;
+          const activeKeys = ALL_AVAL_KEYS.slice(0, nAval);
+          const avalValues = activeKeys.map(k => parseNum(form[k]));
           const pp = parseNum(form.pp1);
           const ppt = parseNum(form.ppt);
-          const mac = calcMac(a1, a2, a3, a4);
+          const mac = calcMac(avalValues);
           const mt1 = calcMt1(mac, pp);
           const nf = calcNF(mt1, ppt);
           const nfColor = nf >= 10 ? Colors.success : nf > 0 ? Colors.danger : Colors.textMuted;
           const isEditing = editingAlunoId === aluno.id;
+          const editFields = [...activeKeys, 'pp1' as const, 'ppt' as const] as Array<keyof NotaForm>;
+          const displayValues = [...activeKeys.map(k => form[k]), form.pp1, form.ppt];
 
           return (
             <TouchableOpacity
@@ -627,7 +713,7 @@ export default function ProfessorPautaScreen() {
               </View>
               {isEditing && !isPautaFechada ? (
                 <>
-                  {(['aval1', 'aval2', 'aval3', 'aval4', 'pp1', 'ppt'] as const).map(field => (
+                  {editFields.map(field => (
                     <TextInput
                       key={field}
                       style={styles.gradeInput}
@@ -642,7 +728,7 @@ export default function ProfessorPautaScreen() {
                 </>
               ) : (
                 <>
-                  {[form.aval1, form.aval2, form.aval3, form.aval4, form.pp1, form.ppt].map((v, i) => (
+                  {displayValues.map((v, i) => (
                     <View key={i} style={styles.gradeCell}>
                       <Text style={styles.gradeCellText}>{v || '—'}</Text>
                     </View>
@@ -778,8 +864,8 @@ const styles = StyleSheet.create({
   saveBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 14 },
   fecharBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.danger, borderRadius: 14, paddingVertical: 14 },
   saveBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
+  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '80%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   modalTitle: { flex: 1, fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
   closeBtn: { padding: 4 },

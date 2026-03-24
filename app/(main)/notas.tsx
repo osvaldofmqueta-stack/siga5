@@ -17,11 +17,10 @@ const DISCIPLINAS = [
   'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia', 'Desenho',
 ];
 
-function calcMac1(a1: number, a2: number, a3: number, a4: number): number {
-  return parseFloat(((a1 + a2 + a3 + a4) / 4).toFixed(2));
-}
+const ALL_AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
+type AvalKey = typeof ALL_AVAL_KEYS[number];
 
-function calcMac1Partial(vals: number[], count: number): number {
+function calcMac(vals: number[], count: number): number {
   if (count === 0) return 0;
   return parseFloat((vals.reduce((s, v) => s + v, 0) / count).toFixed(2));
 }
@@ -91,15 +90,15 @@ function GradeInput({
   );
 }
 
-const LANC_KEYS: (keyof NotaLancamentos)[] = ['aval1', 'aval2', 'aval3', 'aval4', 'pp1', 'ppt'];
+const LANC_KEYS: (keyof NotaLancamentos)[] = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8','pp1','ppt'];
 
 function buildEmptyLanc(): NotaLancamentos {
-  return { aval1: false, aval2: false, aval3: false, aval4: false, pp1: false, ppt: false };
+  return { aval1: false, aval2: false, aval3: false, aval4: false, aval5: false, aval6: false, aval7: false, aval8: false, pp1: false, ppt: false };
 }
 
 function NotaFormModal({
   visible, onClose, onSave, alunos, turmas, nota, trimestre, disciplinas, professorId,
-  pp1Habilitado, pptHabilitado,
+  pp1Habilitado, pptHabilitado, numAvaliacoes,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -112,16 +111,19 @@ function NotaFormModal({
   professorId: string;
   pp1Habilitado: boolean;
   pptHabilitado: boolean;
+  numAvaliacoes: number;
 }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
 
   const makeEmpty = (): Partial<Nota> => ({
     alunoId: alunos[0]?.id || '',
     turmaId: '',
     disciplina: disciplinas[0] || DISCIPLINAS[0],
     trimestre,
-    aval1: 0, aval2: 0, aval3: 0, aval4: 0,
+    aval1: 0, aval2: 0, aval3: 0, aval4: 0, aval5: 0, aval6: 0, aval7: 0, aval8: 0,
     mac1: 0, pp1: 0, ppt: 0, mt1: 0, nf: 0, mac: 0,
     anoLetivo: new Date().getFullYear().toString(),
     professorId,
@@ -140,21 +142,15 @@ function NotaFormModal({
 
     const lanc = next.lancamentos || buildEmptyLanc();
 
-    const a1 = next.aval1 || 0;
-    const a2 = next.aval2 || 0;
-    const a3 = next.aval3 || 0;
-    const a4 = next.aval4 || 0;
+    const regAvals = activeAvalKeys
+      .map(key => ({ key, val: (next[key as keyof Nota] as number) || 0, reg: !!(lanc[key as keyof NotaLancamentos]) }))
+      .filter(a => a.reg)
+      .map(a => a.val);
 
-    const regAvals = [
-      lanc.aval1 ? a1 : null,
-      lanc.aval2 ? a2 : null,
-      lanc.aval3 ? a3 : null,
-      lanc.aval4 ? a4 : null,
-    ].filter(v => v !== null) as number[];
-
-    const mac1 = regAvals.length === 4
-      ? calcMac1(a1, a2, a3, a4)
-      : regAvals.length > 0 ? calcMac1Partial(regAvals, regAvals.length) : 0;
+    const allAvalVals = activeAvalKeys.map(key => (next[key as keyof Nota] as number) || 0);
+    const mac1 = regAvals.length === numAvaliacoes
+      ? calcMac(allAvalVals, numAvaliacoes)
+      : regAvals.length > 0 ? calcMac(regAvals, regAvals.length) : 0;
 
     const pp1 = next.pp1 || 0;
     const ppt = next.ppt || 0;
@@ -181,7 +177,7 @@ function NotaFormModal({
       Alert.alert('Campos obrigatórios', 'Seleccione aluno e disciplina.');
       return;
     }
-    const vals = [form.aval1, form.aval2, form.aval3, form.aval4, form.pp1, form.ppt];
+    const vals = [...activeAvalKeys.map(k => (form[k as keyof Nota] as number) || 0), form.pp1, form.ppt];
     if (vals.some(v => (v || 0) > 20)) {
       Alert.alert('Nota inválida', 'Nenhuma nota pode exceder 20 valores.');
       return;
@@ -199,8 +195,8 @@ function NotaFormModal({
   const mt1 = form.mt1 || 0;
   const nf = form.nf || 0;
 
-  const avaisRegistadas = [lanc.aval1, lanc.aval2, lanc.aval3, lanc.aval4].filter(Boolean).length;
-  const avaisCompletas = avaisRegistadas === 4;
+  const avaisRegistadas = activeAvalKeys.filter(k => !!(lanc[k as keyof NotaLancamentos])).length;
+  const avaisCompletas = avaisRegistadas === numAvaliacoes;
 
   function isComplete() {
     const avaisOk = avaisCompletas;
@@ -213,9 +209,9 @@ function NotaFormModal({
   const temAlgumDado = Object.values(lanc).some(Boolean);
 
   const mt1Label = (): string => {
-    const parts: string[] = ['MAC1'];
-    if (pp1Habilitado) parts.push('PP1');
-    if (pptHabilitado) parts.push('PPT');
+    const parts: string[] = ['MAC'];
+    if (pp1Habilitado) parts.push('PP');
+    if (pptHabilitado) parts.push('PT');
     return `(${parts.join(' + ')}) / ${parts.length}`;
   };
 
@@ -242,8 +238,8 @@ function NotaFormModal({
 
           {/* Progress indicator */}
           <View style={mS.progressRow}>
-            {(['aval1', 'aval2', 'aval3', 'aval4'] as const).map((k) => (
-              <View key={k} style={[mS.progressDot, lanc[k] && mS.progressDotDone]} />
+            {activeAvalKeys.map((k) => (
+              <View key={k} style={[mS.progressDot, !!(lanc[k as keyof NotaLancamentos]) && mS.progressDotDone]} />
             ))}
             <View style={mS.progressSep} />
             {pp1Habilitado && (
@@ -253,7 +249,7 @@ function NotaFormModal({
               <View style={[mS.progressDot, { backgroundColor: Colors.accent + '40' }, lanc.ppt && { backgroundColor: Colors.accent }]} />
             )}
             <Text style={mS.progressText}>
-              {avaisRegistadas}/4 AVAL {pp1Habilitado && (lanc.pp1 ? '· PP1 ✓' : '· PP1 —')} {pptHabilitado && (lanc.ppt ? '· PPT ✓' : '· PPT —')}
+              {avaisRegistadas}/{numAvaliacoes} AVAL {pp1Habilitado && (lanc.pp1 ? '· PP ✓' : '· PP —')} {pptHabilitado && (lanc.ppt ? '· PT ✓' : '· PT —')}
             </Text>
           </View>
 
@@ -301,29 +297,34 @@ function NotaFormModal({
               <View style={mS.blockHeader}>
                 <View style={mS.blockDot} />
                 <Text style={mS.blockTitle}>Avaliações Contínuas</Text>
-                <Text style={mS.blockSub}>{avaisRegistadas}/4 registadas</Text>
+                <Text style={mS.blockSub}>{avaisRegistadas}/{numAvaliacoes} registadas</Text>
               </View>
               <View style={mS.gradesGrid}>
-                <GradeInput label="AVAL 1" value={form.aval1 || 0} onChange={v => set('aval1', v)} registered={lanc.aval1} />
-                <GradeInput label="AVAL 2" value={form.aval2 || 0} onChange={v => set('aval2', v)} registered={lanc.aval2} />
-                <GradeInput label="AVAL 3" value={form.aval3 || 0} onChange={v => set('aval3', v)} registered={lanc.aval3} />
-                <GradeInput label="AVAL 4" value={form.aval4 || 0} onChange={v => set('aval4', v)} registered={lanc.aval4} />
+                {activeAvalKeys.map((key, i) => (
+                  <GradeInput
+                    key={key}
+                    label={`AVAL ${i + 1}`}
+                    value={(form[key as keyof Nota] as number) || 0}
+                    onChange={v => set(key as keyof Nota, v)}
+                    registered={!!(lanc[key as keyof NotaLancamentos])}
+                  />
+                ))}
               </View>
 
               {!avaisCompletas && avaisRegistadas > 0 && (
                 <View style={mS.infoBox}>
                   <Ionicons name="time-outline" size={13} color={Colors.info} />
                   <Text style={mS.infoBoxText}>
-                    {avaisRegistadas} de 4 avaliações registadas. Pode guardar e continuar mais tarde.
+                    {avaisRegistadas} de {numAvaliacoes} avaliações registadas. Pode guardar e continuar mais tarde.
                   </Text>
                 </View>
               )}
 
               <View style={[mS.calcResult, avaisCompletas && { borderColor: Colors.gold + '60', backgroundColor: Colors.gold + '0E' }]}>
                 <View style={mS.calcResultLeft}>
-                  <Text style={mS.calcResultLbl}>MAC 1</Text>
+                  <Text style={mS.calcResultLbl}>MAC</Text>
                   <Text style={mS.calcResultDesc}>
-                    {avaisCompletas ? 'Média das 4 Avaliações' : avaisRegistadas > 0 ? `Parcial (${avaisRegistadas} AVAL)` : 'Aguarda avaliações'}
+                    {avaisCompletas ? `Média das ${numAvaliacoes} Avaliações` : avaisRegistadas > 0 ? `Parcial (${avaisRegistadas} AVAL)` : 'Aguarda avaliações'}
                   </Text>
                 </View>
                 <View style={mS.calcResultRight}>
@@ -345,10 +346,10 @@ function NotaFormModal({
                 </View>
                 <View style={mS.gradesGrid}>
                   {pp1Habilitado && (
-                    <GradeInput label="PP 1" value={form.pp1 || 0} onChange={v => set('pp1', v)} registered={lanc.pp1} />
+                    <GradeInput label="PP" value={form.pp1 || 0} onChange={v => set('pp1', v)} registered={lanc.pp1} />
                   )}
                   {pptHabilitado && (
-                    <GradeInput label="PPT" value={form.ppt || 0} onChange={v => set('ppt', v)} registered={lanc.ppt} />
+                    <GradeInput label="PT" value={form.ppt || 0} onChange={v => set('ppt', v)} registered={lanc.ppt} />
                   )}
                 </View>
               </View>
@@ -357,7 +358,7 @@ function NotaFormModal({
             {!(pp1Habilitado || pptHabilitado) && (
               <View style={mS.disabledProvasBox}>
                 <Ionicons name="close-circle-outline" size={16} color={Colors.textMuted} />
-                <Text style={mS.disabledProvasText}>PP1 e PPT desactivadas nas Configurações Gerais</Text>
+                <Text style={mS.disabledProvasText}>PP e PT desactivadas nas Configurações Gerais</Text>
               </View>
             )}
 
@@ -387,17 +388,17 @@ function NotaFormModal({
                 <Text style={mS.formulaTitle}>Cálculo</Text>
                 {avaisCompletas ? (
                   <Text style={mS.formulaLine}>
-                    MAC1 = (AVAL1+AVAL2+AVAL3+AVAL4) / 4 = <Text style={mS.formulaVal}>{mac1.toFixed(1)}</Text>
+                    MAC = ({activeAvalKeys.map((_, i) => `AVAL${i+1}`).join('+')}){' '}/ {numAvaliacoes} = <Text style={mS.formulaVal}>{mac1.toFixed(1)}</Text>
                   </Text>
                 ) : (
                   <Text style={mS.formulaLine}>
-                    MAC1 parcial ({avaisRegistadas} avaliações) = <Text style={mS.formulaVal}>{mac1 > 0 ? mac1.toFixed(1) : '—'}</Text>
+                    MAC parcial ({avaisRegistadas} avaliações) = <Text style={mS.formulaVal}>{mac1 > 0 ? mac1.toFixed(1) : '—'}</Text>
                   </Text>
                 )}
                 {mt1 > 0 && (
                   <>
                     <Text style={mS.formulaLine}>
-                      MT1 = {mtl1Label(pp1Habilitado, pptHabilitado)} = <Text style={mS.formulaVal}>{mt1.toFixed(1)}</Text>
+                      MT1 = {mt1Label()} = <Text style={mS.formulaVal}>{mt1.toFixed(1)}</Text>
                     </Text>
                     <Text style={mS.formulaLine}>
                       NF = MT1 = <Text style={[mS.formulaVal, { color: gradeColor(nf) }]}>{nf.toFixed(1)}</Text>
@@ -435,9 +436,9 @@ function NotaFormModal({
 }
 
 function mtl1Label(pp1On: boolean, pptOn: boolean): string {
-  const parts: string[] = ['MAC1'];
-  if (pp1On) parts.push('PP1');
-  if (pptOn) parts.push('PPT');
+  const parts: string[] = ['MAC'];
+  if (pp1On) parts.push('PP');
+  if (pptOn) parts.push('PT');
   return `(${parts.join('+')} )/${parts.length}`;
 }
 
@@ -511,10 +512,12 @@ export default function NotasScreen() {
     const color = gradeColor(nf);
     const aprovado = nf >= 10;
     const lanc = item.lancamentos || buildEmptyLanc();
-    const avaisReg = [lanc.aval1, lanc.aval2, lanc.aval3, lanc.aval4].filter(Boolean).length;
+    const numAval = config.numAvaliacoes ?? 4;
+    const activeKeys = ALL_AVAL_KEYS.slice(0, numAval);
+    const avaisReg = activeKeys.filter(k => !!(lanc[k as keyof NotaLancamentos])).length;
     const pp1Reg = !config.pp1Habilitado || lanc.pp1;
     const pptReg = !config.pptHabilitado || lanc.ppt;
-    const isParcial = avaisReg < 4 || !pp1Reg || !pptReg;
+    const isParcial = avaisReg < numAval || !pp1Reg || !pptReg;
 
     return (
       <TouchableOpacity
@@ -538,21 +541,21 @@ export default function NotasScreen() {
             {item.disciplina} · {turma?.nome}
           </Text>
           <View style={styles.cardValues}>
-            {(['aval1', 'aval2', 'aval3', 'aval4'] as const).map((k, i) => (
-              <View key={k} style={[styles.valPill, lanc[k] && { borderColor: Colors.success + '50', backgroundColor: Colors.success + '0A' }]}>
+            {activeKeys.map((k, i) => (
+              <View key={k} style={[styles.valPill, !!(lanc[k as keyof NotaLancamentos]) && { borderColor: Colors.success + '50', backgroundColor: Colors.success + '0A' }]}>
                 <Text style={styles.valKey}>A{i + 1}</Text>
-                <Text style={[styles.valNum, !lanc[k] && { color: Colors.textMuted }]}>
-                  {lanc[k] ? (item[k] ?? 0).toFixed(1) : '—'}
+                <Text style={[styles.valNum, !(lanc[k as keyof NotaLancamentos]) && { color: Colors.textMuted }]}>
+                  {!!(lanc[k as keyof NotaLancamentos]) ? ((item[k as keyof Nota] as number) ?? 0).toFixed(1) : '—'}
                 </Text>
               </View>
             ))}
             <View style={[styles.valPill, { borderColor: Colors.gold + '50' }]}>
-              <Text style={styles.valKey}>MAC1</Text>
+              <Text style={styles.valKey}>MAC</Text>
               <Text style={styles.valNum}>{(item.mac1 ?? 0) > 0 ? (item.mac1 ?? 0).toFixed(1) : '—'}</Text>
             </View>
             {config.pp1Habilitado && (
               <View style={[styles.valPill, lanc.pp1 && { borderColor: Colors.info + '50' }]}>
-                <Text style={styles.valKey}>PP1</Text>
+                <Text style={styles.valKey}>PP</Text>
                 <Text style={[styles.valNum, !lanc.pp1 && { color: Colors.textMuted }]}>
                   {lanc.pp1 ? (item.pp1 ?? 0) : '—'}
                 </Text>
@@ -560,7 +563,7 @@ export default function NotasScreen() {
             )}
             {config.pptHabilitado && (
               <View style={[styles.valPill, lanc.ppt && { borderColor: Colors.info + '50' }]}>
-                <Text style={styles.valKey}>PPT</Text>
+                <Text style={styles.valKey}>PT</Text>
                 <Text style={[styles.valNum, !lanc.ppt && { color: Colors.textMuted }]}>
                   {lanc.ppt ? (item.ppt ?? 0) : '—'}
                 </Text>
@@ -571,7 +574,7 @@ export default function NotasScreen() {
         <View style={[styles.nfBadge, { backgroundColor: isParcial ? Colors.warning + '12' : color + '18', borderColor: isParcial ? Colors.warning + '50' : color + '50' }]}>
           <Text style={styles.nfLabel}>{isParcial ? 'AVAL' : 'NF'}</Text>
           <Text style={[styles.nfVal, { color: isParcial ? Colors.warning : color }]}>
-            {isParcial ? `${avaisReg}/4` : (nf > 0 ? nf.toFixed(1) : '—')}
+            {isParcial ? `${avaisReg}/${numAval}` : (nf > 0 ? nf.toFixed(1) : '—')}
           </Text>
           <Text style={[styles.nfGrade, { color: isParcial ? Colors.warning : color }]}>
             {isParcial ? 'Parcial' : (nf > 0 ? gradeLabel(nf) : '')}
@@ -726,6 +729,7 @@ export default function NotasScreen() {
           professorId={isProfessor && professorActual ? professorActual.id : ''}
           pp1Habilitado={config.pp1Habilitado}
           pptHabilitado={config.pptHabilitado}
+          numAvaliacoes={config.numAvaliacoes ?? 4}
         />
       )}
     </View>
@@ -750,10 +754,10 @@ const gS = StyleSheet.create({
 });
 
 const mS = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
   sheet: {
     backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '94%',
+    borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '94%', width: '100%', maxWidth: 480,
   },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },

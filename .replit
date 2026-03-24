@@ -21,13 +21,13 @@ args = "Start application"
 name = "Start application"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run web:dev & npm run server:dev"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run server:dev & npm run web:dev"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
@@ -45,3 +45,8 @@ externalPort = 3001
 deploymentTarget = "autoscale"
 run = ["node", "server_dist/index.js"]
 build = ["bash", "-c", "node node_modules/.bin/patch-package && npx expo export -p web && npm run server:build"]
+
+[userenv]
+
+[userenv.development]
+EXPO_PUBLIC_DOMAIN = "4650f8eb-f4a4-4fbb-b558-46604c77d70c-00-280gkr4hc2y9c.picard.replit.dev"
