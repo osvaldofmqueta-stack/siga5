@@ -1496,13 +1496,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const senha = gerarSenhaProvisoria(String(b.nomeCompleto||''), String(b.dataNascimento||''));
       const rows = await query<JsonObject>(
         `INSERT INTO public.registros (
-          id,"nomeCompleto","dataNascimento","genero","provincia","municipio",
+          "nomeCompleto","dataNascimento","genero","provincia","municipio",
           "telefone","email","endereco","bairro","numeroBi","numeroCedula",
           "nivel","classe","nomeEncarregado","telefoneEncarregado","observacoes",
           "status","senhaProvisoria"
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
         [
-          b.id??null, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
+          b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
           b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
           b.nivel, b.classe, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
           b.status??'pendente', senha
