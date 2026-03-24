@@ -519,6 +519,18 @@ export default function GestaoAcademicaScreen() {
             onPress={() => nav('/(main)/horario')}
           />
 
+          {/* Disciplinas */}
+          <ModuloCard
+            icon={<MaterialCommunityIcons name="book-open-page-variant" size={24} color="#EC4899" />}
+            title="Disciplinas"
+            subtitle="Catálogo de disciplinas e áreas de conhecimento"
+            color="#EC4899"
+            stats={[
+              { label: 'Disciplinas', value: stats.disciplinas, color: '#EC4899' },
+            ]}
+            onPress={() => nav('/(main)/disciplinas')}
+          />
+
           {/* Histórico — Só Leitura */}
           <ModuloCard
             icon={<Ionicons name="time" size={24} color={Colors.textSecondary} />}
@@ -618,9 +630,9 @@ export default function GestaoAcademicaScreen() {
           {[
             { icon: 'person-add', label: 'Nova\nMatrícula', color: Colors.info, route: '/(main)/alunos' },
             { icon: 'document-text', label: 'Emitir\nDocumento', color: Colors.gold, route: '/(main)/secretaria-hub' },
-            { icon: 'calendar-check' as any, label: 'Registar\nPresenças', color: '#8B5CF6', route: '/(main)/presencas' },
+            { icon: 'calendar-outline', label: 'Registar\nPresenças', color: '#8B5CF6', route: '/(main)/presencas' },
             { icon: 'ribbon', label: 'Lançar\nNotas', color: Colors.accent, route: '/(main)/notas' },
-            { icon: 'school', label: 'Novo\nProfessor', color: Colors.gold, route: '/(main)/professores' },
+            { icon: 'book-outline', label: 'Disciplinas', color: '#EC4899', route: '/(main)/disciplinas' },
             { icon: 'print', label: 'Imprimir\nPauta', color: '#06B6D4', route: '/(main)/grelha' },
           ].map((q, i) => (
             <TouchableOpacity key={i} style={styles.quickAction} onPress={() => nav(q.route)} activeOpacity={0.78}>

@@ -2172,6 +2172,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // DISCIPLINAS (catálogo)
+  // -----------------------
+  app.get("/api/disciplinas", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.disciplinas ORDER BY nome ASC`, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/disciplinas", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      if (!b.nome) return json(res, 400, { error: 'Nome é obrigatório.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.disciplinas (nome, codigo, area, descricao, ativo)
+         VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/disciplinas/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.disciplinas SET nome=$1, codigo=$2, area=$3, descricao=$4, ativo=$5 WHERE id=$6 RETURNING *`,
+        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Disciplina não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/disciplinas/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.disciplinas WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   app.get("/api/provincias", async (_req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(`SELECT id, nome FROM public.provincias ORDER BY nome ASC`, []);

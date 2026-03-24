@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Professor } from '@/context/DataContext';
@@ -109,8 +110,9 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
 }
 
 export default function ProfessoresScreen() {
-  const { professores, turmas, addProfessor, updateProfessor, deleteProfessor } = useData();
+  const { professores, turmas, updateProfessor, deleteProfessor } = useData();
   const { user } = useAuth();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -118,6 +120,8 @@ export default function ProfessoresScreen() {
   const [qrData, setQrData] = useState<{ data: string; title: string; subtitle: string } | null>(null);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const canManage = ['admin', 'ceo', 'pca', 'director', 'chefe_secretaria'].includes(user?.role ?? '');
 
   if (user?.role === 'professor') {
     return (
@@ -142,22 +146,10 @@ export default function ProfessoresScreen() {
   }, [professores, search]);
 
   async function handleSave(form: Partial<Professor>) {
-    if (editProf) {
-      await updateProfessor(editProf.id, form);
-    } else {
-      await addProfessor({
-        ...form,
-        numeroProfessor: `PROF-${String(professores.length + 1).padStart(3, '0')}`,
-        ativo: true,
-      } as any);
-    }
+    if (!editProf) return;
+    await updateProfessor(editProf.id, form);
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    alertSucesso(
-      editProf ? 'Professor actualizado' : 'Professor registado',
-      editProf
-        ? `Os dados de ${form.nome} ${form.apelido} foram actualizados.`
-        : `${form.nome} ${form.apelido} foi registado com sucesso.`
-    );
+    alertSucesso('Professor actualizado', `Os dados de ${form.nome} ${form.apelido} foram actualizados.`);
     setShowForm(false);
     setEditProf(null);
   }
@@ -215,7 +207,27 @@ export default function ProfessoresScreen() {
 
   return (
     <View style={styles.screen}>
-      <TopBar title="Professores" subtitle={`${filtered.length} professores`} rightAction={{ icon: 'add-circle', onPress: () => { setEditProf(null); setShowForm(true); } }} />
+      <TopBar title="Professores" subtitle={`${professores.length} professores`} />
+
+      {canManage && (
+        <TouchableOpacity
+          style={styles.infoBanner}
+          onPress={() => router.push({ pathname: '/(main)/admin', params: { section: 'usuarios', group: 'pessoal' } } as any)}
+          activeOpacity={0.82}
+        >
+          <View style={styles.infoBannerIcon}>
+            <Ionicons name="information-circle" size={20} color={Colors.info} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.infoBannerTitle}>Como registar um novo professor?</Text>
+            <Text style={styles.infoBannerDesc}>
+              Aceda a Administração → Utilizadores, crie o utilizador e seleccione o perfil <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Professor</Text>. O perfil académico é criado automaticamente.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={Colors.info} />
+        </TouchableOpacity>
+      )}
+
       <View style={styles.searchBar}>
         <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
         <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder="Pesquisar..." placeholderTextColor={Colors.textMuted} />
@@ -229,7 +241,7 @@ export default function ProfessoresScreen() {
         contentContainerStyle={[styles.list, { paddingBottom: bottomPad + 20 }]}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-        ListEmptyComponent={<View style={styles.empty}><FontAwesome5 name="chalkboard-teacher" size={36} color={Colors.textMuted} /><Text style={styles.emptyText}>Nenhum professor</Text></View>}
+        ListEmptyComponent={<View style={styles.empty}><FontAwesome5 name="chalkboard-teacher" size={36} color={Colors.textMuted} /><Text style={styles.emptyText}>Nenhum professor registado</Text></View>}
       />
 
       {showForm && (
@@ -262,6 +274,17 @@ const mStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
+  infoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.info + '12', borderWidth: 1, borderColor: Colors.info + '30',
+    marginHorizontal: 16, marginTop: 12, borderRadius: 14, padding: 14,
+  },
+  infoBannerIcon: {
+    width: 36, height: 36, borderRadius: 10,
+    backgroundColor: Colors.info + '20', alignItems: 'center', justifyContent: 'center',
+  },
+  infoBannerTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.info, marginBottom: 3 },
+  infoBannerDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 17 },
   searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.backgroundCard, marginHorizontal: 16, marginVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, gap: 8, height: 44 },
   searchInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text },
   list: { padding: 16 },

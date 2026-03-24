@@ -735,3 +735,20 @@ export const docTemplates = pgTable("doc_templates", {
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// DISCIPLINAS (catálogo)
+// -----------------------
+export const disciplinas = pgTable("disciplinas", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  nome: text("nome").notNull(),
+  codigo: text("codigo").notNull().default(''),
+  area: text("area").notNull().default(''),
+  descricao: text("descricao").notNull().default(''),
+  ativo: boolean("ativo").notNull().default(true),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
