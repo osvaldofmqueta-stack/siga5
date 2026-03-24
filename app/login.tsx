@@ -243,6 +243,9 @@ export default function LoginScreen() {
         } else if (emailTrimmed === SECRETARIA_ACCOUNT.email) {
           const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
           await login(u); router.replace(getRouteForRole(SECRETARIA_ACCOUNT.role) as any);
+        } else if (emailTrimmed === RH_ACCOUNT.email) {
+          const u: AuthUser = { id: RH_ACCOUNT.id, nome: RH_ACCOUNT.nome, email: RH_ACCOUNT.email, role: RH_ACCOUNT.role, escola: RH_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
+          await login(u); router.replace(getRouteForRole(RH_ACCOUNT.role) as any);
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
@@ -292,6 +295,10 @@ export default function LoginScreen() {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
       await login(u); router.replace(getRouteForRole(SECRETARIA_ACCOUNT.role) as any);
+    } else if (emailTrimmed === RH_ACCOUNT.email && senha === RH_ACCOUNT.senha) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const u: AuthUser = { id: RH_ACCOUNT.id, nome: RH_ACCOUNT.nome, email: RH_ACCOUNT.email, role: RH_ACCOUNT.role, escola: RH_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
+      await login(u); router.replace(getRouteForRole(RH_ACCOUNT.role) as any);
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
