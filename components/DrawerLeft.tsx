@@ -298,8 +298,62 @@ export default function DrawerLeft() {
     }] : []),
   ];
 
+  const CHEFE_SECRETARIA_SECTIONS: NavSection[] = [
+    {
+      title: 'Principal',
+      items: [
+        { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
+        { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <MaterialCommunityIcons name="briefcase-account" size={20} color="inherit" />, permKey: 'secretaria_hub' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+      ],
+    },
+    {
+      title: 'Gestão Académica',
+      items: [
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
+        { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
+        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
+      ],
+    },
+    {
+      title: 'Documentos & Comunicação',
+      items: [
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Calendário Escolar', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
+      ],
+    },
+    {
+      title: 'Finanças & RH',
+      items: [
+        { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_controle' },
+      ],
+    },
+    {
+      title: 'Análise',
+      items: [
+        { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'relatorios' },
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+      ],
+    },
+    {
+      title: 'Administração',
+      items: [
+        { label: 'Configurações do Sistema', route: '/(main)/admin', icon: <Ionicons name="settings" size={20} color="inherit" />, permKey: 'admin' },
+        { label: 'Gestão de Acessos', route: '/(main)/admin', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
+      ],
+    },
+  ];
+
   const RAW_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS
     : (isCeo || isPca) ? CEO_PCA_SECTIONS
+    : isChefeSec ? CHEFE_SECRETARIA_SECTIONS
     : isProf ? PROFESSOR_SECTIONS
     : isAluno ? ALUNO_SECTIONS
     : isEncarregado ? ENCARREGADO_SECTIONS
@@ -307,8 +361,8 @@ export default function DrawerLeft() {
     : isRhRole ? RH_SECTIONS
     : ADMIN_DIRECTOR_SECTIONS;
 
-  // CEO/PCA always see everything; others get filtered by permissions
-  const NAV_SECTIONS: NavSection[] = (isCeo || isPca) ? RAW_SECTIONS : RAW_SECTIONS.map(section => ({
+  // CEO/PCA/ChefeSec always see everything; others get filtered by permissions
+  const NAV_SECTIONS: NavSection[] = (isCeo || isPca || isChefeSec) ? RAW_SECTIONS : RAW_SECTIONS.map(section => ({
     ...section,
     items: section.items.filter(item => !item.permKey || hasPermission(item.permKey)),
   })).filter(section => section.items.length > 0);
@@ -339,6 +393,14 @@ export default function DrawerLeft() {
           <View style={styles.ceoBadge}>
             <MaterialCommunityIcons name="crown" size={14} color="#FFD700" />
             <Text style={styles.ceoBadgeText}>CEO — Controlo Total</Text>
+          </View>
+        )}
+
+        {/* Chefe de Secretaria Badge */}
+        {isChefeSec && (
+          <View style={[styles.ceoBadge, { backgroundColor: '#E11D4820', borderColor: '#E11D4840' }]}>
+            <MaterialCommunityIcons name="briefcase-account" size={14} color="#E11D48" />
+            <Text style={[styles.ceoBadgeText, { color: '#E11D48' }]}>Chefe de Secretaria — Parametrização Total</Text>
           </View>
         )}
 
@@ -391,7 +453,7 @@ export default function DrawerLeft() {
 
         <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
           {/* ── Centro de Supervisão ── */}
-          {(isCeo || isPca || user?.role === 'admin' || user?.role === 'director') && (
+          {(isCeo || isPca || isChefeSec || user?.role === 'admin' || user?.role === 'director') && (
             <TouchableOpacity
               style={styles.supervisaoCTA}
               onPress={() => { router.push('/(main)/controlo-supervisao' as any); closeLeft && closeLeft(); }}

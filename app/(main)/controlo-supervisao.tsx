@@ -24,20 +24,23 @@ type TabKey = 'visao' | 'utilizadores' | 'secretaria' | 'academico' | 'financeir
 
 const ROLE_LABEL: Record<string, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
+  chefe_secretaria: 'Chefe de Secretaria',
   secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
-  financeiro: 'Financeiro', encarregado: 'Encarregado',
+  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#FFD700', pca: '#9B59B6', admin: '#E67E22', director: Colors.info,
+  chefe_secretaria: '#E11D48',
   secretaria: Colors.gold, professor: '#3498DB', aluno: Colors.success,
-  financeiro: '#2ECC71', encarregado: Colors.textSecondary,
+  financeiro: '#2ECC71', encarregado: Colors.textSecondary, rh: '#06B6D4',
 };
 
 const ROLE_ICON: Record<string, string> = {
   ceo: 'crown', pca: 'diamond', admin: 'shield-checkmark', director: 'briefcase',
+  chefe_secretaria: 'briefcase-account-outline',
   secretaria: 'file-tray-full', professor: 'school', aluno: 'person',
-  financeiro: 'cash', encarregado: 'people',
+  financeiro: 'cash', encarregado: 'people', rh: 'people-circle',
 };
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
@@ -213,6 +216,7 @@ export default function ControloSupervisaoScreen() {
 
   const roleName = user?.role === 'ceo' ? 'CEO'
     : user?.role === 'pca' ? 'PCA'
+    : user?.role === 'chefe_secretaria' ? 'Chefe de Secretaria'
     : user?.role === 'admin' ? 'Administrador'
     : 'Director';
 

@@ -99,11 +99,15 @@ const GROUPS = [
 
 const ROLE_LABEL: Record<UserRole, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
+  chefe_secretaria: 'Chefe de Secretaria',
   secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
+  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 const ROLE_COLOR: Record<UserRole, string> = {
   ceo: '#FFD700', pca: '#9B59B6', admin: '#E67E22', director: Colors.accent,
+  chefe_secretaria: '#E11D48',
   secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success,
+  financeiro: '#10B981', encarregado: '#F97316', rh: '#06B6D4',
 };
 
 function SectionHeader({ title, icon, color }: { title: string; icon: string; color?: string }) {
@@ -1429,7 +1433,7 @@ export default function AdminScreen() {
             <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
             <Text style={styles.fieldLabel}>Função</Text>
             <View style={styles.rolesRow}>
-              {(['pca', 'admin', 'director', 'secretaria', 'professor', 'aluno'] as UserRole[]).map(r => (
+              {(['pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'professor', 'financeiro', 'aluno'] as UserRole[]).map(r => (
                 <TouchableOpacity
                   key={r}
                   style={[styles.roleBtn, formUser.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.textMuted) + '33', borderColor: ROLE_COLOR[r] || Colors.textMuted }]}

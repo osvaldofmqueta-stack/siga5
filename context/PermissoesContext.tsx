@@ -160,7 +160,7 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     setIsLoading(true);
     try {
-      const isSuperUser = user.role === 'ceo' || user.role === 'pca';
+      const isSuperUser = user.role === 'ceo' || user.role === 'pca' || user.role === 'chefe_secretaria';
       const [myRes, allRes] = await Promise.all([
         fetch(`/api/user-permissions/${user.id}`),
         isSuperUser ? fetch('/api/user-permissions') : Promise.resolve(null),
