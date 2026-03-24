@@ -1,6 +1,23 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Hub de Recursos Humanos Completo)
+## Recent Changes (Latest Session — Área Pedagógica Completa)
+- **shared/schema.ts**: 3 novas tabelas:
+  - `planificacoes`: Planos de aula por professor, turma, disciplina, trimestre e semana. Campos: tema, objectivos, conteúdos, metodologia, recursos, avaliação, nº aulas, cumprida.
+  - `conteudos_programaticos`: Mapa do programa por disciplina, classe e trimestre. Campos: título, descrição, percentagem de cumprimento, cumprido, ordem.
+  - `ocorrencias`: Registo de incidentes disciplinares por aluno. Campos: tipo (comportamento/falta_injustificada/violência/fraude/outro), gravidade (leve/moderada/grave), descrição, medida tomada, resolvida.
+- **server/routes.ts**: 12 novos endpoints CRUD:
+  - `GET/POST/PUT/DELETE /api/planificacoes` (com filtros: turmaId, disciplina, trimestre, anoLetivo, professorId)
+  - `GET/POST/PUT/DELETE /api/conteudos-programaticos` (com filtros: disciplina, classe, trimestre, anoLetivo)
+  - `GET/POST/PUT/DELETE /api/ocorrencias` (com filtros: alunoId, turmaId, resolvida)
+- **app/(main)/pedagogico.tsx** *(new)*: Ecrã completo com 4 tabs:
+  - **Planificações**: Planos de aula por trimestre com KPIs (total/cumpridas/por cumprir). Filtros por turma, disciplina e trimestre. Toggle "cumprida". CRUD completo com modal detalhado.
+  - **Programa**: Mapa de conteúdos programáticos com barra de progresso global (%). Agrupado por trimestre. Toggle "cumprido" e actualização de %. CRUD completo.
+  - **Resultados**: Aprovado (≥10) / Exame (8–9) / Reprovado (<8) calculado automaticamente das notas existentes. Vista geral por turma com taxa de aprovação. Vista detalhada por aluno com média final.
+  - **Ocorrências**: Registo disciplinar com filtros por turma, gravidade e estado. KPIs (em aberto/graves/resolvidas). Acção "Resolver". CRUD completo.
+- **app/(main)/_layout.tsx**: Registado `pedagogico` como novo Stack.Screen.
+- **components/DrawerLeft.tsx**: "Área Pedagógica" adicionada em 3 secções de navegação: Admin/Director (Pedagógico), Professor (Académico), Secretaria (Planeamento).
+
+## Recent Changes (Previous Session — Hub de Recursos Humanos Completo)
 - **app/(main)/rh-hub.tsx** *(new)*: Perfil RH completo com 6 tabs integradas:
   - **Painel**: Dashboard com KPIs (profAtivos, sumáriosPendentes, solicitações, provas, pautas, turmas), ranking de professores mais activos por taxa de aceitação de sumários, alerta de solicitações pendentes, estado das pautas, carga horária por professor (via `/api/horarios`).
   - **Professores**: Lista pesquisável e filtrável (todos/activo/inactivo) com avatar, disciplinas, habilitações, turmas atribuídas, métricas de sumários (total/aceites/rejeitados/taxa). Tap → modal de perfil completo com histórico de sumários.

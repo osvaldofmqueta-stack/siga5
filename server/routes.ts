@@ -1910,6 +1910,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // PLANIFICAÇÕES DE AULA
+  // -----------------------
+  app.get("/api/planificacoes", async (req: Request, res: Response) => {
+    try {
+      const { turmaId, disciplina, trimestre, anoLetivo, professorId } = req.query;
+      let sql = `SELECT * FROM public.planificacoes WHERE 1=1`;
+      const params: unknown[] = [];
+      let i = 1;
+      if (turmaId)    { sql += ` AND "turmaId"=$${i++}`;    params.push(turmaId); }
+      if (disciplina) { sql += ` AND disciplina=$${i++}`;   params.push(disciplina); }
+      if (trimestre)  { sql += ` AND trimestre=$${i++}`;    params.push(Number(trimestre)); }
+      if (anoLetivo)  { sql += ` AND "anoLetivo"=$${i++}`;  params.push(anoLetivo); }
+      if (professorId){ sql += ` AND "professorId"=$${i++}`;params.push(professorId); }
+      sql += ` ORDER BY trimestre ASC, semana ASC, "createdAt" DESC`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/planificacoes", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.planificacoes (
+          "professorId","turmaId",disciplina,trimestre,semana,"anoLetivo",
+          tema,objectivos,conteudos,metodologia,recursos,avaliacao,observacoes,"numAulas",cumprida
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        [
+          b.professorId, b.turmaId, b.disciplina, b.trimestre, b.semana, b.anoLetivo,
+          b.tema, b.objectivos||'', b.conteudos||'', b.metodologia||'',
+          b.recursos||'', b.avaliacao||'', b.observacoes||'', b.numAulas||1, b.cumprida||false
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/planificacoes/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.planificacoes SET
+          tema=$1, objectivos=$2, conteudos=$3, metodologia=$4, recursos=$5,
+          avaliacao=$6, observacoes=$7, "numAulas"=$8, cumprida=$9,
+          disciplina=$10, trimestre=$11, semana=$12
+        WHERE id=$13 RETURNING *`,
+        [
+          b.tema, b.objectivos||'', b.conteudos||'', b.metodologia||'', b.recursos||'',
+          b.avaliacao||'', b.observacoes||'', b.numAulas||1, b.cumprida||false,
+          b.disciplina, b.trimestre, b.semana, id
+        ]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Planificação não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/planificacoes/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.planificacoes WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // CONTEÚDOS PROGRAMÁTICOS
+  // -----------------------
+  app.get("/api/conteudos-programaticos", async (req: Request, res: Response) => {
+    try {
+      const { disciplina, classe, trimestre, anoLetivo } = req.query;
+      let sql = `SELECT * FROM public.conteudos_programaticos WHERE 1=1`;
+      const params: unknown[] = [];
+      let i = 1;
+      if (disciplina) { sql += ` AND disciplina=$${i++}`;  params.push(disciplina); }
+      if (classe)     { sql += ` AND classe=$${i++}`;      params.push(classe); }
+      if (trimestre)  { sql += ` AND trimestre=$${i++}`;   params.push(Number(trimestre)); }
+      if (anoLetivo)  { sql += ` AND "anoLetivo"=$${i++}`; params.push(anoLetivo); }
+      sql += ` ORDER BY trimestre ASC, ordem ASC`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/conteudos-programaticos", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.conteudos_programaticos
+          (disciplina,classe,trimestre,"anoLetivo",titulo,descricao,ordem,cumprido,percentagem)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [b.disciplina, b.classe, b.trimestre, b.anoLetivo, b.titulo, b.descricao||'', b.ordem||0, b.cumprido||false, b.percentagem||0]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/conteudos-programaticos/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.conteudos_programaticos
+         SET titulo=$1, descricao=$2, cumprido=$3, percentagem=$4, ordem=$5
+         WHERE id=$6 RETURNING *`,
+        [b.titulo, b.descricao||'', b.cumprido||false, b.percentagem||0, b.ordem||0, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Conteúdo não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/conteudos-programaticos/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.conteudos_programaticos WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // OCORRÊNCIAS DISCIPLINARES
+  // -----------------------
+  app.get("/api/ocorrencias", async (req: Request, res: Response) => {
+    try {
+      const { alunoId, turmaId, resolvida } = req.query;
+      let sql = `SELECT * FROM public.ocorrencias WHERE 1=1`;
+      const params: unknown[] = [];
+      let i = 1;
+      if (alunoId)  { sql += ` AND "alunoId"=$${i++}`;  params.push(alunoId); }
+      if (turmaId)  { sql += ` AND "turmaId"=$${i++}`;  params.push(turmaId); }
+      if (resolvida !== undefined) { sql += ` AND resolvida=$${i++}`; params.push(resolvida === 'true'); }
+      sql += ` ORDER BY data DESC, "createdAt" DESC`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/ocorrencias", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.ocorrencias
+          ("alunoId","turmaId","professorId","registadoPor",tipo,gravidade,descricao,"medidaTomada",data,resolvida,observacoes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *`,
+        [
+          b.alunoId, b.turmaId, b.professorId||null, b.registadoPor,
+          b.tipo, b.gravidade||'leve', b.descricao, b.medidaTomada||'',
+          b.data, b.resolvida||false, b.observacoes||''
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/ocorrencias/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.ocorrencias
+         SET tipo=$1, gravidade=$2, descricao=$3, "medidaTomada"=$4, data=$5, resolvida=$6, observacoes=$7
+         WHERE id=$8 RETURNING *`,
+        [b.tipo, b.gravidade, b.descricao, b.medidaTomada||'', b.data, b.resolvida||false, b.observacoes||'', id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Ocorrência não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/ocorrencias/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.ocorrencias WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   app.get("/api/provincias", async (_req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(`SELECT id, nome FROM public.provincias ORDER BY nome ASC`, []);

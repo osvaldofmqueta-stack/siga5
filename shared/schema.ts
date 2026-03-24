@@ -620,6 +620,80 @@ export const configGeral = pgTable("config_geral", {
 });
 
 // -----------------------
+// PLANIFICAÇÕES DE AULA
+// -----------------------
+export const planificacoes = pgTable("planificacoes", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  professorId: varchar("professorId").notNull().references(() => professores.id),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  disciplina: text("disciplina").notNull(),
+  trimestre: integer("trimestre").notNull(), // 1 | 2 | 3
+  semana: integer("semana").notNull(),       // semana do trimestre
+  anoLetivo: text("anoLetivo").notNull(),
+
+  tema: text("tema").notNull(),
+  objectivos: text("objectivos").notNull().default(''),
+  conteudos: text("conteudos").notNull().default(''),
+  metodologia: text("metodologia").notNull().default(''),
+  recursos: text("recursos").notNull().default(''),
+  avaliacao: text("avaliacao").notNull().default(''),
+  observacoes: text("observacoes").notNull().default(''),
+  numAulas: integer("numAulas").notNull().default(1),
+  cumprida: boolean("cumprida").notNull().default(false),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// CONTEÚDOS PROGRAMÁTICOS
+// -----------------------
+export const conteudosProgramaticos = pgTable("conteudos_programaticos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  disciplina: text("disciplina").notNull(),
+  classe: text("classe").notNull(),
+  trimestre: integer("trimestre").notNull(),
+  anoLetivo: text("anoLetivo").notNull(),
+
+  titulo: text("titulo").notNull(),
+  descricao: text("descricao").notNull().default(''),
+  ordem: integer("ordem").notNull().default(0),
+  cumprido: boolean("cumprido").notNull().default(false),
+  percentagem: integer("percentagem").notNull().default(0), // 0–100
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// OCORRÊNCIAS DISCIPLINARES
+// -----------------------
+export const ocorrencias = pgTable("ocorrencias", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  professorId: varchar("professorId").references(() => professores.id),
+  registadoPor: text("registadoPor").notNull(),
+
+  tipo: text("tipo").notNull(), // 'comportamento' | 'falta_injustificada' | 'violencia' | 'fraude' | 'outro'
+  gravidade: text("gravidade").notNull().default('leve'), // 'leve' | 'moderada' | 'grave'
+  descricao: text("descricao").notNull(),
+  medidaTomada: text("medidaTomada").notNull().default(''),
+  data: text("data").notNull(),
+  resolvida: boolean("resolvida").notNull().default(false),
+  observacoes: text("observacoes").notNull().default(''),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
 // MODELOS DE DOCUMENTOS (EDITOR)
 // -----------------------
 export const docTemplates = pgTable("doc_templates", {
