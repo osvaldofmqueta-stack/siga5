@@ -408,26 +408,64 @@ export default function DrawerLeft() {
           </View>
         )}
 
-        {/* Licence Status */}
+        {/* Licence Status — estilo antivírus */}
         {!isCeo && (
-          <View style={[styles.licBar, {
-            backgroundColor: isLicencaValida && diasRestantes > 7
-              ? Colors.success + '18'
-              : diasRestantes <= 7 && diasRestantes > 0
-              ? Colors.warning + '20'
-              : Colors.danger + '18',
-          }]}>
-            <Ionicons
-              name={isLicencaValida ? (diasRestantes <= 7 ? 'warning' : 'shield-checkmark') : 'close-circle'}
-              size={14}
-              color={isLicencaValida ? (diasRestantes <= 7 ? Colors.warning : Colors.success) : Colors.danger}
-            />
-            <Text style={[styles.licBarText, {
-              color: isLicencaValida ? (diasRestantes <= 7 ? Colors.warning : Colors.success) : Colors.danger,
-            }]}>
-              {isLicencaValida ? `Licença activa · ${diasRestantes}d` : 'Licença expirada'}
-            </Text>
-          </View>
+          <TouchableOpacity
+            style={styles.licCard}
+            onPress={() => router.push('/licenca' as any)}
+            activeOpacity={0.85}
+          >
+            {/* Faixa de cor lateral */}
+            <View style={[styles.licCardStripe, {
+              backgroundColor: diasRestantes <= 0
+                ? '#FF3B30'
+                : diasRestantes <= 7
+                ? '#FF3B30'
+                : diasRestantes <= 30
+                ? '#FF9F0A'
+                : '#30D158',
+            }]} />
+
+            <View style={styles.licCardBody}>
+              {/* Linha de estado */}
+              <View style={styles.licCardTop}>
+                <MaterialCommunityIcons
+                  name={diasRestantes <= 0 ? 'shield-off' : diasRestantes <= 7 ? 'shield-alert' : 'shield-check'}
+                  size={13}
+                  color={diasRestantes <= 0 ? '#FF3B30' : diasRestantes <= 7 ? '#FF3B30' : diasRestantes <= 30 ? '#FF9F0A' : '#30D158'}
+                />
+                <Text style={[styles.licCardStatus, {
+                  color: diasRestantes <= 0 ? '#FF3B30' : diasRestantes <= 7 ? '#FF3B30' : diasRestantes <= 30 ? '#FF9F0A' : '#30D158',
+                }]}>
+                  {diasRestantes <= 0 ? 'EXPIRADA' : diasRestantes <= 7 ? 'EXPIRA EM BREVE' : diasRestantes <= 30 ? 'RENOVE EM BREVE' : 'ACTIVA'}
+                </Text>
+              </View>
+
+              {/* Contador de dias em destaque */}
+              <View style={styles.licCardDaysRow}>
+                <Text style={[styles.licCardDaysNum, {
+                  color: diasRestantes <= 0 ? '#FF3B30' : diasRestantes <= 7 ? '#FF3B30' : diasRestantes <= 30 ? '#FF9F0A' : '#30D158',
+                }]}>
+                  {diasRestantes <= 0 ? '0' : diasRestantes}
+                </Text>
+                <View>
+                  <Text style={styles.licCardDaysLabel}>DIAS</Text>
+                  <Text style={styles.licCardDaysLabel}>RESTANTES</Text>
+                </View>
+              </View>
+
+              {/* Barra de progresso */}
+              <View style={styles.licCardBarTrack}>
+                <View style={[styles.licCardBarFill, {
+                  width: `${Math.max(0, Math.min(100, (diasRestantes / 30) * 100))}%` as any,
+                  backgroundColor: diasRestantes <= 0 ? '#FF3B30' : diasRestantes <= 7 ? '#FF3B30' : diasRestantes <= 30 ? '#FF9F0A' : '#30D158',
+                }]} />
+              </View>
+              <Text style={styles.licCardExpiry}>
+                {diasRestantes <= 0 ? 'Clique para renovar a licença' : `${diasRestantes} dia${diasRestantes === 1 ? '' : 's'} para expirar`}
+              </Text>
+            </View>
+          </TouchableOpacity>
         )}
 
         {/* Year Selector */}
@@ -964,19 +1002,66 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
     color: '#FFD700',
   },
-  licBar: {
+  licCard: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  licCardStripe: {
+    width: 4,
+    borderRadius: 0,
+  },
+  licCardBody: {
+    flex: 1,
+    padding: 10,
+    gap: 6,
+  },
+  licCardTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginHorizontal: 16,
-    marginBottom: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    gap: 5,
   },
-  licBarText: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
+  licCardStatus: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 1.2,
+  },
+  licCardDaysRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  licCardDaysNum: {
+    fontSize: 36,
+    fontFamily: 'Inter_700Bold',
+    lineHeight: 40,
+  },
+  licCardDaysLabel: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: 'rgba(255,255,255,0.35)',
+    letterSpacing: 1.5,
+    lineHeight: 13,
+  },
+  licCardBarTrack: {
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    overflow: 'hidden',
+  },
+  licCardBarFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  licCardExpiry: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.35)',
   },
   supervisaoCTA: {
     marginHorizontal: 12,
