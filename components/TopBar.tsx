@@ -66,8 +66,10 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
 
       {/* Clock Widget */}
       <View style={styles.clockWidget}>
-        <Ionicons name="time" size={13} color={Colors.gold} style={{ marginBottom: 1 }} />
-        <View>
+        <View style={styles.clockIconWrap}>
+          <Ionicons name="time" size={16} color={Colors.gold} />
+        </View>
+        <View style={styles.clockTexts}>
           <Text style={styles.clockTime}>{timeText}</Text>
           <Text style={styles.clockDate}>{dateText}</Text>
         </View>
