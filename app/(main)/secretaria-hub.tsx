@@ -871,16 +871,6 @@ export default function SecretariaHubScreen() {
 
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => activeTab === 'processos' ? setShowProcessoModal(true) : setShowEmitirModal(true)}
-        activeOpacity={0.85}
-      >
-        <LinearGradient colors={[Colors.info, Colors.primary]} style={styles.fabGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
-          <Ionicons name="add" size={26} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
 
       <EmitirDocumentoModal
         visible={showEmitirModal}
@@ -1011,8 +1001,6 @@ const styles = StyleSheet.create({
   cursoActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
   cursoActionText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 
-  fab: { position: 'absolute', right: 18, bottom: 28, borderRadius: 30, overflow: 'hidden', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
-  fabGrad: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
 
   // MODAL
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
