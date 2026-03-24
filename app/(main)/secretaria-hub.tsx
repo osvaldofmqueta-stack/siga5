@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 
 const { width } = Dimensions.get('window');
@@ -428,15 +429,19 @@ export default function SecretariaHubScreen() {
   function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     const novo: Documento = { ...doc, id: `d${Date.now()}`, emitidoEm: today(), emitidoPor: user?.nome ?? 'Secretaria' };
     setDocumentos(prev => [novo, ...prev]);
+    alertSucesso('Documento emitido', `"${doc.tipo}" foi emitido com sucesso para ${doc.alunoNome}.`);
   }
 
   function handleNovoProcesso(p: Omit<Processo, 'id' | 'dataAbertura' | 'status'>) {
     const novo: Processo = { ...p, id: `p${Date.now()}`, dataAbertura: today(), status: 'pendente' };
     setProcessos(prev => [novo, ...prev]);
+    alertSucesso('Processo aberto', `O processo de ${p.alunoNome} foi registado com sucesso.`);
   }
 
   function handleUpdateProcesso(id: string, status: ProcessoStatus) {
     setProcessos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+    const labels: Record<ProcessoStatus, string> = { pendente: 'pendente', em_analise: 'em análise', concluido: 'concluído', cancelado: 'cancelado' };
+    alertSucesso('Processo actualizado', `O estado foi alterado para "${labels[status]}".`);
   }
 
   const QUICK_ACTIONS = [

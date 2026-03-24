@@ -10,6 +10,7 @@ import { Colors } from '@/constants/colors';
 import { useData, Nota, NotaLancamentos } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 
 const DISCIPLINAS = [
@@ -499,7 +500,9 @@ export default function NotasScreen() {
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     if (parcial) {
-      Alert.alert('Progresso Guardado', 'Os dados foram guardados. Pode continuar a preencher as restantes avaliações mais tarde.', [{ text: 'OK' }]);
+      alertSucesso('Progresso guardado', 'Pode continuar a preencher as restantes avaliações mais tarde.');
+    } else {
+      alertSucesso(editNota ? 'Nota actualizada' : 'Nota lançada', 'As avaliações foram guardadas com sucesso.');
     }
     setShowForm(false);
     setEditNota(null);

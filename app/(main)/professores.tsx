@@ -10,6 +10,7 @@ import { Colors } from '@/constants/colors';
 import { useData, Professor } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import QRCodeModal from '@/components/QRCodeModal';
 
 function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
@@ -151,6 +152,12 @@ export default function ProfessoresScreen() {
       } as any);
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    alertSucesso(
+      editProf ? 'Professor actualizado' : 'Professor registado',
+      editProf
+        ? `Os dados de ${form.nome} ${form.apelido} foram actualizados.`
+        : `${form.nome} ${form.apelido} foi registado com sucesso.`
+    );
     setShowForm(false);
     setEditProf(null);
   }
@@ -158,7 +165,16 @@ export default function ProfessoresScreen() {
   function confirmDelete(prof: Professor) {
     Alert.alert('Remover Professor', `Remover ${prof.nome} ${prof.apelido}?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => deleteProfessor(prof.id) },
+      {
+        text: 'Remover', style: 'destructive', onPress: async () => {
+          try {
+            await deleteProfessor(prof.id);
+            alertSucesso('Professor removido', `${prof.nome} ${prof.apelido} foi removido.`);
+          } catch {
+            alertErro('Erro', 'Não foi possível remover o professor.');
+          }
+        }
+      },
     ]);
   }
 

@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Presenca } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso, alertErro, showToast } from '@/utils/toast';
 
 const { width } = Dimensions.get('window');
 
@@ -124,6 +125,10 @@ export default function PresencasScreen() {
       }
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    alertSucesso(
+      status === 'P' ? 'Presenças registadas' : 'Faltas registadas',
+      `Todos os alunos foram marcados como ${status === 'P' ? 'Presentes' : 'Faltosos'}.`
+    );
   }
 
   function handleQRScan(data: string) {
@@ -134,12 +139,12 @@ export default function PresencasScreen() {
       const aluno = alunos.find(a => a.id === alunoId);
       if (aluno) {
         markPresenca(alunoId, 'P');
-        Alert.alert('Presença Marcada', `${aluno.nome} ${aluno.apelido} marcado como Presente.`);
+        showToast(`${aluno.nome} ${aluno.apelido} marcado como Presente.`, 'success');
       } else {
-        Alert.alert('Aluno não encontrado', 'QR Code não reconhecido.');
+        showToast('QR Code não reconhecido. Aluno não encontrado.', 'error');
       }
     } else {
-      Alert.alert('QR Code Inválido', 'Este QR Code não pertence ao SGAA.');
+      showToast('QR Code inválido. Não pertence ao SGAA.', 'error');
     }
   }
 

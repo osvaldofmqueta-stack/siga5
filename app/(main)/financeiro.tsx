@@ -17,6 +17,7 @@ import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
+import { alertSucesso, alertErro } from '@/utils/toast';
 
 const TIPO_LABEL: Record<TipoTaxa, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -265,7 +266,7 @@ export default function FinanceiroScreen() {
     });
     setShowModalPag(false);
     setFormPag(defaultFormPag);
-    Alert.alert('Sucesso', 'Pagamento registado com sucesso!');
+    alertSucesso('Pagamento registado', 'O pagamento foi registado com sucesso.');
   }
 
   async function gravarTaxa() {
@@ -283,10 +284,10 @@ export default function FinanceiroScreen() {
     };
     if (editTaxa) {
       await updateTaxa(editTaxa.id, payload);
-      Alert.alert('Actualizado', 'Rubrica actualizada com sucesso.');
+      alertSucesso('Rubrica actualizada', 'A rubrica foi actualizada com sucesso.');
     } else {
       await addTaxa(payload);
-      Alert.alert('Criada', 'Nova rubrica criada e disponível automaticamente no perfil financeiro dos alunos.');
+      alertSucesso('Rubrica criada', 'Nova rubrica criada e disponível no perfil financeiro dos alunos.');
     }
     setShowModalTaxa(false);
     setEditTaxa(null);
@@ -306,7 +307,7 @@ export default function FinanceiroScreen() {
   async function removerTaxa(taxa: Taxa) {
     Alert.alert('Remover Rubrica', `Tem a certeza que quer remover "${taxa.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => deleteTaxa(taxa.id) },
+      { text: 'Remover', style: 'destructive', onPress: async () => { await deleteTaxa(taxa.id); alertSucesso('Rubrica removida', `"${taxa.descricao}" foi removida.`); } },
     ]);
   }
 
@@ -318,7 +319,7 @@ export default function FinanceiroScreen() {
     setShowMsgModal(false);
     setMsgTexto('');
     setMsgTipo('aviso');
-    Alert.alert('Enviada', 'Mensagem enviada ao estudante com sucesso.');
+    alertSucesso('Mensagem enviada', 'A mensagem foi enviada ao estudante com sucesso.');
   }
 
   async function handleGerarRUPE() {

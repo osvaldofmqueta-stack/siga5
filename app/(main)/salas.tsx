@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Sala } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso, alertErro } from '@/utils/toast';
 
 const TIPOS = ['Sala Normal', 'Laboratório', 'Sala de Informática', 'Auditório', 'Sala de Reunião'] as const;
 
@@ -182,16 +183,22 @@ export default function SalasScreen() {
 
   async function handleSave(form: Partial<Sala>) {
     if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (editing) {
-      await updateSala(editing.id, form);
-    } else {
-      await addSala({
-        nome: form.nome!,
-        bloco: form.bloco || '',
-        capacidade: form.capacidade || 30,
-        tipo: form.tipo || 'Sala Normal',
-        ativo: form.ativo ?? true,
-      });
+    try {
+      if (editing) {
+        await updateSala(editing.id, form);
+        alertSucesso('Sala actualizada', `"${form.nome}" foi actualizada com sucesso.`);
+      } else {
+        await addSala({
+          nome: form.nome!,
+          bloco: form.bloco || '',
+          capacidade: form.capacidade || 30,
+          tipo: form.tipo || 'Sala Normal',
+          ativo: form.ativo ?? true,
+        });
+        alertSucesso('Sala criada', `"${form.nome}" foi adicionada com sucesso.`);
+      }
+    } catch {
+      alertErro('Erro', 'Não foi possível guardar a sala. Tente novamente.');
     }
     setShowForm(false);
     setEditing(null);
@@ -213,7 +220,12 @@ export default function SalasScreen() {
           style: 'destructive',
           onPress: async () => {
             if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-            await deleteSala(sala.id);
+            try {
+              await deleteSala(sala.id);
+              alertSucesso('Sala removida', `"${sala.nome}" foi removida com sucesso.`);
+            } catch {
+              alertErro('Erro', 'Não foi possível remover a sala.');
+            }
           },
         },
       ]
@@ -222,6 +234,7 @@ export default function SalasScreen() {
 
   function handleToggleAtivo(sala: Sala) {
     updateSala(sala.id, { ativo: !sala.ativo });
+    alertSucesso(sala.ativo ? 'Sala desactivada' : 'Sala activada', `"${sala.nome}" foi ${sala.ativo ? 'desactivada' : 'activada'}.`);
   }
 
   const renderItem = ({ item }: { item: Sala }) => {

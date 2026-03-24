@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useLicense, diasAte, addDays, PLANO_LABEL, PLANO_DIAS } from '@/context/LicenseContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso } from '@/utils/toast';
 
 function getEscolaStatusColor(dias: number, maxDias: number): string {
   if (dias <= 0) return '#FF3B30';
@@ -168,6 +169,7 @@ export default function PerfilScreen() {
     if (!editField) return;
     await updateUser({ [editField]: editValue });
     setEditField(null);
+    alertSucesso('Perfil actualizado', 'As suas informações foram actualizadas com sucesso.');
   }
 
   async function handleBiometric(val: boolean) {

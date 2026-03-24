@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Turma } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso, alertErro } from '@/utils/toast';
 
 const NIVEIS = ['Primário', 'I Ciclo', 'II Ciclo'] as const;
 const TURNOS = ['Manhã', 'Tarde', 'Noite'] as const;
@@ -128,6 +129,12 @@ export default function TurmasScreen() {
       await addTurma({ ...form } as any);
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    alertSucesso(
+      editTurma ? 'Turma actualizada' : 'Turma criada',
+      editTurma
+        ? `A turma "${form.nome}" foi actualizada com sucesso.`
+        : `A turma "${form.nome}" foi criada com sucesso.`
+    );
     setShowForm(false);
     setEditTurma(null);
   }
@@ -135,7 +142,16 @@ export default function TurmasScreen() {
   function confirmDelete(t: Turma) {
     Alert.alert('Remover Turma', `Remover turma ${t.nome}?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => deleteTurma(t.id) },
+      {
+        text: 'Remover', style: 'destructive', onPress: async () => {
+          try {
+            await deleteTurma(t.id);
+            alertSucesso('Turma removida', `A turma "${t.nome}" foi removida.`);
+          } catch {
+            alertErro('Erro', 'Não foi possível remover a turma.');
+          }
+        }
+      },
     ]);
   }
 

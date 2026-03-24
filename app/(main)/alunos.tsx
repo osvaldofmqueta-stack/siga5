@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Aluno } from '@/context/DataContext';
 import { useUsers } from '@/context/UsersContext';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
@@ -302,6 +303,12 @@ export default function AlunosScreen() {
     }
 
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    alertSucesso(
+      editAluno ? 'Aluno actualizado' : 'Aluno registado',
+      editAluno
+        ? `Os dados de ${form.nome} ${form.apelido} foram actualizados.`
+        : `${form.nome} ${form.apelido} foi registado com sucesso.`
+    );
     setShowForm(false);
     setEditAluno(null);
   }

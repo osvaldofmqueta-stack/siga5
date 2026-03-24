@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Evento } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
+import { alertSucesso, alertErro } from '@/utils/toast';
 
 const TIPOS = ['Académico', 'Cultural', 'Desportivo', 'Exame', 'Feriado', 'Reunião'] as const;
 
@@ -121,6 +122,12 @@ export default function EventosScreen() {
       await addEvento(form as any);
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    alertSucesso(
+      editEvento ? 'Evento actualizado' : 'Evento criado',
+      editEvento
+        ? `"${form.titulo}" foi actualizado com sucesso.`
+        : `"${form.titulo}" foi adicionado ao calendário.`
+    );
     setShowForm(false);
     setEditEvento(null);
   }
@@ -128,7 +135,16 @@ export default function EventosScreen() {
   function confirmDelete(ev: Evento) {
     Alert.alert('Remover Evento', `Remover "${ev.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Remover', style: 'destructive', onPress: () => deleteEvento(ev.id) },
+      {
+        text: 'Remover', style: 'destructive', onPress: async () => {
+          try {
+            await deleteEvento(ev.id);
+            alertSucesso('Evento removido', `"${ev.titulo}" foi removido do calendário.`);
+          } catch {
+            alertErro('Erro', 'Não foi possível remover o evento.');
+          }
+        }
+      },
     ]);
   }
 

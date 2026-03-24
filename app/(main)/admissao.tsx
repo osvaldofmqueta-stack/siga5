@@ -10,6 +10,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import DatePickerField from '@/components/DatePickerField';
 
 interface Registro {
@@ -115,8 +116,8 @@ export default function AdmissaoScreen() {
       });
       if (!res.ok) throw new Error();
       await load();
-      Alert.alert('Aprovado', `${reg.nomeCompleto} foi aprovado(a) para o exame de admissão.\n\nSenha provisória: ${reg.senhaProvisoria}`);
-    } catch { Alert.alert('Erro', 'Não foi possível aprovar.'); }
+      alertSucesso('Candidato aprovado', `${reg.nomeCompleto} foi aprovado(a) para o exame de admissão.`);
+    } catch { alertErro('Erro', 'Não foi possível aprovar. Tente novamente.'); }
     finally { setIsActing(false); }
   }
 
@@ -134,7 +135,8 @@ export default function AdmissaoScreen() {
       await load();
       setModalRejeitar({ visible: false, reg: null });
       setMotivoRejeicao('');
-    } catch { Alert.alert('Erro', 'Não foi possível rejeitar.'); }
+      alertSucesso('Candidatura rejeitada', `A candidatura de ${reg.nomeCompleto} foi rejeitada.`);
+    } catch { alertErro('Erro', 'Não foi possível rejeitar. Tente novamente.'); }
     finally { setIsActing(false); }
   }
 
@@ -152,7 +154,8 @@ export default function AdmissaoScreen() {
       await load();
       setModalProva({ visible: false, reg: null });
       setDataProva('');
-    } catch { Alert.alert('Erro', 'Não foi possível publicar a data.'); }
+      alertSucesso('Data publicada', 'A data do exame foi publicada com sucesso.');
+    } catch { alertErro('Erro', 'Não foi possível publicar a data.'); }
     finally { setIsActing(false); }
   }
 
@@ -174,8 +177,8 @@ export default function AdmissaoScreen() {
       setModalNota({ visible: false, reg: null });
       setNota('');
       const resultado = n >= 10 ? 'ADMITIDO' : 'NÃO ADMITIDO';
-      Alert.alert('Nota Lançada', `${reg.nomeCompleto}\nNota: ${n}/20 — ${resultado}`);
-    } catch (e: any) { Alert.alert('Erro', e.message || 'Não foi possível lançar a nota.'); }
+      alertSucesso('Nota lançada', `${reg.nomeCompleto}: ${n}/20 — ${resultado}`);
+    } catch (e: any) { alertErro('Erro', e.message || 'Não foi possível lançar a nota.'); }
     finally { setIsActing(false); }
   }
 

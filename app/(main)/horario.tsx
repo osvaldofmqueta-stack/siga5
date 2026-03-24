@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useProfessor } from '@/context/ProfessorContext';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { apiRequest } from '@/lib/query-client';
 
@@ -141,8 +142,9 @@ export default function HorarioScreen() {
     try {
       await apiRequest('DELETE', `/api/horarios/${id}`);
       setHorarios(prev => prev.filter(h => h.id !== id));
+      alertSucesso('Aula removida', 'A aula foi removida do horário.');
     } catch {
-      Alert.alert('Erro', 'Não foi possível remover a aula.');
+      alertErro('Erro', 'Não foi possível remover a aula.');
     }
   }
 
@@ -169,8 +171,9 @@ export default function HorarioScreen() {
         const res = await apiRequest('POST', '/api/horarios', nova);
         const created = await res.json();
         setHorarios(prev => [...prev, created]);
+        alertSucesso('Aula adicionada', `${form.disciplina} foi adicionada ao horário.`);
       } catch {
-        Alert.alert('Erro', 'Não foi possível guardar a aula.');
+        alertErro('Erro', 'Não foi possível guardar a aula.');
       }
     } else if (modalMode === 'edit' && editingHorario) {
       const updates = {
@@ -183,8 +186,9 @@ export default function HorarioScreen() {
         const res = await apiRequest('PUT', `/api/horarios/${editingHorario.id}`, updates);
         const updated = await res.json();
         setHorarios(prev => prev.map(h => h.id === editingHorario.id ? updated : h));
+        alertSucesso('Aula actualizada', `${form.disciplina} foi actualizada com sucesso.`);
       } catch {
-        Alert.alert('Erro', 'Não foi possível actualizar a aula.');
+        alertErro('Erro', 'Não foi possível actualizar a aula.');
       }
     }
     setModalMode(null);
@@ -216,7 +220,7 @@ export default function HorarioScreen() {
     setSumarioNumero('');
     setSumarioAula(null);
     setShowSumarioModal(false);
-    Alert.alert('Sumário enviado', 'O sumário foi enviado ao RH para validação.');
+    alertSucesso('Sumário enviado', 'O sumário foi enviado ao RH para validação.');
   }
 
   function openProfCell(aula: AulaHorario) {

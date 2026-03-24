@@ -17,6 +17,7 @@ import { useData } from '@/context/DataContext';
 import { useRegistro, SolicitacaoRegistro } from '@/context/RegistroContext';
 import { useConfig } from '@/context/ConfigContext';
 import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
+import { alertSucesso, alertErro } from '@/utils/toast';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -193,8 +194,8 @@ export default function AdminScreen() {
       if (!res.ok) throw new Error('Erro ao guardar');
       await fetchCursos();
       setShowCursoForm(false);
-      Alert.alert('Sucesso', editingCurso ? 'Curso actualizado.' : 'Curso criado com sucesso.');
-    } catch (e: any) { Alert.alert('Erro', e.message); }
+      alertSucesso(editingCurso ? 'Curso actualizado' : 'Curso criado', editingCurso ? 'O curso foi actualizado com sucesso.' : 'O novo curso foi criado com sucesso.');
+    } catch (e: any) { alertErro('Erro', e.message); }
     setSavingCurso(false);
   }
 
@@ -250,7 +251,7 @@ export default function AdminScreen() {
     await AsyncStorage.setItem(ESCOLA_STORAGE, JSON.stringify(tempEscola));
     setEscola(tempEscola);
     setEditEscola(false);
-    Alert.alert('Sucesso', 'Dados da escola actualizados.');
+    alertSucesso('Escola actualizada', 'Os dados da escola foram actualizados com sucesso.');
   }
 
   async function criarUser() {
@@ -285,7 +286,7 @@ export default function AdminScreen() {
     }
     setShowNovoUser(false);
     setFormUser({ nome: '', email: '', role: 'professor', senha: '', numeroProfessor: '' });
-    Alert.alert('Sucesso', `Utilizador ${formUser.nome} criado.`);
+    alertSucesso('Utilizador criado', `${formUser.nome} foi criado com sucesso no sistema.`);
   }
 
   function confirmarEliminarUser(id: string, nome: string) {
@@ -316,7 +317,7 @@ export default function AdminScreen() {
     });
     setShowNovoAno(false);
     setFormAno({ ano: '', dataInicio: '', dataFim: '' });
-    Alert.alert('Sucesso', `Ano académico ${formAno.ano} criado.`);
+    alertSucesso('Ano académico criado', `O ano lectivo ${formAno.ano} foi criado com sucesso.`);
   }
 
   function handleAprovar(s: SolicitacaoRegistro) {
@@ -330,7 +331,7 @@ export default function AdminScreen() {
           onPress: async () => {
             await aprovarSolicitacao(s.id, user?.nome || 'Administrador');
             setSelectedSolicitacao(null);
-            Alert.alert('Aprovado', `A matrícula de ${s.nomeCompleto} foi aprovada.`);
+            alertSucesso('Matrícula aprovada', `A matrícula de ${s.nomeCompleto} foi aprovada com sucesso.`);
           },
         },
       ]
