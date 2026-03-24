@@ -51,6 +51,7 @@
     "expo-system-ui": "^6.0.9",
     "expo-web-browser": "^15.0.10",
     "express": "^5.2.1",
+    "get-tsconfig": "^4.13.7",
     "http-proxy-middleware": "^3.0.5",
     "multer": "^2.1.1",
     "npm": "^11.12.0",
