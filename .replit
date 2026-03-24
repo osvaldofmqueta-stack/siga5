@@ -26,7 +26,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm run server:dev & npm run web:dev"
+args = "EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN npm run server:dev & npm run web:dev"
 waitForPort = 5000
 
 [[ports]]
@@ -49,4 +49,3 @@ build = ["bash", "-c", "node node_modules/.bin/patch-package && npx expo export 
 [userenv]
 
 [userenv.development]
-EXPO_PUBLIC_DOMAIN = "4650f8eb-f4a4-4fbb-b558-46604c77d70c-00-280gkr4hc2y9c.picard.replit.dev"
