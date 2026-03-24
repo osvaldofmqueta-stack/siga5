@@ -694,6 +694,29 @@ export const ocorrencias = pgTable("ocorrencias", {
 });
 
 // -----------------------
+// DOCUMENTOS EMITIDOS (HISTÓRICO POR ALUNO)
+// -----------------------
+export const documentosEmitidos = pgTable("documentos_emitidos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("aluno_id"),
+  alunoNome: text("aluno_nome").notNull(),
+  alunoNum: text("aluno_num").notNull(),
+  alunoTurma: text("aluno_turma"),
+
+  tipo: text("tipo").notNull(),
+  finalidade: text("finalidade").default(''),
+  anoAcademico: text("ano_academico").default(''),
+
+  emitidoPor: text("emitido_por").notNull(),
+  emitidoEm: timestamp("emitido_em", { withTimezone: true }).notNull().defaultNow(),
+
+  dadosSnapshot: text("dados_snapshot"),
+});
+
+// -----------------------
 // MODELOS DE DOCUMENTOS (EDITOR)
 // -----------------------
 export const docTemplates = pgTable("doc_templates", {

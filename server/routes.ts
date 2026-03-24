@@ -1811,6 +1811,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await seedDefaultUsers();
 
   // -----------------------
+  // DOCUMENTOS EMITIDOS (HISTÓRICO)
+  // -----------------------
+  app.get("/api/documentos-emitidos", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT id, aluno_id AS "alunoId", aluno_nome AS "alunoNome", aluno_num AS "alunoNum",
+                aluno_turma AS "alunoTurma", tipo, finalidade, ano_academico AS "anoAcademico",
+                emitido_por AS "emitidoPor", emitido_em AS "emitidoEm", dados_snapshot AS "dadosSnapshot"
+         FROM public.documentos_emitidos ORDER BY emitido_em DESC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/documentos-emitidos/aluno/:alunoId", async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT id, aluno_id AS "alunoId", aluno_nome AS "alunoNome", aluno_num AS "alunoNum",
+                aluno_turma AS "alunoTurma", tipo, finalidade, ano_academico AS "anoAcademico",
+                emitido_por AS "emitidoPor", emitido_em AS "emitidoEm", dados_snapshot AS "dadosSnapshot"
+         FROM public.documentos_emitidos WHERE aluno_id=$1 ORDER BY emitido_em DESC`,
+        [req.params.alunoId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/documentos-emitidos", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, alunoNome, alunoNum, alunoTurma, tipo, finalidade, anoAcademico, emitidoPor, dadosSnapshot } = b as Record<string, unknown>;
+      if (!alunoNome || !tipo || !emitidoPor) return json(res, 400, { error: 'alunoNome, tipo e emitidoPor são obrigatórios.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.documentos_emitidos (aluno_id, aluno_nome, aluno_num, aluno_turma, tipo, finalidade, ano_academico, emitido_por, dados_snapshot)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         RETURNING id, aluno_id AS "alunoId", aluno_nome AS "alunoNome", aluno_num AS "alunoNum",
+                   aluno_turma AS "alunoTurma", tipo, finalidade, ano_academico AS "anoAcademico",
+                   emitido_por AS "emitidoPor", emitido_em AS "emitidoEm", dados_snapshot AS "dadosSnapshot"`,
+        [alunoId ?? null, alunoNome, alunoNum ?? '', alunoTurma ?? null, tipo, finalidade ?? '', anoAcademico ?? '', emitidoPor, dadosSnapshot ?? null]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/documentos-emitidos/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.documentos_emitidos WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
   // DOC TEMPLATES (EDITOR DE DOCUMENTOS)
   // -----------------------
   app.get("/api/doc-templates", async (_req: Request, res: Response) => {
