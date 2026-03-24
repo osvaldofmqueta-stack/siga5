@@ -15,6 +15,10 @@ declare module "http" {
 }
 
 const FONT_STYLE = `
+  <link rel="preload" href="/fonts/Inter_400Regular.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+  <link rel="preload" href="/fonts/Inter_500Medium.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+  <link rel="preload" href="/fonts/Inter_600SemiBold.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
+  <link rel="preload" href="/fonts/Inter_700Bold.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
   <style>
     @font-face { font-family: 'Inter_400Regular'; src: url('/fonts/Inter_400Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Inter_500Medium';  src: url('/fonts/Inter_500Medium.ttf')  format('truetype'); font-weight: 500; font-style: normal; font-display: swap; }
@@ -46,9 +50,14 @@ const SW_SCRIPT = `
   </script>`;
 
 function injectPwaTags(html: string): string {
-  if (html.includes('rel="manifest"')) return html;
-  let result = html.replace("</head>", `${FONT_STYLE}\n${PWA_TAGS}\n</head>`);
-  result = result.replace("</body>", `${SW_SCRIPT}\n</body>`);
+  let result = html;
+  if (!html.includes("Inter_400Regular")) {
+    result = result.replace("</head>", `${FONT_STYLE}\n</head>`);
+  }
+  if (!html.includes('rel="manifest"')) {
+    result = result.replace("</head>", `${PWA_TAGS}\n</head>`);
+    result = result.replace("</body>", `${SW_SCRIPT}\n</body>`);
+  }
   return result;
 }
 
