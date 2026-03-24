@@ -5,6 +5,7 @@ import { query } from "./db";
 import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
+import { v4 as uuidv4 } from "uuid";
 
 type JsonObject = Record<string, unknown>;
 
@@ -1784,7 +1785,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const count = parseInt(String((existing[0] as any).count), 10);
       if (count > 0) return;
 
-      const { v4: uuidv4 } = await import('uuid');
       const escola = 'Escola Secundária N.º 1 de Luanda';
       const agora = new Date().toISOString();
 
