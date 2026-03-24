@@ -26,7 +26,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "EXPO_PUBLIC_DOMAIN=$REPLIT_DEV_DOMAIN npm run server:dev & npm run web:dev"
+args = "npm run server:dev & npm run web:dev"
 waitForPort = 5000
 
 [[ports]]
