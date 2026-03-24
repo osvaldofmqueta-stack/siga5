@@ -42,7 +42,7 @@ const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
 ];
-const TABS_MAIN = ['painel','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
+const TABS_MAIN = ['painel','propinas','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
 type TabKey = typeof TABS_MAIN[number];
 
 const MESES_PAINEL = [
@@ -114,6 +114,12 @@ export default function FinanceiroScreen() {
   const [editTaxa,       setEditTaxa]       = useState<Taxa | null>(null);
   const [showAlunoList,  setShowAlunoList]  = useState(false);
   const [showTaxaList,   setShowTaxaList]   = useState(false);
+  const [isRefreshing,   setIsRefreshing]   = useState(false);
+  const [showRecibo,     setShowRecibo]     = useState(false);
+  const [reciboId,       setReciboId]       = useState<string | null>(null);
+  const [notifLoading,   setNotifLoading]   = useState(false);
+  const [propTurmaFilter, setPropTurmaFilter] = useState<string>('todas');
+  const [propSearchAluno, setPropSearchAluno] = useState('');
 
   const defaultFormPag = { alunoId: '', taxaId: '', valor: '', mes: '', metodoPagamento: 'multicaixa' as MetodoPagamento, referencia: '', observacao: '' };
   const defaultFormTaxa = { tipo: 'propina' as TipoTaxa, descricao: '', valor: '', frequencia: 'mensal' as FrequenciaTaxa, nivel: 'Todos' };
@@ -349,6 +355,44 @@ export default function FinanceiroScreen() {
         }},
       ]);
     }
+  }
+
+  const reciboData = useMemo(() => {
+    if (!reciboId) return null;
+    const p = pagamentos.find(x => x.id === reciboId);
+    if (!p) return null;
+    const a = alunos.find(x => x.id === p.alunoId);
+    const t = taxas.find(x => x.id === p.taxaId);
+    const turmaA = a ? turmas.find(x => x.id === a.turmaId) : null;
+    return { pagamento: p, aluno: a, taxa: t, turma: turmaA };
+  }, [reciboId, pagamentos, alunos, taxas, turmas]);
+
+  async function handleNotificarTodos() {
+    if (alunosEmAtraso.length === 0) return;
+    Alert.alert(
+      'Notificar Todos',
+      `Vai enviar uma mensagem de aviso a ${alunosEmAtraso.length} estudante(s) com pagamentos em atraso. Deseja continuar?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Enviar', onPress: async () => {
+          setNotifLoading(true);
+          try {
+            for (const { aluno, mesesAtraso, multa } of alunosEmAtraso) {
+              const multaTxt = multaConfig.ativo && multa > 0 ? ` Multa estimada: ${formatAOA(multa)}.` : '';
+              await enviarMensagem(
+                aluno.id,
+                `Prezado(a) ${aluno.nome}, tem ${mesesAtraso} mês(es) de propina(s) em atraso no ano lectivo ${anoAtual}.${multaTxt} Regularize a sua situação junto do Departamento Financeiro.`,
+                nomeRemetente,
+                'aviso'
+              );
+            }
+            Alert.alert('Concluído', `Mensagem de aviso enviada a ${alunosEmAtraso.length} estudante(s).`);
+          } finally {
+            setNotifLoading(false);
+          }
+        }},
+      ]
+    );
   }
 
   async function handleSalvarMulta() {
