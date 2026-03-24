@@ -219,7 +219,18 @@ export default function DashboardScreen() {
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const QUICK_ACTIONS = [
+  const isFinanceRole = ['pca', 'ceo', 'admin', 'financeiro'].includes(user?.role || '');
+
+  const QUICK_ACTIONS_FINANCE = [
+    { label: 'Financeiro',   icon: 'cash',            route: '/(main)/financeiro', color: Colors.success },
+    { label: 'Propinas',     icon: 'wallet',           route: '/(main)/financeiro', color: Colors.info },
+    { label: 'Pagamentos',   icon: 'receipt',          route: '/(main)/financeiro', color: Colors.gold },
+    { label: 'Em Atraso',    icon: 'alert-circle',     route: '/(main)/financeiro', color: Colors.danger },
+    { label: 'Rubricas',     icon: 'pricetag',         route: '/(main)/financeiro', color: '#8B5CF6' },
+    { label: 'Relatórios',   icon: 'bar-chart',        route: '/(main)/financeiro', color: Colors.warning },
+  ];
+
+  const QUICK_ACTIONS_ACADEMIC = [
     { label: 'Novo Aluno',   icon: 'person-add',   route: '/(main)/alunos',    color: Colors.info },
     { label: 'Lançar Notas', icon: 'document-text', route: '/(main)/notas',     color: Colors.gold },
     { label: 'Desempenho',   icon: 'stats-chart',   route: '/(main)/desempenho',color: '#8B5CF6' },
@@ -227,6 +238,8 @@ export default function DashboardScreen() {
     { label: 'Eventos',      icon: 'calendar',      route: '/(main)/eventos',   color: Colors.accent },
     { label: 'Relatórios',   icon: 'bar-chart',     route: '/(main)/relatorios',color: Colors.warning },
   ];
+
+  const QUICK_ACTIONS = isFinanceRole ? QUICK_ACTIONS_FINANCE : QUICK_ACTIONS_ACADEMIC;
 
   const refreshing = isLoading || loadingReg;
 
@@ -484,7 +497,7 @@ export default function DashboardScreen() {
 
         {/* ── Acções Rápidas ────────────────────────────────── */}
         <View style={st.section}>
-          <SectionTitle label="Acções Rápidas" color={Colors.primaryLight} />
+          <SectionTitle label={isFinanceRole ? 'Acesso Financeiro Rápido' : 'Acções Rápidas'} color={isFinanceRole ? Colors.success : Colors.primaryLight} />
           <View style={st.qaGrid}>
             {QUICK_ACTIONS.map(qa => (
               <TouchableOpacity

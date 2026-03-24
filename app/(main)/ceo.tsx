@@ -481,15 +481,15 @@ export default function CeoScreen() {
             <Ionicons name="arrow-forward" size={14} color={Colors.gold} />
           </TouchableOpacity>
 
-          {/* Atalhos rápidos */}
-          <Text style={styles.escolaSectionTitle}>Acesso Rápido</Text>
+          {/* Atalhos financeiros */}
+          <Text style={styles.escolaSectionTitle}>Controlo Financeiro</Text>
           {[
-            { label: 'Alunos', sub: 'Gestão e inscrição', route: '/(main)/alunos', icon: 'people', color: Colors.info },
-            { label: 'Turmas', sub: 'Organização lectiva', route: '/(main)/turmas', icon: 'grid', color: Colors.warning },
-            { label: 'Professores', sub: 'Corpo docente', route: '/(main)/professores', icon: 'person', color: Colors.success },
-            { label: 'Notas', sub: 'Resultados académicos', route: '/(main)/notas', icon: 'document-text', color: '#8b5cf6' },
-            { label: 'Relatórios', sub: 'Estatísticas e análises', route: '/(main)/relatorios', icon: 'bar-chart', color: Colors.gold },
-            { label: 'Visão Multi-Ano', sub: 'Histórico comparativo', route: '/(main)/visao-geral', icon: 'trending-up', color: Colors.accent },
+            { label: 'Módulo Financeiro', sub: 'Painel central de finanças', route: '/(main)/financeiro', icon: 'cash', color: Colors.success },
+            { label: 'Propinas', sub: 'Gestão de propinas por aluno', route: '/(main)/financeiro', icon: 'wallet', color: Colors.info },
+            { label: 'Pagamentos', sub: 'Histórico de transacções', route: '/(main)/financeiro', icon: 'receipt', color: Colors.gold },
+            { label: 'Em Atraso', sub: 'Alunos com dívidas pendentes', route: '/(main)/financeiro', icon: 'alert-circle', color: Colors.danger },
+            { label: 'Rubricas', sub: 'Taxas e tipos de cobrança', route: '/(main)/financeiro', icon: 'pricetag', color: '#8b5cf6' },
+            { label: 'Relatórios Fin.', sub: 'Análise e exportação', route: '/(main)/financeiro', icon: 'bar-chart', color: Colors.warning },
           ].map(item => (
             <TouchableOpacity
               key={item.route}
