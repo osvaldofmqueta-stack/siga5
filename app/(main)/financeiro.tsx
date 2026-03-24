@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, FlatList, Platform,
+  Modal, TextInput, Alert, FlatList, Platform, RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { DonutChart, BarChart } from '@/components/Charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
@@ -41,7 +42,7 @@ const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
 ];
-const TABS_MAIN = ['painel','resumo','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
+const TABS_MAIN = ['painel','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
 type TabKey = typeof TABS_MAIN[number];
 
 const MESES_PAINEL = [
@@ -86,6 +87,14 @@ export default function FinanceiroScreen() {
   const [tipoFilter, setTipoFilter]     = useState<'todos' | TipoTaxa>('todos');
   const [searchAluno, setSearchAluno]   = useState('');
   const [searchPagAluno, setSearchPagAluno] = useState('');
+  const [metodoPagFilter, setMetodoPagFilter] = useState<'todos' | MetodoPagamento>('todos');
+  const [mesFilter, setMesFilter]           = useState<string>('todos');
+  const [relTipo, setRelTipo]               = useState<'todos' | TipoTaxa>('todos');
+  const [relNivel, setRelNivel]             = useState('Todos');
+  const [relMetodo, setRelMetodo]           = useState<'todos' | MetodoPagamento>('todos');
+  const [relMesInicio, setRelMesInicio]     = useState<string>('todos');
+  const [relMesFim, setRelMesFim]           = useState<string>('todos');
+  const [relTurmaId, setRelTurmaId]         = useState<string>('todas');
   const [alunoPerfilId, setAlunoPerfilId]   = useState<string | null>(null);
   const [msgAlunoId, setMsgAlunoId]         = useState<string | null>(null);
   const [showMsgModal, setShowMsgModal]     = useState(false);
@@ -148,6 +157,8 @@ export default function FinanceiroScreen() {
       const t = taxas.find(x => x.id === p.taxaId);
       return t?.tipo === tipoFilter;
     });
+    if (metodoPagFilter !== 'todos') list = list.filter(p => p.metodoPagamento === metodoPagFilter);
+    if (mesFilter !== 'todos') list = list.filter(p => String(p.mes) === mesFilter);
     if (searchPagAluno.trim()) {
       const q = searchPagAluno.toLowerCase();
       list = list.filter(p => {
@@ -156,7 +167,35 @@ export default function FinanceiroScreen() {
       });
     }
     return [...list].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [pagamentosAno, statusFilter, tipoFilter, searchPagAluno, taxas, alunos]);
+  }, [pagamentosAno, statusFilter, tipoFilter, metodoPagFilter, mesFilter, searchPagAluno, taxas, alunos]);
+
+  const relatorioFiltrado = useMemo(() => {
+    let list = pagamentosAno.filter(p => p.status === 'pago');
+    if (relTipo !== 'todos') list = list.filter(p => {
+      const t = taxas.find(x => x.id === p.taxaId);
+      return t?.tipo === relTipo;
+    });
+    if (relNivel !== 'Todos') list = list.filter(p => {
+      const a = alunos.find(x => x.id === p.alunoId);
+      if (!a) return false;
+      const t = turmas.find(x => x.id === a.turmaId);
+      return t?.nivel === relNivel;
+    });
+    if (relMetodo !== 'todos') list = list.filter(p => p.metodoPagamento === relMetodo);
+    if (relTurmaId !== 'todas') list = list.filter(p => {
+      const a = alunos.find(x => x.id === p.alunoId);
+      return a?.turmaId === relTurmaId;
+    });
+    if (relMesInicio !== 'todos') {
+      const inicio = parseInt(relMesInicio);
+      list = list.filter(p => p.mes !== undefined && p.mes >= inicio);
+    }
+    if (relMesFim !== 'todos') {
+      const fim = parseInt(relMesFim);
+      list = list.filter(p => p.mes !== undefined && p.mes <= fim);
+    }
+    return list;
+  }, [pagamentosAno, relTipo, relNivel, relMetodo, relTurmaId, relMesInicio, relMesFim, taxas, alunos, turmas]);
 
   const alunosFiltrados = useMemo(() => {
     const q = searchAluno.toLowerCase();
@@ -386,6 +425,26 @@ export default function FinanceiroScreen() {
             <Text style={st.kpiLbl}>Em Dia</Text>
           </View>
         </View>
+
+        {/* Donut: status pagamentos */}
+        {(pagamentosAno.filter(p => p.status === 'pago').length > 0 || pagamentosAno.filter(p => p.status === 'pendente').length > 0) && (
+          <View style={{ marginBottom: 14 }}>
+            <Text style={[st.secLabel, { marginBottom: 8 }]}>ESTADO DOS PAGAMENTOS</Text>
+            <View style={{ alignItems: 'center' }}>
+              <DonutChart
+                data={[
+                  { label: 'Pagos', value: pagamentosAno.filter(p => p.status === 'pago').length, color: Colors.success },
+                  { label: 'Pendentes', value: pagamentosAno.filter(p => p.status === 'pendente').length, color: Colors.warning },
+                  { label: 'Cancelados', value: pagamentosAno.filter(p => p.status === 'cancelado').length, color: Colors.textMuted },
+                ].filter(d => d.value > 0)}
+                size={160}
+                thickness={26}
+                centerLabel={String(pagamentosAno.length)}
+                centerSub="total"
+              />
+            </View>
+          </View>
+        )}
 
         <Text style={[st.secLabel, { marginBottom: 8 }]}>PAGAMENTOS POR MÊS — {anoAtual}</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
@@ -741,6 +800,29 @@ export default function FinanceiroScreen() {
               ))}
             </View>
           </ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={st.chipRow}>
+              {(['todos','dinheiro','transferencia','multicaixa'] as const).map(m => (
+                <TouchableOpacity key={m} style={[st.chip, metodoPagFilter === m && st.chipActive]} onPress={() => setMetodoPagFilter(m as any)}>
+                  <Text style={[st.chipText, metodoPagFilter === m && st.chipTextActive]}>
+                    {m === 'todos' ? 'Todos métodos' : METODO_LABEL[m as MetodoPagamento]}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={st.chipRow}>
+              <TouchableOpacity style={[st.chip, mesFilter === 'todos' && st.chipActive]} onPress={() => setMesFilter('todos')}>
+                <Text style={[st.chipText, mesFilter === 'todos' && st.chipTextActive]}>Todos meses</Text>
+              </TouchableOpacity>
+              {MESES.map((m, i) => (
+                <TouchableOpacity key={m} style={[st.chip, mesFilter === String(i + 1) && st.chipActive]} onPress={() => setMesFilter(mesFilter === String(i + 1) ? 'todos' : String(i + 1))}>
+                  <Text style={[st.chipText, mesFilter === String(i + 1) && st.chipTextActive]}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
         </View>
 
         {pagamentosFiltrados.length === 0 ? (
@@ -873,6 +955,303 @@ export default function FinanceiroScreen() {
           <Text style={st.fabTxt}>Nova Rubrica</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+  function renderRelatorios() {
+    const totalRel = relatorioFiltrado.reduce((s, p) => s + p.valor, 0);
+    const countRel = relatorioFiltrado.length;
+    const turmasAtivas = turmas.filter(t => t.ativo);
+
+    const receitaPorTipo = TIPOS.map(tipo => {
+      const ids = new Set(taxas.filter(t => t.tipo === tipo).map(t => t.id));
+      const val = relatorioFiltrado.filter(p => ids.has(p.taxaId)).reduce((s, p) => s + p.valor, 0);
+      return { label: TIPO_LABEL[tipo], value: val, color: TIPO_COLOR[tipo] };
+    }).filter(d => d.value > 0);
+
+    const receitaPorMetodo = (['dinheiro','transferencia','multicaixa'] as MetodoPagamento[]).map(m => {
+      const val = relatorioFiltrado.filter(p => p.metodoPagamento === m).reduce((s, p) => s + p.valor, 0);
+      return { label: METODO_LABEL[m], value: val, color: m === 'dinheiro' ? Colors.gold : m === 'multicaixa' ? Colors.info : Colors.success };
+    }).filter(d => d.value > 0);
+
+    const receitaPorMes = MESES.map((nome, i) => {
+      const val = relatorioFiltrado.filter(p => p.mes === i + 1).reduce((s, p) => s + p.valor, 0);
+      return { label: nome, value: val, color: Colors.info };
+    }).filter(d => d.value > 0);
+
+    const receitaPorNivel = ['Primário','I Ciclo','II Ciclo'].map((nivel, idx) => {
+      const COLORS = [Colors.success, Colors.info, '#8B5CF6'];
+      const val = relatorioFiltrado.filter(p => {
+        const a = alunos.find(x => x.id === p.alunoId);
+        if (!a) return false;
+        const t = turmas.find(x => x.id === a.turmaId);
+        return t?.nivel === nivel;
+      }).reduce((s, p) => s + p.valor, 0);
+      return { label: nivel, value: val, color: COLORS[idx] };
+    }).filter(d => d.value > 0);
+
+    const receitaPorTurma = turmasAtivas.map(t => {
+      const alunosDaTurma = new Set(alunos.filter(a => a.turmaId === t.id).map(a => a.id));
+      const val = relatorioFiltrado.filter(p => alunosDaTurma.has(p.alunoId)).reduce((s, p) => s + p.valor, 0);
+      const pendente = pagamentosAno.filter(p => alunosDaTurma.has(p.alunoId) && p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
+      return { turma: t.nome, val, pendente, count: relatorioFiltrado.filter(p => alunosDaTurma.has(p.alunoId)).length };
+    }).filter(r => r.val > 0 || r.pendente > 0).sort((a, b) => b.val - a.val);
+
+    const topDevedores = alunosEmAtraso.slice(0, 5);
+
+    const activeFilters = [relTipo !== 'todos', relNivel !== 'Todos', relMetodo !== 'todos', relTurmaId !== 'todas', relMesInicio !== 'todos', relMesFim !== 'todos'].filter(Boolean).length;
+
+    return (
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
+
+        {/* Filtros Avançados */}
+        <View style={st.relFiltrosCard}>
+          <View style={st.relFiltrosHeader}>
+            <Ionicons name="options" size={16} color={Colors.gold} />
+            <Text style={st.relFiltrosTitle}>Filtros Avançados</Text>
+            {activeFilters > 0 && (
+              <TouchableOpacity onPress={() => { setRelTipo('todos'); setRelNivel('Todos'); setRelMetodo('todos'); setRelTurmaId('todas'); setRelMesInicio('todos'); setRelMesFim('todos'); }}>
+                <Text style={{ fontSize: 11, color: Colors.danger, fontFamily: 'Inter_600SemiBold' }}>Limpar ({activeFilters})</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <Text style={st.relFiltrosLabel}>Tipo de Rubrica</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={st.chipRow}>
+              {(['todos', ...TIPOS] as const).map(t => (
+                <TouchableOpacity key={t} style={[st.chip, relTipo === t && st.chipActive]} onPress={() => setRelTipo(t as any)}>
+                  <Text style={[st.chipText, relTipo === t && st.chipTextActive]}>{t === 'todos' ? 'Todos' : TIPO_LABEL[t as TipoTaxa]}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <Text style={st.relFiltrosLabel}>Nível de Ensino</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={st.chipRow}>
+              {NIVEIS.map(n => (
+                <TouchableOpacity key={n} style={[st.chip, relNivel === n && st.chipActive]} onPress={() => setRelNivel(n)}>
+                  <Text style={[st.chipText, relNivel === n && st.chipTextActive]}>{n}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <Text style={st.relFiltrosLabel}>Método de Pagamento</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={st.chipRow}>
+              {(['todos','dinheiro','transferencia','multicaixa'] as const).map(m => (
+                <TouchableOpacity key={m} style={[st.chip, relMetodo === m && st.chipActive]} onPress={() => setRelMetodo(m as any)}>
+                  <Text style={[st.chipText, relMetodo === m && st.chipTextActive]}>{m === 'todos' ? 'Todos' : METODO_LABEL[m as MetodoPagamento]}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+
+          <Text style={st.relFiltrosLabel}>Mês (de — até)</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={[st.relFiltrosLabel, { fontSize: 9, marginBottom: 4 }]}>A PARTIR DE</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={st.chipRow}>
+                  {(['todos', ...MESES.map((_, i) => String(i + 1))]).map((m, idx) => (
+                    <TouchableOpacity key={m} style={[st.chip, relMesInicio === m && st.chipActive, { paddingHorizontal: 8 }]} onPress={() => setRelMesInicio(m)}>
+                      <Text style={[st.chipText, relMesInicio === m && st.chipTextActive]}>{idx === 0 ? 'Todos' : MESES[idx - 1]}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+          <View style={{ flex: 1, marginTop: 6 }}>
+            <Text style={[st.relFiltrosLabel, { fontSize: 9, marginBottom: 4 }]}>ATÉ</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={st.chipRow}>
+                {(['todos', ...MESES.map((_, i) => String(i + 1))]).map((m, idx) => (
+                  <TouchableOpacity key={m} style={[st.chip, relMesFim === m && st.chipActive, { paddingHorizontal: 8 }]} onPress={() => setRelMesFim(m)}>
+                    <Text style={[st.chipText, relMesFim === m && st.chipTextActive]}>{idx === 0 ? 'Todos' : MESES[idx - 1]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+
+          {turmasAtivas.length > 0 && (
+            <>
+              <Text style={st.relFiltrosLabel}>Turma</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={st.chipRow}>
+                  <TouchableOpacity style={[st.chip, relTurmaId === 'todas' && st.chipActive]} onPress={() => setRelTurmaId('todas')}>
+                    <Text style={[st.chipText, relTurmaId === 'todas' && st.chipTextActive]}>Todas</Text>
+                  </TouchableOpacity>
+                  {turmasAtivas.map(t => (
+                    <TouchableOpacity key={t.id} style={[st.chip, relTurmaId === t.id && st.chipActive]} onPress={() => setRelTurmaId(t.id)}>
+                      <Text style={[st.chipText, relTurmaId === t.id && st.chipTextActive]}>{t.nome}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+            </>
+          )}
+        </View>
+
+        {/* Totais do período filtrado */}
+        <View style={[st.kpiRow, { marginBottom: 4 }]}>
+          <View style={[st.kpiCard, { flex: 1.5, borderTopWidth: 2, borderTopColor: Colors.success }]}>
+            <Ionicons name="trending-up" size={16} color={Colors.success} />
+            <Text style={[st.kpiVal, { color: Colors.success }]}>{formatAOA(totalRel)}</Text>
+            <Text style={st.kpiLbl}>Total Arrecadado</Text>
+            <Text style={[st.kpiLbl, { fontSize: 9 }]}>período seleccionado</Text>
+          </View>
+          <View style={[st.kpiCard, { flex: 1 }]}>
+            <Ionicons name="receipt" size={14} color={Colors.info} />
+            <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{countRel}</Text>
+            <Text style={st.kpiLbl}>Transacções</Text>
+          </View>
+          <View style={[st.kpiCard, { flex: 1 }]}>
+            <Ionicons name="people" size={14} color={Colors.gold} />
+            <Text style={[st.kpiVal, { color: Colors.gold, fontSize: 20 }]}>{new Set(relatorioFiltrado.map(p => p.alunoId)).size}</Text>
+            <Text style={st.kpiLbl}>Alunos</Text>
+          </View>
+        </View>
+
+        {/* Donut: Receita por tipo */}
+        {receitaPorTipo.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>RECEITA POR TIPO DE RUBRICA</Text>
+            <View style={[st.relCard, { alignItems: 'center' }]}>
+              <DonutChart data={receitaPorTipo} size={180} thickness={30} centerLabel={formatAOA(totalRel).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+              <View style={{ width: '100%', marginTop: 8 }}>
+                {receitaPorTipo.map(d => (
+                  <View key={d.label} style={st.relTableRow}>
+                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                    <Text style={st.relTableLabel}>{d.label}</Text>
+                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Donut: Por método */}
+        {receitaPorMetodo.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>RECEITA POR MÉTODO DE PAGAMENTO</Text>
+            <View style={[st.relCard, { alignItems: 'center' }]}>
+              <DonutChart data={receitaPorMetodo} size={160} thickness={28} centerLabel={String(countRel)} centerSub="transacções" />
+              <View style={{ width: '100%', marginTop: 8 }}>
+                {receitaPorMetodo.map(d => (
+                  <View key={d.label} style={st.relTableRow}>
+                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                    <Text style={st.relTableLabel}>{d.label}</Text>
+                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* BarChart: Receita mensal */}
+        {receitaPorMes.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>RECEITA MENSAL (PAGOS)</Text>
+            <View style={[st.relCard, { alignItems: 'center' }]}>
+              <BarChart
+                data={receitaPorMes}
+                maxValue={Math.max(...receitaPorMes.map(d => d.value), 1)}
+                height={180}
+                width={Math.min(320, receitaPorMes.length * 36 + 40)}
+              />
+            </View>
+          </View>
+        )}
+
+        {/* Donut: Por nível */}
+        {receitaPorNivel.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>RECEITA POR NÍVEL DE ENSINO</Text>
+            <View style={[st.relCard, { alignItems: 'center' }]}>
+              <DonutChart data={receitaPorNivel} size={160} thickness={28} centerLabel={formatAOA(totalRel).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+              <View style={{ width: '100%', marginTop: 8 }}>
+                {receitaPorNivel.map(d => (
+                  <View key={d.label} style={st.relTableRow}>
+                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                    <Text style={st.relTableLabel}>{d.label}</Text>
+                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Tabela: Por turma */}
+        {receitaPorTurma.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>RECEITA POR TURMA</Text>
+            <View style={st.relCard}>
+              <View style={st.relTableHeader}>
+                <Text style={[st.relTableHeaderTxt, { flex: 2 }]}>Turma</Text>
+                <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Arrecadado</Text>
+                <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Pendente</Text>
+                <Text style={[st.relTableHeaderTxt, { flex: 0.7, textAlign: 'right' }]}>Pag.</Text>
+              </View>
+              {receitaPorTurma.map((r, idx) => (
+                <View key={r.turma} style={[st.relTableRow, idx % 2 === 0 && { backgroundColor: Colors.surface }]}>
+                  <Text style={[st.relTableLabel, { flex: 2 }]} numberOfLines={1}>{r.turma}</Text>
+                  <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: Colors.success, fontSize: 11 }]}>{formatAOA(r.val)}</Text>
+                  <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: r.pendente > 0 ? Colors.warning : Colors.textMuted, fontSize: 11 }]}>{r.pendente > 0 ? formatAOA(r.pendente) : '—'}</Text>
+                  <Text style={[st.relTablePct, { flex: 0.7, textAlign: 'right' }]}>{r.count}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Top devedores */}
+        {topDevedores.length > 0 && (
+          <View style={st.relSection}>
+            <Text style={st.secLabel}>TOP DEVEDORES</Text>
+            <View style={st.relCard}>
+              {topDevedores.map((item, idx) => {
+                const { aluno, mesesAtraso, pendente } = item;
+                const turmaA = turmas.find(t => t.id === aluno.turmaId);
+                const bloq = isAlunoBloqueado(aluno.id);
+                return (
+                  <View key={aluno.id} style={[st.relTableRow, { paddingVertical: 10, alignItems: 'center' }]}>
+                    <Text style={[st.relTablePct, { width: 22, color: Colors.textMuted }]}>{idx + 1}</Text>
+                    <View style={[st.atrasoAvatar, { width: 30, height: 30, borderRadius: 15 }]}>
+                      <Text style={[st.atrasoAvatarTxt, { fontSize: 11 }]}>{aluno.nome[0]}{aluno.apelido[0]}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={[st.relTableLabel, { fontFamily: 'Inter_600SemiBold' }]} numberOfLines={1}>{aluno.nome} {aluno.apelido}</Text>
+                      <Text style={[st.relTablePct, { textAlign: 'left' }]}>{turmaA?.nome || '—'} · {mesesAtraso}m atraso</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                      <Text style={[st.relTableVal, { color: Colors.danger, fontSize: 12 }]}>{formatAOA(pendente)}</Text>
+                      {bloq && <Badge label="Bloq." color={Colors.danger} />}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {relatorioFiltrado.length === 0 && (
+          <View style={st.empty}>
+            <Ionicons name="document-text-outline" size={48} color={Colors.textMuted} />
+            <Text style={st.emptyTitle}>Sem dados para o período</Text>
+            <Text style={st.emptySub}>Ajuste os filtros para visualizar relatórios financeiros.</Text>
+          </View>
+        )}
+      </ScrollView>
     );
   }
 
@@ -1097,6 +1476,7 @@ export default function FinanceiroScreen() {
   const tabsConfig = [
     ['painel', 'pie-chart', 'Painel'],
     ['resumo', 'stats-chart', 'Resumo'],
+    ['relatorios', 'bar-chart', 'Relatórios'],
     ['em_atraso', 'alert-circle', 'Em Atraso'],
     ['mensagens', 'chatbubbles', 'Mensagens'],
     ['pagamentos', 'receipt', 'Pagamentos'],
@@ -1129,6 +1509,7 @@ export default function FinanceiroScreen() {
 
       {tab === 'painel'      && renderPainel()}
       {tab === 'resumo'      && renderResumo()}
+      {tab === 'relatorios'  && renderRelatorios()}
       {tab === 'em_atraso'   && renderEmAtraso()}
       {tab === 'mensagens'   && renderMensagens()}
       {tab === 'pagamentos'  && renderPagamentos()}
@@ -1578,4 +1959,17 @@ const st = StyleSheet.create({
   msgAluno: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
   msgTexto: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 4, lineHeight: 17 },
   msgData: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 },
+  relFiltrosCard: { backgroundColor: Colors.backgroundCard, borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: Colors.border },
+  relFiltrosHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  relFiltrosTitle: { flex: 1, fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
+  relFiltrosLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, letterSpacing: 0.6, textTransform: 'uppercase', marginBottom: 4, marginTop: 8 },
+  relSection: { marginBottom: 14 },
+  relCard: { backgroundColor: Colors.backgroundCard, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: Colors.border },
+  relTableRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '55' },
+  relTableDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
+  relTableLabel: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text },
+  relTableVal: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text },
+  relTablePct: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, width: 36, textAlign: 'right' },
+  relTableHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 4 },
+  relTableHeaderTxt: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
 });
