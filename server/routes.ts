@@ -1778,6 +1778,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   await seedGeoData();
 
+  async function seedDefaultUsers() {
+    try {
+      const existing = await query<JsonObject>(`SELECT COUNT(*) as count FROM public.utilizadores`, []);
+      const count = parseInt(String((existing[0] as any).count), 10);
+      if (count > 0) return;
+
+      const { v4: uuidv4 } = await import('uuid');
+      const escola = 'Escola Secundária N.º 1 de Luanda';
+      const agora = new Date().toISOString();
+
+      const defaultUsers = [
+        { id: uuidv4(), nome: 'Administrador do Sistema', email: 'admin@sige.ao', senha: 'Admin@2025', role: 'admin', escola, ativo: true },
+        { id: uuidv4(), nome: 'Director Académico',       email: 'director@sige.ao', senha: 'Director@2025', role: 'director', escola, ativo: true },
+        { id: uuidv4(), nome: 'Encarregado de Educação',  email: 'encarregado@sige.ao', senha: 'Enc@2025', role: 'encarregado', escola, ativo: true },
+        { id: uuidv4(), nome: 'Professor Exemplo',        email: 'professor@sige.ao', senha: 'Prof@2025', role: 'professor', escola, ativo: true },
+        { id: uuidv4(), nome: 'PCA Escolar',              email: 'pca@sige.ao', senha: 'PCA@2025', role: 'pca', escola, ativo: true },
+      ];
+
+      for (const u of defaultUsers) {
+        await query(
+          `INSERT INTO public.utilizadores (id,nome,email,senha,role,escola,ativo,"criadoEm") VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT DO NOTHING`,
+          [u.id, u.nome, u.email, u.senha, u.role, u.escola, u.ativo, agora]
+        );
+      }
+      console.log('[seed] Utilizadores padrão criados com sucesso.');
+    } catch (e) {
+      console.error('[seed] Erro ao criar utilizadores padrão:', e);
+    }
+  }
+
+  await seedDefaultUsers();
+
   // -----------------------
   // DOC TEMPLATES (EDITOR DE DOCUMENTOS)
   // -----------------------
