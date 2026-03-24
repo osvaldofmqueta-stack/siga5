@@ -1,16 +1,17 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Platform, RefreshControl,
 } from 'react-native';
-import { Ionicons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
-import { BarChart, PieChart } from '@/components/Charts';
+import { BarChart, PieChart, DonutChart } from '@/components/Charts';
+import { apiRequest } from '@/lib/query-client';
 
 const { width } = Dimensions.get('window');
 const CHART_W = Math.min(width - 64, 360);
@@ -57,25 +58,6 @@ function KpiCard({ label, value, sub, color, icon, onPress }: {
   );
 }
 
-function ProgressBar({ value, max, color, label, sublabel }: {
-  value: number; max: number; color: string; label: string; sublabel?: string;
-}) {
-  const pct = max > 0 ? Math.min(value / max, 1) : 0;
-  const pctTxt = `${Math.round(pct * 100)}%`;
-  return (
-    <View style={st.progRow}>
-      <View style={st.progMeta}>
-        <Text style={st.progLabel} numberOfLines={1}>{label}</Text>
-        {sublabel ? <Text style={st.progSublabel}>{sublabel}</Text> : null}
-      </View>
-      <View style={st.progBarWrap}>
-        <View style={[st.progBarFill, { width: `${Math.round(pct * 100)}%` as any, backgroundColor: color }]} />
-      </View>
-      <Text style={[st.progPct, { color }]}>{pctTxt}</Text>
-    </View>
-  );
-}
-
 function GenderBar({ masculino, feminino, total }: { masculino: number; feminino: number; total: number }) {
   if (total === 0) return null;
   const mPct = Math.round((masculino / total) * 100);
@@ -100,11 +82,29 @@ function GenderBar({ masculino, feminino, total }: { masculino: number; feminino
   );
 }
 
+interface Registro {
+  id: string;
+  status: string;
+  matriculaCompleta?: boolean;
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
   const { alunos, professores, turmas, notas, eventos, presencas, isLoading } = useData();
+
+  const [registros, setRegistros] = useState<Registro[]>([]);
+  const [loadingReg, setLoadingReg] = useState(false);
+
+  useEffect(() => {
+    setLoadingReg(true);
+    apiRequest('GET', '/api/registros')
+      .then(r => r.json())
+      .then((data: Registro[]) => setRegistros(Array.isArray(data) ? data : []))
+      .catch(() => setRegistros([]))
+      .finally(() => setLoadingReg(false));
+  }, []);
 
   const alunosAtivos = useMemo(() => alunos.filter(a => a.ativo), [alunos]);
   const profsAtivos   = useMemo(() => professores.filter(p => p.ativo), [professores]);
@@ -137,6 +137,19 @@ export default function DashboardScreen() {
     return Object.entries(mapa).map(([label, value]) => ({ label, value, color: COLORS[label] ?? Colors.gold }));
   }, [alunosAtivos, turmasAtivas]);
 
+  const alunosPorTurno = useMemo(() => {
+    const mapa: Record<string, number> = { 'Manhã': 0, 'Tarde': 0, 'Noite': 0 };
+    alunosAtivos.forEach(a => {
+      const t = turmasAtivas.find(t => t.id === a.turmaId);
+      const turno = t?.turno ?? 'Manhã';
+      mapa[turno] = (mapa[turno] || 0) + 1;
+    });
+    const COLORS: Record<string, string> = { 'Manhã': Colors.gold, 'Tarde': Colors.info, 'Noite': '#8B5CF6' };
+    return Object.entries(mapa)
+      .filter(([, v]) => v > 0)
+      .map(([label, value]) => ({ label, value, color: COLORS[label] ?? Colors.textMuted }));
+  }, [alunosAtivos, turmasAtivas]);
+
   const ocupacaoPorTurma = useMemo(() => {
     return turmasAtivas
       .map(t => {
@@ -148,13 +161,26 @@ export default function DashboardScreen() {
       .slice(0, 8);
   }, [turmasAtivas, alunosAtivos]);
 
-  const matriculaStatus = useMemo(() => {
-    const vagas = Math.max(0, kpi.totalCap - alunosAtivos.length);
-    return [
-      { label: 'Matrículas Activas', value: alunosAtivos.length, color: Colors.success },
-      { label: 'Vagas Disponíveis', value: vagas, color: Colors.textMuted },
-    ];
-  }, [alunosAtivos, kpi.totalCap]);
+  const estadosAdmissao = useMemo(() => {
+    if (!registros.length) return [];
+    const mapa: Record<string, number> = {};
+    registros.forEach(r => { mapa[r.status] = (mapa[r.status] || 0) + 1; });
+    const CONFIG: Record<string, { label: string; color: string }> = {
+      pendente:           { label: 'Pendente',     color: Colors.warning },
+      aprovado:           { label: 'Aprovado',      color: Colors.info },
+      admitido:           { label: 'Admitido',      color: Colors.success },
+      matriculado:        { label: 'Matriculado',   color: '#8B5CF6' },
+      rejeitado:          { label: 'Rejeitado',     color: Colors.danger },
+      reprovado_admissao: { label: 'Reprovado',     color: Colors.textMuted },
+    };
+    return Object.entries(mapa)
+      .filter(([, v]) => v > 0)
+      .map(([status, value]) => ({
+        label: CONFIG[status]?.label ?? status,
+        value,
+        color: CONFIG[status]?.color ?? Colors.gold,
+      }));
+  }, [registros]);
 
   const desempenhoPorDisciplina = useMemo(() => {
     const discs = [...new Set(notas.map(n => n.disciplina))].slice(0, 6);
@@ -194,13 +220,15 @@ export default function DashboardScreen() {
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const QUICK_ACTIONS = [
-    { label: 'Novo Aluno', icon: 'person-add', route: '/(main)/alunos', color: Colors.info },
-    { label: 'Lançar Notas', icon: 'document-text', route: '/(main)/notas', color: Colors.gold },
-    { label: 'Desempenho', icon: 'stats-chart', route: '/(main)/desempenho', color: '#8B5CF6' },
-    { label: 'Presenças', icon: 'qr-code', route: '/(main)/presencas', color: Colors.success },
-    { label: 'Eventos', icon: 'calendar', route: '/(main)/eventos', color: Colors.accent },
-    { label: 'Relatórios', icon: 'bar-chart', route: '/(main)/relatorios', color: Colors.warning },
+    { label: 'Novo Aluno',   icon: 'person-add',   route: '/(main)/alunos',    color: Colors.info },
+    { label: 'Lançar Notas', icon: 'document-text', route: '/(main)/notas',     color: Colors.gold },
+    { label: 'Desempenho',   icon: 'stats-chart',   route: '/(main)/desempenho',color: '#8B5CF6' },
+    { label: 'Presenças',    icon: 'qr-code',       route: '/(main)/presencas', color: Colors.success },
+    { label: 'Eventos',      icon: 'calendar',      route: '/(main)/eventos',   color: Colors.accent },
+    { label: 'Relatórios',   icon: 'bar-chart',     route: '/(main)/relatorios',color: Colors.warning },
   ];
+
+  const refreshing = isLoading || loadingReg;
 
   return (
     <View style={st.screen}>
@@ -212,7 +240,7 @@ export default function DashboardScreen() {
         style={st.scroll}
         contentContainerStyle={[st.content, { paddingBottom: bottomPad + 24 }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={isLoading} colors={[Colors.gold]} tintColor={Colors.gold} />}
+        refreshControl={<RefreshControl refreshing={refreshing} colors={[Colors.gold]} tintColor={Colors.gold} />}
       >
 
         {/* ── KPIs principais ───────────────────────────────── */}
@@ -229,7 +257,6 @@ export default function DashboardScreen() {
         <View style={st.section}>
           <SectionTitle label="Estado de Matrículas" color={Colors.info} action={() => router.push('/(main)/alunos')} actionLabel="Ver alunos" />
           <View style={st.card}>
-            {/* Barra ocupação geral */}
             <View style={st.matriculaResumo}>
               <View style={st.matriculaResumoItem}>
                 <Text style={[st.matriculaBig, { color: Colors.success }]}>{alunosAtivos.length}</Text>
@@ -247,7 +274,6 @@ export default function DashboardScreen() {
               </View>
             </View>
 
-            {/* Barra visual de ocupação */}
             <View style={st.ocupacaoBarraWrap}>
               <View style={[st.ocupacaoBarra, { flex: alunosAtivos.length || 0.001, backgroundColor: Colors.success }]} />
               <View style={[st.ocupacaoBarra, { flex: Math.max(kpi.totalCap - alunosAtivos.length, 0.001), backgroundColor: Colors.border }]} />
@@ -256,12 +282,10 @@ export default function DashboardScreen() {
               {kpi.taxaOcupacao}% das vagas preenchidas · {Math.max(0, kpi.totalCap - alunosAtivos.length)} vagas livres
             </Text>
 
-            {/* Distribuição por género */}
             <View style={st.cardDivider} />
             <Text style={st.subCardTitle}>Distribuição por Género</Text>
             <GenderBar masculino={kpi.masculino} feminino={kpi.feminino} total={alunosAtivos.length} />
 
-            {/* Distribuição por nível */}
             {matriculasPorNivel.length > 0 && (
               <>
                 <View style={st.cardDivider} />
@@ -278,6 +302,63 @@ export default function DashboardScreen() {
             )}
           </View>
         </View>
+
+        {/* ── Gráfico Donut: Alunos por Turno ──────────────── */}
+        {alunosPorTurno.length > 0 && (
+          <View style={st.section}>
+            <SectionTitle label="Alunos por Turno" color={Colors.gold} />
+            <View style={[st.card, { alignItems: 'center' }]}>
+              <DonutChart
+                data={alunosPorTurno}
+                size={180}
+                thickness={32}
+                centerLabel={String(alunosAtivos.length)}
+                centerSub="alunos"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* ── Gráfico Donut: Nível de Ensino ────────────────── */}
+        {matriculasPorNivel.some(n => n.value > 0) && (
+          <View style={st.section}>
+            <SectionTitle label="Distribuição por Nível" color={Colors.success} />
+            <View style={[st.card, { alignItems: 'center' }]}>
+              <DonutChart
+                data={matriculasPorNivel.filter(n => n.value > 0)}
+                size={180}
+                thickness={32}
+                centerLabel={String(alunosAtivos.length)}
+                centerSub="total"
+              />
+            </View>
+          </View>
+        )}
+
+        {/* ── Estados de Admissão ───────────────────────────── */}
+        {estadosAdmissao.length > 0 && (
+          <View style={st.section}>
+            <SectionTitle label="Processo de Admissão" color='#8B5CF6' action={() => router.push('/(main)/admissao' as any)} actionLabel="Ver admissões" />
+            <View style={st.card}>
+              <View style={st.admissaoSummary}>
+                {estadosAdmissao.map(e => (
+                  <View key={e.label} style={[st.admissaoChip, { backgroundColor: e.color + '18', borderColor: e.color + '44' }]}>
+                    <Text style={[st.admissaoVal, { color: e.color }]}>{e.value}</Text>
+                    <Text style={[st.admissaoLbl, { color: e.color }]}>{e.label}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={st.cardDivider} />
+              <DonutChart
+                data={estadosAdmissao}
+                size={180}
+                thickness={30}
+                centerLabel={String(registros.length)}
+                centerSub="pedidos"
+              />
+            </View>
+          </View>
+        )}
 
         {/* ── Taxa de Ocupação por Turma ───────────────────── */}
         {ocupacaoPorTurma.length > 0 && (
@@ -296,16 +377,6 @@ export default function DashboardScreen() {
                   </View>
                 );
               })}
-            </View>
-          </View>
-        )}
-
-        {/* ── Gráfico: Alunos por Nível (Pie) ──────────────── */}
-        {matriculasPorNivel.some(n => n.value > 0) && (
-          <View style={st.section}>
-            <SectionTitle label="Distribuição por Nível" color={Colors.success} />
-            <View style={[st.card, { alignItems: 'center' }]}>
-              <PieChart data={matriculasPorNivel.filter(n => n.value > 0)} size={170} />
             </View>
           </View>
         )}
@@ -350,6 +421,18 @@ export default function DashboardScreen() {
                     <View style={[st.presencaBarSeg, { flex: presencaSemana.faltas, backgroundColor: Colors.danger }]} />
                   )}
                 </View>
+                <View style={st.cardDivider} />
+                <DonutChart
+                  data={[
+                    { label: 'Presentes', value: presencaSemana.presentes, color: Colors.success },
+                    { label: 'Justif.', value: presencaSemana.justif, color: Colors.warning },
+                    { label: 'Faltas', value: presencaSemana.faltas, color: Colors.danger },
+                  ].filter(d => d.value > 0)}
+                  size={160}
+                  thickness={26}
+                  centerLabel={`${presencaSemana.taxaP}%`}
+                  centerSub="assiduidade"
+                />
               </>
             )}
           </View>
@@ -471,6 +554,11 @@ const st = StyleSheet.create({
   nivelChipVal: { fontSize: 22, fontFamily: 'Inter_700Bold' },
   nivelChipLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', textAlign: 'center' },
 
+  admissaoSummary: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  admissaoChip: { flex: 1, minWidth: 80, borderWidth: 1, borderRadius: 12, padding: 10, alignItems: 'center', gap: 2 },
+  admissaoVal: { fontSize: 20, fontFamily: 'Inter_700Bold' },
+  admissaoLbl: { fontSize: 10, fontFamily: 'Inter_500Medium', textAlign: 'center' },
+
   ocupRow: { gap: 4 },
   ocupNome: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
   ocupBarWrap: { height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
@@ -483,14 +571,6 @@ const st = StyleSheet.create({
   presencaLbl: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   presencaBarra: { flexDirection: 'row', height: 10, borderRadius: 5, overflow: 'hidden', gap: 2 },
   presencaBarSeg: { borderRadius: 4 },
-
-  progRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-  progMeta: { width: 90 },
-  progLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  progSublabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
-  progBarWrap: { flex: 1, height: 8, backgroundColor: Colors.border, borderRadius: 4, overflow: 'hidden' },
-  progBarFill: { height: '100%', borderRadius: 4 },
-  progPct: { width: 36, fontSize: 11, fontFamily: 'Inter_700Bold', textAlign: 'right' },
 
   eventCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   eventBar: { width: 4, alignSelf: 'stretch' },

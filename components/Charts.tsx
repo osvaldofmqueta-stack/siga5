@@ -148,6 +148,94 @@ export function PieChart({ data, size = 160 }: PieChartProps) {
   );
 }
 
+interface DonutChartProps {
+  data: { label: string; value: number; color: string }[];
+  size?: number;
+  thickness?: number;
+  centerLabel?: string;
+  centerSub?: string;
+}
+
+export function DonutChart({ data, size = 160, thickness = 28, centerLabel, centerSub }: DonutChartProps) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return null;
+  const r = size / 2 - thickness / 2 - 4;
+  const cx = size / 2;
+  const cy = size / 2;
+  const circumference = 2 * Math.PI * r;
+  const GAP = 0.025;
+
+  let cumAngle = -Math.PI / 2;
+  const slices = data.map(d => {
+    const fraction = d.value / total;
+    const angle = fraction * 2 * Math.PI - GAP;
+    const start = cumAngle + GAP / 2;
+    cumAngle += fraction * 2 * Math.PI;
+    const end = start + angle;
+    const x1 = cx + r * Math.cos(start);
+    const y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end);
+    const y2 = cy + r * Math.sin(end);
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const path = `M${x1.toFixed(2)},${y1.toFixed(2)} A${r},${r} 0 ${largeArc},1 ${x2.toFixed(2)},${y2.toFixed(2)}`;
+    return { path, color: d.color, label: d.label, value: d.value, pct: Math.round((d.value / total) * 100) };
+  });
+
+  return (
+    <View style={{ alignItems: 'center', gap: 12 }}>
+      <View style={{ width: size, height: size }}>
+        <Svg width={size} height={size}>
+          {slices.map((s, i) => (
+            <Path
+              key={i}
+              d={s.path}
+              stroke={s.color}
+              strokeWidth={thickness}
+              fill="none"
+              strokeLinecap="round"
+              opacity={0.92}
+            />
+          ))}
+          {centerLabel ? (
+            <G>
+              <SvgText
+                x={cx}
+                y={cy - 6}
+                textAnchor="middle"
+                fontSize={20}
+                fontFamily="Inter_700Bold"
+                fill={Colors.text}
+              >
+                {centerLabel}
+              </SvgText>
+              {centerSub ? (
+                <SvgText
+                  x={cx}
+                  y={cy + 12}
+                  textAnchor="middle"
+                  fontSize={10}
+                  fontFamily="Inter_400Regular"
+                  fill={Colors.textMuted}
+                >
+                  {centerSub}
+                </SvgText>
+              ) : null}
+            </G>
+          ) : null}
+        </Svg>
+      </View>
+      <View style={styles.legend}>
+        {slices.map((s, i) => (
+          <View key={i} style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: s.color }]} />
+            <Text style={styles.legendLabel}>{s.label} · {s.value} ({s.pct}%)</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   legend: {
     flexWrap: 'wrap',
