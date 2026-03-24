@@ -1,0 +1,526 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Alert, Platform, ActivityIndicator, Modal, TextInput,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Colors } from '@/constants/colors';
+import { PROVISORIO_KEY } from './login-provisorio';
+
+interface Registro {
+  id: string;
+  nomeCompleto: string;
+  dataNascimento: string;
+  genero: string;
+  provincia: string;
+  municipio: string;
+  telefone: string;
+  email: string;
+  nivel: string;
+  classe: string;
+  status: string;
+  senhaProvisoria: string;
+  dataProva?: string;
+  notaAdmissao?: number;
+  resultadoAdmissao?: string;
+  matriculaCompleta?: boolean;
+  rupeInscricao?: string;
+  rupeMatricula?: string;
+  nomeEncarregado: string;
+  criadoEm: string;
+}
+
+type Status = 'aprovado' | 'admitido' | 'reprovado_admissao' | 'matriculado' | string;
+
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string; bg: string }> = {
+  aprovado: { label: 'Aprovado para Exame', color: '#3498DB', icon: 'checkmark-circle-outline', bg: 'rgba(52,152,219,0.1)' },
+  admitido: { label: 'Admitido', color: Colors.success, icon: 'trophy-outline', bg: 'rgba(39,174,96,0.1)' },
+  reprovado_admissao: { label: 'Não Admitido', color: Colors.danger, icon: 'close-circle-outline', bg: 'rgba(231,76,60,0.1)' },
+  matriculado: { label: 'Matrícula Concluída', color: Colors.gold, icon: 'ribbon-outline', bg: 'rgba(240,165,0,0.1)' },
+};
+
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <Ionicons name={icon as any} size={14} color={Colors.textMuted} style={styles.infoRowIcon} />
+      <View>
+        <Text style={styles.infoRowLabel}>{label}</Text>
+        <Text style={styles.infoRowValue}>{value || '—'}</Text>
+      </View>
+    </View>
+  );
+}
+
+function TimelineStep({ num, label, done, active }: { num: number; label: string; done: boolean; active: boolean }) {
+  return (
+    <View style={tlStyles.step}>
+      <View style={[tlStyles.circle, done && tlStyles.circleDone, active && tlStyles.circleActive]}>
+        {done
+          ? <Ionicons name="checkmark" size={12} color="#fff" />
+          : <Text style={[tlStyles.num, active && tlStyles.numActive]}>{num}</Text>
+        }
+      </View>
+      <Text style={[tlStyles.label, (done || active) && tlStyles.labelActive]}>{label}</Text>
+    </View>
+  );
+}
+
+export default function PortalProvisorioScreen() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const [registro, setRegistro] = useState<Registro | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isActing, setIsActing] = useState(false);
+  const [rupeModal, setRupeModal] = useState<{ visible: boolean; tipo: 'inscricao' | 'matricula'; rupe: any } | null>(null);
+
+  const topPad = Platform.OS === 'web' ? 56 : insets.top;
+  const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
+
+  const loadRegistro = useCallback(async () => {
+    try {
+      const raw = await AsyncStorage.getItem(PROVISORIO_KEY);
+      if (!raw) { router.replace('/login-provisorio' as any); return; }
+      const stored = JSON.parse(raw) as Registro;
+      const res = await fetch(`/api/registros/${stored.id}`);
+      if (!res.ok) throw new Error();
+      const fresh = await res.json();
+      await AsyncStorage.setItem(PROVISORIO_KEY, JSON.stringify(fresh));
+      setRegistro(fresh);
+    } catch {
+      const raw = await AsyncStorage.getItem(PROVISORIO_KEY);
+      if (raw) setRegistro(JSON.parse(raw));
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadRegistro(); }, []);
+
+  async function handleGerarRUPE(tipo: 'inscricao' | 'matricula') {
+    if (!registro) return;
+    const campo = tipo === 'inscricao' ? 'rupeInscricao' : 'rupeMatricula';
+    if ((registro as any)[campo]) {
+      setRupeModal({ visible: true, tipo, rupe: { referencia: (registro as any)[campo] } });
+      return;
+    }
+    setIsActing(true);
+    try {
+      const res = await fetch(`/api/registros/${registro.id}/gerar-rupe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo, valor: tipo === 'inscricao' ? 5000 : 10000 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setRegistro(data.registro);
+      await AsyncStorage.setItem(PROVISORIO_KEY, JSON.stringify(data.registro));
+      setRupeModal({ visible: true, tipo, rupe: data });
+    } catch (e: any) {
+      Alert.alert('Erro', e.message || 'Não foi possível gerar o RUPE.');
+    } finally {
+      setIsActing(false);
+    }
+  }
+
+  async function handleCompletarMatricula() {
+    if (!registro) return;
+    Alert.alert(
+      'Completar Matrícula',
+      'Confirma que pretende finalizar a sua matrícula? Esta acção é irreversível.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar', onPress: async () => {
+            setIsActing(true);
+            try {
+              const res = await fetch(`/api/registros/${registro.id}/completar-matricula`, { method: 'POST' });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error);
+              await loadRegistro();
+              Alert.alert('Matrícula Concluída!', `O número de matrícula é: ${data.numeroMatricula}\n\nA sua conta oficial foi activada. Pode agora aceder com as mesmas credenciais.`);
+            } catch (e: any) {
+              Alert.alert('Erro', e.message || 'Não foi possível completar a matrícula.');
+            } finally {
+              setIsActing(false);
+            }
+          }
+        },
+      ]
+    );
+  }
+
+  async function handleSair() {
+    await AsyncStorage.removeItem(PROVISORIO_KEY);
+    router.replace('/login' as any);
+  }
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <ActivityIndicator color={Colors.gold} size="large" />
+      </View>
+    );
+  }
+
+  if (!registro) return null;
+
+  const status: Status = registro.status;
+  const cfg = STATUS_CONFIG[status] ?? { label: status, color: Colors.textMuted, icon: 'help-circle-outline', bg: 'rgba(255,255,255,0.05)' };
+
+  const nome = registro.nomeCompleto || '';
+  const partes = nome.trim().split(/\s+/);
+  const primeiroNome = partes[0] || '';
+
+  const timelineSteps = ['Inscrição', 'Análise', 'Exame', 'Resultado', 'Matrícula'];
+  const timelineActive = { aprovado: 2, admitido: 3, reprovado_admissao: 3, matriculado: 4 }[status] ?? 1;
+
+  return (
+    <View style={styles.container}>
+      <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+
+      {/* Header */}
+      <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 8 }]}>
+        <View style={styles.headerInner}>
+        <View style={styles.headerRow}>
+          <View>
+            <Text style={styles.headerGreeting}>Olá, {primeiroNome}</Text>
+            <Text style={styles.headerSubtitle}>Conta Provisória — Processo de Admissão</Text>
+          </View>
+          <TouchableOpacity onPress={handleSair} style={styles.sairBtn} activeOpacity={0.8}>
+            <Ionicons name="log-out-outline" size={18} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Status badge */}
+        <View style={[styles.statusBadge, { backgroundColor: cfg.bg }]}>
+          <Ionicons name={cfg.icon as any} size={16} color={cfg.color} />
+          <Text style={[styles.statusBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+
+        {/* Timeline */}
+        <View style={styles.timeline}>
+          {timelineSteps.map((label, i) => (
+            <React.Fragment key={i}>
+              {i > 0 && <View style={[tlStyles.connector, i <= timelineActive && tlStyles.connectorDone]} />}
+              <TimelineStep
+                num={i + 1}
+                label={label}
+                done={i < timelineActive}
+                active={i === timelineActive}
+              />
+            </React.Fragment>
+          ))}
+        </View>
+        </View>
+      </LinearGradient>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 24 }]}
+        showsVerticalScrollIndicator={false}
+      >
+
+        {/* ── APROVADO PARA EXAME ── */}
+        {status === 'aprovado' && (
+          <>
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.cardIcon, { backgroundColor: 'rgba(52,152,219,0.12)' }]}>
+                  <Ionicons name="calendar-outline" size={16} color="#3498DB" />
+                </View>
+                <Text style={styles.cardTitle}>Data do Exame de Admissão</Text>
+              </View>
+              {registro.dataProva ? (
+                <View style={styles.dataProvaBox}>
+                  <Ionicons name="calendar" size={32} color={Colors.gold} />
+                  <View>
+                    <Text style={styles.dataProvaLabel}>Exame marcado para</Text>
+                    <Text style={styles.dataProvaValue}>{registro.dataProva}</Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.pendingBox}>
+                  <Ionicons name="hourglass-outline" size={20} color={Colors.textMuted} />
+                  <Text style={styles.pendingText}>A secretaria ainda não publicou a data do exame. Consulte esta página regularmente.</Text>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.cardIcon, { backgroundColor: 'rgba(240,165,0,0.12)' }]}>
+                  <Ionicons name="receipt-outline" size={16} color={Colors.gold} />
+                </View>
+                <Text style={styles.cardTitle}>Pagamento da Inscrição via RUPE</Text>
+              </View>
+              <Text style={styles.cardDesc}>
+                Para garantir o seu lugar no exame de admissão, efectue o pagamento da taxa de inscrição através do sistema RUPE.
+              </Text>
+              {registro.rupeInscricao ? (
+                <View style={styles.rupeBox}>
+                  <Text style={styles.rupeLabel}>Referência RUPE</Text>
+                  <Text style={styles.rupeRef}>{registro.rupeInscricao}</Text>
+                  <Text style={styles.rupeInfo}>Pague em qualquer balcão Multicaixa ou banco</Text>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleGerarRUPE('inscricao')} disabled={isActing} activeOpacity={0.85}>
+                  {isActing ? <ActivityIndicator color="#fff" size="small" /> : <>
+                    <Ionicons name="qr-code-outline" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Gerar RUPE de Inscrição</Text>
+                  </>}
+                </TouchableOpacity>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* ── ADMITIDO ── */}
+        {status === 'admitido' && (
+          <>
+            <View style={[styles.card, styles.cardSuccess]}>
+              <View style={styles.cardHead}>
+                <Ionicons name="trophy-outline" size={22} color={Colors.success} />
+                <Text style={[styles.cardTitle, { color: Colors.success }]}>Parabéns! Foi Admitido(a)</Text>
+              </View>
+              {registro.notaAdmissao !== undefined && registro.notaAdmissao !== null && (
+                <View style={styles.notaBox}>
+                  <Text style={styles.notaLabel}>Nota do Exame de Admissão</Text>
+                  <Text style={styles.notaValue}>{registro.notaAdmissao}/20</Text>
+                </View>
+              )}
+              <Text style={styles.cardDesc}>
+                Foi admitido(a) para a {registro.classe}. Complete a sua matrícula para oficializar a sua inscrição na escola.
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <View style={styles.cardHead}>
+                <View style={[styles.cardIcon, { backgroundColor: 'rgba(240,165,0,0.12)' }]}>
+                  <Ionicons name="receipt-outline" size={16} color={Colors.gold} />
+                </View>
+                <Text style={styles.cardTitle}>Pagamento da Matrícula via RUPE</Text>
+              </View>
+              <Text style={styles.cardDesc}>Antes de completar a matrícula, efectue o pagamento da taxa de matrícula.</Text>
+              {registro.rupeMatricula ? (
+                <View style={styles.rupeBox}>
+                  <Text style={styles.rupeLabel}>Referência RUPE — Matrícula</Text>
+                  <Text style={styles.rupeRef}>{registro.rupeMatricula}</Text>
+                  <Text style={styles.rupeInfo}>Pague em qualquer balcão Multicaixa ou banco</Text>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.actionBtn} onPress={() => handleGerarRUPE('matricula')} disabled={isActing} activeOpacity={0.85}>
+                  {isActing ? <ActivityIndicator color="#fff" size="small" /> : <>
+                    <Ionicons name="qr-code-outline" size={16} color="#fff" />
+                    <Text style={styles.actionBtnText}>Gerar RUPE de Matrícula</Text>
+                  </>}
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.completarBtn, isActing && { opacity: 0.6 }]}
+              onPress={handleCompletarMatricula}
+              disabled={isActing}
+              activeOpacity={0.85}
+            >
+              <LinearGradient colors={[Colors.success, '#27AE60']} style={styles.completarBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                {isActing ? <ActivityIndicator color="#fff" size="small" /> : <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.completarBtnText}>Completar Matrícula</Text>
+                </>}
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ── REPROVADO ── */}
+        {status === 'reprovado_admissao' && (
+          <View style={[styles.card, styles.cardDanger]}>
+            <View style={styles.cardHead}>
+              <Ionicons name="close-circle-outline" size={22} color={Colors.danger} />
+              <Text style={[styles.cardTitle, { color: Colors.danger }]}>Não Admitido(a)</Text>
+            </View>
+            {registro.notaAdmissao !== undefined && registro.notaAdmissao !== null && (
+              <View style={styles.notaBox}>
+                <Text style={styles.notaLabel}>Nota do Exame</Text>
+                <Text style={[styles.notaValue, { color: Colors.danger }]}>{registro.notaAdmissao}/20</Text>
+              </View>
+            )}
+            <Text style={styles.cardDesc}>
+              Lamentamos informar que não foi admitido(a) neste processo de admissão. A sua conta provisória foi encerrada.
+            </Text>
+            <Text style={[styles.cardDesc, { color: Colors.textMuted, marginTop: 8 }]}>
+              Poderá candidatar-se novamente no próximo processo de admissão.
+            </Text>
+          </View>
+        )}
+
+        {/* ── MATRICULADO ── */}
+        {status === 'matriculado' && (
+          <>
+            <View style={[styles.card, { borderColor: 'rgba(240,165,0,0.3)' }]}>
+              <View style={styles.cardHead}>
+                <Ionicons name="ribbon-outline" size={22} color={Colors.gold} />
+                <Text style={[styles.cardTitle, { color: Colors.gold }]}>Matrícula Concluída!</Text>
+              </View>
+              <Text style={styles.cardDesc}>
+                A sua matrícula foi concluída com sucesso. A sua conta de estudante foi activada e pode aceder ao portal oficial com as mesmas credenciais.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.completarBtn}
+              onPress={() => router.replace('/login' as any)}
+              activeOpacity={0.85}
+            >
+              <LinearGradient colors={[Colors.gold, '#E67E22']} style={styles.completarBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <Ionicons name="log-in-outline" size={20} color="#fff" />
+                <Text style={styles.completarBtnText}>Aceder à Conta Oficial</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* ── Dados da Inscrição ── */}
+        <View style={styles.card}>
+          <View style={styles.cardHead}>
+            <View style={[styles.cardIcon, { backgroundColor: 'rgba(255,255,255,0.06)' }]}>
+              <Ionicons name="document-text-outline" size={16} color={Colors.textSecondary} />
+            </View>
+            <Text style={styles.cardTitle}>Dados da Inscrição</Text>
+            <TouchableOpacity onPress={loadRegistro} style={styles.refreshBtn}>
+              <Ionicons name="refresh-outline" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
+          <InfoRow icon="person-outline" label="Nome Completo" value={registro.nomeCompleto} />
+          <InfoRow icon="calendar-outline" label="Data de Nascimento" value={registro.dataNascimento} />
+          <InfoRow icon="mail-outline" label="Email" value={registro.email} />
+          <InfoRow icon="school-outline" label="Nível / Classe" value={`${registro.nivel} — ${registro.classe}`} />
+          <InfoRow icon="location-outline" label="Província / Município" value={`${registro.provincia} / ${registro.municipio}`} />
+          <InfoRow icon="people-outline" label="Encarregado" value={registro.nomeEncarregado} />
+
+          <TouchableOpacity
+            style={styles.boletimBtn}
+            onPress={() => router.push(`/boletim-inscricao?id=${registro.id}` as any)}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="document-text-outline" size={16} color={Colors.gold} />
+            <Text style={styles.boletimBtnText}>Ver / Imprimir Boletim de Inscrição</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+      </ScrollView>
+
+      {/* RUPE Modal */}
+      {rupeModal && (
+        <Modal visible={rupeModal.visible} transparent animationType="fade" onRequestClose={() => setRupeModal(null)}>
+          <View style={modalStyles.overlay}>
+            <View style={modalStyles.container}>
+              <Ionicons name="receipt-outline" size={40} color={Colors.gold} />
+              <Text style={modalStyles.title}>Referência RUPE Gerada</Text>
+              <Text style={modalStyles.subtitle}>{rupeModal.tipo === 'inscricao' ? 'Taxa de Inscrição' : 'Taxa de Matrícula'}</Text>
+              <View style={modalStyles.refBox}>
+                <Text style={modalStyles.ref}>{rupeModal.rupe?.referencia}</Text>
+              </View>
+              {rupeModal.rupe?.valor && <Text style={modalStyles.valor}>{rupeModal.rupe.valor.toLocaleString()} AOA</Text>}
+              {rupeModal.rupe?.validade && <Text style={modalStyles.validade}>Válido até: {rupeModal.rupe.validade}</Text>}
+              <Text style={modalStyles.info}>Utilize esta referência para efectuar o pagamento em qualquer banco ou caixa Multicaixa Express.</Text>
+              <TouchableOpacity style={modalStyles.btn} onPress={() => setRupeModal(null)}>
+                <Text style={modalStyles.btnText}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  header: { paddingBottom: 16, alignItems: 'center' },
+  headerInner: { maxWidth: 480, width: '100%', paddingHorizontal: 20, gap: 12 },
+  headerRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  headerGreeting: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text },
+  headerSubtitle: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  sairBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'flex-start' },
+  statusBadgeText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  timeline: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 4 },
+
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, gap: 16, maxWidth: 480, width: '100%', alignSelf: 'center' },
+
+  card: { backgroundColor: Colors.backgroundCard, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 18, gap: 14 },
+  cardSuccess: { borderColor: 'rgba(39,174,96,0.3)', backgroundColor: 'rgba(39,174,96,0.05)' },
+  cardDanger: { borderColor: 'rgba(231,76,60,0.3)', backgroundColor: 'rgba(231,76,60,0.05)' },
+  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardIcon: { width: 32, height: 32, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
+  cardDesc: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 },
+  refreshBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+
+  pendingBox: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14 },
+  pendingText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1, lineHeight: 18 },
+
+  dataProvaBox: { flexDirection: 'row', gap: 14, alignItems: 'center', backgroundColor: 'rgba(240,165,0,0.08)', borderRadius: 12, padding: 16, borderWidth: 1, borderColor: 'rgba(240,165,0,0.2)' },
+  dataProvaLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  dataProvaValue: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.gold, marginTop: 2 },
+
+  rupeBox: { backgroundColor: 'rgba(240,165,0,0.08)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(240,165,0,0.2)', gap: 4 },
+  rupeLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  rupeRef: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 1 },
+  rupeInfo: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  actionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A5276', borderRadius: 12, paddingVertical: 14 },
+  actionBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  notaBox: { alignItems: 'center', paddingVertical: 12, gap: 4 },
+  notaLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  notaValue: { fontSize: 36, fontFamily: 'Inter_700Bold', color: Colors.success },
+
+  completarBtn: { borderRadius: 14, overflow: 'hidden' },
+  completarBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 10 },
+  completarBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  infoRowIcon: { marginTop: 2 },
+  infoRowLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  infoRowValue: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, marginTop: 2 },
+
+  boletimBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(240,165,0,0.08)', borderRadius: 12, paddingVertical: 13, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(240,165,0,0.25)', marginTop: 6 },
+  boletimBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold, flex: 1 },
+});
+
+const tlStyles = StyleSheet.create({
+  step: { alignItems: 'center', gap: 4 },
+  circle: { width: 22, height: 22, borderRadius: 11, backgroundColor: Colors.backgroundElevated, borderWidth: 2, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' },
+  circleDone: { backgroundColor: Colors.success, borderColor: Colors.success },
+  circleActive: { borderColor: Colors.gold, backgroundColor: 'rgba(240,165,0,0.15)' },
+  num: { fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
+  numActive: { color: Colors.gold },
+  label: { fontSize: 7, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+  labelActive: { color: Colors.text },
+  connector: { flex: 1, height: 2, backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: 18 },
+  connectorDone: { backgroundColor: Colors.success },
+});
+
+const modalStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  container: { backgroundColor: '#0F1F40', borderRadius: 24, padding: 28, width: '100%', maxWidth: 380, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
+  title: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text, textAlign: 'center' },
+  subtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  refBox: { backgroundColor: 'rgba(240,165,0,0.1)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(240,165,0,0.3)', width: '100%', alignItems: 'center' },
+  ref: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 1, textAlign: 'center' },
+  valor: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text },
+  validade: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  info: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 18 },
+  btn: { backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingVertical: 14, paddingHorizontal: 32, width: '100%', alignItems: 'center' },
+  btnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+});
