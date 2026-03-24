@@ -14,7 +14,6 @@ import { useAuth } from '@/context/AuthContext';
 import type { AuthUser } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
-import WelcomeModal from '@/components/WelcomeModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -71,13 +70,6 @@ export default function LoginScreen() {
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
   const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
   const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'success' }>({ visible: false, title: '', message: '', type: 'error' });
-  const [welcomeModal, setWelcomeModal] = useState<{ visible: boolean; user: AuthUser | null; targetRoute: string }>({ visible: false, user: null, targetRoute: '' });
-
-  function showWelcome(user: AuthUser, route: string) {
-    showingWelcome.current = true;
-    setIsLoading(false);
-    setWelcomeModal({ visible: true, user, targetRoute: route });
-  }
 
   function showAlert(title: string, message: string, type: 'error' | 'success' = 'error') {
     setAlertModal({ visible: true, title, message, type });
@@ -91,21 +83,14 @@ export default function LoginScreen() {
   const footerOpacity = useRef(new Animated.Value(0)).current;
   const biometricPulse = useRef(new Animated.Value(1)).current;
   const biometricGlow = useRef(new Animated.Value(0)).current;
-  const showingWelcome = useRef(false);
 
   useEffect(() => {
     initLogin();
   }, []);
 
   useEffect(() => {
-    if (!authLoading && user && !showingWelcome.current) {
-      if (user.role === 'ceo') {
-        router.replace('/(main)/ceo');
-      } else if (user.role === 'secretaria') {
-        router.replace('/(main)/secretaria-hub');
-      } else {
-        router.replace('/(main)/dashboard');
-      }
+    if (!authLoading && user) {
+      router.replace(getRouteForRole(user.role) as any);
     }
   }, [user, authLoading]);
 
@@ -214,8 +199,7 @@ export default function LoginScreen() {
         setIsLoading(true);
         const authUser: AuthUser = { ...lastUser, biometricEnabled: true, avatar: lastUser.avatar };
         await login(authUser);
-        const route = getRouteForRole(lastUser.role);
-        showWelcome(authUser, route);
+        router.replace(getRouteForRole(lastUser.role) as any);
       }
     } catch (e) {
       console.error('Biometric auth error:', e);
@@ -252,18 +236,18 @@ export default function LoginScreen() {
         const bioAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
         if (emailTrimmed === CEO_ACCOUNT.email) {
           const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
+          await login(u); router.replace(getRouteForRole(CEO_ACCOUNT.role) as any);
         } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email) {
           const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
+          await login(u); router.replace(getRouteForRole(FINANCEIRO_ACCOUNT.role) as any);
         } else if (emailTrimmed === SECRETARIA_ACCOUNT.email) {
           const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: true, avatar: bioAvatar };
-          await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
+          await login(u); router.replace(getRouteForRole(SECRETARIA_ACCOUNT.role) as any);
         } else {
           const found = users.find(u => u.email.toLowerCase() === emailTrimmed && u.ativo);
           if (found) {
             const u: AuthUser = { id: found.id, nome: found.nome, email: found.email, role: found.role, escola: found.escola, biometricEnabled: true, avatar: bioAvatar };
-            await login(u); showWelcome(u, getRouteForRole(found.role));
+            await login(u); router.replace(getRouteForRole(found.role) as any);
           } else {
             showAlert('Utilizador não encontrado', 'Não existe conta activa com esse email.');
           }
@@ -299,21 +283,21 @@ export default function LoginScreen() {
     if (emailTrimmed === CEO_ACCOUNT.email && senha === CEO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, getRouteForRole(CEO_ACCOUNT.role));
+      await login(u); router.replace(getRouteForRole(CEO_ACCOUNT.role) as any);
     } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email && senha === FINANCEIRO_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, getRouteForRole(FINANCEIRO_ACCOUNT.role));
+      await login(u); router.replace(getRouteForRole(FINANCEIRO_ACCOUNT.role) as any);
     } else if (emailTrimmed === SECRETARIA_ACCOUNT.email && senha === SECRETARIA_ACCOUNT.senha) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); showWelcome(u, getRouteForRole(SECRETARIA_ACCOUNT.role));
+      await login(u); router.replace(getRouteForRole(SECRETARIA_ACCOUNT.role) as any);
     } else {
       const account = findByCredentials(emailTrimmed, senha);
       if (account) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         const u: AuthUser = { id: account.id, nome: account.nome, email: account.email, role: account.role, escola: account.escola, biometricEnabled: false, avatar: savedAvatar };
-        await login(u); showWelcome(u, getRouteForRole(account.role));
+        await login(u); router.replace(getRouteForRole(account.role) as any);
       } else {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         showAlert('Credenciais Inválidas', 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
@@ -697,15 +681,6 @@ export default function LoginScreen() {
           </View>
         </View>
         {alertModalView}
-        <WelcomeModal
-          visible={welcomeModal.visible}
-          user={welcomeModal.user}
-          onFinish={() => {
-            showingWelcome.current = false;
-            setWelcomeModal(p => ({ ...p, visible: false }));
-            router.replace(welcomeModal.targetRoute as any);
-          }}
-        />
       </ImageBackground>
     );
   }
@@ -754,15 +729,6 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       {alertModalView}
-      <WelcomeModal
-        visible={welcomeModal.visible}
-        user={welcomeModal.user}
-        onFinish={() => {
-          showingWelcome.current = false;
-          setWelcomeModal(p => ({ ...p, visible: false }));
-          router.replace(welcomeModal.targetRoute as any);
-        }}
-      />
     </ImageBackground>
   );
 }

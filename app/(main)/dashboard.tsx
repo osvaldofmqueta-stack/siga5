@@ -12,7 +12,6 @@ import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { BarChart, PieChart, DonutChart } from '@/components/Charts';
 import { apiRequest } from '@/lib/query-client';
-import WelcomeModal from '@/components/WelcomeModal';
 
 const { width } = Dimensions.get('window');
 const CHART_W = Math.min(width - 64, 360);

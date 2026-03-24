@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
@@ -9,18 +9,25 @@ import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import SessionTimeoutModal, { useSessionTimeout } from '@/components/SessionTimeoutModal';
 import ToastManager from '@/components/ToastManager';
+import WelcomeModal from '@/components/WelcomeModal';
 
 export default function MainLayout() {
   const { user, isLoading: authLoading, logout } = useAuth();
   const { isLicencaValida, diasRestantes, isLoading: licLoading } = useLicense();
   const router = useRouter();
   const { isDesktop } = useBreakpoint();
+  const [showWelcome, setShowWelcome] = useState(false);
+  const firstLoadChecked = useRef(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
       router.replace('/login' as any);
       return;
+    }
+    if (!firstLoadChecked.current) {
+      firstLoadChecked.current = true;
+      setShowWelcome(true);
     }
   }, [user, authLoading]);
 
@@ -96,6 +103,11 @@ export default function MainLayout() {
         onLogout={handleLogout}
       />
       <ToastManager />
+      <WelcomeModal
+        visible={showWelcome}
+        user={user}
+        onFinish={() => setShowWelcome(false)}
+      />
     </View>
   );
 }
