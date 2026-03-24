@@ -18,31 +18,36 @@ const RING_STROKE = 16;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUM = 2 * Math.PI * RING_RADIUS;
 
-function getStatusInfo(dias: number) {
+function getStatusInfo(dias: number, maxDias: number = 30) {
+  const metade = Math.floor(maxDias * 0.5);
   if (dias <= 0) return {
     cor: '#FF3B30', corBg: '#2A0A0A', label: 'SUBSCRIÇÃO EXPIRADA',
     icon: 'shield-off' as const, gradStart: '#3A0808', gradEnd: '#1A0404',
     msg: 'A licença expirou. Active uma nova licença para continuar.',
+    blink: true,
   };
-  if (dias <= 7) return {
+  if (dias <= 10) return {
     cor: '#FF3B30', corBg: '#2A0A0A', label: 'EXPIRA EM BREVE!',
     icon: 'shield-alert' as const, gradStart: '#3A0808', gradEnd: '#1A0404',
     msg: `Apenas ${dias} dia${dias === 1 ? '' : 's'} restante${dias === 1 ? '' : 's'}! Renove imediatamente.`,
+    blink: true,
   };
-  if (dias <= 30) return {
-    cor: '#FF9F0A', corBg: '#1E1200', label: 'ATENÇÃO — RENOVE EM BREVE',
+  if (dias <= metade) return {
+    cor: '#FF9F0A', corBg: '#1E1200', label: 'RENOVE EM BREVE',
     icon: 'shield-alert-outline' as const, gradStart: '#2A1800', gradEnd: '#150C00',
-    msg: `A sua licença expira em ${dias} dias. Recomendamos que renove agora.`,
+    msg: `A sua licença expira em ${dias} dias. Recomendamos que renove antes de atingir o prazo.`,
+    blink: false,
   };
   return {
     cor: '#30D158', corBg: '#061A0E', label: 'PROTEGIDO — LICENÇA ACTIVA',
     icon: 'shield-check' as const, gradStart: '#0A2A14', gradEnd: '#04150A',
     msg: `O sistema está protegido. Licença válida por mais ${dias} dias.`,
+    blink: false,
   };
 }
 
 function AntivirusRing({ dias, maxDias }: { dias: number; maxDias: number }) {
-  const info = getStatusInfo(dias);
+  const info = getStatusInfo(dias, maxDias);
   const pct = maxDias > 0 ? Math.max(0, Math.min(dias / maxDias, 1)) : 0;
   const dashOffset = RING_CIRCUM * (1 - pct);
 
@@ -50,21 +55,27 @@ function AntivirusRing({ dias, maxDias }: { dias: number; maxDias: number }) {
   const opacity = useRef(new Animated.Value(0.6)).current;
 
   useEffect(() => {
-    if (dias <= 7) {
-      Animated.loop(
+    if (info.blink) {
+      const pulseAnim = Animated.loop(
         Animated.sequence([
           Animated.timing(pulse, { toValue: 1.04, duration: 600, useNativeDriver: true }),
           Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
         ])
-      ).start();
-      Animated.loop(
+      );
+      const opacityAnim = Animated.loop(
         Animated.sequence([
           Animated.timing(opacity, { toValue: 1, duration: 600, useNativeDriver: true }),
           Animated.timing(opacity, { toValue: 0.5, duration: 600, useNativeDriver: true }),
         ])
-      ).start();
+      );
+      pulseAnim.start();
+      opacityAnim.start();
+      return () => {
+        pulseAnim.stop();
+        opacityAnim.stop();
+      };
     }
-  }, [dias]);
+  }, [info.blink]);
 
   return (
     <View style={styles.avContainer}>
@@ -165,7 +176,7 @@ export default function LicencaScreen() {
     ? ({ mensal: 30, trimestral: 90, semestral: 180, anual: 365, avaliacao: 30 } as Record<string, number>)[licenca.plano] ?? 30
     : 30;
 
-  const info = getStatusInfo(diasRestantes);
+  const info = getStatusInfo(diasRestantes, maxDias);
 
   async function handleActivar() {
     if (!codigo.trim()) {

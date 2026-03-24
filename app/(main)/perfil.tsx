@@ -1,16 +1,72 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Alert, Platform, Image,
+  TextInput, Switch, Alert, Platform, Image, Animated,
 } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickAndUploadPhoto } from '@/lib/uploadPhoto';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { useLicense, diasAte, addDays, PLANO_LABEL, PLANO_DIAS } from '@/context/LicenseContext';
 import TopBar from '@/components/TopBar';
+
+function getEscolaStatusColor(dias: number, maxDias: number): string {
+  if (dias <= 0) return '#FF3B30';
+  if (dias <= 10) return '#FF3B30';
+  if (dias <= Math.floor(maxDias * 0.5)) return '#FF9F0A';
+  return '#30D158';
+}
+
+function EscolaStatusDot({ dias, maxDias }: { dias: number; maxDias: number }) {
+  const cor = getEscolaStatusColor(dias, maxDias);
+  const shouldBlink = dias <= 10;
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (shouldBlink) {
+      const anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(opacity, { toValue: 0.2, duration: 500, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+        ])
+      );
+      anim.start();
+      return () => anim.stop();
+    }
+  }, [shouldBlink]);
+
+  return (
+    <Animated.View style={[
+      perfilStyles.escolaDot,
+      { backgroundColor: cor, opacity: shouldBlink ? opacity : 1 },
+    ]} />
+  );
+}
+
+const perfilStyles = StyleSheet.create({
+  escolaDot: { width: 10, height: 10, borderRadius: 5 },
+  escolaCard: {
+    margin: 16, marginBottom: 0, backgroundColor: Colors.backgroundCard,
+    borderRadius: 16, padding: 16,
+  },
+  escolaRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  escolaInfo: { flex: 1, gap: 2 },
+  escolaNome: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  escolaMeta: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  escolaBadge: {
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  escolaBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
+  escolaEmpty: { alignItems: 'center', paddingVertical: 20, gap: 6 },
+  escolaEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+});
 
 const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Malanje', 'Uíge', 'Zaire', 'Cabinda', 'Kwanza Norte', 'Kwanza Sul', 'Lunda Norte', 'Lunda Sul', 'Huíla', 'Namibe', 'Moxico', 'Cuando Cubango', 'Cunene', 'Kuando Kubango'];
 
@@ -70,6 +126,7 @@ const ROLE_COLOR: Record<string, string> = {
 export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
   const { alunos, professores, turmas, notas, presencas } = useData();
+  const { codigosGerados } = useLicense();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -144,30 +201,88 @@ export default function PerfilScreen() {
       const totalTurmas = turmas.filter(t => t.ativo).length;
       const mediaNotas = notas.length > 0 ? (notas.reduce((s, n) => s + n.mac, 0) / notas.length).toFixed(1) : '—';
 
+      const escolasInstaladas = codigosGerados
+        .filter(c => c.usado && c.usadoPor && c.usadoEm)
+        .map(c => {
+          const maxDias = PLANO_DIAS[c.plano] ?? 30;
+          const dataExp = addDays(c.usadoEm!, c.diasValidade);
+          const diasRest = Math.max(0, diasAte(dataExp));
+          const cor = getEscolaStatusColor(diasRest, maxDias);
+          return { id: c.id, nome: c.usadoPor!, plano: c.plano, maxDias, diasRest, dataExp, cor };
+        })
+        .sort((a, b) => a.diasRest - b.diasRest);
+
       return (
-        <View style={styles.card}>
-          <SectionHeader title="Visão Geral do Sistema" icon="shield-checkmark" />
-          <View style={styles.statsGrid}>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNum, { color: Colors.info }]}>{totalAlunos}</Text>
-              <Text style={styles.statLbl}>Alunos</Text>
+        <>
+          <View style={styles.card}>
+            <SectionHeader title="Visão Geral do Sistema" icon="shield-checkmark" />
+            <View style={styles.statsGrid}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: Colors.info }]}>{totalAlunos}</Text>
+                <Text style={styles.statLbl}>Alunos</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: Colors.gold }]}>{totalProf}</Text>
+                <Text style={styles.statLbl}>Professores</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: Colors.success }]}>{totalTurmas}</Text>
+                <Text style={styles.statLbl}>Turmas</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statNum, { color: Colors.accent }]}>{mediaNotas}</Text>
+                <Text style={styles.statLbl}>Média Geral</Text>
+              </View>
             </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNum, { color: Colors.gold }]}>{totalProf}</Text>
-              <Text style={styles.statLbl}>Professores</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNum, { color: Colors.success }]}>{totalTurmas}</Text>
-              <Text style={styles.statLbl}>Turmas</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={[styles.statNum, { color: Colors.accent }]}>{mediaNotas}</Text>
-              <Text style={styles.statLbl}>Média Geral</Text>
-            </View>
+            <InfoRow label="Cargo" value={roleLabel} />
+            <InfoRow label="Instituição" value={user.escola} />
           </View>
-          <InfoRow label="Cargo" value={roleLabel} />
-          <InfoRow label="Instituição" value={user.escola} />
-        </View>
+
+          {user.role === 'pca' && (
+            <View style={perfilStyles.escolaCard}>
+              <SectionHeader title="Controlo das Escolas Instaladas" icon="business" />
+              {escolasInstaladas.length === 0 ? (
+                <View style={perfilStyles.escolaEmpty}>
+                  <MaterialCommunityIcons name="school-outline" size={32} color={Colors.textMuted} />
+                  <Text style={perfilStyles.escolaEmptyText}>Nenhuma escola instalada ainda.</Text>
+                </View>
+              ) : (
+                escolasInstaladas.map(e => (
+                  <View key={e.id} style={perfilStyles.escolaRow}>
+                    <EscolaStatusDot dias={e.diasRest} maxDias={e.maxDias} />
+                    <View style={perfilStyles.escolaInfo}>
+                      <Text style={perfilStyles.escolaNome}>{e.nome}</Text>
+                      <Text style={perfilStyles.escolaMeta}>
+                        {e.diasRest <= 0
+                          ? 'Licença expirada'
+                          : `${e.diasRest} dia${e.diasRest === 1 ? '' : 's'} restantes · expira ${e.dataExp}`}
+                      </Text>
+                    </View>
+                    <View style={[perfilStyles.escolaBadge, { borderWidth: 1, borderColor: e.cor + '44' }]}>
+                      <Text style={[perfilStyles.escolaBadgeText, { color: e.cor }]}>
+                        {PLANO_LABEL[e.plano]}
+                      </Text>
+                    </View>
+                  </View>
+                ))
+              )}
+              <View style={{ flexDirection: 'row', gap: 16, marginTop: 14, paddingTop: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#30D158' }} />
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Activa</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF9F0A' }} />
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Renovar em breve</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF3B30' }} />
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Crítico / Expirado</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        </>
       );
     }
 
