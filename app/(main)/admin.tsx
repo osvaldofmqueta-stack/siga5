@@ -385,7 +385,7 @@ export default function AdminScreen() {
           </LinearGradient>
           <View>
             <Text style={styles.heroTitle}>Painel de Administração</Text>
-            <Text style={styles.heroSub}>{user?.nome} · {user?.role === 'ceo' ? 'CEO / Super Admin' : user?.role === 'pca' ? 'PCA' : 'Administrador'}</Text>
+            <Text style={styles.heroSub}>{user?.nome} · {user?.role === 'ceo' ? 'CEO / Super Admin' : user?.role === 'pca' ? 'Presidente do Conselho de Administração' : user?.role === 'director' ? 'Director' : 'Administrador'}</Text>
           </View>
         </View>
         <View style={styles.heroStats}>
