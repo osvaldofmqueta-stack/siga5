@@ -409,7 +409,8 @@ export default function SecretariaHubScreen() {
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia'>('visao');
+  const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos'>('visao');
+  const [cursoExpandido, setCursoExpandido] = useState<string | null>(null);
 
   const stats = useMemo(() => ({
     totalAlunos: alunos.filter(a => a.ativo).length,
@@ -444,13 +445,15 @@ export default function SecretariaHubScreen() {
     { label: 'Gestão\nde Alunos', icon: 'people', color: Colors.success, action: () => router.push('/(main)/alunos' as any) },
     { label: 'Registo\nde Presenças', icon: 'calendar-check', color: Colors.gold, action: () => router.push('/(main)/presencas' as any) },
     { label: 'Notas &\nPautas', icon: 'ribbon', color: Colors.accent, action: () => router.push('/(main)/notas' as any) },
-    { label: 'Calendário\nEscolar', icon: 'calendar', color: '#8B5CF6', action: () => router.push('/(main)/eventos' as any) },
-    { label: 'Relatórios', icon: 'bar-chart', color: '#06B6D4', action: () => router.push('/(main)/relatorios' as any) },
+    { label: 'Gestão\nde Cursos', icon: 'school', color: '#8B5CF6', action: () => setActiveTab('cursos') },
+    { label: 'Calendário\nEscolar', icon: 'calendar', color: '#06B6D4', action: () => router.push('/(main)/eventos' as any) },
+    { label: 'Relatórios', icon: 'bar-chart', color: Colors.gold, action: () => router.push('/(main)/relatorios' as any) },
     { label: 'Credencial', icon: 'card', color: Colors.textSecondary, action: () => setShowCredenciais(true) },
   ];
 
   const TABS = [
     { key: 'visao', label: 'Visão Geral', icon: 'grid' },
+    { key: 'cursos', label: 'Cursos', icon: 'school' },
     { key: 'processos', label: 'Processos', icon: 'folder' },
     { key: 'documentos', label: 'Documentos', icon: 'document-text' },
     { key: 'correspondencia', label: 'Ofícios', icon: 'mail' },
@@ -658,6 +661,189 @@ export default function SecretariaHubScreen() {
           </View>
         )}
 
+        {/* ── GESTÃO DE CURSOS ─────────────────────────────── */}
+        {activeTab === 'cursos' && (() => {
+          const NIVEIS_CONFIG = [
+            { nivel: 'Ensino Primário', ciclo: 'Ensino Primário', classes: ['1','2','3','4','5','6'], cor: Colors.success, icon: 'school' },
+            { nivel: 'I Ciclo', ciclo: 'I Ciclo do Ensino Secundário', classes: ['7','8','9'], cor: Colors.info, icon: 'library' },
+            { nivel: 'II Ciclo', ciclo: 'II Ciclo do Ensino Secundário', classes: ['10','11','12','13'], cor: '#8B5CF6', icon: 'ribbon' },
+          ];
+          const turmasAtivas = turmas.filter(t => t.ativo);
+          const alunosAtivos = alunos.filter(a => a.ativo);
+
+          const cursosReais = NIVEIS_CONFIG.map(cfg => {
+            const turmasNivel = turmasAtivas.filter(t => t.nivel === cfg.nivel || t.nivel?.includes(cfg.ciclo.split(' ')[0]));
+            const alunosNivel = alunosAtivos.filter(a => turmasNivel.some(t => t.id === a.turmaId));
+            const disciplinas = [...new Set(
+              turmasNivel.map(t => t.disciplinas || []).flat()
+            )];
+            const classesPorTurma = turmasNivel.reduce<Record<string, typeof turmasNivel>>((acc, t) => {
+              const key = t.classe ? `${t.classe}ª Classe` : t.nome;
+              if (!acc[key]) acc[key] = [];
+              acc[key].push(t);
+              return acc;
+            }, {});
+            return { ...cfg, turmasNivel, alunosNivel, disciplinas, classesPorTurma };
+          });
+
+          const totalAlunos = alunosAtivos.length;
+          const totalTurmasCursos = turmasAtivas.length;
+          const niveisComTurmas = cursosReais.filter(c => c.turmasNivel.length > 0).length;
+
+          return (
+            <>
+              {/* Resumo de cursos */}
+              <View style={styles.statsRow}>
+                <StatCard value={niveisComTurmas} label="Níveis\nActivos" color={Colors.gold} icon="school" />
+                <StatCard value={totalTurmasCursos} label="Turmas\nTotal" color={Colors.info} icon="people-circle" />
+                <StatCard value={totalAlunos} label="Alunos\nInscritos" color={Colors.success} icon="person" />
+                <StatCard value={cursosReais.reduce((s, c) => s + c.disciplinas.length, 0)} label="Disciplinas" color='#8B5CF6' icon="book" />
+              </View>
+
+              {cursosReais.map(curso => {
+                const isOpen = cursoExpandido === curso.nivel;
+                const temTurmas = curso.turmasNivel.length > 0;
+                return (
+                  <View key={curso.nivel} style={[styles.card, { marginBottom: 10 }]}>
+                    {/* Cabeçalho do nível */}
+                    <TouchableOpacity
+                      style={styles.cursoHeader}
+                      onPress={() => setCursoExpandido(isOpen ? null : curso.nivel)}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.cursoIconWrap, { backgroundColor: curso.cor + '22' }]}>
+                        <Ionicons name={curso.icon as any} size={20} color={curso.cor} />
+                      </View>
+                      <View style={styles.cursoHeaderInfo}>
+                        <Text style={styles.cursoNivel}>{curso.ciclo}</Text>
+                        <Text style={styles.cursoSub}>
+                          {temTurmas
+                            ? `${curso.turmasNivel.length} turma${curso.turmasNivel.length > 1 ? 's' : ''} · ${curso.alunosNivel.length} aluno${curso.alunosNivel.length !== 1 ? 's' : ''}`
+                            : 'Sem turmas registadas'}
+                        </Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        {temTurmas && (
+                          <View style={[styles.cursoBadge, { backgroundColor: curso.cor + '22' }]}>
+                            <Text style={[styles.cursoBadgeText, { color: curso.cor }]}>{curso.alunosNivel.length}</Text>
+                          </View>
+                        )}
+                        <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+                      </View>
+                    </TouchableOpacity>
+
+                    {/* Classes esperadas (quickview) */}
+                    {!isOpen && (
+                      <View style={styles.classesRow}>
+                        {curso.classes.map(cl => {
+                          const turmasCl = curso.turmasNivel.filter(t => t.classe === cl);
+                          const total = turmasCl.reduce((s, t) => s + alunosAtivos.filter(a => a.turmaId === t.id).length, 0);
+                          return (
+                            <View key={cl} style={[styles.classeChip, turmasCl.length === 0 && styles.classeChipInactive]}>
+                              <Text style={[styles.classeChipText, turmasCl.length === 0 && { color: Colors.textMuted }]}>
+                                {cl}ª
+                              </Text>
+                              {turmasCl.length > 0 && (
+                                <Text style={styles.classeChipCount}>{total}</Text>
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+
+                    {/* Detalhe expandido */}
+                    {isOpen && (
+                      <View style={styles.cursoDetalhe}>
+                        {!temTurmas ? (
+                          <View style={{ padding: 16, alignItems: 'center', gap: 6 }}>
+                            <Ionicons name="school-outline" size={36} color={Colors.textMuted} />
+                            <Text style={styles.emptyText}>Sem turmas para este nível</Text>
+                            <TouchableOpacity
+                              style={[styles.procBtn, { backgroundColor: Colors.info + '22', borderColor: Colors.info + '44', paddingHorizontal: 14 }]}
+                              onPress={() => router.push('/(main)/turmas' as any)}
+                            >
+                              <Text style={[styles.procBtnText, { color: Colors.info }]}>Criar Turma</Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <>
+                            {/* Turmas por classe */}
+                            {Object.entries(curso.classesPorTurma).map(([classe, tsList]) => (
+                              <View key={classe} style={styles.classeGrupo}>
+                                <Text style={styles.classeGrupoTitle}>{classe}</Text>
+                                {(tsList as typeof turmasAtivas).map(t => {
+                                  const numAlunos = alunosAtivos.filter(a => a.turmaId === t.id).length;
+                                  return (
+                                    <TouchableOpacity
+                                      key={t.id}
+                                      style={styles.turmaDetalheRow}
+                                      onPress={() => router.push('/(main)/turmas' as any)}
+                                      activeOpacity={0.75}
+                                    >
+                                      <View style={styles.turmaDetalheLeft}>
+                                        <View style={[styles.turmaDetalheDot, { backgroundColor: curso.cor }]} />
+                                        <View>
+                                          <Text style={styles.turmaDetalheNome}>{t.nome}</Text>
+                                          <Text style={styles.turmaDetalheSub}>{t.turno} · {numAlunos} aluno{numAlunos !== 1 ? 's' : ''}</Text>
+                                        </View>
+                                      </View>
+                                      <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                                    </TouchableOpacity>
+                                  );
+                                })}
+                              </View>
+                            ))}
+
+                            {/* Disciplinas */}
+                            {curso.disciplinas.length > 0 && (
+                              <View style={styles.discSection}>
+                                <Text style={styles.discSectionTitle}>Disciplinas</Text>
+                                <View style={styles.discChipsRow}>
+                                  {curso.disciplinas.map(d => (
+                                    <View key={d} style={[styles.discChip, { borderColor: curso.cor + '55' }]}>
+                                      <Text style={[styles.discChipText, { color: curso.cor }]}>{d}</Text>
+                                    </View>
+                                  ))}
+                                </View>
+                              </View>
+                            )}
+
+                            {/* Acções */}
+                            <View style={styles.cursoActions}>
+                              <TouchableOpacity
+                                style={[styles.cursoActionBtn, { backgroundColor: Colors.info + '22', borderColor: Colors.info + '44' }]}
+                                onPress={() => router.push('/(main)/alunos' as any)}
+                              >
+                                <Ionicons name="people" size={14} color={Colors.info} />
+                                <Text style={[styles.cursoActionText, { color: Colors.info }]}>Ver Alunos</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.cursoActionBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '44' }]}
+                                onPress={() => router.push('/(main)/turmas' as any)}
+                              >
+                                <Ionicons name="school" size={14} color={Colors.success} />
+                                <Text style={[styles.cursoActionText, { color: Colors.success }]}>Gerir Turmas</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.cursoActionBtn, { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '44' }]}
+                                onPress={() => router.push('/(main)/notas' as any)}
+                              >
+                                <Ionicons name="ribbon" size={14} color={Colors.gold} />
+                                <Text style={[styles.cursoActionText, { color: Colors.gold }]}>Pautas</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </>
+          );
+        })()}
+
         {/* ── CORRESPONDÊNCIA ──────────────────────────────── */}
         {activeTab === 'correspondencia' && (
           <View style={styles.card}>
@@ -794,6 +980,35 @@ const styles = StyleSheet.create({
   urgenteText: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.danger },
 
   emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', paddingVertical: 16 },
+
+  cursoHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingBottom: 10, marginBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  cursoIconWrap: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  cursoHeaderInfo: { flex: 1 },
+  cursoNivel: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  cursoSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  cursoBadge: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3 },
+  cursoBadgeText: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  classesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 4 },
+  classeChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  classeChipInactive: { opacity: 0.4 },
+  classeChipText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  classeChipCount: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  cursoDetalhe: { paddingTop: 4 },
+  classeGrupo: { marginBottom: 12 },
+  classeGrupoTitle: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 },
+  turmaDetalheRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 10, padding: 10, marginBottom: 6 },
+  turmaDetalheLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  turmaDetalheDot: { width: 8, height: 8, borderRadius: 4 },
+  turmaDetalheNome: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  turmaDetalheSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  discSection: { borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 10, marginTop: 4 },
+  discSectionTitle: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 },
+  discChipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  discChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, backgroundColor: Colors.surface },
+  discChipText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+  cursoActions: { flexDirection: 'row', gap: 8, marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: Colors.border },
+  cursoActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 8, borderRadius: 10, borderWidth: 1 },
+  cursoActionText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 
   fab: { position: 'absolute', right: 18, bottom: 28, borderRadius: 30, overflow: 'hidden', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
   fabGrad: { width: 56, height: 56, alignItems: 'center', justifyContent: 'center' },
