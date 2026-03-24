@@ -66,9 +66,8 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
 
       {/* Clock Widget */}
       <View style={styles.clockWidget}>
-        <View style={styles.clockIconWrap}>
-          <Ionicons name="time" size={16} color={Colors.gold} />
-        </View>
+        <View style={styles.clockGlow} />
+        <Ionicons name="time-outline" size={18} color={Colors.gold} />
         <View style={styles.clockTexts}>
           <Text style={styles.clockTime}>{timeText}</Text>
           <Text style={styles.clockDate}>{dateText}</Text>
@@ -144,27 +143,44 @@ const styles = StyleSheet.create({
   clockWidget: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: Colors.surface,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: Colors.gold + '55',
+    gap: 7,
+    backgroundColor: '#1A1200',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.gold,
+    position: 'relative',
+    overflow: 'hidden',
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  clockGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: Colors.gold + '12',
+    borderRadius: 12,
   },
   clockTime: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'Inter_700Bold',
     color: Colors.gold,
-    letterSpacing: 0.5,
-    lineHeight: 17,
+    letterSpacing: 1,
+    lineHeight: 19,
   },
   clockDate: {
-    fontSize: 9,
-    fontFamily: 'Inter_400Regular',
-    color: Colors.textSecondary,
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.gold + 'AA',
     textTransform: 'capitalize',
-    lineHeight: 11,
+    lineHeight: 13,
+    letterSpacing: 0.3,
   },
   rightActions: {
     flexDirection: 'row',
