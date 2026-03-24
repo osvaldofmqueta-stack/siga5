@@ -154,6 +154,8 @@ export default function PortalEstudanteScreen() {
   const [metodoPagarTaxa, setMetodoPagarTaxa] = useState<'rupe' | 'multicaixa'>('rupe');
   const [showPagarCartao, setShowPagarCartao] = useState(false);
   const [cartaoMetodo, setCartaoMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
+  const [documentosEmitidos, setDocumentosEmitidos] = useState<any[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(false);
 
   const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
   const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
@@ -204,6 +206,26 @@ export default function PortalEstudanteScreen() {
   useEffect(() => {
     loadLocalData();
   }, []);
+
+  useEffect(() => {
+    if (aluno?.id) {
+      loadDocumentosEmitidos(aluno.id);
+    }
+  }, [aluno?.id]);
+
+  async function loadDocumentosEmitidos(alunoId: string) {
+    setLoadingDocs(true);
+    try {
+      const res = await fetch(`/api/documentos-emitidos/aluno/${alunoId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setDocumentosEmitidos(Array.isArray(data) ? data : []);
+      }
+    } catch (e) {
+    } finally {
+      setLoadingDocs(false);
+    }
+  }
 
   async function loadLocalData() {
     try {
@@ -443,6 +465,26 @@ export default function PortalEstudanteScreen() {
             );
           })}
         </View>
+
+        {documentosEmitidos.length > 0 && (
+          <TouchableOpacity style={styles.infoCard} onPress={() => setActiveTab('documentos')} activeOpacity={0.85}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <SectionTitle title="Documentos Emitidos" icon="document-text" />
+              <View style={styles.docCountBadge}>
+                <Text style={styles.docCountText}>{documentosEmitidos.length}</Text>
+              </View>
+            </View>
+            <View style={styles.docBadgesRow}>
+              {[...new Set(documentosEmitidos.map(d => d.tipo))].map(tipo => (
+                <View key={tipo} style={styles.docTypeBadge}>
+                  <Ionicons name="checkmark-circle" size={11} color={Colors.success} />
+                  <Text style={styles.docTypeBadgeText} numberOfLines={1}>{tipo}</Text>
+                </View>
+              ))}
+            </View>
+            <Text style={[styles.infoHint, { marginTop: 8, color: Colors.gold }]}>Ver histórico completo →</Text>
+          </TouchableOpacity>
+        )}
 
         {unreadMsgs > 0 && (
           <TouchableOpacity style={styles.alertCard} onPress={() => setActiveTab('mensagens')}>
@@ -1584,6 +1626,7 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderDocumentos() {
+    const tiposJaEmitidos = [...new Set(documentosEmitidos.map(d => d.tipo))];
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <SectionTitle title="Pedir Declaração / Documento" icon="document-text" />
@@ -1591,6 +1634,64 @@ export default function PortalEstudanteScreen() {
           <Ionicons name="add-circle" size={18} color="#fff" />
           <Text style={styles.payBtnText}>Nova Solicitação</Text>
         </TouchableOpacity>
+
+        {tiposJaEmitidos.length > 0 && (
+          <View style={styles.docBadgesSection}>
+            <Text style={styles.docBadgesTitle}>Tipos de documentos já emitidos:</Text>
+            <View style={styles.docBadgesRow}>
+              {tiposJaEmitidos.map(tipo => (
+                <View key={tipo} style={styles.docTypeBadge}>
+                  <Ionicons name="checkmark-circle" size={12} color={Colors.success} />
+                  <Text style={styles.docTypeBadgeText} numberOfLines={1}>{tipo}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        <View style={{ marginTop: 20 }}>
+          <SectionTitle title="Histórico de Documentos Emitidos" icon="time" />
+          {loadingDocs ? (
+            <ActivityIndicator color={Colors.gold} style={{ marginVertical: 20 }} />
+          ) : documentosEmitidos.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="document-outline" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptyStateText}>Nenhum documento emitido ainda</Text>
+            </View>
+          ) : (
+            documentosEmitidos.map(doc => (
+              <View key={doc.id} style={styles.docHistCard}>
+                <View style={styles.docHistTop}>
+                  <View style={styles.docHistIconWrap}>
+                    <Ionicons name="document-text" size={20} color={Colors.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docHistTipo}>{doc.tipo}</Text>
+                    {doc.anoAcademico ? (
+                      <Text style={styles.docHistMeta}>Ano lectivo: {doc.anoAcademico}</Text>
+                    ) : null}
+                    {doc.alunoTurma ? (
+                      <Text style={styles.docHistMeta}>Turma: {doc.alunoTurma}</Text>
+                    ) : null}
+                    <Text style={styles.docHistData}>
+                      Emitido em {new Date(doc.emitidoEm).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity
+                  style={styles.docReemitirBtn}
+                  onPress={() => {
+                    setSolForm({ tipo: doc.tipo, motivo: 'Renovação com dados actualizados', observacao: '' });
+                    setShowSolicitacaoModal(true);
+                  }}
+                >
+                  <Ionicons name="refresh" size={14} color={Colors.gold} />
+                  <Text style={styles.docReemitirText}>Solicitar Novamente</Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+        </View>
 
         <View style={{ marginTop: 20 }}>
           <SectionTitle title="Minhas Solicitações" icon="list" />
@@ -2072,4 +2173,22 @@ const styles = StyleSheet.create({
   cartaoPagoText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.success },
   cartaoPagarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.accent, borderRadius: 14, padding: 16 },
   cartaoPagarBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  docBadgesSection: { marginTop: 14, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12 },
+  docBadgesTitle: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  docBadgesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  docTypeBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.success + '18', borderWidth: 1, borderColor: Colors.success + '44', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, maxWidth: 200 },
+  docTypeBadgeText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.success },
+
+  docHistCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 14, marginBottom: 10, borderLeftWidth: 3, borderLeftColor: Colors.gold },
+  docHistTop: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 10 },
+  docHistIconWrap: { width: 38, height: 38, borderRadius: 10, backgroundColor: Colors.gold + '18', alignItems: 'center', justifyContent: 'center' },
+  docHistTipo: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 3 },
+  docHistMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 2 },
+  docHistData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  docReemitirBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: Colors.gold + '55', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 7, alignSelf: 'flex-start', backgroundColor: Colors.gold + '10' },
+  docReemitirText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+
+  docCountBadge: { backgroundColor: Colors.gold, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
+  docCountText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#000' },
 });

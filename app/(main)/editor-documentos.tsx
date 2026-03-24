@@ -1582,6 +1582,8 @@ export default function EditorDocumentos() {
   const [turmaSearch, setTurmaSearch] = useState('');
   // Mapa de Aproveitamento emit state (trimestre-level)
   const [emitTrimestre, setEmitTrimestre] = useState<1 | 2 | 3>(1);
+  // Document history for selected student in emit mode
+  const [emitAlunoHistorico, setEmitAlunoHistorico] = useState<any[]>([]);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -1636,6 +1638,15 @@ export default function EditorDocumentos() {
     (window as any).addEventListener('message', handler);
     return () => (window as any).removeEventListener('message', handler);
   }, []);
+
+  // Fetch document history for the selected student in emit mode
+  useEffect(() => {
+    if (!emitAlunoId) { setEmitAlunoHistorico([]); return; }
+    fetch(`/api/documentos-emitidos/aluno/${emitAlunoId}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setEmitAlunoHistorico(Array.isArray(data) ? data : []))
+      .catch(() => setEmitAlunoHistorico([]));
+  }, [emitAlunoId]);
 
   // Load templates + seed defaults from database
   useEffect(() => {
@@ -5398,6 +5409,26 @@ export default function EditorDocumentos() {
 </html>`;
   }
 
+  function saveDocumentoEmitido(alunoId: string, tipoNome: string) {
+    if (!alunoId) return;
+    const al = alunos.find(a => a.id === alunoId);
+    if (!al) return;
+    const turma = turmas.find(t => t.id === al.turmaId);
+    fetch('/api/documentos-emitidos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        alunoId: al.id,
+        alunoNome: `${al.nome} ${al.apelido}`,
+        alunoNum: al.numeroMatricula,
+        alunoTurma: turma ? `${turma.classe} ${turma.nome}` : '',
+        tipo: tipoNome,
+        anoAcademico: turma?.anoLetivo || '',
+        emitidoPor: user?.nome || 'Sistema',
+      }),
+    }).catch(() => {});
+  }
+
   function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
@@ -5431,6 +5462,7 @@ export default function EditorDocumentos() {
       win.document.write(html);
       win.document.close();
       win.print();
+      saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
       return;
     }
 
@@ -5458,6 +5490,7 @@ export default function EditorDocumentos() {
       win.document.write(html);
       win.document.close();
       win.print();
+      saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
       return;
     }
 
@@ -5481,6 +5514,7 @@ export default function EditorDocumentos() {
       win.document.write(html);
       win.document.close();
       win.print();
+      saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
       return;
     }
 
@@ -5551,6 +5585,9 @@ export default function EditorDocumentos() {
     `);
     win.document.close();
     win.print();
+    if (emitAlunoId && emitTemplate) {
+      saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
+    }
   }
 
   function handleExportExcel() {
@@ -6328,6 +6365,35 @@ export default function EditorDocumentos() {
                     <Text style={styles.selectedInfoTitle}>Aluno seleccionado:</Text>
                     <Text style={styles.selectedInfoName}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
                     <Text style={styles.selectedInfoMeta}>{selectedTurmaForAluno?.classe} · {selectedTurmaForAluno?.nome} · {selectedAluno.provincia}</Text>
+                  </View>
+                )}
+                {emitAlunoHistorico.length > 0 && (
+                  <View style={{ marginTop: 10, backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                      <Ionicons name="time" size={13} color={Colors.gold} />
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                        Histórico de documentos ({emitAlunoHistorico.length})
+                      </Text>
+                    </View>
+                    {emitAlunoHistorico.slice(0, 5).map(doc => (
+                      <View key={doc.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                        <Ionicons name="document-text-outline" size={14} color={Colors.gold} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }} numberOfLines={1}>{doc.tipo}</Text>
+                          <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>
+                            {new Date(doc.emitidoEm).toLocaleDateString('pt-PT')}
+                          </Text>
+                        </View>
+                        <View style={{ backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>EMITIDO</Text>
+                        </View>
+                      </View>
+                    ))}
+                    {emitAlunoHistorico.length > 5 && (
+                      <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', marginTop: 6 }}>
+                        +{emitAlunoHistorico.length - 5} documentos anteriores
+                      </Text>
+                    )}
                   </View>
                 )}
               </>
