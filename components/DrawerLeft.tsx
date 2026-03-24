@@ -708,11 +708,19 @@ export default function DrawerLeft() {
             <View style={styles.perfilInfo}>
               <Text style={styles.perfilNome} numberOfLines={1}>{user?.nome}</Text>
               <Text style={[styles.roleText, user?.role === 'ceo' && { color: '#FFD700' }]}>
-                {user?.role === 'ceo' ? 'CEO — Super Admin'
-                  : user?.role === 'director' ? 'Director'
-                  : user?.role === 'secretaria' ? 'Secretaria'
-                  : user?.role === 'professor' ? 'Professor'
-                  : 'Aluno'}
+                {({
+                  ceo: 'CEO — Super Admin',
+                  pca: 'Presidente',
+                  admin: 'Administrador',
+                  director: 'Director',
+                  chefe_secretaria: 'Chefe de Secretaria',
+                  secretaria: 'Secretária Académica',
+                  professor: 'Professor',
+                  aluno: 'Aluno',
+                  financeiro: 'Gestor Financeiro',
+                  encarregado: 'Encarregado',
+                  rh: 'Recursos Humanos',
+                } as Record<string, string>)[user?.role ?? ''] ?? user?.role ?? 'Utilizador'}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
