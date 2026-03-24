@@ -17,7 +17,11 @@ function getGreeting() {
 }
 
 function formatTime(date: Date) {
-  return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function formatDate(date: Date) {
+  return date.toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short' });
 }
 
 interface TopBarProps {
@@ -36,7 +40,7 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
+    const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -45,6 +49,7 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
   const firstName = user?.nome?.trim().split(' ')[0] ?? '';
   const greetingText = subtitle ?? `${getGreeting()}${firstName ? `, ${firstName}` : ''}`;
   const timeText = formatTime(now);
+  const dateText = formatDate(now);
 
   return (
     <View style={[styles.container, { paddingTop: topPad + (isDesktop ? 16 : 8) }]}>
@@ -55,11 +60,16 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
       )}
 
       <View style={styles.titleArea}>
-        <Text style={[styles.title, isDesktop && styles.titleDesktop]}>{title}</Text>
-        <View style={styles.greetingRow}>
-          <Text style={styles.subtitle} numberOfLines={1}>{greetingText}</Text>
-          <View style={styles.timeDot} />
-          <Text style={styles.timeText}>{timeText}</Text>
+        <Text style={[styles.title, isDesktop && styles.titleDesktop]} numberOfLines={1}>{title}</Text>
+        <Text style={styles.subtitle} numberOfLines={1}>{greetingText}</Text>
+      </View>
+
+      {/* Clock Widget */}
+      <View style={styles.clockWidget}>
+        <Ionicons name="time" size={13} color={Colors.gold} style={{ marginBottom: 1 }} />
+        <View>
+          <Text style={styles.clockTime}>{timeText}</Text>
+          <Text style={styles.clockDate}>{dateText}</Text>
         </View>
       </View>
 
@@ -70,7 +80,6 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
           </TouchableOpacity>
         )}
 
-        {/* Notification bell with badge */}
         <TouchableOpacity
           style={styles.iconBtn}
           onPress={() => router.push('/(main)/notificacoes' as any)}
@@ -96,12 +105,12 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 12,
     backgroundColor: Colors.primaryDark,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    gap: 12,
+    gap: 10,
   },
   iconBtn: {
     width: 40,
@@ -114,6 +123,7 @@ const styles = StyleSheet.create({
   },
   titleArea: {
     flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 17,
@@ -123,29 +133,36 @@ const styles = StyleSheet.create({
   titleDesktop: {
     fontSize: 19,
   },
-  greetingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 2,
-  },
   subtitle: {
     fontSize: 11,
     fontFamily: 'Inter_400Regular',
     color: Colors.textMuted,
+    marginTop: 2,
   },
-  timeDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: Colors.textMuted,
-    opacity: 0.5,
+  clockWidget: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: Colors.gold + '55',
   },
-  timeText: {
-    fontSize: 11,
-    fontFamily: 'Inter_500Medium',
+  clockTime: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
     color: Colors.gold,
-    opacity: 0.85,
+    letterSpacing: 0.5,
+    lineHeight: 17,
+  },
+  clockDate: {
+    fontSize: 9,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textSecondary,
+    textTransform: 'capitalize',
+    lineHeight: 11,
   },
   rightActions: {
     flexDirection: 'row',
