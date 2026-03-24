@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Alert, Modal, Platform, Switch,
@@ -139,6 +140,7 @@ function StatusBadge({ status }: { status: SolicitacaoRegistro['status'] }) {
 }
 
 export default function AdminScreen() {
+  const { section: paramSection, group: paramGroup } = useLocalSearchParams<{ section?: string; group?: string }>();
   const { anos, anoAtivo, addAno, updateAno, ativarAno, deleteAno } = useAnoAcademico();
   const { user } = useAuth();
   const { users, addUser, deleteUser } = useUsers();
@@ -210,8 +212,17 @@ export default function AdminScreen() {
   const [showNovoUser, setShowNovoUser] = useState(false);
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '' });
-  const [activeSection, setActiveSection] = useState<string>('matriculas');
-  const [activeGroup, setActiveGroup] = useState<string>('academico');
+  const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
+  const [activeGroup, setActiveGroup] = useState<string>(paramGroup || 'academico');
+
+  const initialised = useRef(false);
+  useEffect(() => {
+    if (!initialised.current && paramSection) {
+      setActiveSection(paramSection);
+      if (paramGroup) setActiveGroup(paramGroup);
+      initialised.current = true;
+    }
+  }, [paramSection, paramGroup]);
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoRegistro | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
   const [showRejeitar, setShowRejeitar] = useState(false);
