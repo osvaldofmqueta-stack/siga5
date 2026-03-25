@@ -208,6 +208,24 @@ function SimRow({ label, val, bold, color }: { label: string; val: string; bold?
   );
 }
 
+function RLine({ label, val, bold, accent, deducao }: {
+  label: string; val: string; bold?: boolean; accent?: boolean; deducao?: boolean;
+}) {
+  return (
+    <View style={reciboStyles.rline}>
+      <Text style={[reciboStyles.rlineLabel, bold && { fontWeight: '700', color: '#fff' }]}>{label}</Text>
+      <Text style={[
+        reciboStyles.rlineVal,
+        bold && { fontWeight: '700' },
+        accent && { color: '#4FC3F7' },
+        deducao && { color: '#EF5350' },
+      ]}>
+        {deducao ? `- ${val}` : val}
+      </Text>
+    </View>
+  );
+}
+
 // ─── KPI Tile ────────────────────────────────────────────────────────────────
 function KpiTile({ icon, label, value, sub, color }: {
   icon: React.ReactNode; label: string; value: string; sub?: string; color?: string;
@@ -241,6 +259,7 @@ export default function RhPayrollScreen() {
   const [showProcessar, setShowProcessar] = useState(false);
   const [showProfModal, setShowProfModal] = useState(false);
   const [editingProf, setEditingProf] = useState<ProfessorSalario | null>(null);
+  const [reciboItem, setReciboItem] = useState<ItemFolha | null>(null);
 
   // Nova Folha form
   const now = new Date();
@@ -433,10 +452,16 @@ export default function RhPayrollScreen() {
   );
 
   const renderItemRow = (item: ItemFolha) => (
-    <View key={item.id} style={styles.itemRow}>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.rowTitle}>{item.professorNome}</Text>
-        <Text style={styles.rowSub}>{item.cargo}</Text>
+    <TouchableOpacity key={item.id} style={styles.itemRow} onPress={() => setReciboItem(item)} activeOpacity={0.8}>
+      <View style={styles.itemHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.rowTitle}>{item.professorNome}</Text>
+          <Text style={styles.rowSub}>{item.cargo}{item.categoria ? ` · ${item.categoria}` : ''}</Text>
+        </View>
+        <View style={[styles.badge, { backgroundColor: '#5E6AD228', borderColor: '#5E6AD2' }]}>
+          <Ionicons name="document-text-outline" size={12} color="#5E6AD2" />
+          <Text style={[styles.badgeText, { color: '#5E6AD2', marginLeft: 4 }]}>Recibo</Text>
+        </View>
       </View>
       <View style={styles.itemCols}>
         <View style={styles.itemCol}>
@@ -453,10 +478,10 @@ export default function RhPayrollScreen() {
         </View>
         <View style={styles.itemCol}>
           <Text style={[styles.itemColLabel, { color: '#66BB6A' }]}>Líquido</Text>
-          <Text style={[styles.itemColVal, { color: '#66BB6A' }]}>{fmt(item.salarioLiquido)}</Text>
+          <Text style={[styles.itemColVal, { color: '#66BB6A', fontWeight: '700' }]}>{fmt(item.salarioLiquido)}</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   // ─── Tabs ──────────────────────────────────────────────────────────────────
@@ -948,6 +973,110 @@ export default function RhPayrollScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      {/* ── Modal: Recibo de Vencimento ── */}
+      <Modal visible={!!reciboItem} transparent animationType="slide" onRequestClose={() => setReciboItem(null)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={[styles.modalBox, reciboStyles.reciboBox]}>
+
+              {/* Cabeçalho */}
+              <View style={reciboStyles.reciboHeader}>
+                <MaterialCommunityIcons name="school" size={32} color={Colors.primary ?? '#5E6AD2'} />
+                <Text style={reciboStyles.reciboTitle}>RECIBO DE VENCIMENTO</Text>
+                <Text style={reciboStyles.reciboSubTitle}>
+                  {selectedFolha ? `${MESES[(selectedFolha.mes ?? 1) - 1]} ${selectedFolha.ano}` : ''}
+                </Text>
+              </View>
+
+              <View style={reciboStyles.divider} />
+
+              {/* Dados do Funcionário */}
+              {reciboItem && (
+                <>
+                  <Text style={reciboStyles.sectionLabel}>FUNCIONÁRIO</Text>
+                  <View style={reciboStyles.infoGrid}>
+                    <RLine label="Nome" val={reciboItem.professorNome} />
+                    <RLine label="Cargo" val={reciboItem.cargo} />
+                    {reciboItem.categoria ? <RLine label="Categoria" val={reciboItem.categoria} /> : null}
+                  </View>
+
+                  <View style={reciboStyles.divider} />
+
+                  {/* Vencimentos */}
+                  <Text style={reciboStyles.sectionLabel}>VENCIMENTOS</Text>
+                  <View style={reciboStyles.infoGrid}>
+                    <RLine label="Salário Base" val={fmt(reciboItem.salarioBase)} />
+                    {reciboItem.subsidioAlimentacao > 0 && <RLine label="Subsídio Alimentação" val={fmt(reciboItem.subsidioAlimentacao)} />}
+                    {reciboItem.subsidioTransporte > 0 && <RLine label="Subsídio Transporte" val={fmt(reciboItem.subsidioTransporte)} />}
+                    {reciboItem.subsidioHabitacao > 0 && <RLine label="Subsídio Habitação" val={fmt(reciboItem.subsidioHabitacao)} />}
+                    {reciboItem.outrosSubsidios > 0 && <RLine label="Outros Subsídios" val={fmt(reciboItem.outrosSubsidios)} />}
+                    <RLine label="Total Bruto" val={fmt(reciboItem.salarioBruto)} bold accent />
+                  </View>
+
+                  <View style={reciboStyles.divider} />
+
+                  {/* Descontos */}
+                  <Text style={reciboStyles.sectionLabel}>DESCONTOS</Text>
+                  <View style={reciboStyles.infoGrid}>
+                    <RLine label="INSS Empregado (3%)" val={fmt(reciboItem.inssEmpregado)} deducao />
+                    <RLine label="IRT (tabela progressiva)" val={fmt(reciboItem.irt)} deducao />
+                    {reciboItem.outrosDescontos > 0 && <RLine label="Outros Descontos" val={fmt(reciboItem.outrosDescontos)} deducao />}
+                    <RLine label="Total Descontos" val={fmt(reciboItem.totalDescontos)} bold deducao />
+                  </View>
+
+                  <View style={reciboStyles.divider} />
+
+                  {/* Líquido a receber */}
+                  <View style={reciboStyles.liquidoBox}>
+                    <Text style={reciboStyles.liquidoLabel}>SALÁRIO LÍQUIDO A RECEBER</Text>
+                    <Text style={reciboStyles.liquidoVal}>{fmt(reciboItem.salarioLiquido)}</Text>
+                  </View>
+
+                  {/* Encargos patronais (informativo) */}
+                  <View style={reciboStyles.patronalBox}>
+                    <Text style={reciboStyles.patronalLabel}>Encargo patronal INSS (8%) — não desconta no funcionário</Text>
+                    <Text style={reciboStyles.patronalVal}>{fmt(reciboItem.inssPatronal)}</Text>
+                  </View>
+
+                  {reciboItem.observacao ? (
+                    <View style={reciboStyles.obsBox}>
+                      <Text style={reciboStyles.sectionLabel}>OBSERVAÇÃO</Text>
+                      <Text style={reciboStyles.obsText}>{reciboItem.observacao}</Text>
+                    </View>
+                  ) : null}
+
+                  <View style={reciboStyles.divider} />
+
+                  {/* Rodapé */}
+                  <Text style={reciboStyles.footer}>
+                    Documento gerado pelo SIGA · {new Date().toLocaleDateString('pt-AO')}
+                  </Text>
+
+                  {/* Estado da folha */}
+                  {selectedFolha && (
+                    <View style={reciboStyles.statusRow}>
+                      <View style={[styles.badge, {
+                        backgroundColor: (STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa') + '28',
+                        borderColor: STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa',
+                        alignSelf: 'center',
+                      }]}>
+                        <Text style={[styles.badgeText, { color: STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa' }]}>
+                          {STATUS_LABELS[selectedFolha.status]?.label ?? selectedFolha.status}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+
+              <TouchableOpacity style={[styles.modalBtnPrimary, { marginTop: 20 }]} onPress={() => setReciboItem(null)}>
+                <Text style={styles.modalBtnPrimaryText}>Fechar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1114,12 +1243,15 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   itemRow: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'column',
     paddingHorizontal: 16, paddingVertical: 12,
     borderBottomWidth: 1, borderBottomColor: BORDER,
   },
-  itemCols: { flexDirection: 'row', gap: 8 },
-  itemCol: { alignItems: 'flex-end', minWidth: 72 },
+  itemHeader: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 10,
+  },
+  itemCols: { flexDirection: 'row', gap: 8, justifyContent: 'space-between' },
+  itemCol: { alignItems: 'flex-start', flex: 1 },
   itemColLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 10 },
   itemColVal: { color: '#fff', fontSize: 12, fontWeight: '600' },
 
@@ -1225,4 +1357,42 @@ const simStyles = StyleSheet.create({
   simLabel: { color: '#aaa', fontSize: 12 },
   simVal: { color: '#fff', fontSize: 12, fontWeight: '600' },
   patronalNote: { color: '#aaa', fontSize: 10, marginTop: 4, fontStyle: 'italic' },
+});
+
+const reciboStyles = StyleSheet.create({
+  reciboBox: { backgroundColor: '#0f0f22', maxWidth: 480, width: '100%' },
+  reciboHeader: { alignItems: 'center', gap: 6, paddingVertical: 8 },
+  reciboTitle: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 1.5 },
+  reciboSubTitle: { color: '#aaa', fontSize: 13, fontWeight: '600' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.12)', marginVertical: 14 },
+  sectionLabel: {
+    color: '#5E6AD2', fontSize: 10, fontWeight: '800', letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  infoGrid: { gap: 2 },
+  rline: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+  },
+  rlineLabel: { color: '#aaa', fontSize: 13 },
+  rlineVal: { color: '#fff', fontSize: 13, fontWeight: '500' },
+  liquidoBox: {
+    backgroundColor: 'rgba(94,106,210,0.15)', borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(94,106,210,0.4)',
+    padding: 16, alignItems: 'center', gap: 4,
+  },
+  liquidoLabel: { color: '#aaa', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+  liquidoVal: { color: '#66BB6A', fontSize: 28, fontWeight: '800' },
+  patronalBox: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: 'rgba(255,113,65,0.08)', borderRadius: 8,
+    borderWidth: 1, borderColor: 'rgba(255,113,65,0.25)',
+    padding: 10, marginTop: 8,
+  },
+  patronalLabel: { color: '#FF7141', fontSize: 11, flex: 1 },
+  patronalVal: { color: '#FF7141', fontSize: 12, fontWeight: '700' },
+  obsBox: { marginTop: 4 },
+  obsText: { color: '#aaa', fontSize: 12 },
+  footer: { color: '#555', fontSize: 11, textAlign: 'center', marginTop: 4 },
+  statusRow: { alignItems: 'center', marginTop: 6 },
 });
