@@ -1,6 +1,26 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Módulo Biblioteca Escolar)
+## Recent Changes (Latest Session — Módulo Transferências de Alunos)
+- **app/(main)/transferencias.tsx** *(new)*: Ecrã completo de gestão de transferências com:
+  - **Estatísticas no topo**: Total, Saídas, Entradas, Pendentes
+  - **Pesquisa e filtros**: por tipo (Todos/Saídas/Entradas) e por estado (Pendente/Aprovado/Concluído/Rejeitado)
+  - **Lista de transferências**: cards com badges de tipo/estado, escola origem/destino, classe, motivo, e acções inline de aprovação/rejeição
+  - **FAB duplo**: "Nova Saída" (azul) e "Nova Entrada" (verde)
+  - **Formulário modal**: selector de tipo, pesquisa de aluno existente (saídas) ou campo de texto livre (entradas), escola, classe de origem/destino, turma de destino, motivos pré-definidos, data de requisição, checklist de documentos recebidos (entradas), observações
+  - **Modal de detalhes**: info completa com barra de estado colorida, acções de aprovação/rejeição/conclusão, botão "Gerar Guia de Transferência" (saídas), editar e eliminar
+  - **Fluxo de estados**: pendente → aprovado → concluído; ou pendente → rejeitado
+- **shared/schema.ts**: Nova tabela `transferencias` (id, tipo, status, nomeAluno, alunoId, escolaOrigem, escolaDestino, classeOrigem, classeDestino, turmaDestinoId, motivo, observacoes, documentosRecebidos, dataRequisicao, dataAprovacao, dataConclusao, criadoPor, criadoEm, atualizadoEm)
+- **server/routes.ts**: 5 novas rotas com guard `requirePermission('transferencias')`:
+  - `GET /api/transferencias` — listagem ordenada por data
+  - `POST /api/transferencias` — criação com status inicial 'pendente'
+  - `PUT /api/transferencias/:id` — edição de dados da transferência
+  - `PATCH /api/transferencias/:id/status` — actualização do estado do workflow
+  - `DELETE /api/transferencias/:id` — eliminação
+- **context/PermissoesContext.tsx**: `PermKey` expandida com `'transferencias'`, feature definida em "Gestão Académica" para roles: admin, director, secretaria, chefe_secretaria, ceo, pca
+- **components/DrawerLeft.tsx**: Link "Transferências" adicionado a todas as secções Académico (Secretaria, CEO/PCA, Admin/Director) imediatamente a seguir a "Alunos"
+- Base de dados sincronizada via `npm run db:push`
+
+## Recent Changes (Previous Session — Módulo Biblioteca Escolar)
 - **app/(main)/biblioteca.tsx** *(new)*: Ecrã completo da Biblioteca Escolar com 3 tabs:
   - **Catálogo**: Listagem de livros com pesquisa por título/autor/ISBN, filtro por categoria (18 categorias), cards com disponibilidade em destaque, modal de adição/edição de livros.
   - **Empréstimos**: Lista de empréstimos com filtros (Ativos/Atrasados/Devolvidos/Todos), pesquisa, destaque de empréstimos em atraso (dias de atraso calculados), botão de "Registar Devolução", modal para novo empréstimo com pesquisa de livros disponíveis.

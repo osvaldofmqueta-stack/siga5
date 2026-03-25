@@ -3018,6 +3018,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // TRANSFERÊNCIAS DE ALUNOS
+  // -----------------------
+
+  app.get('/api/transferencias', requireAuth, requirePermission('transferencias'), async (_req, res) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.transferencias ORDER BY criado_em DESC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/transferencias', requireAuth, requirePermission('transferencias'), async (req, res) => {
+    try {
+      const b = requireBodyObject(req);
+      const { tipo, nomeAluno, alunoId, escolaOrigem, escolaDestino, classeOrigem, classeDestino,
+        turmaDestinoId, motivo, observacoes, documentosRecebidos, dataRequisicao, criadoPor } = b as Record<string, unknown>;
+      if (!tipo || !nomeAluno) return json(res, 400, { error: 'tipo e nomeAluno são obrigatórios.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.transferencias (
+          tipo, status, "nomeAluno", "alunoId", "escolaOrigem", "escolaDestino",
+          "classeOrigem", "classeDestino", "turmaDestinoId", motivo, observacoes,
+          "documentosRecebidos", "dataRequisicao", "criadoPor"
+        ) VALUES ($1,'pendente',$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+        RETURNING *`,
+        [tipo, nomeAluno, alunoId ?? null, escolaOrigem ?? null, escolaDestino ?? null,
+          classeOrigem ?? null, classeDestino ?? null, turmaDestinoId ?? null,
+          motivo ?? null, observacoes ?? null,
+          JSON.stringify(documentosRecebidos ?? []),
+          dataRequisicao ?? new Date().toISOString().slice(0, 10),
+          criadoPor ?? null]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/transferencias/:id', requireAuth, requirePermission('transferencias'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { nomeAluno, alunoId, escolaOrigem, escolaDestino, classeOrigem, classeDestino,
+        turmaDestinoId, motivo, observacoes, documentosRecebidos, dataRequisicao } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.transferencias SET
+          "nomeAluno"=$1, "alunoId"=$2, "escolaOrigem"=$3, "escolaDestino"=$4,
+          "classeOrigem"=$5, "classeDestino"=$6, "turmaDestinoId"=$7,
+          motivo=$8, observacoes=$9, "documentosRecebidos"=$10, "dataRequisicao"=$11,
+          atualizado_em=NOW()
+         WHERE id=$12 RETURNING *`,
+        [nomeAluno, alunoId ?? null, escolaOrigem ?? null, escolaDestino ?? null,
+          classeOrigem ?? null, classeDestino ?? null, turmaDestinoId ?? null,
+          motivo ?? null, observacoes ?? null,
+          JSON.stringify(documentosRecebidos ?? []),
+          dataRequisicao ?? null, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Transferência não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.patch('/api/transferencias/:id/status', requireAuth, requirePermission('transferencias'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { status } = b as Record<string, unknown>;
+      const validStatuses = ['pendente', 'aprovado', 'concluido', 'rejeitado'];
+      if (!status || !validStatuses.includes(status as string)) {
+        return json(res, 400, { error: `Status inválido. Use: ${validStatuses.join(', ')}` });
+      }
+      const now = new Date().toISOString().slice(0, 10);
+      const rows = await query<JsonObject>(
+        `UPDATE public.transferencias SET
+          status=$1,
+          "dataAprovacao"=CASE WHEN $1='aprovado' THEN $2 ELSE "dataAprovacao" END,
+          "dataConclusao"=CASE WHEN $1='concluido' THEN $2 ELSE "dataConclusao" END,
+          atualizado_em=NOW()
+         WHERE id=$3 RETURNING *`,
+        [status, now, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Transferência não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/transferencias/:id', requireAuth, requirePermission('transferencias'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await query(`DELETE FROM public.transferencias WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

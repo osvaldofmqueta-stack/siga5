@@ -14,7 +14,7 @@ export type PermKey =
   | 'gestao_acessos'
   | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
   | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado'
-  | 'biblioteca';
+  | 'biblioteca' | 'transferencias';
 
 export interface FeatureDef {
   key: PermKey;
@@ -59,6 +59,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'gestao_academica', label: 'Gestão Académica (Hub)', desc: 'Hub geral de gestão académica', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'admissao', label: 'Admissões', desc: 'Processo de candidatura e admissão de novos alunos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'disciplinas', label: 'Disciplinas', desc: 'Gestão e configuração das disciplinas e conteúdos programáticos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'transferencias', label: 'Transferências', desc: 'Gestão de entradas e saídas de alunos por transferência escolar', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {

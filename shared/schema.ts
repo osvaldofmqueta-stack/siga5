@@ -952,3 +952,38 @@ export const planosAula = pgTable("planos_aula", {
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// TRANSFERÊNCIAS DE ALUNOS
+// -----------------------
+export const transferencias = pgTable("transferencias", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  tipo: text("tipo").notNull(), // 'entrada' | 'saida'
+  status: text("status").notNull().default("pendente"), // 'pendente' | 'aprovado' | 'concluido' | 'rejeitado'
+
+  nomeAluno: text("nomeAluno").notNull(),
+  alunoId: varchar("alunoId"),
+
+  escolaOrigem: text("escolaOrigem"),
+  escolaDestino: text("escolaDestino"),
+  classeOrigem: text("classeOrigem"),
+  classeDestino: text("classeDestino"),
+  turmaDestinoId: varchar("turmaDestinoId"),
+
+  motivo: text("motivo"),
+  observacoes: text("observacoes"),
+
+  documentosRecebidos: jsonb("documentosRecebidos").default(sql`'[]'::jsonb`),
+
+  dataRequisicao: text("dataRequisicao"),
+  dataAprovacao: text("dataAprovacao"),
+  dataConclusao: text("dataConclusao"),
+
+  criadoPor: text("criadoPor"),
+
+  criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
+});
