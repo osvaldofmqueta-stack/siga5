@@ -1220,6 +1220,84 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Prazos de Lançamento de Notas */}
+            <View style={styles.card}>
+              <SectionHeader title="Prazos de Lançamento de Notas" icon="calendar" color={Colors.warning} />
+              <Text style={styles.configSectionDesc}>
+                Define a data limite para os professores lançarem as notas de cada trimestre. Após a data definida, o sistema bloqueia automaticamente o lançamento.
+              </Text>
+
+              {([
+                { key: 't1' as const, label: '1º Trimestre', icon: 'calendar-outline' },
+                { key: 't2' as const, label: '2º Trimestre', icon: 'calendar-outline' },
+                { key: 't3' as const, label: '3º Trimestre', icon: 'calendar-outline' },
+              ] as const).map(({ key, label }) => {
+                const valor = config.prazosLancamento?.[key] || '';
+                const expirado = valor ? new Date() > new Date(valor + 'T23:59:59') : false;
+                return (
+                  <View key={key} style={{ marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                      <Text style={styles.configFieldLabel}>{label}</Text>
+                      {valor ? (
+                        <View style={[styles.statusBadge ?? {}, {
+                          backgroundColor: expirado ? Colors.danger + '22' : Colors.success + '22',
+                          paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10,
+                        }]}>
+                          <Text style={{ fontSize: 10, color: expirado ? Colors.danger : Colors.success, fontFamily: 'Inter_600SemiBold' }}>
+                            {expirado ? 'Prazo Encerrado' : 'Prazo Activo'}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <DatePickerField
+                      label=""
+                      value={valor}
+                      onChange={v => {
+                        updateConfig({
+                          prazosLancamento: {
+                            ...config.prazosLancamento,
+                            [key]: v,
+                          },
+                        });
+                      }}
+                    />
+                    {valor ? (
+                      <TouchableOpacity
+                        onPress={() => {
+                          Alert.alert(
+                            'Remover Prazo',
+                            `Deseja remover a data limite do ${label}? Os professores poderão lançar notas sem restrição de prazo.`,
+                            [
+                              { text: 'Cancelar', style: 'cancel' },
+                              {
+                                text: 'Remover',
+                                style: 'destructive',
+                                onPress: () => updateConfig({
+                                  prazosLancamento: { ...config.prazosLancamento, [key]: undefined },
+                                }),
+                              },
+                            ]
+                          );
+                        }}
+                        style={{ marginTop: 4 }}
+                      >
+                        <Text style={{ fontSize: 11, color: Colors.danger, fontFamily: 'Inter_500Medium' }}>
+                          Remover prazo do {label}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                );
+              })}
+
+              <View style={[styles.configWarnBox ?? {}, { marginTop: 8, flexDirection: 'row', gap: 8, backgroundColor: Colors.warning + '18', padding: 12, borderRadius: 10, alignItems: 'flex-start' }]}>
+                <Ionicons name="information-circle" size={16} color={Colors.warning} />
+                <Text style={{ fontSize: 11, color: Colors.warning, fontFamily: 'Inter_400Regular', flex: 1, lineHeight: 16 }}>
+                  Quando o prazo expira, os professores vêem a pauta em modo de leitura e podem solicitar reabertura à direcção.
+                </Text>
+              </View>
+            </View>
+
           </View>
         )}
 

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, Platform, Dimensions, Alert,
 } from 'react-native';
+import * as XLSX from 'xlsx';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -10,6 +11,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
+import { useProfessor } from '@/context/ProfessorContext';
+import { useConfig } from '@/context/ConfigContext';
+import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 
@@ -402,15 +406,31 @@ export default function SecretariaHubScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { user } = useAuth();
-  const { alunos, turmas, eventos } = useData();
+  const { alunos, turmas, eventos, notas, professores } = useData();
+  const { pautas } = useProfessor();
+  const { config } = useConfig();
+  const { anoSelecionado } = useAnoAcademico();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const [pautaFiltroStatus, setPautaFiltroStatus] = useState<'todas' | 'fechada' | 'aberta'>('todas');
+  const [pautaFiltroTrimestre, setPautaFiltroTrimestre] = useState<0 | 1 | 2 | 3>(0);
+  const [pautaFiltroTurma, setPautaFiltroTurma] = useState<string>('');
+
+  const pautasFiltradas = useMemo(() => {
+    return pautas.filter(p => {
+      if (pautaFiltroStatus !== 'todas' && p.status !== pautaFiltroStatus) return false;
+      if (pautaFiltroTrimestre !== 0 && p.trimestre !== pautaFiltroTrimestre) return false;
+      if (pautaFiltroTurma && p.turmaId !== pautaFiltroTurma) return false;
+      return true;
+    });
+  }, [pautas, pautaFiltroStatus, pautaFiltroTrimestre, pautaFiltroTurma]);
 
   const [documentos, setDocumentos] = useState<Documento[]>(INITIAL_DOCUMENTOS);
   const [processos, setProcessos] = useState<Processo[]>(INITIAL_PROCESSOS);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
-  const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos'>('visao');
+  const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos' | 'pautas'>('visao');
   const [cursoExpandido, setCursoExpandido] = useState<string | null>(null);
 
   const stats = useMemo(() => ({
@@ -460,6 +480,7 @@ export default function SecretariaHubScreen() {
 
   const TABS = [
     { key: 'visao', label: 'Visão Geral', icon: 'grid' },
+    { key: 'pautas', label: 'Pautas', icon: 'ribbon' },
     { key: 'cursos', label: 'Cursos', icon: 'school' },
     { key: 'processos', label: 'Processos', icon: 'folder' },
     { key: 'documentos', label: 'Documentos', icon: 'document-text' },
@@ -847,6 +868,373 @@ export default function SecretariaHubScreen() {
                   </View>
                 );
               })}
+            </>
+          );
+        })()}
+
+        {/* ── PAUTAS ────────────────────────────────────────── */}
+        {activeTab === 'pautas' && (() => {
+          const pautasFechadas = pautas.filter(p => p.status === 'fechada').length;
+          const pautasAbertas = pautas.filter(p => p.status === 'aberta').length;
+          const pautasPendentes = pautas.filter(p => p.status === 'pendente_abertura').length;
+
+          function nomeProfessor(professorId: string) {
+            const prof = professores.find(p => p.id === professorId);
+            return prof ? `${prof.nome} ${prof.apelido}` : '—';
+          }
+
+          function nomeTurma(turmaId: string) {
+            return turmas.find(t => t.id === turmaId)?.nome || '—';
+          }
+
+          function pautaStatusColor(status: string) {
+            if (status === 'fechada') return Colors.success;
+            if (status === 'aberta') return Colors.info;
+            if (status === 'pendente_abertura') return Colors.warning;
+            return Colors.textMuted;
+          }
+
+          function pautaStatusLabel(status: string) {
+            if (status === 'fechada') return 'Fechada';
+            if (status === 'aberta') return 'Aberta';
+            if (status === 'pendente_abertura') return 'Aguarda Reabertura';
+            return status;
+          }
+
+          function imprimirPauta(pautaItem: typeof pautas[0]) {
+            if (Platform.OS !== 'web') {
+              Alert.alert('Indisponível', 'A impressão está disponível na versão web do sistema.');
+              return;
+            }
+            const turmaObj = turmas.find(t => t.id === pautaItem.turmaId);
+            const profNome = nomeProfessor(pautaItem.professorId);
+            const turmaNome = turmaObj?.nome || '—';
+            const nivelClasse = turmaObj?.classe || '—';
+            const nomeEscola = config?.nomeEscola || 'Escola';
+            const logoUrl = config?.logoUrl || '';
+            const anoLetivo = anoSelecionado?.ano || pautaItem.anoLetivo || '20__/20__';
+            const { disciplina, trimestre } = pautaItem;
+            const alunosDaTurma = alunos.filter(a => a.turmaId === pautaItem.turmaId && a.ativo);
+
+            const rows = alunosDaTurma.map((aluno, idx) => {
+              const get = (tr: number) => {
+                const n = notas.find(n => n.alunoId === aluno.id && n.turmaId === pautaItem.turmaId && n.disciplina === disciplina && n.trimestre === tr);
+                return n ? { mac: n.mac ?? n.mac1 ?? 0, npp: n.pp1 ?? 0, npt: n.ppt ?? 0, mt: n.mt1 ?? 0 } : null;
+              };
+              const t1 = get(1); const t2 = get(2); const t3 = get(3);
+              const mts = [t1?.mt, t2?.mt, t3?.mt].filter((v): v is number => !!v && v > 0);
+              const mfd = mts.length ? Math.round((mts.reduce((a, b) => a + b, 0) / mts.length) * 10) / 10 : null;
+              const aprovado = mfd !== null ? (mfd >= (config?.notaMinimaAprovacao ?? 10) ? 'Aprovado' : 'Reprovado') : '';
+              const fmt = (v: number | null | undefined) => v && v > 0 ? v.toFixed(1) : '';
+              const bgEven = idx % 2 === 0 ? '#f9f9f0' : '#ffffff';
+              return `<tr style="background:${bgEven}">
+                <td style="text-align:center;font-size:11px;">${String(idx + 1).padStart(2, '0')}</td>
+                <td style="font-size:11px;padding-left:4px;">${aluno.nome} ${aluno.apelido}</td>
+                <td class="nc">${fmt(t1?.mac)}</td><td class="nc">${fmt(t1?.npp)}</td><td class="nc">${fmt(t1?.npt)}</td><td class="nc bold">${fmt(t1?.mt)}</td>
+                <td class="nc">${fmt(t2?.mac)}</td><td class="nc">${fmt(t2?.npp)}</td><td class="nc">${fmt(t2?.npt)}</td><td class="nc bold">${fmt(t2?.mt)}</td>
+                <td class="nc">${fmt(t3?.mac)}</td><td class="nc">${fmt(t3?.npp)}</td><td class="nc">${fmt(t3?.npt)}</td><td class="nc bold">${fmt(t3?.mt)}</td>
+                <td class="nc bold" style="color:${mfd !== null && mfd >= (config?.notaMinimaAprovacao ?? 10) ? '#155724' : mfd !== null ? '#721c24' : '#000'};">${mfd !== null ? mfd.toFixed(1) : ''}</td>
+                <td style="font-size:10px;text-align:center;">${aprovado}</td>
+              </tr>`;
+            });
+
+            const emptyRows = Array.from({ length: Math.max(0, 45 - alunosDaTurma.length) }, (_, i) => {
+              const bg = (alunosDaTurma.length + i) % 2 === 0 ? '#f9f9f0' : '#ffffff';
+              return `<tr style="background:${bg};height:22px;"><td></td><td></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td><td class="nc"></td></tr>`;
+            });
+
+            const dataHoje = new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' });
+            const dataFecho = pautaItem.dataFecho ? new Date(pautaItem.dataFecho).toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+            const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"/>
+<title>Pauta · ${disciplina} · ${turmaNome}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Times New Roman',serif;background:#fff;color:#000;padding:16px 20px;font-size:12px;}
+  .header{text-align:center;margin-bottom:10px;}
+  .header img{width:70px;height:70px;object-fit:contain;margin-bottom:4px;}
+  .header p{font-size:12px;line-height:1.5;}
+  .header .title{font-size:16px;font-weight:bold;margin:4px 0;}
+  .header .escola{font-size:13px;font-weight:bold;text-transform:uppercase;margin:2px 0;}
+  .meta{display:flex;gap:16px;font-size:11px;font-weight:bold;border-top:2px solid #000;border-bottom:2px solid #000;padding:4px 0;margin-bottom:0;}
+  .secretaria-stamp{background:#e8f5e9;border:1px solid #4caf50;border-radius:6px;padding:6px 12px;font-size:10px;color:#1b5e20;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+  table{width:100%;border-collapse:collapse;font-size:10px;}
+  th,td{border:1px solid #333;padding:2px 3px;}
+  th{background:#c6efce;font-size:9px;font-weight:bold;text-align:center;white-space:nowrap;}
+  th.hdr-tri{background:#1a6b3c;color:#fff;font-size:10px;}
+  td.nc{text-align:center;font-size:10px;}
+  td.bold{font-weight:bold;}
+  .footer{margin-top:20px;display:flex;justify-content:space-between;align-items:flex-end;}
+  .sig{text-align:center;}
+  .sig-line{border-top:1px solid #000;margin-top:40px;padding-top:4px;font-size:11px;min-width:200px;}
+  @media print{
+    body{padding:8px 12px;}
+    @page{size:A4 landscape;margin:8mm;}
+    .no-print{display:none;}
+  }
+</style>
+</head><body>
+<div class="header">
+  ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
+  <p>REPÚBLICA DE ANGOLA</p>
+  <p>MINISTÉRIO DA EDUCAÇÃO</p>
+  <p class="title">PAUTA DE AVALIAÇÃO</p>
+  <p class="escola">${nomeEscola}</p>
+</div>
+<div class="secretaria-stamp">
+  ✅ Pauta validada e emitida pela Secretaria Académica em ${dataHoje} | Data de fecho pelo professor: ${dataFecho}
+</div>
+<div class="meta">
+  <span>DISCIPLINA: <u>${disciplina}</u></span>
+  <span>${nivelClasse}ª CLASSE</span>
+  <span>TURMA: <u>${turmaNome}</u></span>
+  <span>TRIMESTRE: <u>${trimestre}º</u></span>
+  <span>ANO LECTIVO: <u style="color:#c00;">${anoLetivo}</u></span>
+  <span>PROFESSOR(A): <u>${profNome}</u></span>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2" style="width:28px;">Nº</th>
+      <th rowspan="2" style="min-width:120px;text-align:left;">NOME COMPLETO</th>
+      <th colspan="4" class="hdr-tri">1º TRIMESTRE</th>
+      <th colspan="4" class="hdr-tri">2º TRIMESTRE</th>
+      <th colspan="4" class="hdr-tri">3º TRIMESTRE</th>
+      <th rowspan="2" style="width:32px;">MFD</th>
+      <th rowspan="2" style="width:60px;">OBSERVAÇÃO</th>
+    </tr>
+    <tr>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT1</th>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT2</th>
+      <th>MAC</th><th>NPP</th><th>NPT</th><th>MT3</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${rows.join('\n')}
+    ${emptyRows.join('\n')}
+  </tbody>
+</table>
+<div class="footer">
+  <div class="sig">
+    <div class="sig-line">O PROFESSOR(A)<br/><strong>${profNome}</strong></div>
+  </div>
+  <div class="sig">
+    <div class="sig-line">O(A) DIRECTOR(A) PEDAGÓGICO(A)<br/><strong>${config?.directorPedagogico || '____________________'}</strong></div>
+  </div>
+  <div class="sig">
+    <div class="sig-line">SECRETARIA ACADÉMICA<br/><strong>${user?.nome || '____________________'}</strong></div>
+  </div>
+</div>
+<div class="no-print" style="text-align:center;margin-top:16px;">
+  <button onclick="window.print()" style="padding:10px 32px;font-size:14px;background:#1a6b3c;color:#fff;border:none;border-radius:6px;cursor:pointer;">Imprimir / Guardar PDF</button>
+</div>
+</body></html>`;
+
+            const win = window.open('', '_blank');
+            if (win) { win.document.write(html); win.document.close(); }
+          }
+
+          function exportarExcelPauta(pautaItem: typeof pautas[0]) {
+            if (Platform.OS !== 'web') {
+              Alert.alert('Indisponível', 'A exportação Excel está disponível na versão web.');
+              return;
+            }
+            const turmaObj = turmas.find(t => t.id === pautaItem.turmaId);
+            const turmaNome = turmaObj?.nome || '—';
+            const nivelClasse = turmaObj?.classe || '—';
+            const profNome = nomeProfessor(pautaItem.professorId);
+            const anoLetivo = anoSelecionado?.ano || pautaItem.anoLetivo || '';
+            const escola = config?.nomeEscola || 'Escola';
+            const { disciplina, trimestre } = pautaItem;
+            const alunosDaTurma = alunos.filter(a => a.turmaId === pautaItem.turmaId && a.ativo);
+
+            const header1 = ['REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO'];
+            const header2 = [`PAUTA DE AVALIAÇÃO — ${disciplina} — ${nivelClasse}ª Classe — Turma ${turmaNome} — ${trimestre}º Trimestre`];
+            const header3 = [`Escola: ${escola}   Ano Lectivo: ${anoLetivo}   Professor(a): ${profNome}   Data: ${new Date().toLocaleDateString('pt-AO')}`];
+            const colHeader = ['Nº', 'Nome Completo', 'MAC T1', 'NPP T1', 'NPT T1', 'MT1', 'MAC T2', 'NPP T2', 'NPT T2', 'MT2', 'MAC T3', 'NPP T3', 'NPT T3', 'MT3', 'MFD', 'Observação'];
+
+            const dataRows = alunosDaTurma.map((aluno, idx) => {
+              const get = (tr: number) => {
+                const n = notas.find(n => n.alunoId === aluno.id && n.turmaId === pautaItem.turmaId && n.disciplina === disciplina && n.trimestre === tr);
+                return n ? { mac: n.mac ?? n.mac1 ?? 0, npp: n.pp1 ?? 0, npt: n.ppt ?? 0, mt: n.mt1 ?? 0 } : null;
+              };
+              const t1 = get(1); const t2 = get(2); const t3 = get(3);
+              const mts = [t1?.mt, t2?.mt, t3?.mt].filter((v): v is number => !!v && v > 0);
+              const mfd = mts.length ? Math.round((mts.reduce((a, b) => a + b, 0) / mts.length) * 10) / 10 : '';
+              const fmt = (v: number | null | undefined) => v && v > 0 ? v : '';
+              const aprovado = typeof mfd === 'number' ? (mfd >= (config?.notaMinimaAprovacao ?? 10) ? 'Aprovado' : 'Reprovado') : '';
+              return [
+                idx + 1, `${aluno.nome} ${aluno.apelido}`,
+                fmt(t1?.mac), fmt(t1?.npp), fmt(t1?.npt), fmt(t1?.mt),
+                fmt(t2?.mac), fmt(t2?.npp), fmt(t2?.npt), fmt(t2?.mt),
+                fmt(t3?.mac), fmt(t3?.npp), fmt(t3?.npt), fmt(t3?.mt),
+                mfd, aprovado,
+              ];
+            });
+
+            const wb = XLSX.utils.book_new();
+            const wsData = [header1, header2, header3, [], colHeader, ...dataRows];
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            ws['!merges'] = [
+              { s: { r: 0, c: 0 }, e: { r: 0, c: 15 } },
+              { s: { r: 1, c: 0 }, e: { r: 1, c: 15 } },
+              { s: { r: 2, c: 0 }, e: { r: 2, c: 15 } },
+            ];
+            ws['!cols'] = [{ wch: 5 }, { wch: 30 }, ...Array(14).fill({ wch: 8 })];
+            XLSX.utils.book_append_sheet(wb, ws, 'Pauta');
+            const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+            const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Pauta_${disciplina}_${turmaNome}_T${trimestre}_${anoLetivo}.xlsx`.replace(/\//g, '-');
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+
+          return (
+            <>
+              {/* Stats */}
+              <View style={styles.statsRow}>
+                <StatCard value={pautas.length} label="Total\nde Pautas" color={Colors.info} icon="ribbon" />
+                <StatCard value={pautasFechadas} label="Pautas\nFechadas" color={Colors.success} icon="checkmark-circle" />
+                <StatCard value={pautasAbertas} label="Pautas\nAbertas" color={Colors.gold} icon="create" />
+                <StatCard value={pautasPendentes} label="Aguardam\nRea." color={Colors.warning} icon="time" />
+              </View>
+
+              {/* Filtros */}
+              <View style={styles.card}>
+                <SectionHeader title="Filtros" icon="filter" />
+
+                <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Estado da Pauta</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  {([['todas', 'Todas'], ['fechada', 'Fechadas'], ['aberta', 'Abertas']] as const).map(([v, l]) => (
+                    <TouchableOpacity
+                      key={v}
+                      style={[styles.procBtn, pautaFiltroStatus === v && { backgroundColor: Colors.gold + '22', borderColor: Colors.gold }]}
+                      onPress={() => setPautaFiltroStatus(v)}
+                    >
+                      <Text style={[styles.procBtnText, pautaFiltroStatus === v && { color: Colors.gold }]}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.fieldLabel}>Trimestre</Text>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                  {([[0, 'Todos'], [1, '1º Trim.'], [2, '2º Trim.'], [3, '3º Trim.']] as [0|1|2|3, string][]).map(([v, l]) => (
+                    <TouchableOpacity
+                      key={v}
+                      style={[styles.procBtn, pautaFiltroTrimestre === v && { backgroundColor: Colors.info + '22', borderColor: Colors.info }]}
+                      onPress={() => setPautaFiltroTrimestre(v)}
+                    >
+                      <Text style={[styles.procBtnText, pautaFiltroTrimestre === v && { color: Colors.info }]}>{l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.fieldLabel}>Turma</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.procBtn, pautaFiltroTurma === '' && { backgroundColor: Colors.accent + '22', borderColor: Colors.accent }]}
+                    onPress={() => setPautaFiltroTurma('')}
+                  >
+                    <Text style={[styles.procBtnText, pautaFiltroTurma === '' && { color: Colors.accent }]}>Todas</Text>
+                  </TouchableOpacity>
+                  {turmas.filter(t => t.ativo).map(t => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.procBtn, pautaFiltroTurma === t.id && { backgroundColor: Colors.accent + '22', borderColor: Colors.accent }]}
+                      onPress={() => setPautaFiltroTurma(t.id)}
+                    >
+                      <Text style={[styles.procBtnText, pautaFiltroTurma === t.id && { color: Colors.accent }]}>{t.nome}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              {/* Lista de pautas */}
+              <View style={styles.card}>
+                <SectionHeader title={`Pautas (${pautasFiltradas.length})`} icon="ribbon" />
+
+                {pautasFiltradas.length === 0 ? (
+                  <View style={{ padding: 24, alignItems: 'center', gap: 8 }}>
+                    <Ionicons name="ribbon-outline" size={36} color={Colors.textMuted} />
+                    <Text style={styles.emptyText}>Nenhuma pauta encontrada com os filtros seleccionados.</Text>
+                    <Text style={{ fontSize: 11, color: Colors.textMuted, textAlign: 'center' }}>
+                      As pautas aparecem aqui quando os professores submetem as notas na área deles.
+                    </Text>
+                  </View>
+                ) : (
+                  pautasFiltradas.map(p => {
+                    const turmaObj = turmas.find(t => t.id === p.turmaId);
+                    const profNome = nomeProfessor(p.professorId);
+                    const statusColor = pautaStatusColor(p.status);
+                    const statusLbl = pautaStatusLabel(p.status);
+                    const numAlunos = alunos.filter(a => a.turmaId === p.turmaId && a.ativo).length;
+                    const dataFecho = p.dataFecho ? new Date(p.dataFecho).toLocaleDateString('pt-PT') : null;
+
+                    return (
+                      <View key={p.id} style={[styles.processoCard, { borderLeftWidth: 3, borderLeftColor: statusColor }]}>
+                        <View style={styles.processoCardTop}>
+                          <View style={{ flex: 1 }}>
+                            <View style={styles.processoTopRow}>
+                              <Text style={[styles.processoTipo, { fontSize: 13 }]}>{p.disciplina}</Text>
+                              <View style={[styles.statusBadge, { backgroundColor: statusColor + '22' }]}>
+                                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+                                <Text style={[styles.statusText, { color: statusColor }]}>{statusLbl}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.processoMeta}>
+                              {turmaObj?.nome || '—'} · {p.trimestre}º Trimestre · {p.anoLetivo}
+                            </Text>
+                            <Text style={styles.processoMeta}>
+                              Prof. {profNome} · {numAlunos} aluno{numAlunos !== 1 ? 's' : ''}
+                              {dataFecho ? ` · Fechada em ${dataFecho}` : ''}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {p.status === 'fechada' && (
+                          <View style={styles.processoActions}>
+                            <TouchableOpacity
+                              style={[styles.procBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '44', flex: 1 }]}
+                              onPress={() => imprimirPauta(p)}
+                            >
+                              <Ionicons name="print" size={13} color={Colors.success} />
+                              <Text style={[styles.procBtnText, { color: Colors.success }]}>Imprimir Pauta</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={[styles.procBtn, { backgroundColor: Colors.info + '22', borderColor: Colors.info + '44', flex: 1 }]}
+                              onPress={() => exportarExcelPauta(p)}
+                            >
+                              <Ionicons name="download" size={13} color={Colors.info} />
+                              <Text style={[styles.procBtnText, { color: Colors.info }]}>Exportar Excel</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {p.status === 'aberta' && (
+                          <View style={{ flexDirection: 'row', gap: 6, backgroundColor: Colors.info + '11', padding: 8, borderRadius: 8, marginTop: 6, alignItems: 'center' }}>
+                            <Ionicons name="time-outline" size={13} color={Colors.info} />
+                            <Text style={{ fontSize: 10, color: Colors.info, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                              Pauta em lançamento — aguarda o fecho pelo professor para poder imprimir.
+                            </Text>
+                          </View>
+                        )}
+
+                        {p.status === 'pendente_abertura' && (
+                          <View style={[{ flexDirection: 'row', gap: 6, backgroundColor: Colors.warning + '11', padding: 8, borderRadius: 8, marginTop: 6, alignItems: 'center' }]}>
+                            <Ionicons name="alert-circle-outline" size={13} color={Colors.warning} />
+                            <Text style={{ fontSize: 10, color: Colors.warning, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                              Professor solicitou reabertura da pauta — aguarda aprovação da direcção.
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })
+                )}
+              </View>
             </>
           );
         })()}
