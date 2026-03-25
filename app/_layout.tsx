@@ -27,6 +27,7 @@ import { RegistroProvider } from '@/context/RegistroContext';
 import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
 import { PermissoesProvider } from '@/context/PermissoesContext';
+import { ToastProvider } from '@/context/ToastContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 
 if (Platform.OS !== 'web') {
@@ -64,8 +65,10 @@ function AppProviders() {
                                 <NotificacoesProvider>
                                   <ProfessorProvider>
                                     <DrawerProvider>
-                                      <RootLayoutNav />
-                                      <FlashScreenOverlay />
+                                      <ToastProvider>
+                                        <RootLayoutNav />
+                                        <FlashScreenOverlay />
+                                      </ToastProvider>
                                     </DrawerProvider>
                                   </ProfessorProvider>
                                 </NotificacoesProvider>
