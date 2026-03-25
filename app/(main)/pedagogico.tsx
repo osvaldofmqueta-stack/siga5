@@ -63,8 +63,87 @@ interface Ocorrencia {
   createdAt: string;
 }
 
+// ─── Plano de Aula types & HTML builder (shared with professor-plano-aula) ────
+export interface FaseAula {
+  tempo: string; fase: string; conteudo: string; metodos: string;
+  actividades: string; estrategiaEnsino: string; meiosEnsino: string;
+  avaliacao: string; obs: string;
+}
+export interface PlanoAula {
+  id: string; professorId: string; professorNome: string;
+  turmaId?: string; turmaNome: string; disciplina: string; unidade: string;
+  sumario: string; classe: string; escola: string; perfilEntrada: string;
+  perfilSaida: string; data: string; periodo: string; tempo: string;
+  duracao: string; anoLetivo: string; objectivoGeral: string;
+  objectivosEspecificos: string; fases: FaseAula[];
+  status: 'rascunho' | 'submetido' | 'aprovado' | 'rejeitado';
+  observacaoDirector?: string; aprovadoPor?: string; aprovadoEm?: string;
+  createdAt: string; updatedAt: string;
+}
+const PLANO_STATUS_CFG = {
+  rascunho:  { label: 'Rascunho',  color: '#888',              icon: 'file-document-outline' },
+  submetido: { label: 'Submetido', color: '#f59e0b',           icon: 'clock-outline' },
+  aprovado:  { label: 'Aprovado',  color: Colors.success,      icon: 'check-circle' },
+  rejeitado: { label: 'Rejeitado', color: Colors.danger,       icon: 'close-circle' },
+};
+function buildPlanoHTML(plano: PlanoAula): string {
+  const rows = (plano.fases || []).map(f => `
+    <tr>
+      <td style="font-size:10pt;text-align:center;font-weight:bold;">${f.tempo}</td>
+      <td style="font-size:10pt;font-weight:bold;">${f.fase}</td>
+      <td style="font-size:9pt;">${(f.conteudo||'').replace(/\n/g,'<br>')}</td>
+      <td style="font-size:9pt;">${(f.metodos||'').replace(/\n/g,'<br>')}</td>
+      <td style="font-size:9pt;">${(f.actividades||'').replace(/\n/g,'<br>')}</td>
+      <td style="font-size:9pt;">${(f.estrategiaEnsino||'').replace(/\n/g,'<br>')}</td>
+      <td style="font-size:9pt;">${(f.meiosEnsino||'').replace(/\n/g,'<br>')}</td>
+      <td style="font-size:9pt;text-align:center;">${f.avaliacao||''}</td>
+      <td style="font-size:9pt;">${f.obs||''}</td>
+    </tr>`).join('');
+  return `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8">
+  <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Times New Roman',serif;font-size:11pt;color:#111;background:#fff}
+  .page{width:297mm;min-height:210mm;margin:0 auto;padding:15mm 18mm}
+  h1{text-align:center;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;text-decoration:underline}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #111;border-collapse:collapse;margin-bottom:10px}
+  .info-cell{padding:4px 7px;border:1px solid #111;font-size:10pt;line-height:1.5}
+  .info-cell .lbl{font-weight:bold}
+  .obj-box{border:1px solid #111;padding:5px 8px;margin-bottom:10px;font-size:10pt;line-height:1.7}
+  .obj-box .lbl{font-weight:bold}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  th{background:#ddd;font-size:10pt;padding:5px 4px;border:1px solid #111;text-align:center;font-weight:bold}
+  td{border:1px solid #111;padding:4px;vertical-align:top}
+  .print-btn{display:block;margin:16px auto;padding:10px 32px;background:#1a2540;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold}
+  @media print{.print-btn{display:none}}</style></head>
+  <body>
+  <button class="print-btn" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  <div class="page"><h1>Plano de Aula</h1>
+  <div class="info-grid">
+    <div class="info-cell"><span class="lbl">Nome:</span> ${plano.professorNome}</div>
+    <div class="info-cell" style="grid-row:span 2;"><span class="lbl">Geral:</span> ${plano.objectivoGeral||''}</div>
+    <div class="info-cell" style="grid-row:span 6;"><span class="lbl">Objectivos:</span><br><br><span class="lbl">Específicos:</span><br>${(plano.objectivosEspecificos||'').replace(/\n/g,'<br>')}</div>
+    <div class="info-cell"><span class="lbl">Escola:</span> ${plano.escola}</div>
+    <div class="info-cell"><span class="lbl">Data:</span> ${plano.data}</div>
+    <div class="info-cell"></div>
+    <div class="info-cell"><span class="lbl">Classe:</span> ${plano.classe} &nbsp;&nbsp; <span class="lbl">Turma:</span> ${plano.turmaNome}</div>
+    <div class="info-cell"><span class="lbl">Período:</span> ${plano.periodo}</div>
+    <div class="info-cell"><span class="lbl">Disciplina:</span> ${plano.disciplina}</div>
+    <div class="info-cell"><span class="lbl">Tempo:</span> ${plano.tempo}</div>
+    <div class="info-cell"><span class="lbl">Unidade:</span> ${plano.unidade}</div>
+    <div class="info-cell"><span class="lbl">Duração:</span> ${plano.duracao}</div>
+    <div class="info-cell"><span class="lbl">Sumário:</span> ${plano.sumario}</div>
+    <div class="info-cell"><span class="lbl">Ano lectivo:</span> ${plano.anoLetivo}</div>
+  </div>
+  <div class="obj-box"><span class="lbl">Perfil de entrada:</span> ${plano.perfilEntrada||''}</div>
+  <div class="obj-box"><span class="lbl">Perfil de saída:</span> ${plano.perfilSaida||''}</div>
+  <table><thead><tr>
+    <th style="width:55px">Tempo</th><th style="width:80px">Fases<br>didácticas</th>
+    <th>Conteúdo</th><th style="width:80px">Métodos</th><th>Actividades</th>
+    <th style="width:90px">Estratégia de<br>Ensino</th><th style="width:90px">Meios de<br>Ensino</th>
+    <th style="width:70px">Avaliação</th><th style="width:50px">Obs</th>
+  </tr></thead><tbody>${rows}</tbody></table></div></body></html>`;
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
-const TABS = ['planificacoes', 'programa', 'resultados', 'ocorrencias'] as const;
+const TABS = ['planificacoes', 'programa', 'resultados', 'ocorrencias', 'planos_aula'] as const;
 type TabKey = typeof TABS[number];
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -72,12 +151,14 @@ const TAB_LABELS: Record<TabKey, string> = {
   programa: 'Programa',
   resultados: 'Resultados',
   ocorrencias: 'Ocorrências',
+  planos_aula: 'Planos de Aula',
 };
 const TAB_ICONS: Record<TabKey, string> = {
   planificacoes: 'clipboard-list',
   programa: 'book-open-variant',
   resultados: 'chart-bar',
   ocorrencias: 'alert-circle',
+  planos_aula: 'book-education',
 };
 
 const TIPOS_OCO = ['comportamento', 'falta_injustificada', 'violencia', 'fraude', 'outro'] as const;
@@ -136,6 +217,14 @@ export default function PedagogicoScreen() {
   const [selGravidade, setSelGravidade] = useState<string>('todas');
   const [searchAluno, setSearchAluno] = useState('');
   const [showResolvidas, setShowResolvidas] = useState(false);
+
+  // Planos de Aula
+  const [planosAula, setPlanosAula] = useState<PlanoAula[]>([]);
+  const [filtroPlanoStatus, setFiltroPlanoStatus] = useState<'todos' | 'submetido' | 'aprovado' | 'rejeitado'>('todos');
+  const [previewPlano, setPreviewPlano] = useState<PlanoAula | null>(null);
+  const [obsModalPlano, setObsModalPlano] = useState<PlanoAula | null>(null);
+  const [obsText, setObsText] = useState('');
+  const [planosLoading, setPlanosLoading] = useState(false);
 
   // Modals
   const [showPlanModal, setShowPlanModal] = useState(false);
@@ -199,6 +288,51 @@ export default function PedagogicoScreen() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadPlanosAula() {
+    setPlanosLoading(true);
+    try {
+      let url = '/api/planos-aula';
+      if (isProf && meuProfessor) url = `/api/planos-aula/professor/${meuProfessor.id}`;
+      const data = await api.get<PlanoAula[]>(url);
+      setPlanosAula(data || []);
+    } catch (e) {
+      console.error('Planos de aula load error', e);
+    } finally {
+      setPlanosLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab === 'planos_aula') loadPlanosAula();
+  }, [tab]);
+
+  async function aprovarPlano(plano: PlanoAula, obs?: string) {
+    try {
+      const updated = await api.put<PlanoAula>(`/api/planos-aula/${plano.id}`, {
+        status: 'aprovado',
+        observacaoDirector: obs || '',
+        aprovadoPor: user?.nome || user?.email || 'Direcção',
+        aprovadoEm: new Date().toISOString().split('T')[0],
+      });
+      setPlanosAula(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
+      setObsModalPlano(null); setObsText('');
+    } catch { Alert.alert('Erro', 'Não foi possível aprovar o plano.'); }
+  }
+
+  async function rejeitarPlano(plano: PlanoAula, obs: string) {
+    if (!obs.trim()) { Alert.alert('Aviso', 'Por favor, indique o motivo da rejeição.'); return; }
+    try {
+      const updated = await api.put<PlanoAula>(`/api/planos-aula/${plano.id}`, {
+        status: 'rejeitado',
+        observacaoDirector: obs,
+        aprovadoPor: user?.nome || user?.email || 'Direcção',
+        aprovadoEm: new Date().toISOString().split('T')[0],
+      });
+      setPlanosAula(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
+      setObsModalPlano(null); setObsText('');
+    } catch { Alert.alert('Erro', 'Não foi possível rejeitar o plano.'); }
   }
 
   async function handleRefresh() {
@@ -791,14 +925,234 @@ export default function PedagogicoScreen() {
     );
   }
 
-  // ── FAB ───────────────────────────────────────────────────────────────────
+  // ── Render Planos de Aula ─────────────────────────────────────────────────
+  function renderPlanosAula() {
+    const planosFiltrados = planosAula.filter(p =>
+      filtroPlanoStatus === 'todos' ? true : p.status === filtroPlanoStatus
+    ).filter(p => isProf ? true : p.status !== 'rascunho');
+
+    const totalSubmetidos = planosAula.filter(p => p.status === 'submetido').length;
+    const totalAprovados  = planosAula.filter(p => p.status === 'aprovado').length;
+    const totalRejeitados = planosAula.filter(p => p.status === 'rejeitado').length;
+
+    return (
+      <ScrollView
+        refreshControl={<RefreshControl refreshing={planosLoading} onRefresh={loadPlanosAula} />}
+        contentContainerStyle={{ padding: 14, paddingBottom: bottom + 80 }}
+      >
+        {/* KPIs */}
+        {!isProf && (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            {[
+              { label: 'Submetidos', val: totalSubmetidos, color: '#f59e0b' },
+              { label: 'Aprovados',  val: totalAprovados,  color: Colors.success },
+              { label: 'Rejeitados', val: totalRejeitados, color: Colors.danger },
+            ].map(k => (
+              <View key={k.label} style={[st.kpi, { flex: 1 }]}>
+                <Text style={[st.kpiVal, { color: k.color }]}>{k.val}</Text>
+                <Text style={st.kpiLbl}>{k.label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Filtros */}
+        <FilterChips
+          label="Estado"
+          value={filtroPlanoStatus}
+          options={[
+            { value: 'todos', label: 'Todos' },
+            { value: 'submetido', label: 'Submetidos' },
+            { value: 'aprovado', label: 'Aprovados' },
+            { value: 'rejeitado', label: 'Rejeitados' },
+          ]}
+          onChange={setFiltroPlanoStatus}
+        />
+
+        {planosLoading && (
+          <ActivityIndicator size="large" color={Colors.gold} style={{ marginTop: 40 }} />
+        )}
+
+        {!planosLoading && planosFiltrados.length === 0 && (
+          <View style={st.empty}>
+            <MaterialCommunityIcons name="book-education" size={40} color={Colors.textMuted} />
+            <Text style={st.emptyTxt}>Nenhum plano de aula encontrado</Text>
+            <Text style={st.emptySub}>
+              {filtroPlanoStatus === 'todos'
+                ? 'Os professores ainda não submeteram planos de aula.'
+                : `Não há planos com estado "${PLANO_STATUS_CFG[filtroPlanoStatus]?.label}".`}
+            </Text>
+          </View>
+        )}
+
+        {planosFiltrados.map(plano => {
+          const cfg = PLANO_STATUS_CFG[plano.status] || PLANO_STATUS_CFG.rascunho;
+          return (
+            <View key={plano.id} style={[st.card, { marginBottom: 10 }]}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.cardTitle}>{plano.disciplina}</Text>
+                  <Text style={st.cardSub} numberOfLines={1}>
+                    {plano.sumario || plano.unidade || '—'}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                    {plano.professorNome} · {plano.turmaNome || '—'} · {plano.data || '—'}
+                  </Text>
+                </View>
+                <View style={[st.badge, { backgroundColor: cfg.color + '22', borderColor: cfg.color + '55' }]}>
+                  <MaterialCommunityIcons name={cfg.icon as any} size={13} color={cfg.color} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: cfg.color }}>{cfg.label}</Text>
+                </View>
+              </View>
+
+              {plano.observacaoDirector ? (
+                <View style={{ backgroundColor: Colors.info + '12', borderRadius: 8, padding: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>
+                    <Text style={{ fontFamily: 'Inter_600SemiBold' }}>Obs: </Text>
+                    {plano.observacaoDirector}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                <TouchableOpacity
+                  style={[st.btnSec, { flex: 1 }]}
+                  onPress={() => setPreviewPlano(plano)}
+                >
+                  <MaterialCommunityIcons name="eye-outline" size={14} color={Colors.info} />
+                  <Text style={[st.btnSecTxt, { color: Colors.info }]}>Visualizar</Text>
+                </TouchableOpacity>
+
+                {!isProf && plano.status === 'submetido' && (
+                  <>
+                    <TouchableOpacity
+                      style={[st.btnSec, { flex: 1, borderColor: Colors.success + '55', backgroundColor: Colors.success + '12' }]}
+                      onPress={() => { setObsModalPlano(plano); setObsText(''); }}
+                    >
+                      <MaterialCommunityIcons name="check-circle-outline" size={14} color={Colors.success} />
+                      <Text style={[st.btnSecTxt, { color: Colors.success }]}>Aprovar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[st.btnSec, { flex: 1, borderColor: Colors.danger + '55', backgroundColor: Colors.danger + '12' }]}
+                      onPress={() => {
+                        Alert.prompt
+                          ? Alert.prompt('Motivo da rejeição', 'Indique o motivo:', txt => txt && rejeitarPlano(plano, txt))
+                          : (() => { setObsModalPlano({ ...plano, status: 'rejeitado' }); setObsText(''); })();
+                      }}
+                    >
+                      <MaterialCommunityIcons name="close-circle-outline" size={14} color={Colors.danger} />
+                      <Text style={[st.btnSecTxt, { color: Colors.danger }]}>Rejeitar</Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Preview modal */}
+        {previewPlano && Platform.OS === 'web' && (
+          <Modal visible animationType="slide" onRequestClose={() => setPreviewPlano(null)}>
+            <View style={{ flex: 1, backgroundColor: Colors.background }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface }}>
+                <TouchableOpacity onPress={() => setPreviewPlano(null)} style={{ padding: 4 }}>
+                  <Ionicons name="arrow-back" size={22} color={Colors.text} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>Plano de Aula</Text>
+                  <Text style={{ fontSize: 12, color: Colors.textMuted }}>{previewPlano.professorNome} · {previewPlano.disciplina}</Text>
+                </View>
+                {!isProf && previewPlano.status === 'submetido' && (
+                  <TouchableOpacity
+                    style={[st.btnSec, { borderColor: Colors.success + '55', backgroundColor: Colors.success + '12' }]}
+                    onPress={() => { setPreviewPlano(null); setObsModalPlano(previewPlano); setObsText(''); }}
+                  >
+                    <MaterialCommunityIcons name="check" size={14} color={Colors.success} />
+                    <Text style={[st.btnSecTxt, { color: Colors.success }]}>Aprovar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <iframe
+                srcDoc={buildPlanoHTML(previewPlano)}
+                style={{ flex: 1, border: 'none', width: '100%', height: '100%', minHeight: 600 } as any}
+                title="Plano de Aula"
+              />
+            </View>
+          </Modal>
+        )}
+
+        {/* Approve/Reject modal */}
+        {obsModalPlano && (
+          <Modal visible animationType="slide" transparent onRequestClose={() => setObsModalPlano(null)}>
+            <View style={{ flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: bottom + 20 }}>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 }}>
+                  {obsModalPlano.status === 'rejeitado' ? 'Rejeitar Plano' : 'Aprovar Plano'}
+                </Text>
+                <Text style={{ fontSize: 13, color: Colors.textMuted, marginBottom: 14 }}>
+                  {obsModalPlano.disciplina} · {obsModalPlano.professorNome}
+                </Text>
+                <Text style={st.lbl}>{obsModalPlano.status === 'rejeitado' ? 'Motivo da rejeição *' : 'Observação (opcional)'}</Text>
+                <TextInput
+                  style={[st.input, { height: 100, textAlignVertical: 'top', marginBottom: 16 }]}
+                  multiline
+                  value={obsText}
+                  onChangeText={setObsText}
+                  placeholder={obsModalPlano.status === 'rejeitado' ? 'Indique o motivo...' : 'Notas adicionais...'}
+                  placeholderTextColor={Colors.textMuted}
+                />
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <TouchableOpacity
+                    style={[st.btnSec, { flex: 1, justifyContent: 'center' }]}
+                    onPress={() => setObsModalPlano(null)}
+                  >
+                    <Text style={[st.btnSecTxt, { color: Colors.textSecondary }]}>Cancelar</Text>
+                  </TouchableOpacity>
+                  {obsModalPlano.status === 'rejeitado' ? (
+                    <TouchableOpacity
+                      style={[st.btnPrimary, { flex: 1, flexDirection: 'row', gap: 6, backgroundColor: Colors.danger }]}
+                      onPress={() => rejeitarPlano(obsModalPlano, obsText)}
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={16} color="#fff" />
+                      <Text style={st.btnPrimaryTxt}>Rejeitar</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        style={[st.btnPrimary, { flex: 1, flexDirection: 'row', gap: 6, backgroundColor: Colors.success }]}
+                        onPress={() => aprovarPlano(obsModalPlano, obsText)}
+                      >
+                        <MaterialCommunityIcons name="check-circle" size={16} color="#fff" />
+                        <Text style={st.btnPrimaryTxt}>Aprovar</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+                {obsModalPlano.status !== 'rejeitado' && (
+                  <TouchableOpacity
+                    style={[st.btnSec, { marginTop: 8, justifyContent: 'center', borderColor: Colors.danger + '55', backgroundColor: Colors.danger + '12' }]}
+                    onPress={() => { setObsModalPlano({ ...obsModalPlano, status: 'rejeitado' }); }}
+                  >
+                    <MaterialCommunityIcons name="close-circle-outline" size={14} color={Colors.danger} />
+                    <Text style={[st.btnSecTxt, { color: Colors.danger }]}>Rejeitar em vez disso</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          </Modal>
+        )}
+      </ScrollView>
+    );
+  }
+
   function renderFAB() {
-    if (tab === 'resultados') return null;
+    if (tab === 'resultados' || tab === 'planos_aula') return null;
     const handlers: Record<TabKey, () => void> = {
       planificacoes: () => { setEditPlan(null); setFormPlan(defaultPlan); setShowPlanModal(true); },
       programa:      () => { setEditProg(null); setFormProg(defaultProg); setShowProgModal(true); },
       ocorrencias:   () => { setEditOco(null);  setFormOco(defaultOco);  setShowOcoModal(true); },
       resultados:    () => {},
+      planos_aula:   () => {},
     };
     return (
       <TouchableOpacity style={[st.fab, { bottom: bottom + 16 }]} onPress={handlers[tab]}>
@@ -1075,6 +1429,7 @@ export default function PedagogicoScreen() {
           {tab === 'programa'      && renderPrograma()}
           {tab === 'resultados'    && renderResultados()}
           {tab === 'ocorrencias'   && renderOcorrencias()}
+          {tab === 'planos_aula'   && renderPlanosAula()}
         </>
       )}
       {renderFAB()}

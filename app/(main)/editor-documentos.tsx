@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
-  Platform, Dimensions, FlatList, Image, Alert, Animated,
+  Platform, Dimensions, FlatList, Image, Alert, Animated, ActivityIndicator, Modal,
 } from 'react-native';
 import { Editor } from '@tinymce/tinymce-react';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -1559,6 +1559,78 @@ export default function EditorDocumentos() {
   const [mode, setMode] = useState<Mode>('list');
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  // ─── Planos de Aula state ────────────────────────────────────────────────
+  const [planosAulaDoc, setPlanosAulaDoc] = useState<any[]>([]);
+  const [planosAulaLoading, setPlanosAulaLoading] = useState(false);
+  const [previewPlanoDoc, setPreviewPlanoDoc] = useState<any | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      setPlanosAulaLoading(true);
+      try {
+        const r = await fetch('/api/planos-aula', { credentials: 'include' });
+        if (r.ok) { const d = await r.json(); setPlanosAulaDoc(Array.isArray(d) ? d : []); }
+      } catch { setPlanosAulaDoc([]); }
+      finally { setPlanosAulaLoading(false); }
+    })();
+  }, []);
+
+  function buildPlanoHTMLDoc(plano: any): string {
+    const rows = (plano.fases || []).map((f: any) => `
+      <tr>
+        <td style="font-size:10pt;text-align:center;font-weight:bold;">${f.tempo||''}</td>
+        <td style="font-size:10pt;font-weight:bold;">${f.fase||''}</td>
+        <td style="font-size:9pt;">${(f.conteudo||'').replace(/\n/g,'<br>')}</td>
+        <td style="font-size:9pt;">${(f.metodos||'').replace(/\n/g,'<br>')}</td>
+        <td style="font-size:9pt;">${(f.actividades||'').replace(/\n/g,'<br>')}</td>
+        <td style="font-size:9pt;">${(f.estrategiaEnsino||'').replace(/\n/g,'<br>')}</td>
+        <td style="font-size:9pt;">${(f.meiosEnsino||'').replace(/\n/g,'<br>')}</td>
+        <td style="font-size:9pt;text-align:center;">${f.avaliacao||''}</td>
+        <td style="font-size:9pt;">${f.obs||''}</td>
+      </tr>`).join('');
+    return `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Times New Roman',serif;font-size:11pt;color:#111;background:#fff}
+    .page{width:297mm;min-height:210mm;margin:0 auto;padding:15mm 18mm}
+    h1{text-align:center;font-size:14pt;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;text-decoration:underline}
+    .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid #111;border-collapse:collapse;margin-bottom:10px}
+    .info-cell{padding:4px 7px;border:1px solid #111;font-size:10pt;line-height:1.5}
+    .info-cell .lbl{font-weight:bold}
+    .obj-box{border:1px solid #111;padding:5px 8px;margin-bottom:10px;font-size:10pt;line-height:1.7}
+    .obj-box .lbl{font-weight:bold}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th{background:#ddd;font-size:10pt;padding:5px 4px;border:1px solid #111;text-align:center;font-weight:bold}
+    td{border:1px solid #111;padding:4px;vertical-align:top}
+    .print-btn{display:block;margin:16px auto;padding:10px 32px;background:#1a2540;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold}
+    @media print{.print-btn{display:none}}</style></head>
+    <body>
+    <button class="print-btn" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    <div class="page"><h1>Plano de Aula</h1>
+    <div class="info-grid">
+      <div class="info-cell"><span class="lbl">Nome:</span> ${plano.professorNome||''}</div>
+      <div class="info-cell" style="grid-row:span 2;"><span class="lbl">Geral:</span> ${plano.objectivoGeral||''}</div>
+      <div class="info-cell" style="grid-row:span 6;"><span class="lbl">Objectivos:</span><br><br><span class="lbl">Específicos:</span><br>${(plano.objectivosEspecificos||'').replace(/\n/g,'<br>')}</div>
+      <div class="info-cell"><span class="lbl">Escola:</span> ${plano.escola||''}</div>
+      <div class="info-cell"><span class="lbl">Data:</span> ${plano.data||''}</div>
+      <div class="info-cell"></div>
+      <div class="info-cell"><span class="lbl">Classe:</span> ${plano.classe||''} &nbsp;&nbsp; <span class="lbl">Turma:</span> ${plano.turmaNome||''}</div>
+      <div class="info-cell"><span class="lbl">Período:</span> ${plano.periodo||''}</div>
+      <div class="info-cell"><span class="lbl">Disciplina:</span> ${plano.disciplina||''}</div>
+      <div class="info-cell"><span class="lbl">Tempo:</span> ${plano.tempo||''}</div>
+      <div class="info-cell"><span class="lbl">Unidade:</span> ${plano.unidade||''}</div>
+      <div class="info-cell"><span class="lbl">Duração:</span> ${plano.duracao||''}</div>
+      <div class="info-cell"><span class="lbl">Sumário:</span> ${plano.sumario||''}</div>
+      <div class="info-cell"><span class="lbl">Ano lectivo:</span> ${plano.anoLetivo||''}</div>
+    </div>
+    <div class="obj-box"><span class="lbl">Perfil de entrada:</span> ${plano.perfilEntrada||''}</div>
+    <div class="obj-box"><span class="lbl">Perfil de saída:</span> ${plano.perfilSaida||''}</div>
+    <table><thead><tr>
+      <th style="width:55px">Tempo</th><th style="width:80px">Fases<br>didácticas</th>
+      <th>Conteúdo</th><th style="width:80px">Métodos</th><th>Actividades</th>
+      <th style="width:90px">Estratégia de<br>Ensino</th><th style="width:90px">Meios de<br>Ensino</th>
+      <th style="width:70px">Avaliação</th><th style="width:50px">Obs</th>
+    </tr></thead><tbody>${rows}</tbody></table></div></body></html>`;
+  }
 
   // Editor state
   const [editingTemplate, setEditingTemplate] = useState<DocTemplate | null>(null);
@@ -5769,12 +5841,110 @@ export default function EditorDocumentos() {
             ) : null}
           </View>
         ) : (
-          <FlatList
-            data={visibleTemplates}
-            keyExtractor={t => t.id}
-            contentContainerStyle={{ padding: 16, gap: 12 }}
-            renderItem={({ item }) => <TemplateCard template={item} />}
-          />
+          <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+            {visibleTemplates.map(item => <TemplateCard key={item.id} template={item} />)}
+
+            {/* ─── Planos de Aula Section ─────────────────────────────── */}
+            {planosAulaDoc.length > 0 && (
+              <View style={{ marginTop: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: Colors.gold + '18', borderWidth: 1, borderColor: Colors.gold + '44' }}>
+                    <Ionicons name="book-outline" size={14} color={Colors.gold} />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.gold }}>Planos de Aula</Text>
+                    <Text style={{ fontSize: 11, color: Colors.textMuted }}>({planosAulaDoc.filter((p: any) => p.status !== 'rascunho').length})</Text>
+                  </View>
+                  <View style={{ flex: 1, height: 1, backgroundColor: Colors.border }} />
+                </View>
+
+                {planosAulaLoading ? (
+                  <ActivityIndicator color={Colors.gold} />
+                ) : (
+                  planosAulaDoc
+                    .filter((p: any) => p.status !== 'rascunho')
+                    .map((plano: any) => {
+                      const statusColors: Record<string, string> = { submetido: '#f59e0b', aprovado: Colors.success, rejeitado: Colors.danger };
+                      const statusLabels: Record<string, string> = { submetido: 'Submetido', aprovado: 'Aprovado', rejeitado: 'Rejeitado' };
+                      const sc = statusColors[plano.status] || Colors.textMuted;
+                      const sl = statusLabels[plano.status] || plano.status;
+                      return (
+                        <TouchableOpacity
+                          key={plano.id}
+                          style={[styles.card, { marginBottom: 10 }]}
+                          onPress={() => setPreviewPlanoDoc(plano)}
+                          activeOpacity={0.8}
+                        >
+                          <View style={styles.cardHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                              <View style={{ backgroundColor: Colors.gold + '22', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                                <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>Plano de Aula</Text>
+                              </View>
+                              <View style={{ backgroundColor: sc + '22', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1, borderColor: sc + '44' }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: sc }}>{sl.toUpperCase()}</Text>
+                              </View>
+                            </View>
+                            <Ionicons name="eye-outline" size={18} color={Colors.info} />
+                          </View>
+                          <Text style={styles.cardNome}>{plano.disciplina} — {plano.sumario || plano.unidade || '—'}</Text>
+                          <Text style={styles.cardPreview} numberOfLines={1}>
+                            {plano.professorNome} · {plano.turmaNome || '—'} · {plano.classe}ª · {plano.data || '—'}
+                          </Text>
+                          <View style={styles.cardFooter}>
+                            <Text style={styles.cardDate}>Ano Lectivo: {plano.anoLetivo}</Text>
+                            <View style={styles.cardActions}>
+                              <TouchableOpacity
+                                style={styles.cardActionBtn}
+                                onPress={() => setPreviewPlanoDoc(plano)}
+                              >
+                                <Ionicons name="print-outline" size={14} color={Colors.info} />
+                                <Text style={[styles.cardActionText, { color: Colors.info }]}>Abrir / Imprimir</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })
+                )}
+              </View>
+            )}
+          </ScrollView>
+        )}
+
+        {/* Preview plano modal */}
+        {previewPlanoDoc && Platform.OS === 'web' && (
+          <Modal visible animationType="slide" onRequestClose={() => setPreviewPlanoDoc(null)}>
+            <View style={{ flex: 1, backgroundColor: Colors.background }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface }}>
+                <TouchableOpacity onPress={() => setPreviewPlanoDoc(null)} style={{ padding: 4 }}>
+                  <Ionicons name="arrow-back" size={22} color={Colors.text} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>
+                    Plano de Aula — {previewPlanoDoc.disciplina}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: Colors.textMuted }}>
+                    {previewPlanoDoc.professorNome} · {previewPlanoDoc.turmaNome} · {previewPlanoDoc.data}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.info, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}
+                  onPress={() => {
+                    const iframe = document.getElementById('plano-doc-iframe') as HTMLIFrameElement;
+                    if (iframe?.contentWindow) iframe.contentWindow.print();
+                  }}
+                >
+                  <Ionicons name="print" size={16} color="#fff" />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Imprimir</Text>
+                </TouchableOpacity>
+              </View>
+              <iframe
+                id="plano-doc-iframe"
+                srcDoc={buildPlanoHTMLDoc(previewPlanoDoc)}
+                style={{ flex: 1, border: 'none', width: '100%', height: '100%', minHeight: 600 } as any}
+                title="Plano de Aula"
+              />
+            </View>
+          </Modal>
         )}
       </View>
     );

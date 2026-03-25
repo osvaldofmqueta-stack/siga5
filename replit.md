@@ -1,6 +1,28 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Pagamentos Online: Multicaixa Express + Referências Bancárias)
+## Recent Changes (Latest Session — Plano de Aulas / Preparação Pedagógica)
+- **app/(main)/professor-plano-aula.tsx** *(already existed)*: Ecrã completo para professores criarem, editarem, submeterem e pré-visualizarem planos de aula segundo o modelo oficial angolano (tabela com Fases Didácticas, Conteúdo, Métodos, Actividades, Estratégia, Meios de Ensino, Avaliação, Obs). Geração de HTML para impressão/PDF.
+- **app/(main)/pedagogico.tsx**: Nova tab **"Planos de Aula"** (5.ª tab da Área Pedagógica):
+  - Directores Pedagógicos e Chefes de Secretaria vêem todos os planos submetidos (excluindo rascunhos).
+  - Professores vêem apenas os seus próprios planos.
+  - KPIs: total de planos Submetidos / Aprovados / Rejeitados.
+  - Filtro por estado (Todos / Submetidos / Aprovados / Rejeitados).
+  - Cada card mostra: disciplina, sumário, professor, turma, data, estado com badge colorido e observação do director.
+  - Botão "Visualizar" abre pré-visualização HTML completa em iframe (layout A3 paisagem).
+  - Botões "Aprovar" e "Rejeitar" (só visíveis para não-professores, e só para planos submetidos).
+  - Modal de aprovação/rejeição com campo de observação (obrigatório para rejeição).
+  - Ao aprovar/rejeitar regista `aprovadoPor`, `aprovadoEm` e `observacaoDirector` via `PUT /api/planos-aula/:id`.
+  - Adicionados tipos `PlanoAula`, `FaseAula` e função `buildPlanoHTML` directamente no ficheiro.
+- **app/(main)/editor-documentos.tsx**: Secção **"Planos de Aula"** adicionada ao final da lista de documentos:
+  - Carrega todos os planos (excepto rascunhos) via `GET /api/planos-aula`.
+  - Cards mostram disciplina, sumário, professor, turma, classe, data, estado e ano lectivo.
+  - Clique abre pré-visualização HTML em Modal com iframe e botão de impressão directa.
+  - Permite ao director/secretaria imprimir qualquer plano aprovado directamente do editor de documentos.
+  - Adicionadas importações `ActivityIndicator` e `Modal` ao ficheiro.
+- **shared/schema.ts**: Tabela `planos_aula` já existia com todos os campos necessários.
+- **server/routes.ts**: 6 endpoints CRUD já existiam: `GET /api/planos-aula`, `GET /api/planos-aula/professor/:id`, `GET /api/planos-aula/:id`, `POST /api/planos-aula`, `PUT /api/planos-aula/:id`, `DELETE /api/planos-aula/:id`.
+
+## Recent Changes (Previous Session — Pagamentos Online: Multicaixa Express + Referências Bancárias)
 - **app/(main)/portal-encarregado.tsx**: Aba "Financeiro" totalmente remodelada:
   - Secção "Pagar Online" aparece para encarregados com propinas em atraso
   - Por cada mês em atraso: botão "Pagar" abre seletor de método de pagamento
