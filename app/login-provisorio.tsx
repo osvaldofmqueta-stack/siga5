@@ -62,7 +62,7 @@ export default function LoginProvisorioScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.pwaWrap}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/login' as any)} activeOpacity={0.75}>
             <Ionicons name="arrow-back" size={18} color={Colors.text} />
           </TouchableOpacity>
 

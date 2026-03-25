@@ -292,7 +292,7 @@ export default function RegistroScreen() {
     <View style={styles.container}>
       <LinearGradient colors={['#061029', '#0A1628', '#0F1F40']} style={styles.header}>
         <View style={[styles.headerTop, { paddingTop: topPad + 6 }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.75}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.replace('/login' as any)} activeOpacity={0.75}>
             <Ionicons name="arrow-back" size={19} color={Colors.text} />
           </TouchableOpacity>
           <View style={styles.headerTexts}>
