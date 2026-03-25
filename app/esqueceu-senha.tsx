@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
   KeyboardAvoidingView, ScrollView, Platform, Animated, ImageBackground,
@@ -19,9 +19,17 @@ export default function EsqueceuSenhaScreen() {
   const [focusedField, setFocusedField] = useState(false);
   const [enviado, setEnviado] = useState(false);
   const [erro, setErro] = useState('');
+  const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
 
   const cardOpacity = useRef(new Animated.Value(1)).current;
   const cardSlide = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    fetch('/api/public/inscricoes-status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.abertas) setInscricoesAbertas(true); })
+      .catch(() => {});
+  }, []);
 
   async function handleEnviar() {
     setErro('');
@@ -227,17 +235,19 @@ export default function EsqueceuSenhaScreen() {
             </View>
           </View>
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>
-              Não tem conta?{' '}
-              <Text
-                style={styles.footerLink}
-                onPress={() => router.push('/registro' as any)}
-              >
-                Faça a sua inscrição
+          {inscricoesAbertas && (
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>
+                Ainda não é nosso estudante?{' '}
+                <Text
+                  style={styles.footerLink}
+                  onPress={() => router.push('/registro' as any)}
+                >
+                  Solicitar matrícula
+                </Text>
               </Text>
-            </Text>
-          </View>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     </ImageBackground>
