@@ -3204,6 +3204,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── AVALIAÇÃO DE PROFESSORES ─────────────────────────────────────────────
+
+  app.get('/api/avaliacoes-professores', requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`
+        SELECT av.*, p.nome, p.apelido, p."numeroProfessor", p.disciplinas
+        FROM public.avaliacoes_professores av
+        JOIN public.professores p ON p.id = av."professorId"
+        ORDER BY av."criadoEm" DESC
+      `);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get('/api/avaliacoes-professores/professor/:professorId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.avaliacoes_professores WHERE "professorId"=$1 ORDER BY "criadoEm" DESC`,
+        [req.params.professorId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/avaliacoes-professores', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      if (!b.professorId)    return json(res, 400, { error: 'professorId é obrigatório.' });
+      if (!b.periodoLetivo)  return json(res, 400, { error: 'periodoLetivo é obrigatório.' });
+      if (!b.avaliador)      return json(res, 400, { error: 'avaliador é obrigatório.' });
+
+      const notas = ['notaPlaneamento','notaPontualidade','notaMetodologia','notaRelacaoAlunos',
+                     'notaRelacaoColegas','notaResultados','notaDisciplina','notaDesenvolvimento'];
+      const vals: number[] = notas.map(k => {
+        const v = Number(b[k] ?? 0);
+        return (isNaN(v) || v < 0 || v > 5) ? 0 : v;
+      });
+      const filled = vals.filter(v => v > 0);
+      const notaFinal = filled.length > 0
+        ? Math.round((filled.reduce((a, b) => a + b, 0) / filled.length) * 100) / 100
+        : 0;
+
+      const rows = await query<JsonObject>(`
+        INSERT INTO public.avaliacoes_professores
+          (id, "professorId", "periodoLetivo", avaliador, "avaliadorId",
+           "notaPlaneamento","notaPontualidade","notaMetodologia","notaRelacaoAlunos",
+           "notaRelacaoColegas","notaResultados","notaDisciplina","notaDesenvolvimento",
+           "notaFinal", status, "pontosFuertes","areasMelhoria","recomendacoes","avaliacaoEm")
+        VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+        RETURNING *`,
+        [
+          String(b.professorId), String(b.periodoLetivo), String(b.avaliador),
+          b.avaliadorId ? String(b.avaliadorId) : null,
+          ...vals,
+          notaFinal,
+          String(b.status ?? 'rascunho'),
+          String(b.pontosFuertes ?? ''), String(b.areasMelhoria ?? ''), String(b.recomendacoes ?? ''),
+          b.status === 'aprovada' || b.status === 'submetida' ? new Date().toISOString() : null,
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/avaliacoes-professores/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const fields: string[] = [];
+      const vals: unknown[] = [];
+
+      const add = (col: string, val: unknown) => { vals.push(val); fields.push(`"${col}"=$${vals.length}`); };
+
+      const notaCols = ['notaPlaneamento','notaPontualidade','notaMetodologia','notaRelacaoAlunos',
+                        'notaRelacaoColegas','notaResultados','notaDisciplina','notaDesenvolvimento'];
+      let recalc = false;
+      for (const k of notaCols) {
+        if (b[k] !== undefined) { add(k, Number(b[k])); recalc = true; }
+      }
+      if (b.periodoLetivo  !== undefined) add('periodoLetivo',  String(b.periodoLetivo));
+      if (b.avaliador      !== undefined) add('avaliador',      String(b.avaliador));
+      if (b.status         !== undefined) add('status',         String(b.status));
+      if (b.pontosFuertes  !== undefined) add('pontosFuertes',  String(b.pontosFuertes));
+      if (b.areasMelhoria  !== undefined) add('areasMelhoria',  String(b.areasMelhoria));
+      if (b.recomendacoes  !== undefined) add('recomendacoes',  String(b.recomendacoes));
+
+      if (recalc) {
+        // Re-fetch existing + merge to compute notaFinal
+        const existing = await query<JsonObject>(`SELECT * FROM public.avaliacoes_professores WHERE id=$1`, [id]);
+        if (existing[0]) {
+          const merged: Record<string, number> = {};
+          for (const k of notaCols) {
+            merged[k] = b[k] !== undefined ? Number(b[k]) : Number((existing[0] as Record<string, unknown>)[k] ?? 0);
+          }
+          const filled = Object.values(merged).filter(v => v > 0);
+          const nf = filled.length > 0
+            ? Math.round((filled.reduce((a, b) => a + b, 0) / filled.length) * 100) / 100
+            : 0;
+          add('notaFinal', nf);
+        }
+      }
+
+      if (b.status === 'aprovada' || b.status === 'submetida') add('avaliacaoEm', new Date().toISOString());
+      add('atualizadoEm', new Date().toISOString());
+
+      if (fields.length === 1) return json(res, 400, { error: 'Sem campos para actualizar.' });
+
+      vals.push(id);
+      const rows = await query<JsonObject>(
+        `UPDATE public.avaliacoes_professores SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING *`,
+        vals
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Avaliação não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/avaliacoes-professores/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.avaliacoes_professores WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

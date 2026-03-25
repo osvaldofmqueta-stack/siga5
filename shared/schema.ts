@@ -1017,3 +1017,43 @@ export const bolsas = pgTable("bolsas", {
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// AVALIAÇÃO DE PROFESSORES
+// -----------------------
+export const avaliacoesProfessores = pgTable("avaliacoes_professores", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  professorId: varchar("professorId")
+    .notNull()
+    .references(() => professores.id, { onDelete: "cascade" }),
+
+  periodoLetivo: text("periodoLetivo").notNull(), // ex: "2025", "2025-1S"
+  avaliador: text("avaliador").notNull(),
+  avaliadorId: text("avaliadorId"),
+
+  // Critérios pedagógicos (escala 1-5)
+  notaPlaneamento:     real("notaPlaneamento").default(0),
+  notaPontualidade:    real("notaPontualidade").default(0),
+  notaMetodologia:     real("notaMetodologia").default(0),
+  notaRelacaoAlunos:   real("notaRelacaoAlunos").default(0),
+  notaRelacaoColegas:  real("notaRelacaoColegas").default(0),
+  notaResultados:      real("notaResultados").default(0),
+  notaDisciplina:      real("notaDisciplina").default(0),
+  notaDesenvolvimento: real("notaDesenvolvimento").default(0),
+
+  notaFinal: real("notaFinal").default(0),
+
+  status: text("status").notNull().default("rascunho"),
+  // 'rascunho' | 'submetida' | 'aprovada'
+
+  pontosFuertes:  text("pontosFuertes").default(""),
+  areasMelhoria:  text("areasMelhoria").default(""),
+  recomendacoes:  text("recomendacoes").default(""),
+
+  avaliacaoEm:  timestamp("avaliacaoEm", { withTimezone: true }),
+  criadoEm:     timestamp("criadoEm",    { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
+});

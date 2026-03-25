@@ -14,7 +14,7 @@ export type PermKey =
   | 'gestao_acessos'
   | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
   | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado'
-  | 'biblioteca' | 'transferencias';
+  | 'biblioteca' | 'transferencias' | 'avaliacao_professores';
 
 export interface FeatureDef {
   key: PermKey;
@@ -110,6 +110,13 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     ],
   },
   {
+    categoria: 'Pedagógico & Qualidade',
+    icon: 'star',
+    features: [
+      { key: 'avaliacao_professores', label: 'Avaliação de Professores', desc: 'Avaliação pedagógica de professores pela direcção', roles: ['admin', 'director', 'ceo', 'pca'] },
+    ],
+  },
+  {
     categoria: 'Biblioteca Escolar',
     icon: 'library',
     features: [
@@ -141,7 +148,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
     'secretaria_hub', 'editor_documentos', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca',
+    'biblioteca', 'avaliacao_professores',
   ],
   director: [
     'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
@@ -149,7 +156,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos',
     'gestao_academica', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca',
+    'biblioteca', 'avaliacao_professores',
   ],
   secretaria: [
     'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',

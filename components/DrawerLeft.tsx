@@ -149,6 +149,7 @@ export default function DrawerLeft() {
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
         { label: 'Sumário / Presenças', route: '/(main)/professor-sumario', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" />, permKey: 'professor_sumario' },
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
+        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
         { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],
@@ -274,6 +275,7 @@ export default function DrawerLeft() {
       title: 'Pedagógico',
       items: [
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
+        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
         { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
       ],
     },
@@ -327,6 +329,7 @@ export default function DrawerLeft() {
       title: 'Pedagógico',
       items: [
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
+        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
         { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
       ],
     },
