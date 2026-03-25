@@ -5,6 +5,8 @@ export interface Trimestre {
   numero: 1 | 2 | 3;
   dataInicio: string;
   dataFim: string;
+  dataInicioExames?: string;
+  dataFimExames?: string;
   ativo: boolean;
 }
 

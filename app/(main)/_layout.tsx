@@ -91,6 +91,7 @@ export default function MainLayout() {
           <Stack.Screen name="visao-geral" />
           <Stack.Screen name="rh-hub" />
           <Stack.Screen name="pedagogico" />
+          <Stack.Screen name="calendario-academico" />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>

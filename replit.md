@@ -1,6 +1,16 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Plano de Aulas / Preparação Pedagógica)
+## Recent Changes (Latest Session — Calendário Académico Oficial)
+- **app/(main)/calendario-academico.tsx** *(new)*: Ecrã completo de gestão do calendário académico com 4 tabs:
+  - **Trimestres**: 3 cards (T1/T2/T3) com datas de início/fim e período de exames editáveis. Mostra progresso do trimestre (barra %) e progresso global do ano. Indicador de trimestre activo vs. futuro vs. concluído. Edição via modal com campos: dataInicio, dataFim, dataInicioExames, dataFimExames, ativo.
+  - **Feriados**: Lista de feriados (filtrado de `eventos` com tipo='Feriado'). KPIs: total / próximos / passados. Botão "Feriados Nacionais de Angola" que insere automaticamente os 12 feriados oficiais angolanos (Ano Novo, Independência, Herói Nacional, etc.) sem duplicar os já existentes. CRUD com confirmação.
+  - **Provas**: Agenda de provas e exames do `calendario_provas`. KPIs: total / próximas / publicadas. Toggle publicado/rascunho. Agrupamento: próximas vs. passadas. Indicador de trimestre (T1/T2/T3) por prova. CRUD completo.
+  - **Vista Anual**: Calendário visual de 12 meses mostrando todos os períodos: trimestres (cor por trimestre), períodos de exames (cor mais intensa), feriados (amarelo), provas (roxo), hoje (dourado). Legenda na parte superior.
+- **context/AnoAcademicoContext.tsx**: `Trimestre` type estendido com `dataInicioExames?: string` e `dataFimExames?: string`.
+- **app/(main)/_layout.tsx**: `calendario-academico` registado como Stack.Screen.
+- **components/DrawerLeft.tsx**: "Calendário Académico" adicionado nas secções Principal de: Admin/Director, CEO/PCA, Secretaria (Planeamento), Chefe de Secretaria (Documentos & Comunicação). "Calendário" renomeado para "Eventos Escolares" para distinção clara.
+
+## Recent Changes (Previous Session — Plano de Aulas / Preparação Pedagógica)
 - **app/(main)/professor-plano-aula.tsx** *(already existed)*: Ecrã completo para professores criarem, editarem, submeterem e pré-visualizarem planos de aula segundo o modelo oficial angolano (tabela com Fases Didácticas, Conteúdo, Métodos, Actividades, Estratégia, Meios de Ensino, Avaliação, Obs). Geração de HTML para impressão/PDF.
 - **app/(main)/pedagogico.tsx**: Nova tab **"Planos de Aula"** (5.ª tab da Área Pedagógica):
   - Directores Pedagógicos e Chefes de Secretaria vêem todos os planos submetidos (excluindo rascunhos).
