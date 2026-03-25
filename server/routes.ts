@@ -1928,12 +1928,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/config", async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.config_geral LIMIT 1`, []);
-    if (rows[0]) return json(res, 200, rows[0]);
-    // Create default if not exists
-    const created = await query<JsonObject>(
-      `INSERT INTO public.config_geral DEFAULT VALUES RETURNING *`, [],
-    );
-    json(res, 200, created[0]);
+    let config = rows[0];
+    if (!config) {
+      const created = await query<JsonObject>(
+        `INSERT INTO public.config_geral DEFAULT VALUES RETURNING *`, [],
+      );
+      config = created[0];
+    }
+    // Auto-inicializar datas de licença na primeira vez (nunca muda depois)
+    if (!config.licencaAtivacao) {
+      const hoje = new Date().toISOString().split('T')[0];
+      const expiracao = new Date();
+      expiracao.setDate(expiracao.getDate() + 30);
+      const dataExpiracao = expiracao.toISOString().split('T')[0];
+      const updated = await query<JsonObject>(
+        `UPDATE public.config_geral SET "licencaAtivacao"=$1, "licencaExpiracao"=$2, "licencaPlano"=$3 WHERE id=$4 RETURNING *`,
+        [hoje, dataExpiracao, 'avaliacao', config.id],
+      );
+      config = updated[0];
+    }
+    json(res, 200, config);
   });
 
   app.put("/api/config", async (req: Request, res: Response) => {

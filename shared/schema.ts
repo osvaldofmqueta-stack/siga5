@@ -748,6 +748,11 @@ export const configGeral = pgTable("config_geral", {
   directorPedagogico: text("directorPedagogico"),
   directorProvincialEducacao: text("directorProvincialEducacao"),
 
+  // Licença do sistema
+  licencaAtivacao: text("licencaAtivacao"),   // "YYYY-MM-DD" — data em que o sistema foi ativado pela 1ª vez
+  licencaExpiracao: text("licencaExpiracao"), // "YYYY-MM-DD" — data de expiração
+  licencaPlano: text("licencaPlano").default('avaliacao'),
+
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

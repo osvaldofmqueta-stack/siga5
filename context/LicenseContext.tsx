@@ -109,12 +109,48 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
         AsyncStorage.getItem(STORAGE_LICENCA),
         AsyncStorage.getItem(STORAGE_CODIGOS),
       ]);
-      const licencaInicial = rawLic ? JSON.parse(rawLic) : LICENCA_AVALIACAO;
       const codigosIniciais = rawCod ? JSON.parse(rawCod) : [];
-      setLicenca(licencaInicial);
       setCodigosGerados(codigosIniciais);
-      if (!rawLic) await AsyncStorage.setItem(STORAGE_LICENCA, JSON.stringify(licencaInicial));
       if (!rawCod) await AsyncStorage.setItem(STORAGE_CODIGOS, JSON.stringify(codigosIniciais));
+
+      // Se existe uma licença ativa (código de ativação usado), usa essa
+      if (rawLic) {
+        const licLocal: LicencaAtiva = JSON.parse(rawLic);
+        // Só usa a licença local se não for a licença de avaliação padrão
+        if (licLocal.codigoUsado !== 'AVALIACAO') {
+          setLicenca(licLocal);
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Para a licença de avaliação, usa as datas guardadas no servidor
+      // Isso garante que a contagem é precisa e não reset ao mudar de browser
+      try {
+        const res = await fetch('/api/config');
+        if (res.ok) {
+          const config = await res.json();
+          if (config.licencaAtivacao && config.licencaExpiracao) {
+            const licencaServidor: LicencaAtiva = {
+              codigoUsado: 'AVALIACAO',
+              plano: (config.licencaPlano as TipoPlano) || 'avaliacao',
+              dataAtivacao: config.licencaAtivacao,
+              dataExpiracao: config.licencaExpiracao,
+              saldo: 100,
+              escolaNome: config.nomeEscola || '',
+            };
+            setLicenca(licencaServidor);
+            await AsyncStorage.setItem(STORAGE_LICENCA, JSON.stringify(licencaServidor));
+            setIsLoading(false);
+            return;
+          }
+        }
+      } catch { /* fallback para local se servidor não responder */ }
+
+      // Fallback: usa licença de avaliação local (sem contagem precisa)
+      const licencaInicial = rawLic ? JSON.parse(rawLic) : LICENCA_AVALIACAO;
+      setLicenca(licencaInicial);
+      if (!rawLic) await AsyncStorage.setItem(STORAGE_LICENCA, JSON.stringify(licencaInicial));
     } catch (e) {
       console.error('LicenseContext load error', e);
       setLicenca(LICENCA_AVALIACAO);
