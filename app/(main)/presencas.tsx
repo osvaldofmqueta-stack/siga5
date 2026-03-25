@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, Modal,
   ScrollView, Alert, Platform, Dimensions
@@ -10,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Presenca } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
+import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro, showToast } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
@@ -87,15 +88,37 @@ function QRScannerModal({ visible, onClose, onScan }: any) {
   );
 }
 
-const DISCIPLINAS = ['Matemática', 'Português', 'Física', 'Química', 'Biologia', 'História', 'Geografia'];
+const DISCIPLINAS_FALLBACK = ['Matemática', 'Português', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia'];
 
 export default function PresencasScreen() {
   const { alunos, turmas, presencas, addPresenca } = useData();
   const { config } = useConfig();
+  const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [filterTurma, setFilterTurma] = useState(turmas[0]?.id || '');
-  const [disciplina, setDisciplina] = useState(DISCIPLINAS[0]);
+  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>(DISCIPLINAS_FALLBACK);
+  const [disciplina, setDisciplina] = useState(DISCIPLINAS_FALLBACK[0]);
   const [date] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (!filterTurma) {
+      setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+      return;
+    }
+    fetch(`/api/turmas/${filterTurma}/disciplinas`)
+      .then(r => r.json())
+      .then((list: { nome: string }[]) => {
+        if (list && list.length > 0) {
+          const nomes = list.map((d: { nome: string }) => d.nome);
+          setDisciplinasDisponiveis(nomes);
+          setDisciplina(prev => nomes.includes(prev) ? prev : nomes[0]);
+        } else {
+          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+        }
+      })
+      .catch(() => setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK));
+  }, [filterTurma]);
+
   const [showScanner, setShowScanner] = useState(false);
   const [pendingAluno, setPendingAluno] = useState<string | null>(null);
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -203,7 +226,7 @@ export default function PresencasScreen() {
       </ScrollView>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-        {DISCIPLINAS.map(d => (
+        {disciplinasDisponiveis.map(d => (
           <TouchableOpacity key={d} style={[styles.chip, disciplina === d && styles.chipActive]} onPress={() => setDisciplina(d)}>
             <Text style={[styles.chipText, disciplina === d && styles.chipTextActive]}>{d}</Text>
           </TouchableOpacity>

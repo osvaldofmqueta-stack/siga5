@@ -69,8 +69,6 @@ const perfilStyles = StyleSheet.create({
   escolaEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 });
 
-const PROVINCIAS = ['Luanda', 'Benguela', 'Huambo', 'Bié', 'Malanje', 'Uíge', 'Zaire', 'Cabinda', 'Kwanza Norte', 'Kwanza Sul', 'Lunda Norte', 'Lunda Sul', 'Huíla', 'Namibe', 'Moxico', 'Cuando Cubango', 'Cunene', 'Kuando Kubango'];
-
 function AvatarCircle({ nome, avatar, size = 72, fontSize = 28 }: { nome: string; avatar?: string; size?: number; fontSize?: number }) {
   const initials = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
   if (avatar) {
