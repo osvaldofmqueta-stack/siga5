@@ -1019,6 +1019,30 @@ export const bolsas = pgTable("bolsas", {
 });
 
 // -----------------------
+// CHAT INTERNO (Secretaria / Direcção / Professores)
+// -----------------------
+export const chatMensagens = pgTable("chat_mensagens", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  remetenteId:   varchar("remetenteId").notNull(),
+  remetenteNome: text("remetenteNome").notNull(),
+  remetenteRole: text("remetenteRole").notNull(),
+
+  destinatarioId:   varchar("destinatarioId").notNull(),
+  destinatarioNome: text("destinatarioNome").notNull(),
+  destinatarioRole: text("destinatarioRole").notNull().default(""),
+
+  corpo: text("corpo").notNull(),
+  lida:  boolean("lida").notNull().default(false),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ChatMensagem = typeof chatMensagens.$inferSelect;
+
+// -----------------------
 // AVALIAÇÃO DE PROFESSORES
 // -----------------------
 export const avaliacoesProfessores = pgTable("avaliacoes_professores", {

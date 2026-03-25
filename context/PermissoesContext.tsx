@@ -14,7 +14,7 @@ export type PermKey =
   | 'gestao_acessos'
   | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
   | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado'
-  | 'biblioteca' | 'transferencias' | 'avaliacao_professores';
+  | 'biblioteca' | 'transferencias' | 'avaliacao_professores' | 'chat_interno';
 
 export interface FeatureDef {
   key: PermKey;
@@ -124,6 +124,13 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     ],
   },
   {
+    categoria: 'Comunicação Interna',
+    icon: 'chatbubbles',
+    features: [
+      { key: 'chat_interno', label: 'Chat Interno', desc: 'Comunicação centralizada entre secretaria, direcção e professores', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'professor', 'financeiro', 'rh', 'ceo', 'pca'] },
+    ],
+  },
+  {
     categoria: 'Administração',
     icon: 'shield-checkmark',
     features: [
@@ -148,7 +155,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
     'secretaria_hub', 'editor_documentos', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca', 'avaliacao_professores',
+    'biblioteca', 'avaliacao_professores', 'chat_interno',
   ],
   director: [
     'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
@@ -156,22 +163,23 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos',
     'gestao_academica', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca', 'avaliacao_professores',
+    'biblioteca', 'avaliacao_professores', 'chat_interno',
   ],
   secretaria: [
     'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',
     'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios',
     'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
-    'admissao', 'disciplinas', 'desempenho', 'biblioteca',
+    'admissao', 'disciplinas', 'desempenho', 'biblioteca', 'chat_interno',
   ],
   professor: [
     'professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario',
     'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais', 'biblioteca',
+    'chat_interno',
   ],
   aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos', 'biblioteca'],
-  financeiro: ['financeiro', 'notificacoes', 'boletim_propina'],
+  financeiro: ['financeiro', 'notificacoes', 'boletim_propina', 'chat_interno'],
   encarregado: ['portal_encarregado', 'notificacoes'],
-  rh: ['rh_hub', 'rh_controle', 'notificacoes'],
+  rh: ['rh_hub', 'rh_controle', 'notificacoes', 'chat_interno'],
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { usePermissoes, PermKey } from '@/context/PermissoesContext';
+import { useChatInterno } from '@/context/ChatInternoContext';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 300);
 const SIDEBAR_WIDTH = 260;
@@ -39,6 +40,7 @@ export default function DrawerLeft() {
   const pathname = usePathname();
   const { user } = useAuth();
   const { unreadCount } = useNotificacoes();
+  const { unreadTotal: chatUnreadCount } = useChatInterno();
   const { anos, anoSelecionado, setAnoSelecionado } = useAnoAcademico();
   const { isLicencaValida, diasRestantes } = useLicense();
   const { isDesktop } = useBreakpoint();
@@ -158,6 +160,7 @@ export default function DrawerLeft() {
       title: 'Comunicação',
       items: [
         { label: 'Mensagens', route: '/(main)/professor-mensagens', icon: <Ionicons name="chatbubbles" size={20} color="inherit" />, permKey: 'professor_mensagens' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
         { label: 'Materiais', route: '/(main)/professor-materiais', icon: <Ionicons name="folder-open" size={20} color="inherit" />, permKey: 'professor_materiais' },
       ],
     },
@@ -170,6 +173,7 @@ export default function DrawerLeft() {
         { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
       ],
     },
   ];
@@ -181,6 +185,7 @@ export default function DrawerLeft() {
         { label: 'Hub RH', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
       ],
     },
     {
@@ -206,6 +211,7 @@ export default function DrawerLeft() {
         { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'secretaria_hub' },
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
       ],
     },
     {
@@ -254,6 +260,7 @@ export default function DrawerLeft() {
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
       ],
     },
     {
@@ -308,6 +315,7 @@ export default function DrawerLeft() {
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
       ],
     },
     {
@@ -377,6 +385,7 @@ export default function DrawerLeft() {
       title: 'Documentos & Comunicação',
       items: [
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],

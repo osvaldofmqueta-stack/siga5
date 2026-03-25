@@ -28,6 +28,7 @@ import { ConfigProvider } from '@/context/ConfigContext';
 import { ProfessorProvider } from '@/context/ProfessorContext';
 import { PermissoesProvider } from '@/context/PermissoesContext';
 import { ToastProvider } from '@/context/ToastContext';
+import { ChatInternoProvider } from '@/context/ChatInternoContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 
 if (Platform.OS !== 'web') {
@@ -64,12 +65,14 @@ function AppProviders() {
                               <FinanceiroProvider>
                                 <NotificacoesProvider>
                                   <ProfessorProvider>
-                                    <DrawerProvider>
-                                      <ToastProvider>
-                                        <RootLayoutNav />
-                                        <FlashScreenOverlay />
-                                      </ToastProvider>
-                                    </DrawerProvider>
+                                    <ChatInternoProvider>
+                                      <DrawerProvider>
+                                        <ToastProvider>
+                                          <RootLayoutNav />
+                                          <FlashScreenOverlay />
+                                        </ToastProvider>
+                                      </DrawerProvider>
+                                    </ChatInternoProvider>
                                   </ProfessorProvider>
                                 </NotificacoesProvider>
                               </FinanceiroProvider>

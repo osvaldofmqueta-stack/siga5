@@ -1454,6 +1454,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // CHAT INTERNO
+  // -----------------------
+  app.get("/api/chat-interno", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return json(res, 401, { error: "Não autenticado." });
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.chat_mensagens
+         WHERE "remetenteId"=$1 OR "destinatarioId"=$1
+         ORDER BY "createdAt" ASC`,
+        [userId],
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/chat-interno", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return json(res, 401, { error: "Não autenticado." });
+      const b = requireBodyObject(req);
+      if (!b.destinatarioId || !b.corpo || String(b.corpo).trim() === "") {
+        return json(res, 400, { error: "Destinatário e corpo são obrigatórios." });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.chat_mensagens
+           (id,"remetenteId","remetenteNome","remetenteRole","destinatarioId","destinatarioNome","destinatarioRole","corpo","lida")
+         VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,false) RETURNING *`,
+        [
+          userId,
+          String(b.remetenteNome ?? ""),
+          String(b.remetenteRole ?? ""),
+          String(b.destinatarioId),
+          String(b.destinatarioNome ?? ""),
+          String(b.destinatarioRole ?? ""),
+          String(b.corpo).trim(),
+        ],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/chat-interno/:id/ler", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userId = (req as any).user?.id;
+      if (!userId) return json(res, 401, { error: "Não autenticado." });
+      const rows = await query<JsonObject>(
+        `UPDATE public.chat_mensagens SET lida=true
+         WHERE id=$1 AND "destinatarioId"=$2 RETURNING *`,
+        [id, userId],
+      );
+      if (!rows[0]) return json(res, 404, { error: "Mensagem não encontrada." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/chat-interno/unread-count", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = (req as any).user?.id;
+      if (!userId) return json(res, 401, { error: "Não autenticado." });
+      const rows = await query<JsonObject>(
+        `SELECT COUNT(*) as count FROM public.chat_mensagens
+         WHERE "destinatarioId"=$1 AND lida=false`,
+        [userId],
+      );
+      json(res, 200, { count: Number((rows[0] as any)?.count ?? 0) });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
   // RUPES
   // -----------------------
   app.get("/api/rupes", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
