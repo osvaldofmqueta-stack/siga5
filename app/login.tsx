@@ -75,12 +75,13 @@ export default function LoginScreen() {
     setAlertModal({ visible: true, title, message, type });
   }
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const logoScale = useRef(new Animated.Value(0.85)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const cardSlide = useRef(new Animated.Value(40)).current;
-  const cardOpacity = useRef(new Animated.Value(0)).current;
-  const footerOpacity = useRef(new Animated.Value(0)).current;
+  const isWeb = Platform.OS === 'web';
+  const fadeAnim = useRef(new Animated.Value(isWeb ? 1 : 0)).current;
+  const logoScale = useRef(new Animated.Value(isWeb ? 1 : 0.85)).current;
+  const logoOpacity = useRef(new Animated.Value(isWeb ? 1 : 0)).current;
+  const cardSlide = useRef(new Animated.Value(isWeb ? 0 : 40)).current;
+  const cardOpacity = useRef(new Animated.Value(isWeb ? 1 : 0)).current;
+  const footerOpacity = useRef(new Animated.Value(isWeb ? 1 : 0)).current;
   const biometricPulse = useRef(new Animated.Value(1)).current;
   const biometricGlow = useRef(new Animated.Value(0)).current;
 
@@ -137,30 +138,30 @@ export default function LoginScreen() {
   }
 
   function animateEntrance() {
+    const nd = Platform.OS !== 'web';
+    Animated.spring(logoScale, { toValue: 1, useNativeDriver: nd, damping: 16, stiffness: 100 }).start();
     Animated.sequence([
+      Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: nd }),
       Animated.parallel([
-        Animated.timing(logoOpacity, { toValue: 1, duration: 700, useNativeDriver: true }),
-        Animated.spring(logoScale, { toValue: 1, useNativeDriver: true, damping: 16, stiffness: 100 }),
+        Animated.timing(cardOpacity, { toValue: 1, duration: 500, useNativeDriver: nd }),
+        Animated.timing(cardSlide, { toValue: 0, duration: 500, useNativeDriver: nd }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: nd }),
       ]),
-      Animated.parallel([
-        Animated.timing(cardOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-        Animated.spring(cardSlide, { toValue: 0, useNativeDriver: true, damping: 20, stiffness: 90 }),
-        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]),
-      Animated.timing(footerOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+      Animated.timing(footerOpacity, { toValue: 1, duration: 400, useNativeDriver: nd }),
     ]).start();
   }
 
   function startBiometricAnimation() {
+    const nd = Platform.OS !== 'web';
     Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(biometricPulse, { toValue: 1.12, duration: 900, useNativeDriver: true }),
-          Animated.timing(biometricGlow, { toValue: 1, duration: 900, useNativeDriver: true }),
+          Animated.timing(biometricPulse, { toValue: 1.12, duration: 900, useNativeDriver: nd }),
+          Animated.timing(biometricGlow, { toValue: 1, duration: 900, useNativeDriver: nd }),
         ]),
         Animated.parallel([
-          Animated.timing(biometricPulse, { toValue: 1, duration: 900, useNativeDriver: true }),
-          Animated.timing(biometricGlow, { toValue: 0, duration: 900, useNativeDriver: true }),
+          Animated.timing(biometricPulse, { toValue: 1, duration: 900, useNativeDriver: nd }),
+          Animated.timing(biometricGlow, { toValue: 0, duration: 900, useNativeDriver: nd }),
         ]),
       ])
     ).start();
@@ -686,6 +687,7 @@ export default function LoginScreen() {
 
           <View style={styles.desktopRight}>
             <ScrollView
+              style={{ flex: 1 }}
               contentContainerStyle={styles.desktopRightScroll}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
