@@ -145,7 +145,7 @@ export default function EsqueceuSenhaScreen() {
         >
           <TouchableOpacity
             style={styles.backLink}
-            onPress={() => router.back()}
+            onPress={() => router.replace('/login' as any)}
             activeOpacity={0.7}
           >
             <Ionicons name="chevron-back" size={20} color={Colors.textSecondary} />
