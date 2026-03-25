@@ -3,6 +3,7 @@ import type { Request, Response, NextFunction } from "express";
 import { createProxyMiddleware, responseInterceptor } from "http-proxy-middleware";
 import { registerRoutes } from "./routes";
 import { registerMEDRoutes } from "./med";
+import { registerPDFRoutes } from "./pdf";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -284,6 +285,7 @@ function setupErrorHandler(app: express.Application) {
 
   const server = await registerRoutes(app);
   registerMEDRoutes(app);
+  registerPDFRoutes(app);
 
   if (process.env.NODE_ENV === "development") {
     setupWebProxy(app);

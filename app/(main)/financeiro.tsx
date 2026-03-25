@@ -981,12 +981,23 @@ export default function FinanceiroScreen() {
                   <View style={{ alignItems: 'flex-end', gap: 6 }}>
                     <Text style={st.pagValor}>{formatAOA(pag.valor)}</Text>
                     <Badge label={sc.label} color={sc.color} />
-                    {pag.status === 'pendente' && (
-                      <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(pag.id, { status: 'pago' })}>
-                        <Ionicons name="checkmark" size={11} color="#fff" />
-                        <Text style={st.confirmarTxt}>Confirmar</Text>
-                      </TouchableOpacity>
-                    )}
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      {Platform.OS === 'web' && (
+                        <TouchableOpacity
+                          style={[st.confirmarBtn, { backgroundColor: Colors.info + 'cc' }]}
+                          onPress={() => window.open(`/api/pdf/recibo/${pag.id}`, '_blank')}
+                        >
+                          <Ionicons name="document-text" size={11} color="#fff" />
+                          <Text style={st.confirmarTxt}>PDF</Text>
+                        </TouchableOpacity>
+                      )}
+                      {pag.status === 'pendente' && (
+                        <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(pag.id, { status: 'pago' })}>
+                          <Ionicons name="checkmark" size={11} color="#fff" />
+                          <Text style={st.confirmarTxt}>Confirmar</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   </View>
                 </View>
               );
@@ -1500,12 +1511,23 @@ export default function FinanceiroScreen() {
                     <View style={{ alignItems: 'flex-end', gap: 6 }}>
                       <Text style={st.pagValor}>{formatAOA(p.valor)}</Text>
                       <Badge label={sc.label} color={sc.color} />
-                      {p.status === 'pendente' && (
-                        <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(p.id, { status: 'pago' })}>
-                          <Ionicons name="checkmark" size={11} color="#fff" />
-                          <Text style={st.confirmarTxt}>Confirmar</Text>
-                        </TouchableOpacity>
-                      )}
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        {Platform.OS === 'web' && (
+                          <TouchableOpacity
+                            style={[st.confirmarBtn, { backgroundColor: Colors.info + 'cc' }]}
+                            onPress={() => window.open(`/api/pdf/recibo/${p.id}`, '_blank')}
+                          >
+                            <Ionicons name="document-text" size={11} color="#fff" />
+                            <Text style={st.confirmarTxt}>PDF</Text>
+                          </TouchableOpacity>
+                        )}
+                        {p.status === 'pendente' && (
+                          <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(p.id, { status: 'pago' })}>
+                            <Ionicons name="checkmark" size={11} color="#fff" />
+                            <Text style={st.confirmarTxt}>Confirmar</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   </View>
                 );

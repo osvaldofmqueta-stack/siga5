@@ -171,6 +171,7 @@ export default function DrawerLeft() {
       title: 'Painel Financeiro',
       items: [
         { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
         { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
@@ -209,6 +210,7 @@ export default function DrawerLeft() {
       title: 'Secretaria',
       items: [
         { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'secretaria_hub' },
+        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
         { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
@@ -246,6 +248,7 @@ export default function DrawerLeft() {
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
@@ -396,6 +399,7 @@ export default function DrawerLeft() {
       title: 'Finanças & RH',
       items: [
         { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
       ],
