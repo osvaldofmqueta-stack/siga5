@@ -2,6 +2,7 @@ import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { createProxyMiddleware, responseInterceptor } from "http-proxy-middleware";
 import { registerRoutes } from "./routes";
+import { registerMEDRoutes } from "./med";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -282,6 +283,7 @@ function setupErrorHandler(app: express.Application) {
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
 
   const server = await registerRoutes(app);
+  registerMEDRoutes(app);
 
   if (process.env.NODE_ENV === "development") {
     setupWebProxy(app);

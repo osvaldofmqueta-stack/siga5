@@ -35,7 +35,17 @@ interface MEDStats {
 }
 
 type ExportType = 'matriculas' | 'professores' | 'resultados' | 'frequencias' | 'consolidado';
-type ExportFormat = 'csv' | 'xml' | 'json';
+type ExportFormat = 'csv' | 'xml' | 'json' | 'xlsx';
+
+interface AuditLog {
+  id: string;
+  userEmail: string;
+  userRole: string;
+  acao: string;
+  descricao: string;
+  ipAddress: string;
+  createdAt: string;
+}
 
 const ALLOWED_ROLES = ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'];
 
@@ -128,34 +138,47 @@ function ExportCard({
     }
     setLoading(true);
     try {
-      const params = new URLSearchParams({ formato: format });
-      if (anoLetivo) params.set('anoLetivo', anoLetivo);
-      if (type === 'resultados' && trimestre) params.set('trimestre', trimestre);
+      const token = localStorage.getItem('siga_token') ?? '';
 
-      const url = `/api/med/export/${type}?${params}`;
-
-      if (format === 'json') {
-        const data = await api.get<unknown>(url);
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `MED_${type}_${anoLetivo || 'todos'}_${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-      } else {
-        const token = localStorage.getItem('siga_token') ?? '';
+      if (format === 'xlsx') {
+        const xlsxParams = new URLSearchParams();
+        if (anoLetivo) xlsxParams.set('anoLetivo', anoLetivo);
+        const url = `/api/med/export/xlsx/${type}?${xlsxParams}`;
         const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-        if (!resp.ok) {
-          const err = await resp.json();
-          throw new Error(err.error ?? 'Erro na exportação');
-        }
+        if (!resp.ok) { const err = await resp.json(); throw new Error(err.error ?? 'Erro na exportação'); }
         const blob = await resp.blob();
         const cd = resp.headers.get('Content-Disposition') ?? '';
         const match = cd.match(/filename="(.+?)"/);
-        const fname = match?.[1] ?? `export.${format}`;
+        const fname = match?.[1] ?? `MED_${type}_${new Date().toISOString().slice(0,10)}.xlsx`;
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = fname;
         a.click();
+      } else {
+        const params = new URLSearchParams({ formato: format });
+        if (anoLetivo) params.set('anoLetivo', anoLetivo);
+        if (type === 'resultados' && trimestre) params.set('trimestre', trimestre);
+        const url = `/api/med/export/${type}?${params}`;
+
+        if (format === 'json') {
+          const data = await api.get<unknown>(url);
+          const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `MED_${type}_${anoLetivo || 'todos'}_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+        } else {
+          const resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+          if (!resp.ok) { const err = await resp.json(); throw new Error(err.error ?? 'Erro na exportação'); }
+          const blob = await resp.blob();
+          const cd = resp.headers.get('Content-Disposition') ?? '';
+          const match = cd.match(/filename="(.+?)"/);
+          const fname = match?.[1] ?? `export.${format}`;
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = fname;
+          a.click();
+        }
       }
       setLastExport(new Date().toLocaleString('pt-AO'));
       onExported();
@@ -204,10 +227,13 @@ function ExportCard({
       {/* Format selector */}
       <View style={styles.exportActions}>
         <View style={styles.formatRow}>
-          {(['csv', 'xml', 'json'] as ExportFormat[]).map(f => (
+          {(type === 'consolidado'
+            ? ['json'] as ExportFormat[]
+            : ['csv', 'xlsx', 'xml', 'json'] as ExportFormat[]
+          ).map(f => (
             <TouchableOpacity
               key={f}
-              style={[styles.formatPill, format === f && styles.formatPillActive]}
+              style={[styles.formatPill, format === f && styles.formatPillActive, f === 'xlsx' && styles.formatPillXlsx, f === 'xlsx' && format === f && styles.formatPillXlsxActive]}
               onPress={() => setFormat(f)}
             >
               <Text style={[styles.formatPillText, format === f && styles.formatPillTextActive]}>
@@ -250,8 +276,10 @@ export default function MEDIntegracaoScreen() {
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [savingConfig, setSavingConfig] = useState(false);
   const [configSaved, setConfigSaved] = useState(false);
-  const [activeTab, setActiveTab] = useState<'exportar' | 'config'>('exportar');
+  const [activeTab, setActiveTab] = useState<'exportar' | 'config' | 'historico'>('exportar');
   const [exportCount, setExportCount] = useState(0);
+  const [historico, setHistorico] = useState<AuditLog[]>([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(false);
 
   const hasAccess = user && ALLOWED_ROLES.includes(user.role);
 
@@ -274,11 +302,28 @@ export default function MEDIntegracaoScreen() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const loadHistorico = useCallback(async () => {
+    if (!hasAccess) return;
+    setLoadingHistorico(true);
+    try {
+      const logs = await api.get<AuditLog[]>('/api/med/historico');
+      setHistorico(logs);
+    } catch (e) {
+      console.error('Historico load error', e);
+    } finally {
+      setLoadingHistorico(false);
+    }
+  }, [hasAccess]);
+
+  useEffect(() => {
+    if (activeTab === 'historico') loadHistorico();
+  }, [activeTab, loadHistorico]);
+
   const saveConfig = useCallback(async () => {
     setSavingConfig(true);
     setConfigSaved(false);
     try {
-      await api.post('/api/med/config', config as any);
+      await api.patch('/api/med/config', config as any);
       setConfigSaved(true);
       setTimeout(() => setConfigSaved(false), 3000);
     } catch (e) {
@@ -347,18 +392,77 @@ export default function MEDIntegracaoScreen() {
       <View style={styles.tabs}>
         <TouchableOpacity style={[styles.tab, activeTab === 'exportar' && styles.tabActive]} onPress={() => setActiveTab('exportar')}>
           <Ionicons name="cloud-upload-outline" size={15} color={activeTab === 'exportar' ? Colors.gold : Colors.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'exportar' && styles.tabTextActive]}>Exportar Dados</Text>
+          <Text style={[styles.tabText, activeTab === 'exportar' && styles.tabTextActive]}>Exportar</Text>
           {exportCount > 0 && <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{exportCount}</Text></View>}
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.tab, activeTab === 'historico' && styles.tabActive]} onPress={() => setActiveTab('historico')}>
+          <Ionicons name="time-outline" size={15} color={activeTab === 'historico' ? Colors.gold : Colors.textSecondary} />
+          <Text style={[styles.tabText, activeTab === 'historico' && styles.tabTextActive]}>Histórico</Text>
         </TouchableOpacity>
         <TouchableOpacity style={[styles.tab, activeTab === 'config' && styles.tabActive]} onPress={() => setActiveTab('config')}>
           <Ionicons name="settings-outline" size={15} color={activeTab === 'config' ? Colors.gold : Colors.textSecondary} />
-          <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>Configuração</Text>
+          <Text style={[styles.tabText, activeTab === 'config' && styles.tabTextActive]}>Config.</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {loadingConfig ? (
           <ActivityIndicator color={Colors.gold} size="large" style={{ marginTop: 40 }} />
+        ) : activeTab === 'historico' ? (
+          <>
+            <View style={styles.infoNote}>
+              <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
+              <Text style={styles.infoNoteText}>
+                Registo das últimas 50 exportações e acções realizadas neste módulo. Inclui utilizador, formato e data/hora.
+              </Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+              <TouchableOpacity
+                style={[styles.exportBtn, { backgroundColor: Colors.primary }]}
+                onPress={loadHistorico}
+                disabled={loadingHistorico}
+              >
+                {loadingHistorico
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <><Ionicons name="refresh-outline" size={14} color="#fff" /><Text style={styles.exportBtnText}>Actualizar</Text></>
+                }
+              </TouchableOpacity>
+            </View>
+            {historico.length === 0 ? (
+              <View style={styles.emptyHistorico}>
+                <MaterialCommunityIcons name="history" size={48} color={Colors.textMuted} />
+                <Text style={styles.emptyHistoricoText}>Sem exportações registadas</Text>
+                <Text style={[styles.emptyHistoricoText, { fontSize: 12, marginTop: 4 }]}>As exportações realizadas aparecerão aqui</Text>
+              </View>
+            ) : (
+              historico.map((log) => {
+                const isExport = log.acao === 'exportar';
+                const color = isExport ? '#2ECC71' : Colors.gold;
+                const dt = new Date(log.createdAt);
+                return (
+                  <View key={log.id} style={[styles.histCard, { borderLeftColor: color }]}>
+                    <View style={[styles.histIcon, { backgroundColor: `${color}15` }]}>
+                      <MaterialCommunityIcons
+                        name={isExport ? 'file-export' : 'cog'}
+                        size={18} color={color}
+                      />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.histDesc} numberOfLines={2}>{log.descricao}</Text>
+                      <Text style={styles.histMeta}>{log.userEmail} · {log.userRole}</Text>
+                      <Text style={styles.histDate}>
+                        {dt.toLocaleDateString('pt-AO')} às {dt.toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}
+                        {log.ipAddress ? `  ·  IP: ${log.ipAddress}` : ''}
+                      </Text>
+                    </View>
+                    <View style={[styles.histBadge, { backgroundColor: `${color}22`, borderColor: `${color}60` }]}>
+                      <Text style={[styles.histBadgeText, { color }]}>{log.acao.toUpperCase()}</Text>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </>
         ) : activeTab === 'exportar' ? (
           <>
             {/* Info note */}
@@ -642,6 +746,28 @@ const styles = StyleSheet.create({
   optionPillActive: { backgroundColor: `${Colors.gold}22`, borderColor: Colors.gold },
   optionPillText: { fontSize: 13, color: Colors.textSecondary, fontFamily: 'Inter_400Regular' },
   optionPillTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
+
+  formatPillXlsx: { borderColor: '#1D6F42' },
+  formatPillXlsxActive: { backgroundColor: '#1D6F4222', borderColor: '#1D6F42' },
+
+  histCard: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: Colors.backgroundCard, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4,
+    padding: 12, marginBottom: 8,
+  },
+  histIcon: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
+  histDesc: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text, lineHeight: 18 },
+  histMeta: { fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular' },
+  histDate: { fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular' },
+  histBadge: {
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, borderWidth: 1,
+    alignSelf: 'flex-start', flexShrink: 0,
+  },
+  histBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold' },
+
+  emptyHistorico: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  emptyHistoricoText: { fontSize: 15, color: Colors.textMuted, fontFamily: 'Inter_500Medium', textAlign: 'center' },
 
   saveBtn: {
     backgroundColor: Colors.primary, borderRadius: 12, paddingVertical: 14,

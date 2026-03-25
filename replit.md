@@ -1,6 +1,27 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Módulo Transferências de Alunos)
+## Recent Changes (Latest Session — Integração MED / SIGE Gov Completa)
+- **server/index.ts**: Registo de `registerMEDRoutes(app)` — as rotas MED não estavam a ser carregadas no servidor; corrigido.
+- **server/med.ts**: Corrigidos bugs SQL existentes:
+  - `p.presente` (boolean inexistente) → `p.status = 'presente'` em frequências e relatório consolidado
+  - `cfg.notaminimaaprovacao` → `cfg."notaMinimaAprovacao"` (quoting PostgreSQL) nas stats
+  - Substituído `AND ... AND` duplicado por `${anoFilter}` limpo no consolidado
+- **server/med.ts**: Nova rota `GET /api/med/export/xlsx/:tipo` — exportação Excel nativa com a biblioteca `xlsx`:
+  - Suporta tipos: `matriculas`, `professores`, `resultados`, `frequencias`
+  - Gera dois sheets por ficheiro: dados principais + "Info Escola" com metadados MED
+  - Fallback automático para CSV caso o módulo xlsx não esteja disponível
+- **server/med.ts**: Nova rota `GET /api/med/historico` — devolve as últimas 50 acções MED do `audit_logs` (exportações e configurações)
+- **app/(main)/med-integracao.tsx**: Corrigido `api.post` → `api.patch` no `saveConfig` (a rota backend era PATCH)
+- **app/(main)/med-integracao.tsx**: Novo formato `XLSX` adicionado ao selector de formato (com estilo verde distinto)
+  - Exportação XLSX encaminhada para a nova rota `/api/med/export/xlsx/:tipo`
+  - Consolidado é fixo em JSON (não suporta XLSX por ser estrutura aninhada)
+- **app/(main)/med-integracao.tsx**: Nova tab "Histórico" (3.ª tab, entre Exportar e Config.):
+  - Lista as últimas 50 exportações/acções com utilizador, role, descrição, data/hora e IP
+  - Badge colorido por acção (verde = exportar, dourado = outras)
+  - Botão "Actualizar" para refrescar a lista manualmente
+  - Estado vazio com ícone quando ainda não há exportações
+
+## Recent Changes (Previous Session — Módulo Transferências de Alunos)
 - **app/(main)/transferencias.tsx** *(new)*: Ecrã completo de gestão de transferências com:
   - **Estatísticas no topo**: Total, Saídas, Entradas, Pendentes
   - **Pesquisa e filtros**: por tipo (Todos/Saídas/Entradas) e por estado (Pendente/Aprovado/Concluído/Rejeitado)

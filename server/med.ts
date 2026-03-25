@@ -316,9 +316,9 @@ export function registerMEDRoutes(app: Express) {
         SELECT a."numeroMatricula", a.nome || ' ' || a.apelido AS aluno, a.genero,
                t.nome AS turma, t.classe, t."anoLetivo",
                COUNT(*) AS totalAulas,
-               SUM(CASE WHEN p.presente = true THEN 1 ELSE 0 END) AS presencas,
-               SUM(CASE WHEN p.presente = false THEN 1 ELSE 0 END) AS faltas,
-               ROUND(100.0 * SUM(CASE WHEN p.presente = true THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS taxaPresenca
+               SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) AS presencas,
+               SUM(CASE WHEN p.status != 'presente' THEN 1 ELSE 0 END) AS faltas,
+               ROUND(100.0 * SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS taxaPresenca
         FROM public.presencas p
         JOIN public.alunos a ON a.id = p."alunoId"
         JOIN public.turmas t ON t.id = p."turmaId"
@@ -391,13 +391,13 @@ export function registerMEDRoutes(app: Express) {
                  SUM(CASE WHEN n.nf >= ${cfg.notaMinimaAprovacao ?? 10} THEN 1 ELSE 0 END) AS aprovados
           FROM public.notas n
           JOIN public.turmas t ON t.id = n."turmaId"
-          WHERE 1=1 ${anoFilter.replace('AND','AND')}
+          WHERE 1=1 ${anoFilter}
         `, params),
         query<{ presencas: string; total: string }>(`
-          SELECT SUM(CASE WHEN p.presente THEN 1 ELSE 0 END) AS presencas, COUNT(*) AS total
+          SELECT SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) AS presencas, COUNT(*) AS total
           FROM public.presencas p
           JOIN public.turmas t ON t.id = p."turmaId"
-          WHERE 1=1 ${anoFilter.replace('AND','AND')}
+          WHERE 1=1 ${anoFilter}
         `, params),
       ]);
 
@@ -448,6 +448,130 @@ export function registerMEDRoutes(app: Express) {
     } catch (e) { res.status(500).json({ error: (e as Error).message }); }
   });
 
+  // ─── EXPORT: XLSX (Matrículas) ───────────────────────────────────────────
+  app.get('/api/med/export/xlsx/:tipo', requireAuth, async (req: Request, res: Response) => {
+    if (!medGuard(req, res)) return;
+    try {
+      const tipo = req.params.tipo as string;
+      const { anoLetivo } = req.query as Record<string, string>;
+      const cfg = await getConfig();
+
+      let headers: string[] = [];
+      let rows: (string | number | null | undefined)[][] = [];
+      let sheetName = 'Dados';
+
+      if (tipo === 'matriculas') {
+        let sql = `
+          SELECT a."numeroMatricula", a.nome, a.apelido, a."dataNascimento", a.genero,
+                 a.provincia, a.municipio, a."nomeEncarregado", a."telefoneEncarregado",
+                 t.nome AS turma, t.classe, t.turno, t."anoLetivo", t.nivel
+          FROM public.alunos a
+          JOIN public.turmas t ON t.id = a."turmaId"
+          WHERE a.ativo = true`;
+        const params: unknown[] = [];
+        if (anoLetivo) { sql += ` AND t."anoLetivo" = $1`; params.push(anoLetivo); }
+        sql += ` ORDER BY t.classe, t.nome, a.apelido, a.nome`;
+        const data = await query<JsonObject>(sql, params);
+        sheetName = 'Matrículas';
+        headers = ['Nº Matrícula','Nome','Apelido','Data Nasc.','Género','Província','Município','Turma','Classe','Turno','Nível','Ano Lectivo','Encarregado','Telefone'];
+        rows = data.map(r => [r.numeroMatricula, r.nome, r.apelido, r.dataNascimento, r.genero, r.provincia, r.municipio, r.turma, r.classe, r.turno, r.nivel, r.anoLetivo, r.nomeEncarregado, r.telefoneEncarregado]);
+      } else if (tipo === 'professores') {
+        const data = await query<JsonObject>(`SELECT "numeroProfessor", nome, apelido, email, telefone, habilitacoes, cargo, categoria, disciplinas, "tipoContrato", "dataContratacao" FROM public.professores WHERE ativo = true ORDER BY apelido, nome`);
+        sheetName = 'Professores';
+        headers = ['Nº Professor','Nome','Apelido','Email','Telefone','Habilitações','Cargo','Categoria','Disciplinas','Tipo Contrato','Data Contratação'];
+        rows = data.map(r => [r.numeroProfessor, r.nome, r.apelido, r.email, r.telefone, r.habilitacoes, r.cargo ?? '', r.categoria ?? '', Array.isArray(r.disciplinas) ? (r.disciplinas as string[]).join('; ') : String(r.disciplinas ?? ''), r.tipoContrato ?? '', r.dataContratacao ?? '']);
+      } else if (tipo === 'resultados') {
+        let sql = `SELECT a."numeroMatricula", a.nome || ' ' || a.apelido AS aluno, a.genero, t.nome AS turma, t.classe, t."anoLetivo", n.disciplina, n.trimestre, n.mac1, n.pp1, n.ppt, n.mt1, n.nf, CASE WHEN n.nf >= 10 THEN 'Aprovado' ELSE 'Reprovado' END AS situacao FROM public.notas n JOIN public.alunos a ON a.id = n."alunoId" JOIN public.turmas t ON t.id = n."turmaId" WHERE 1=1`;
+        const params: unknown[] = [];
+        if (anoLetivo) { sql += ` AND t."anoLetivo"=$${params.length+1}`; params.push(anoLetivo); }
+        sql += ` ORDER BY t.classe, t.nome, a.apelido, n.disciplina`;
+        const data = await query<JsonObject>(sql, params);
+        sheetName = 'Resultados';
+        headers = ['Nº Matrícula','Aluno','Género','Turma','Classe','Ano Lectivo','Disciplina','Trimestre','MAC','PP','PT','MT','Nota Final','Situação'];
+        rows = data.map(r => [r.numeroMatricula, r.aluno, r.genero, r.turma, r.classe, r.anoLetivo, r.disciplina, r.trimestre, r.mac1, r.pp1, r.ppt, r.mt1, r.nf, r.situacao]);
+      } else if (tipo === 'frequencias') {
+        let sql = `SELECT a."numeroMatricula", a.nome || ' ' || a.apelido AS aluno, a.genero, t.nome AS turma, t.classe, t."anoLetivo", COUNT(*) AS totalAulas, SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) AS presencas, SUM(CASE WHEN p.status != 'presente' THEN 1 ELSE 0 END) AS faltas, ROUND(100.0 * SUM(CASE WHEN p.status = 'presente' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) AS taxaPresenca FROM public.presencas p JOIN public.alunos a ON a.id = p."alunoId" JOIN public.turmas t ON t.id = p."turmaId" WHERE 1=1`;
+        const params: unknown[] = [];
+        if (anoLetivo) { sql += ` AND t."anoLetivo"=$${params.length+1}`; params.push(anoLetivo); }
+        sql += ` GROUP BY a."numeroMatricula", a.nome, a.apelido, a.genero, t.nome, t.classe, t."anoLetivo" ORDER BY t.classe, t.nome, a.apelido`;
+        const data = await query<JsonObject>(sql, params);
+        sheetName = 'Frequências';
+        headers = ['Nº Matrícula','Aluno','Género','Turma','Classe','Ano Lectivo','Total Aulas','Presenças','Faltas','Taxa Presença (%)'];
+        rows = data.map(r => [r.numeroMatricula, r.aluno, r.genero, r.turma, r.classe, r.anoLetivo, r.totalaulas, r.presencas, r.faltas, r.taxapresenca]);
+      } else {
+        return res.status(400).json({ error: 'Tipo inválido. Use: matriculas, professores, resultados, frequencias' });
+      }
+
+      // Build minimal XLSX manually (using CSV-in-xlsx approach via the xlsx library if available,
+      // otherwise return a structured CSV with .xlsx extension and Excel-compatible BOM)
+      try {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.utils.book_new();
+        const wsData = [headers, ...rows.map(r => r.map(v => v ?? ''))];
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        // Style header row
+        const range = XLSX.utils.decode_range(ws['!ref'] ?? 'A1');
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const cellAddr = XLSX.utils.encode_cell({ r: 0, c });
+          if (ws[cellAddr]) {
+            ws[cellAddr].s = { font: { bold: true }, fill: { fgColor: { rgb: 'CC1A1A' } } };
+          }
+        }
+        ws['!cols'] = headers.map(() => ({ wch: 18 }));
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+        // Add escola info sheet
+        const infoData = [
+          ['Campo', 'Valor'],
+          ['Escola', cfg.nomeEscola ?? ''],
+          ['Código MED', cfg.codigoMED ?? ''],
+          ['NIF', cfg.nifEscola ?? ''],
+          ['Província', cfg.provinciaEscola ?? ''],
+          ['Município', cfg.municipioEscola ?? ''],
+          ['Tipo de Ensino', cfg.tipoEnsino ?? ''],
+          ['Modalidade', cfg.modalidade ?? ''],
+          ['Director Geral', cfg.directorGeral ?? ''],
+          ['Data de Exportação', new Date().toLocaleString('pt-AO')],
+        ];
+        const wsInfo = XLSX.utils.aoa_to_sheet(infoData);
+        wsInfo['!cols'] = [{ wch: 22 }, { wch: 40 }];
+        XLSX.utils.book_append_sheet(wb, wsInfo, 'Info Escola');
+
+        const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+        const fname = `MED_${tipo}_${anoLetivo ?? 'todos'}_${new Date().toISOString().slice(0,10)}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+        logAudit({ userId: req.jwtUser!.userId, userEmail: req.jwtUser!.email ?? '', userRole: req.jwtUser!.role,
+          acao: 'exportar', modulo: 'Integração MED', descricao: `Exportação XLSX: ${tipo} (${rows.length} registos)`,
+          ipAddress: req.headers['x-forwarded-for']?.toString().split(',')[0] ?? req.socket?.remoteAddress,
+        }).catch(() => {});
+        return res.send(buf);
+      } catch {
+        // Fallback: CSV with BOM
+        const csv = toCSV(headers, rows);
+        const fname = `MED_${tipo}_${anoLetivo ?? 'todos'}_${new Date().toISOString().slice(0,10)}.csv`;
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+        return res.send('\uFEFF' + csv);
+      }
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
+  });
+
+  // ─── HISTORICO de exportações ─────────────────────────────────────────────
+  app.get('/api/med/historico', requireAuth, async (req: Request, res: Response) => {
+    if (!medGuard(req, res)) return;
+    try {
+      const rows = await query<JsonObject>(`
+        SELECT id, "userEmail", "userRole", acao, descricao, "ipAddress", "criadoEm" AS "createdAt"
+        FROM public.audit_logs
+        WHERE modulo = 'Integração MED'
+        ORDER BY "criadoEm" DESC
+        LIMIT 50
+      `);
+      res.json(rows);
+    } catch (e) { res.status(500).json({ error: (e as Error).message }); }
+  });
+
   // ─── STATS for dashboard ─────────────────────────────────────────────────
   app.get('/api/med/stats', requireAuth, async (req: Request, res: Response) => {
     if (!medGuard(req, res)) return;
@@ -462,7 +586,8 @@ export function registerMEDRoutes(app: Express) {
         query<{ total: string; ativos: string }>(`SELECT COUNT(*) AS total, SUM(CASE WHEN ativo THEN 1 ELSE 0 END) AS ativos FROM public.professores`),
         query<{ total: string }>(`SELECT COUNT(*) AS total FROM public.turmas WHERE ativo=true`),
         query<{ total: string; aprovados: string; notaminimaaprovacao: string }>(`
-          SELECT COUNT(*) AS total, SUM(CASE WHEN n.nf >= cfg.notaMinimaAprovacao THEN 1 ELSE 0 END) AS aprovados,
+          SELECT COUNT(*) AS total,
+                 SUM(CASE WHEN n.nf >= cfg."notaMinimaAprovacao" THEN 1 ELSE 0 END) AS aprovados,
                  (SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1) AS notaminimaaprovacao
           FROM public.notas n, (SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1) cfg
         `),
