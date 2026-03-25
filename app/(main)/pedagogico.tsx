@@ -1084,8 +1084,8 @@ export default function PedagogicoScreen() {
         {/* Approve/Reject modal */}
         {obsModalPlano && (
           <Modal visible animationType="slide" transparent onRequestClose={() => setObsModalPlano(null)}>
-            <View style={{ flex: 1, backgroundColor: '#000000aa', justifyContent: 'flex-end' }}>
-              <View style={{ backgroundColor: Colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: bottom + 20 }}>
+            <View style={{ flex: 1, backgroundColor: '#000000aa', justifyContent: 'center', alignItems: 'center' }}>
+              <View style={{ backgroundColor: Colors.background, borderRadius: 20, padding: 20, width: '100%', maxWidth: 480 }}>
                 <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 }}>
                   {obsModalPlano.status === 'rejeitado' ? 'Rejeitar Plano' : 'Aprovar Plano'}
                 </Text>

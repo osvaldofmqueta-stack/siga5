@@ -2079,8 +2079,8 @@ const styles = StyleSheet.create({
   solObs: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 4 },
   solData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: '90%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+  modalBox: { backgroundColor: Colors.backgroundCard, borderRadius: 20, padding: 20, maxHeight: '90%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
   closeBtn: { backgroundColor: Colors.surface, borderRadius: 12, padding: 12, alignItems: 'center', marginTop: 12 },
