@@ -159,6 +159,9 @@ export const turmas = pgTable("turmas", {
     .notNull()
     .references(() => professores.id),
 
+  // Curso ao qual esta turma pertence
+  cursoId: varchar("cursoId").references(() => cursos.id),
+
   sala: text("sala").notNull(),
   capacidade: integer("capacidade").notNull(),
   ativo: boolean("ativo").notNull().default(true),
@@ -749,6 +752,13 @@ export const disciplinas = pgTable("disciplinas", {
   area: text("area").notNull().default(''),
   descricao: text("descricao").notNull().default(''),
   ativo: boolean("ativo").notNull().default(true),
+
+  // Ligação ao curso (opcional — se null é uma disciplina global/partilhada)
+  cursoId: varchar("cursoId").references(() => cursos.id),
+  // Carga horária semanal e se é obrigatória nesse curso
+  cargaHoraria: integer("cargaHoraria").notNull().default(0),
+  obrigatoria: boolean("obrigatoria").notNull().default(true),
+  ordem: integer("ordem").notNull().default(0),
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
