@@ -114,6 +114,12 @@ export default function ProfessorPautaScreen() {
   const isPendente = pautaAtual?.status === 'pendente_abertura';
   const temSolicPendente = solicitacoes.some(s => s.pautaId === pautaAtual?.id && s.status === 'pendente');
 
+  // Verificar prazo de lançamento configurado pela direcção
+  const prazoKey = `t${trimestre}` as 't1' | 't2' | 't3';
+  const prazoData = config.prazosLancamento?.[prazoKey];
+  const isPrazoExpirado = prazoData ? new Date() > new Date(prazoData + 'T23:59:59') : false;
+  const isEditavel = !isPautaFechada && !isPendente && !isPrazoExpirado;
+
   // Block hardware back if pauta is aberta with unsaved changes
   useFocusEffect(
     useCallback(() => {
@@ -676,6 +682,16 @@ export default function ProfessorPautaScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Banner: Prazo de Lançamento Expirado */}
+      {isPrazoExpirado && !isPautaFechada && (
+        <View style={styles.prazoBanner}>
+          <Ionicons name="time-outline" size={16} color={Colors.danger} />
+          <Text style={styles.prazoBannerText}>
+            Prazo encerrado em {prazoData ? new Date(prazoData + 'T12:00:00').toLocaleDateString('pt-AO', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}. O lançamento de notas está bloqueado.
+          </Text>
+        </View>
+      )}
+
       {/* Grade Fields Legend */}
       {(() => {
         const nAval = config.numAvaliacoes ?? 4;
@@ -763,7 +779,7 @@ export default function ProfessorPautaScreen() {
       />
 
       {/* Bottom Actions */}
-      {!isPautaFechada && (
+      {isEditavel && (
         <View style={[styles.bottomBar, { paddingBottom: bottomInset + 8 }]}>
           {saving ? (
             <ActivityIndicator color={Colors.gold} />
@@ -858,6 +874,8 @@ const styles = StyleSheet.create({
   histStatusText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
   pautaStatusBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   pautaStatusText: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  prazoBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.danger + '18', borderBottomWidth: 1, borderBottomColor: Colors.danger + '33', paddingHorizontal: 16, paddingVertical: 10 },
+  prazoBannerText: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger },
   reaberturaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.warning + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
   reaberturaBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.warning },
   miniPautaBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.info + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },

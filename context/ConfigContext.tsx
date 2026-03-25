@@ -34,6 +34,8 @@ export interface ConfigGeral {
   bancoTransferencia?: string;
   telefoneMulticaixaExpress?: string;
   nib?: string;
+  // Prazos de lançamento de notas por trimestre (YYYY-MM-DD)
+  prazosLancamento?: { t1?: string; t2?: string; t3?: string };
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -97,6 +99,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           bancoTransferencia: (raw.bancoTransferencia as string) || undefined,
           telefoneMulticaixaExpress: (raw.telefoneMulticaixaExpress as string) || undefined,
           nib: (raw.nib as string) || undefined,
+          prazosLancamento: (raw.prazosLancamento as { t1?: string; t2?: string; t3?: string }) || undefined,
         };
         setConfig(parsed);
       })
