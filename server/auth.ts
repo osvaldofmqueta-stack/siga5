@@ -7,7 +7,8 @@ const JWT_EXPIRES = "12h";
 
 export type UserRole =
   | "ceo" | "pca" | "admin" | "director" | "chefe_secretaria"
-  | "secretaria" | "professor" | "aluno" | "financeiro" | "encarregado" | "rh";
+  | "secretaria" | "professor" | "aluno" | "financeiro" | "encarregado" | "rh"
+  | "pedagogico";
 
 export interface JwtPayload {
   userId: string;
@@ -65,6 +66,10 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
   director:         ["painel_secretaria","alunos","professores","turmas","notas","presencas",
                      "relatorios","mensagens","horario","documentos","disciplinas","pedagogico",
                      "desempenho","visao_geral","notificacoes"],
+  pedagogico:       ["alunos","professores","turmas","notas","presencas","horario","historico",
+                     "relatorios","mensagens","documentos","disciplinas","pedagogico",
+                     "desempenho","visao_geral","notificacoes","avaliacao_professores",
+                     "biblioteca","chat_interno","grelha","eventos"],
   secretaria:       ["painel_secretaria","alunos","professores","turmas","notas","presencas",
                      "financeiro","mensagens","horario","documentos","disciplinas","admissao",
                      "notificacoes"],

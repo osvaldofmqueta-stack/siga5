@@ -88,6 +88,7 @@ export default function DrawerLeft() {
   const isRhRole = user?.role === 'rh';
   const isRH = isDirector || isAdmin || isRhRole;
   const isEncarregado = user?.role === 'encarregado';
+  const isPedagogico = user?.role === 'pedagogico';
 
   const { hasPermission } = usePermissoes();
 
@@ -422,6 +423,52 @@ export default function DrawerLeft() {
     },
   ];
 
+  const PEDAGOGICO_SECTIONS: NavSection[] = [
+    {
+      title: 'Principal',
+      items: [
+        { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
+        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+        { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
+      ],
+    },
+    {
+      title: 'Académico',
+      items: [
+        { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
+        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
+        { label: 'Turmas', route: '/(main)/turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'turmas' },
+        { label: 'Salas de Aula', route: '/(main)/salas', icon: <MaterialCommunityIcons name="door-open" size={20} color="inherit" />, permKey: 'salas' },
+        { label: 'Notas & Pautas', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Presenças', route: '/(main)/presencas', icon: <Ionicons name="checkmark-circle-outline" size={20} color="inherit" />, permKey: 'presencas' },
+        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
+        { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
+        { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={20} color="inherit" />, permKey: 'disciplinas' },
+        { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
+        { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
+      ],
+    },
+    {
+      title: 'Pedagógico',
+      items: [
+        { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
+        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
+        { label: 'Gestão Académica', route: '/(main)/gestao-academica', icon: <MaterialCommunityIcons name="school" size={20} color="inherit" />, permKey: 'gestao_academica' },
+      ],
+    },
+    {
+      title: 'Documentos & Análise',
+      items: [
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+        { label: 'Análise de Desempenho', route: '/(main)/desempenho', icon: <MaterialCommunityIcons name="chart-areaspline" size={20} color="inherit" />, permKey: 'desempenho' },
+        { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
+      ],
+    },
+  ];
+
   const RAW_SECTIONS: NavSection[] = isSecretaria ? SECRETARIA_SECTIONS
     : (isCeo || isPca) ? CEO_PCA_SECTIONS
     : isChefeSec ? CHEFE_SECRETARIA_SECTIONS
@@ -430,6 +477,7 @@ export default function DrawerLeft() {
     : isEncarregado ? ENCARREGADO_SECTIONS
     : isFinanceiro ? FINANCEIRO_SECTIONS
     : isRhRole ? RH_SECTIONS
+    : isPedagogico ? PEDAGOGICO_SECTIONS
     : ADMIN_DIRECTOR_SECTIONS;
 
   // CEO/PCA/ChefeSec always see everything; others get filtered by permissions
@@ -845,6 +893,7 @@ export default function DrawerLeft() {
                   financeiro: 'Gestor Financeiro',
                   encarregado: 'Encarregado',
                   rh: 'Recursos Humanos',
+                  pedagogico: 'Director Pedagógico',
                 } as Record<string, string>)[user?.role ?? ''] ?? user?.role ?? 'Utilizador'}
               </Text>
             </View>

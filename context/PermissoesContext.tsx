@@ -35,7 +35,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Painéis & Dashboards',
     icon: 'grid',
     features: [
-      { key: 'dashboard', label: 'Dashboard Principal', desc: 'Visão geral da escola com estatísticas', roles: ['admin', 'director', 'ceo', 'pca'] },
+      { key: 'dashboard', label: 'Dashboard Principal', desc: 'Visão geral da escola com estatísticas', roles: ['admin', 'director', 'pedagogico', 'ceo', 'pca'] },
       { key: 'ceo_dashboard', label: 'Dashboard CEO', desc: 'Painel executivo de alto nível', roles: ['ceo', 'pca'] },
       { key: 'secretaria_hub', label: 'Painel da Secretaria', desc: 'Hub central da secretaria escolar', roles: ['secretaria', 'ceo', 'pca'] },
       { key: 'professor_hub', label: 'Painel do Professor', desc: 'Hub pessoal do professor', roles: ['professor', 'ceo', 'pca'] },
@@ -47,18 +47,18 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Gestão Académica',
     icon: 'school',
     features: [
-      { key: 'alunos', label: 'Alunos', desc: 'Registo, matrícula e gestão de alunos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'professores', label: 'Professores', desc: 'Gestão do corpo docente', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'turmas', label: 'Turmas', desc: 'Criação e gestão de turmas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'salas', label: 'Salas de Aula', desc: 'Gestão e atribuição de salas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'notas', label: 'Notas & Pautas', desc: 'Registo e consulta de notas', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'presencas', label: 'Presenças', desc: 'Controlo de assiduidade', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'horario', label: 'Horário', desc: 'Horários de aulas e turnos', roles: ['admin', 'director', 'secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
-      { key: 'historico', label: 'Histórico Académico', desc: 'Registo histórico de percurso', roles: ['admin', 'director', 'secretaria', 'aluno', 'ceo', 'pca'] },
-      { key: 'grelha', label: 'Grelha Curricular', desc: 'Estrutura e plano curricular', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'gestao_academica', label: 'Gestão Académica (Hub)', desc: 'Hub geral de gestão académica', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'alunos', label: 'Alunos', desc: 'Registo, matrícula e gestão de alunos', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'professores', label: 'Professores', desc: 'Gestão do corpo docente', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'turmas', label: 'Turmas', desc: 'Criação e gestão de turmas', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'salas', label: 'Salas de Aula', desc: 'Gestão e atribuição de salas', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'notas', label: 'Notas & Pautas', desc: 'Registo e consulta de notas', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'presencas', label: 'Presenças', desc: 'Controlo de assiduidade', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'horario', label: 'Horário', desc: 'Horários de aulas e turnos', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
+      { key: 'historico', label: 'Histórico Académico', desc: 'Registo histórico de percurso', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'aluno', 'ceo', 'pca'] },
+      { key: 'grelha', label: 'Grelha Curricular', desc: 'Estrutura e plano curricular', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
+      { key: 'gestao_academica', label: 'Gestão Académica (Hub)', desc: 'Hub geral de gestão académica', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
       { key: 'admissao', label: 'Admissões', desc: 'Processo de candidatura e admissão de novos alunos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
-      { key: 'disciplinas', label: 'Disciplinas', desc: 'Gestão e configuração das disciplinas e conteúdos programáticos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'disciplinas', label: 'Disciplinas', desc: 'Gestão e configuração das disciplinas e conteúdos programáticos', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'transferencias', label: 'Transferências', desc: 'Gestão de entradas e saídas de alunos por transferência escolar', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
@@ -71,7 +71,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'professor_sumario', label: 'Sumário / Presenças', desc: 'Registos de aula e assiduidade', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_mensagens', label: 'Mensagens', desc: 'Comunicação interna do professor', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_materiais', label: 'Materiais Didáticos', desc: 'Partilha de conteúdos pedagógicos', roles: ['professor', 'ceo', 'pca'] },
-      { key: 'pedagogico', label: 'Área Pedagógica', desc: 'Gestão pedagógica: sumários, calendário de provas, solicitações e pautas', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'pedagogico', label: 'Área Pedagógica', desc: 'Gestão pedagógica: sumários, calendário de provas, solicitações e pautas', roles: ['admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -94,10 +94,10 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Relatórios & RH',
     icon: 'bar-chart',
     features: [
-      { key: 'relatorios', label: 'Relatórios & Análise', desc: 'Gráficos e exportação de dados', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'relatorios', label: 'Relatórios & Análise', desc: 'Gráficos e exportação de dados', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
       { key: 'rh_controle', label: 'Controlo de RH', desc: 'Gestão de recursos humanos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
-      { key: 'desempenho', label: 'Análise de Desempenho', desc: 'Análise detalhada de notas e desempenho por turma e aluno', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
-      { key: 'visao_geral', label: 'Visão Geral Multi-Ano', desc: 'Comparação de indicadores académicos e financeiros entre anos lectivos', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'desempenho', label: 'Análise de Desempenho', desc: 'Análise detalhada de notas e desempenho por turma e aluno', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'visao_geral', label: 'Visão Geral Multi-Ano', desc: 'Comparação de indicadores académicos e financeiros entre anos lectivos', roles: ['admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'rh_hub', label: 'Hub de Recursos Humanos', desc: 'Centro de gestão de RH: professores, contratos, avaliações e presenças', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
@@ -105,29 +105,29 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Documentos',
     icon: 'newspaper',
     features: [
-      { key: 'editor_documentos', label: 'Editor de Documentos', desc: 'Modelos e emissão de documentos', roles: ['secretaria', 'admin', 'director', 'ceo', 'pca'] },
-      { key: 'boletim_matricula', label: 'Boletim de Matrícula', desc: 'Impressão de ficha de matrícula', roles: ['secretaria', 'admin', 'director', 'ceo', 'pca'] },
+      { key: 'editor_documentos', label: 'Editor de Documentos', desc: 'Modelos e emissão de documentos', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
+      { key: 'boletim_matricula', label: 'Boletim de Matrícula', desc: 'Impressão de ficha de matrícula', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
     ],
   },
   {
     categoria: 'Pedagógico & Qualidade',
     icon: 'star',
     features: [
-      { key: 'avaliacao_professores', label: 'Avaliação de Professores', desc: 'Avaliação pedagógica de professores pela direcção', roles: ['admin', 'director', 'ceo', 'pca'] },
+      { key: 'avaliacao_professores', label: 'Avaliação de Professores', desc: 'Avaliação pedagógica de professores pela direcção', roles: ['admin', 'director', 'pedagogico', 'ceo', 'pca'] },
     ],
   },
   {
     categoria: 'Biblioteca Escolar',
     icon: 'library',
     features: [
-      { key: 'biblioteca', label: 'Biblioteca Escolar', desc: 'Gestão de livros, empréstimos e devoluções', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
+      { key: 'biblioteca', label: 'Biblioteca Escolar', desc: 'Gestão de livros, empréstimos e devoluções', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
     ],
   },
   {
     categoria: 'Comunicação Interna',
     icon: 'chatbubbles',
     features: [
-      { key: 'chat_interno', label: 'Chat Interno', desc: 'Comunicação centralizada entre secretaria, direcção e professores', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'professor', 'financeiro', 'rh', 'ceo', 'pca'] },
+      { key: 'chat_interno', label: 'Chat Interno', desc: 'Comunicação centralizada entre secretaria, direcção e professores', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'professor', 'financeiro', 'rh', 'ceo', 'pca'] },
     ],
   },
   {
@@ -180,6 +180,13 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   financeiro: ['financeiro', 'notificacoes', 'boletim_propina', 'chat_interno'],
   encarregado: ['portal_encarregado', 'notificacoes'],
   rh: ['rh_hub', 'rh_controle', 'notificacoes', 'chat_interno'],
+  pedagogico: [
+    'dashboard', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
+    'horario', 'historico', 'grelha', 'relatorios', 'pedagogico', 'desempenho',
+    'visao_geral', 'disciplinas', 'eventos', 'notificacoes', 'editor_documentos',
+    'boletim_matricula', 'gestao_academica', 'avaliacao_professores', 'biblioteca',
+    'chat_interno',
+  ],
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
