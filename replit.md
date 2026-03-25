@@ -314,3 +314,4 @@ Run: `node server_dist/index.js` - serves static web build and API
 - Financial reporting
 - Offline mode with sync queue (AsyncStorage, auto-sync on reconnect, OfflineBanner)
 - Audit log system (server/audit.ts): auto-logs all write operations, login/logout events; `GET /api/audit-logs` + `/stats` endpoints restricted to admin roles; frontend screen at `app/(main)/auditoria.tsx` with search, filters, pagination, CSV export, expandable log detail rows
+- MED/SIGE Gov integration (server/med.ts): exports Matrículas, Professores, Resultados, Frequências, and Consolidado reports in CSV/XML/JSON; MED-specific config fields added to config_geral table (codigoMED, nifEscola, provinciaEscola, municipioEscola, tipoEnsino, modalidade); frontend screen at `app/(main)/med-integracao.tsx`

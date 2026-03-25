@@ -737,6 +737,17 @@ export const configGeral = pgTable("config_geral", {
   telefoneMulticaixaExpress: text("telefoneMulticaixaExpress"),
   nib: text("nib"),
 
+  // Dados de identificação MED (Ministério da Educação)
+  codigoMED: text("codigoMED"),           // Código atribuído pelo MED
+  nifEscola: text("nifEscola"),           // Número de Identificação Fiscal
+  provinciaEscola: text("provinciaEscola"),
+  municipioEscola: text("municipioEscola"),
+  tipoEnsino: text("tipoEnsino").default('Secundário'), // Primário | Secundário | Técnico-Profissional
+  modalidade: text("modalidade").default('Presencial'),  // Presencial | Semi-presencial | EaD
+  directorGeral: text("directorGeral"),
+  directorPedagogico: text("directorPedagogico"),
+  directorProvincialEducacao: text("directorProvincialEducacao"),
+
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

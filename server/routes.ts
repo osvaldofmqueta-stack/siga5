@@ -15,6 +15,7 @@ import {
   notifyGuardianAboutPropina,
 } from "./notifications";
 import { logAudit, setupAuditMiddleware } from "./audit";
+import { registerMEDRoutes } from "./med";
 
 type JsonObject = Record<string, unknown>;
 
@@ -39,6 +40,9 @@ function jsonbParam(value: unknown) {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Audit middleware — intercepts all successful write operations automatically
   setupAuditMiddleware(app);
+
+  // MED (Ministério da Educação) integration routes
+  registerMEDRoutes(app);
 
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
@@ -1935,7 +1939,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {

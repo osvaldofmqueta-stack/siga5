@@ -304,6 +304,7 @@ export default function DrawerLeft() {
         { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
         { label: 'Controlo & Supervisão', route: '/(main)/controlo-supervisao', icon: <MaterialCommunityIcons name="shield-search" size={20} color="inherit" />, permKey: 'controlo_supervisao' },
         { label: 'Auditoria do Sistema', route: '/(main)/auditoria', icon: <MaterialCommunityIcons name="file-search-outline" size={20} color="inherit" />, permKey: 'admin' },
+        { label: 'Integração MED / SIGE Gov', route: '/(main)/med-integracao', icon: <MaterialCommunityIcons name="shield-star-outline" size={20} color="inherit" />, permKey: 'admin' },
       ],
     },
   ];
@@ -636,6 +637,33 @@ export default function DrawerLeft() {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#A78BFA" />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Integração MED / SIGE Gov ── */}
+          {(isCeo || isPca || isAdmin || isDirector || isChefeSec) && (
+            <TouchableOpacity
+              style={styles.medCTA}
+              onPress={() => { router.push('/(main)/med-integracao' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#3D0000', '#1A0000', '#0D0000']}
+                style={styles.medCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.medCTALeft}>
+                  <View style={styles.medCTAIcon}>
+                    <MaterialCommunityIcons name="shield-star-outline" size={20} color="#CC1A1A" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.medCTATitle}>Integração MED</Text>
+                    <Text style={styles.medCTASub}>Exportar dados para o SIGE Gov</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#CC1A1A" />
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -1310,6 +1338,50 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(74,222,128,0.65)',
+  },
+
+  medCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#CC1A1A50',
+  },
+  medCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  medCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  medCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#CC1A1A25',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#CC1A1A45',
+  },
+  medCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#CC1A1A',
+    marginBottom: 2,
+  },
+  medCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(204,26,26,0.65)',
   },
 
   auditoriaCTA: {
