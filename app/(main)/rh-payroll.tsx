@@ -92,6 +92,122 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
+// ─── Simulador Salarial ───────────────────────────────────────────────────────
+function SimuladorSalarial({ profs }: { profs: ProfessorSalario[] }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const calcRow = (p: ProfessorSalario) => {
+    const base = p.salarioBase ?? 0;
+    const subAlim = p.subsidioAlimentacao ?? 0;
+    const subTrans = p.subsidioTransporte ?? 0;
+    const subHab = p.subsidioHabitacao ?? 0;
+    const subs = subAlim + subTrans + subHab;
+    const bruto = base + subs;
+    const inssEmp = Math.round(base * 0.03 * 100) / 100;
+    const inssPatr = Math.round(base * 0.08 * 100) / 100;
+    const irt = Math.round(calcIRT(base) * 100) / 100;
+    const liquido = Math.round((bruto - inssEmp - irt) * 100) / 100;
+    return { base, subAlim, subTrans, subHab, subs, bruto, inssEmp, inssPatr, irt, liquido };
+  };
+
+  const totals = profs.reduce(
+    (acc, p) => {
+      const r = calcRow(p);
+      return {
+        bruto: acc.bruto + r.bruto,
+        inssEmp: acc.inssEmp + r.inssEmp,
+        inssPatr: acc.inssPatr + r.inssPatr,
+        irt: acc.irt + r.irt,
+        liquido: acc.liquido + r.liquido,
+      };
+    },
+    { bruto: 0, inssEmp: 0, inssPatr: 0, irt: 0, liquido: 0 },
+  );
+
+  return (
+    <>
+      {/* Totals header */}
+      <View style={simStyles.totalsRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={simStyles.totalsLabel}>Total Bruto</Text>
+          <Text style={simStyles.totalsVal}>{fmt(Math.round(totals.bruto * 100) / 100)}</Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={simStyles.totalsLabel}>Descontos</Text>
+          <Text style={[simStyles.totalsVal, { color: '#EF5350' }]}>
+            {fmt(Math.round((totals.inssEmp + totals.irt) * 100) / 100)}
+          </Text>
+        </View>
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <Text style={simStyles.totalsLabel}>Total Líquido</Text>
+          <Text style={[simStyles.totalsVal, { color: '#66BB6A' }]}>
+            {fmt(Math.round(totals.liquido * 100) / 100)}
+          </Text>
+        </View>
+      </View>
+      <View style={simStyles.divider} />
+
+      {/* Per-employee rows */}
+      {profs.map(p => {
+        const r = calcRow(p);
+        const isOpen = expandedId === p.id;
+        return (
+          <TouchableOpacity
+            key={p.id}
+            style={simStyles.empRow}
+            onPress={() => setExpandedId(isOpen ? null : p.id)}
+            activeOpacity={0.8}
+          >
+            <View style={simStyles.empRowTop}>
+              <View style={{ flex: 1 }}>
+                <Text style={simStyles.empName}>{p.nome} {p.apelido}</Text>
+                <Text style={simStyles.empCargo}>{p.cargo ?? 'Professor'}</Text>
+              </View>
+              <View style={simStyles.empAmounts}>
+                <Text style={simStyles.empBruto}>{fmt(r.bruto)}</Text>
+                <Text style={[simStyles.empLiquido, { color: '#66BB6A' }]}>{fmt(r.liquido)}</Text>
+              </View>
+              <Ionicons
+                name={isOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color="#aaa"
+                style={{ marginLeft: 6 }}
+              />
+            </View>
+
+            {isOpen && (
+              <View style={simStyles.breakdown}>
+                <SimRow label="Salário Base" val={fmt(r.base)} />
+                {r.subAlim > 0 && <SimRow label="Subsídio Alimentação" val={fmt(r.subAlim)} />}
+                {r.subTrans > 0 && <SimRow label="Subsídio Transporte" val={fmt(r.subTrans)} />}
+                {r.subHab > 0 && <SimRow label="Subsídio Habitação" val={fmt(r.subHab)} />}
+                <View style={simStyles.breakdownDivider} />
+                <SimRow label="Salário Bruto" val={fmt(r.bruto)} bold />
+                <SimRow label="INSS Empregado (3%)" val={`- ${fmt(r.inssEmp)}`} color="#EF5350" />
+                <SimRow label="IRT (tabela Angola)" val={`- ${fmt(r.irt)}`} color="#EF5350" />
+                <View style={simStyles.breakdownDivider} />
+                <SimRow label="Salário Líquido" val={fmt(r.liquido)} bold color="#66BB6A" />
+                <View style={[simStyles.breakdownDivider, { marginTop: 6 }]} />
+                <SimRow label="INSS Patronal (8%)" val={fmt(r.inssPatr)} color="#FF7141" />
+                <Text style={simStyles.patronalNote}>Custo adicional para a instituição (não desconta no funcionário)</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        );
+      })}
+    </>
+  );
+}
+
+function SimRow({ label, val, bold, color }: { label: string; val: string; bold?: boolean; color?: string }) {
+  return (
+    <View style={simStyles.simRow}>
+      <Text style={[simStyles.simLabel, bold && { color: '#fff', fontWeight: '700' }]}>{label}</Text>
+      <Text style={[simStyles.simVal, bold && { fontWeight: '700' }, color ? { color } : {}]}>{val}</Text>
+    </View>
+  );
+}
+
 // ─── KPI Tile ────────────────────────────────────────────────────────────────
 function KpiTile({ icon, label, value, sub, color }: {
   icon: React.ReactNode; label: string; value: string; sub?: string; color?: string;
@@ -198,15 +314,14 @@ export default function RhPayrollScreen() {
   const processarFolha = async () => {
     if (!selectedFolha) return;
     try {
-      const res = await api.post<{ numProcessados: number }>(`/api/folhas-salarios/${selectedFolha.id}/processar`, {
-        processadaPor: user?.nome ?? 'Sistema',
-      });
+      const res = await api.post<{ folha: FolhaSalarios; numProcessados: number }>(
+        `/api/folhas-salarios/${selectedFolha.id}/processar`,
+        { processadaPor: user?.nome ?? 'Sistema' },
+      );
       showToast(`Folha processada — ${res.numProcessados} funcionários`, 'success');
       setShowProcessar(false);
-      await loadData();
-      await loadItens(selectedFolha.id);
-      const updated = folhas.find(f => f.id === selectedFolha.id);
-      if (updated) setSelectedFolha({ ...updated });
+      if (res.folha) setSelectedFolha(res.folha);
+      await Promise.all([loadData(), loadItens(selectedFolha.id)]);
     } catch { showToast('Erro ao processar folha', 'error'); }
   };
 
@@ -431,6 +546,15 @@ export default function RhPayrollScreen() {
                   color={Colors.accent ?? '#4FC3F7'}
                 />
               </View>
+
+              {profsComSalario.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>Simulação de Salários — Mês Corrente</Text>
+                  <Card>
+                    <SimuladorSalarial profs={profsComSalario} />
+                  </Card>
+                </>
+              )}
 
               {latestFolha && (
                 <>
@@ -1067,4 +1191,38 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primary ?? '#5E6AD2', alignItems: 'center',
   },
   modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
+});
+
+const simStyles = StyleSheet.create({
+  totalsRow: {
+    flexDirection: 'row', padding: 16, gap: 8,
+  },
+  totalsLabel: { color: '#aaa', fontSize: 11, fontWeight: '600', marginBottom: 4 },
+  totalsVal: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.10)', marginHorizontal: 16 },
+  breakdownDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 6 },
+
+  empRow: {
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)',
+  },
+  empRowTop: { flexDirection: 'row', alignItems: 'center' },
+  empName: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  empCargo: { color: '#aaa', fontSize: 11, marginTop: 2 },
+  empAmounts: { alignItems: 'flex-end', marginRight: 4 },
+  empBruto: { color: '#aaa', fontSize: 12 },
+  empLiquido: { fontSize: 14, fontWeight: '700', marginTop: 2 },
+
+  breakdown: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  simRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  simLabel: { color: '#aaa', fontSize: 12 },
+  simVal: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  patronalNote: { color: '#aaa', fontSize: 10, marginTop: 4, fontStyle: 'italic' },
 });
