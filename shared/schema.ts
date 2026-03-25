@@ -800,3 +800,38 @@ export const passwordResetTokens = pgTable("password_reset_tokens", {
   usedAt: timestamp("usedAt", { withTimezone: true }),
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// PLANOS DE AULA
+// -----------------------
+export const planosAula = pgTable("planos_aula", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  professorId: varchar("professorId").notNull(),
+  professorNome: text("professorNome").notNull(),
+  turmaId: varchar("turmaId"),
+  turmaNome: text("turmaNome").notNull().default(''),
+  disciplina: text("disciplina").notNull(),
+  unidade: text("unidade").notNull().default(''),
+  sumario: text("sumario").notNull().default(''),
+  classe: text("classe").notNull().default(''),
+  escola: text("escola").notNull().default(''),
+  perfilEntrada: text("perfilEntrada").notNull().default(''),
+  perfilSaida: text("perfilSaida").notNull().default(''),
+  data: text("data").notNull().default(''),
+  periodo: text("periodo").notNull().default(''),
+  tempo: text("tempo").notNull().default(''),
+  duracao: text("duracao").notNull().default(''),
+  anoLetivo: text("anoLetivo").notNull().default(''),
+  objectivoGeral: text("objectivoGeral").notNull().default(''),
+  objectivosEspecificos: text("objectivosEspecificos").notNull().default(''),
+  fases: jsonb("fases").notNull().default(sql`'[]'::jsonb`),
+  status: text("status").notNull().default('rascunho'),
+  observacaoDirector: text("observacaoDirector"),
+  aprovadoPor: text("aprovadoPor"),
+  aprovadoEm: text("aprovadoEm"),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});

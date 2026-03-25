@@ -2505,6 +2505,110 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── PLANOS DE AULA ──────────────────────────────────────────────────────────
+
+  app.get("/api/planos-aula", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT id, "professorId", "professorNome", "turmaId", "turmaNome", disciplina, unidade,
+                sumario, classe, escola, "perfilEntrada", "perfilSaida", data, periodo, tempo,
+                duracao, "anoLetivo", "objectivoGeral", "objectivosEspecificos", fases, status,
+                "observacaoDirector", "aprovadoPor", "aprovadoEm",
+                "createdAt", "updatedAt"
+         FROM public.planos_aula ORDER BY "createdAt" DESC`
+      );
+      return json(res, 200, rows);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/planos-aula/professor/:professorId", async (req: Request, res: Response) => {
+    try {
+      const { professorId } = req.params;
+      const rows = await query<JsonObject>(
+        `SELECT id, "professorId", "professorNome", "turmaId", "turmaNome", disciplina, unidade,
+                sumario, classe, escola, "perfilEntrada", "perfilSaida", data, periodo, tempo,
+                duracao, "anoLetivo", "objectivoGeral", "objectivosEspecificos", fases, status,
+                "observacaoDirector", "aprovadoPor", "aprovadoEm",
+                "createdAt", "updatedAt"
+         FROM public.planos_aula WHERE "professorId"=$1 ORDER BY "createdAt" DESC`,
+        [professorId]
+      );
+      return json(res, 200, rows);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/planos-aula/:id", async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.planos_aula WHERE id=$1 LIMIT 1`,
+        [req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Plano não encontrado.' });
+      return json(res, 200, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/planos-aula", async (req: Request, res: Response) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      if (!b.professorId || !b.professorNome || !b.disciplina)
+        return json(res, 400, { error: 'professorId, professorNome e disciplina são obrigatórios.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.planos_aula
+           ("professorId", "professorNome", "turmaId", "turmaNome", disciplina, unidade,
+            sumario, classe, escola, "perfilEntrada", "perfilSaida", data, periodo, tempo,
+            duracao, "anoLetivo", "objectivoGeral", "objectivosEspecificos", fases, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19::jsonb,$20)
+         RETURNING *`,
+        [b.professorId, b.professorNome, b.turmaId ?? null, b.turmaNome ?? '',
+         b.disciplina, b.unidade ?? '', b.sumario ?? '', b.classe ?? '', b.escola ?? '',
+         b.perfilEntrada ?? '', b.perfilSaida ?? '', b.data ?? '', b.periodo ?? '',
+         b.tempo ?? '', b.duracao ?? '', b.anoLetivo ?? '', b.objectivoGeral ?? '',
+         b.objectivosEspecificos ?? '', JSON.stringify(b.fases ?? []), b.status ?? 'rascunho']
+      );
+      return json(res, 201, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/planos-aula/:id", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = req.body as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.planos_aula SET
+           "professorNome"=COALESCE($1,"professorNome"), "turmaId"=COALESCE($2,"turmaId"),
+           "turmaNome"=COALESCE($3,"turmaNome"), disciplina=COALESCE($4,disciplina),
+           unidade=COALESCE($5,unidade), sumario=COALESCE($6,sumario),
+           classe=COALESCE($7,classe), escola=COALESCE($8,escola),
+           "perfilEntrada"=COALESCE($9,"perfilEntrada"), "perfilSaida"=COALESCE($10,"perfilSaida"),
+           data=COALESCE($11,data), periodo=COALESCE($12,periodo), tempo=COALESCE($13,tempo),
+           duracao=COALESCE($14,duracao), "anoLetivo"=COALESCE($15,"anoLetivo"),
+           "objectivoGeral"=COALESCE($16,"objectivoGeral"),
+           "objectivosEspecificos"=COALESCE($17,"objectivosEspecificos"),
+           fases=COALESCE($18::jsonb,fases), status=COALESCE($19,status),
+           "observacaoDirector"=COALESCE($20,"observacaoDirector"),
+           "aprovadoPor"=COALESCE($21,"aprovadoPor"), "aprovadoEm"=COALESCE($22,"aprovadoEm"),
+           "updatedAt"=NOW()
+         WHERE id=$23 RETURNING *`,
+        [b.professorNome ?? null, b.turmaId ?? null, b.turmaNome ?? null, b.disciplina ?? null,
+         b.unidade ?? null, b.sumario ?? null, b.classe ?? null, b.escola ?? null,
+         b.perfilEntrada ?? null, b.perfilSaida ?? null, b.data ?? null, b.periodo ?? null,
+         b.tempo ?? null, b.duracao ?? null, b.anoLetivo ?? null, b.objectivoGeral ?? null,
+         b.objectivosEspecificos ?? null, b.fases != null ? JSON.stringify(b.fases) : null,
+         b.status ?? null, b.observacaoDirector ?? null, b.aprovadoPor ?? null, b.aprovadoEm ?? null, id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Plano não encontrado.' });
+      return json(res, 200, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/planos-aula/:id", async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.planos_aula WHERE id=$1`, [req.params.id]);
+      return json(res, 200, { ok: true });
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

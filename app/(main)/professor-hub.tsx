@@ -152,6 +152,7 @@ export default function ProfessorHubScreen() {
           <QuickAction icon="stats-chart" label="Desempenho" route="/(main)/desempenho" color="#8B5CF6" />
           <QuickAction icon="chatbubbles" label="Mensagens" route="/(main)/professor-mensagens" badge={minhasMensagensNaoLidas} color={Colors.success} />
           <QuickAction icon="folder-open" label="Materiais" route="/(main)/professor-materiais" color={Colors.accent} />
+          <QuickAction icon="document-text-outline" label="Plano de Aula" route="/(main)/professor-plano-aula" color={Colors.gold} />
           <QuickAction icon="clipboard" label="Sumário / Presença" route="/(main)/professor-sumario" badge={meusSumarios.filter(s => s.status === 'pendente').length} color={Colors.warning} />
           <QuickAction icon="time" label="Horário" route="/(main)/horario" color={Colors.primaryLight} />
           <QuickAction icon="notifications" label="Notificações" route="/(main)/notificacoes" badge={unreadCount} color={Colors.accent} />
