@@ -16,7 +16,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'recibo_salario' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -145,6 +145,30 @@ const VARIABLE_GROUPS = [
       { tag: '{{NOTA_CONT_AV}}', desc: 'Contabilidade Avançada', exemplo: '13' },
     ],
   },
+  {
+    grupo: 'Funcionário / RH',
+    icon: 'briefcase',
+    cor: '#10b981',
+    vars: [
+      { tag: '{{FUNC_NOME}}', desc: 'Nome completo do funcionário', exemplo: 'António Manuel da Silva' },
+      { tag: '{{FUNC_CARGO}}', desc: 'Cargo do funcionário', exemplo: 'Professor' },
+      { tag: '{{FUNC_CATEGORIA}}', desc: 'Categoria / nível', exemplo: 'Técnico Superior' },
+      { tag: '{{MES_ANO_FOLHA}}', desc: 'Mês e ano da folha de salário', exemplo: 'Março 2026' },
+      { tag: '{{SALARIO_BASE}}', desc: 'Salário base (Kz)', exemplo: '150.000,00 Kz' },
+      { tag: '{{SUB_ALIMENTACAO}}', desc: 'Subsídio de alimentação (Kz)', exemplo: '15.000,00 Kz' },
+      { tag: '{{SUB_TRANSPORTE}}', desc: 'Subsídio de transporte (Kz)', exemplo: '10.000,00 Kz' },
+      { tag: '{{SUB_HABITACAO}}', desc: 'Subsídio de habitação (Kz)', exemplo: '20.000,00 Kz' },
+      { tag: '{{OUTROS_SUBSIDIOS}}', desc: 'Outros subsídios (Kz)', exemplo: '0,00 Kz' },
+      { tag: '{{SALARIO_BRUTO}}', desc: 'Total bruto (Kz)', exemplo: '195.000,00 Kz' },
+      { tag: '{{INSS_EMPREGADO}}', desc: 'INSS empregado 3% (Kz)', exemplo: '4.500,00 Kz' },
+      { tag: '{{IRT}}', desc: 'IRT — tabela progressiva (Kz)', exemplo: '12.000,00 Kz' },
+      { tag: '{{OUTROS_DESCONTOS}}', desc: 'Outros descontos (Kz)', exemplo: '0,00 Kz' },
+      { tag: '{{TOTAL_DESCONTOS}}', desc: 'Total de descontos (Kz)', exemplo: '16.500,00 Kz' },
+      { tag: '{{SALARIO_LIQUIDO}}', desc: 'Salário líquido a receber (Kz)', exemplo: '178.500,00 Kz' },
+      { tag: '{{INSS_PATRONAL}}', desc: 'INSS patronal 8% — informativo (Kz)', exemplo: '12.000,00 Kz' },
+      { tag: '{{STATUS_FOLHA}}', desc: 'Estado da folha de salário', exemplo: 'Aprovada' },
+    ],
+  },
 ];
 
 const TIPO_LABELS: Record<DocTipo, string> = {
@@ -160,6 +184,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   lista_turma: 'Lista da Turma',
   certificado_primario: 'Certificado Primário',
   ficha_inscricao: 'Boletim de Inscrição',
+  recibo_salario: 'Recibo de Vencimento',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -175,6 +200,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   lista_turma: '#0369a1',
   certificado_primario: '#7c3aed',
   ficha_inscricao: '#CC1A1A',
+  recibo_salario: '#10b981',
   outro: Colors.textMuted,
 };
 
@@ -1494,6 +1520,121 @@ FREQUÊNCIA ESCOLAR DO ALUNO
 {{NOME_ESCOLA}}, {{DATA_ACTUAL}}`,
 };
 
+// ─── Recibo de Vencimento Seed ───────────────────────────────────────────────
+
+const SEED_RECIBO_SALARIO_ID = 'tpl_seed_recibo_salario_v1';
+
+const SEED_RECIBO_SALARIO: DocTemplate = {
+  id: SEED_RECIBO_SALARIO_ID,
+  nome: 'Recibo de Vencimento',
+  tipo: 'recibo_salario',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `<div style="font-family:'Times New Roman',Times,serif;max-width:700px;margin:0 auto;padding:32px;border:2px solid #1a2540;border-radius:8px;">
+
+<div style="text-align:center;margin-bottom:20px;">
+  <p style="font-size:13pt;font-weight:bold;letter-spacing:1px;margin:0;">{{NOME_ESCOLA}}</p>
+  <h2 style="font-size:16pt;font-weight:bold;text-transform:uppercase;margin:6px 0 2px;">RECIBO DE VENCIMENTO</h2>
+  <p style="font-size:12pt;margin:0;color:#444;">{{MES_ANO_FOLHA}}</p>
+</div>
+
+<hr style="border:1px solid #1a2540;margin:16px 0;">
+
+<p style="font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;">Funcionário</p>
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+  <tr>
+    <td style="padding:4px 8px;font-weight:bold;width:35%;">Nome</td>
+    <td style="padding:4px 8px;">{{FUNC_NOME}}</td>
+  </tr>
+  <tr style="background:#f5f7ff;">
+    <td style="padding:4px 8px;font-weight:bold;">Cargo</td>
+    <td style="padding:4px 8px;">{{FUNC_CARGO}}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;font-weight:bold;">Categoria</td>
+    <td style="padding:4px 8px;">{{FUNC_CATEGORIA}}</td>
+  </tr>
+</table>
+
+<hr style="border:1px solid #ddd;margin:12px 0;">
+
+<p style="font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;">Vencimentos</p>
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+  <tr>
+    <td style="padding:4px 8px;width:65%;">Salário Base</td>
+    <td style="padding:4px 8px;text-align:right;">{{SALARIO_BASE}}</td>
+  </tr>
+  <tr style="background:#f5f7ff;">
+    <td style="padding:4px 8px;">Subsídio de Alimentação</td>
+    <td style="padding:4px 8px;text-align:right;">{{SUB_ALIMENTACAO}}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;">Subsídio de Transporte</td>
+    <td style="padding:4px 8px;text-align:right;">{{SUB_TRANSPORTE}}</td>
+  </tr>
+  <tr style="background:#f5f7ff;">
+    <td style="padding:4px 8px;">Subsídio de Habitação</td>
+    <td style="padding:4px 8px;text-align:right;">{{SUB_HABITACAO}}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;">Outros Subsídios</td>
+    <td style="padding:4px 8px;text-align:right;">{{OUTROS_SUBSIDIOS}}</td>
+  </tr>
+  <tr style="background:#e8f5e9;">
+    <td style="padding:6px 8px;font-weight:bold;">Total Bruto</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:bold;">{{SALARIO_BRUTO}}</td>
+  </tr>
+</table>
+
+<hr style="border:1px solid #ddd;margin:12px 0;">
+
+<p style="font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;margin:0 0 8px;">Descontos</p>
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+  <tr>
+    <td style="padding:4px 8px;width:65%;">INSS Empregado (3%)</td>
+    <td style="padding:4px 8px;text-align:right;color:#c0392b;">{{INSS_EMPREGADO}}</td>
+  </tr>
+  <tr style="background:#fff5f5;">
+    <td style="padding:4px 8px;">IRT (tabela progressiva)</td>
+    <td style="padding:4px 8px;text-align:right;color:#c0392b;">{{IRT}}</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;">Outros Descontos</td>
+    <td style="padding:4px 8px;text-align:right;color:#c0392b;">{{OUTROS_DESCONTOS}}</td>
+  </tr>
+  <tr style="background:#fce8e8;">
+    <td style="padding:6px 8px;font-weight:bold;">Total Descontos</td>
+    <td style="padding:6px 8px;text-align:right;font-weight:bold;color:#c0392b;">{{TOTAL_DESCONTOS}}</td>
+  </tr>
+</table>
+
+<hr style="border:2px solid #1a2540;margin:12px 0;">
+
+<div style="background:#e8f5e9;border-radius:6px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+  <span style="font-size:13pt;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">Salário Líquido a Receber</span>
+  <span style="font-size:16pt;font-weight:bold;color:#1a7a40;">{{SALARIO_LIQUIDO}}</span>
+</div>
+
+<div style="background:#f0f4ff;border-radius:4px;padding:8px 12px;margin-bottom:20px;font-size:10pt;color:#555;">
+  Encargo patronal INSS (8%) — não desconta no funcionário: <strong>{{INSS_PATRONAL}}</strong>
+</div>
+
+<hr style="border:1px solid #ddd;margin:16px 0;">
+
+<div style="display:flex;justify-content:space-between;align-items:center;">
+  <p style="font-size:9pt;color:#888;margin:0;">Documento gerado pelo SIGA · {{DATA_ACTUAL}}</p>
+  <span style="font-size:10pt;color:#555;">Estado: <strong>{{STATUS_FOLHA}}</strong></span>
+</div>
+
+<div style="margin-top:40px;text-align:center;">
+  <p style="margin:0;font-size:10pt;">O Director(a)</p>
+  <p style="margin:4px 0 0;font-size:9pt;color:#888;">_________________________________</p>
+  <p style="margin:4px 0 0;font-size:10pt;font-weight:bold;">{{NOME_DIRECTOR}}</p>
+</div>
+
+</div>`,
+};
+
 // ─── Boletim de Inscrição Seed ──────────────────────────────────────────────
 
 const SEED_BOLETIM_INSCRICAO_ID = 'tpl_seed_boletim_inscricao_v1';
@@ -1728,7 +1869,7 @@ export default function EditorDocumentos() {
         let list: DocTemplate[] = fetched ?? [];
 
         // Inject seed templates if not yet present in the database
-        const seeds = [SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const seeds = [SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
         const existingIds = new Set(list.map(t => t.id));
         const toInsert = seeds.filter(s => !existingIds.has(s.id));
         for (const seed of toInsert) {

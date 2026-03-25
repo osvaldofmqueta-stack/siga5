@@ -1070,9 +1070,18 @@ export default function RhPayrollScreen() {
                 </>
               )}
 
-              <TouchableOpacity style={[styles.modalBtnPrimary, { marginTop: 20 }]} onPress={() => setReciboItem(null)}>
-                <Text style={styles.modalBtnPrimaryText}>Fechar</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+                <TouchableOpacity
+                  style={[styles.modalBtnCancel, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
+                  onPress={() => { setReciboItem(null); router.push('/(main)/editor-documentos' as any); }}
+                >
+                  <Ionicons name="document-text-outline" size={16} color={Colors.accent ?? '#4FC3F7'} />
+                  <Text style={[styles.modalBtnCancelText, { color: Colors.accent ?? '#4FC3F7' }]}>Editar Modelo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtnPrimary, { flex: 1 }]} onPress={() => setReciboItem(null)}>
+                  <Text style={styles.modalBtnPrimaryText}>Fechar</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </ScrollView>
         </View>
