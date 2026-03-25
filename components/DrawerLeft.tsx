@@ -193,8 +193,8 @@ export default function DrawerLeft() {
     {
       title: 'Controlo',
       items: [
-        { label: 'Sumários', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Calendário de Provas', route: '/(main)/rh-hub', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'rh_hub' },
+        { label: 'Sumários', route: '/(main)/professor-sumario', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" />, permKey: 'professor_sumario' },
+        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],
     },
   ];
