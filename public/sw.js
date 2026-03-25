@@ -1,4 +1,5 @@
-const CACHE_NAME = 'siga-v3';
+const CACHE_NAME = 'siga-v4';
+const API_CACHE_NAME = 'siga-api-v4';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -23,7 +24,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys
-          .filter((key) => key !== CACHE_NAME)
+          .filter((key) => key !== CACHE_NAME && key !== API_CACHE_NAME)
           .map((key) => caches.delete(key))
       );
     })
@@ -36,11 +37,36 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
 
   if (request.method !== 'GET') return;
-  if (url.pathname.startsWith('/api/')) return;
   if (url.pathname.startsWith('/_expo/')) return;
   if (url.pathname.includes('hot-update')) return;
   if (url.pathname.includes('__metro')) return;
   if (url.pathname.includes('symbolicate')) return;
+
+  const API_CACHE_ROUTES = [
+    '/api/alunos', '/api/professores', '/api/turmas', '/api/salas',
+    '/api/notas', '/api/presencas', '/api/eventos', '/api/anos-academicos',
+    '/api/taxas', '/api/pagamentos', '/api/pautas', '/api/horarios',
+    '/api/salas', '/api/usuarios', '/api/provincias', '/api/municipios',
+  ];
+  const isApiRoute = url.pathname.startsWith('/api/');
+  const isCachedApi = API_CACHE_ROUTES.some((r) => url.pathname === r || url.pathname.startsWith(r + '/') || url.pathname.startsWith(r + '?'));
+
+  if (isApiRoute && isCachedApi) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(API_CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request, { cacheName: API_CACHE_NAME }))
+    );
+    return;
+  }
+
+  if (isApiRoute) return;
 
   if (request.headers.get('Accept')?.includes('text/html')) {
     event.respondWith(

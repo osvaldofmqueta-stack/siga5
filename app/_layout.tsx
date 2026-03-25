@@ -30,6 +30,8 @@ import { PermissoesProvider } from '@/context/PermissoesContext';
 import { ToastProvider } from '@/context/ToastContext';
 import { ChatInternoProvider } from '@/context/ChatInternoContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
+import { OfflineProvider } from '@/context/OfflineContext';
+import OfflineBanner from '@/components/OfflineBanner';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -54,36 +56,39 @@ function AppProviders() {
         <SafeAreaProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <ConfigProvider>
-                <AuthProvider>
-                  <PermissoesProvider>
-                    <LicenseProvider>
-                      <UsersProvider>
-                        <RegistroProvider>
-                          <DataProvider>
-                            <AnoAcademicoProvider>
-                              <FinanceiroProvider>
-                                <NotificacoesProvider>
-                                  <ProfessorProvider>
-                                    <ChatInternoProvider>
-                                      <DrawerProvider>
-                                        <ToastProvider>
-                                          <RootLayoutNav />
-                                          <FlashScreenOverlay />
-                                        </ToastProvider>
-                                      </DrawerProvider>
-                                    </ChatInternoProvider>
-                                  </ProfessorProvider>
-                                </NotificacoesProvider>
-                              </FinanceiroProvider>
-                            </AnoAcademicoProvider>
-                          </DataProvider>
-                        </RegistroProvider>
-                      </UsersProvider>
-                    </LicenseProvider>
-                  </PermissoesProvider>
-                </AuthProvider>
-              </ConfigProvider>
+              <OfflineProvider>
+                <ConfigProvider>
+                  <AuthProvider>
+                    <PermissoesProvider>
+                      <LicenseProvider>
+                        <UsersProvider>
+                          <RegistroProvider>
+                            <DataProvider>
+                              <AnoAcademicoProvider>
+                                <FinanceiroProvider>
+                                  <NotificacoesProvider>
+                                    <ProfessorProvider>
+                                      <ChatInternoProvider>
+                                        <DrawerProvider>
+                                          <ToastProvider>
+                                            <RootLayoutNav />
+                                            <FlashScreenOverlay />
+                                            <OfflineBanner />
+                                          </ToastProvider>
+                                        </DrawerProvider>
+                                      </ChatInternoProvider>
+                                    </ProfessorProvider>
+                                  </NotificacoesProvider>
+                                </FinanceiroProvider>
+                              </AnoAcademicoProvider>
+                            </DataProvider>
+                          </RegistroProvider>
+                        </UsersProvider>
+                      </LicenseProvider>
+                    </PermissoesProvider>
+                  </AuthProvider>
+                </ConfigProvider>
+              </OfflineProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </SafeAreaProvider>

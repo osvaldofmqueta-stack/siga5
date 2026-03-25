@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useMemo, ReactNode } from 'react';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiRequest } from '@/lib/query-client';
+import { SIGA_SYNC_EVENT } from '@/context/OfflineContext';
 
 export interface Aluno {
   id: string;
@@ -251,7 +253,19 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [eventos, setEventos]         = useState<Evento[]>([]);
   const [isLoading, setIsLoading]     = useState(true);
 
+  const isInitialLoad = useRef(true);
+
   useEffect(() => { loadAll(); }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = () => {
+      if (isInitialLoad.current) return;
+      loadAll();
+    };
+    window.addEventListener(SIGA_SYNC_EVENT, handler);
+    return () => window.removeEventListener(SIGA_SYNC_EVENT, handler);
+  }, []);
 
   async function loadAll() {
     try {
@@ -336,6 +350,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       console.error('DataContext load error', err);
     } finally {
       setIsLoading(false);
+      isInitialLoad.current = false;
     }
   }
 

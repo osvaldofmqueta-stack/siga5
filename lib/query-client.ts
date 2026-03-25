@@ -1,12 +1,15 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { enqueueOperation, isNetworkError } from "./offlineQueue";
 
-/**
- * Gets the base URL for the Express API server.
- * In a web/browser context, use relative URLs so requests go through the same
- * origin (Express server on port 5000 which proxies Expo web on port 8000).
- * In native contexts, use the EXPO_PUBLIC_DOMAIN env var.
- */
+const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const SKIP_QUEUE_ROUTES = ["/api/login", "/api/logout", "/api/auth", "/api/register", "/api/licenca"];
+
+function shouldQueue(method: string, route: string): boolean {
+  if (!WRITE_METHODS.has(method.toUpperCase())) return false;
+  return !SKIP_QUEUE_ROUTES.some((r) => route.startsWith(r));
+}
+
 export function getApiUrl(): string {
   if (typeof window !== "undefined" && typeof document !== "undefined") {
     return window.location.origin;
@@ -34,19 +37,31 @@ export async function apiRequest(
   method: string,
   route: string,
   data?: unknown | undefined,
+  options?: { skipQueue?: boolean }
 ): Promise<Response> {
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
-  const res = await fetch(url.toString(), {
-    method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+  try {
+    const res = await fetch(url.toString(), {
+      method,
+      headers: data ? { "Content-Type": "application/json" } : {},
+      body: data ? JSON.stringify(data) : undefined,
+      credentials: "include",
+    });
 
-  await throwIfResNotOk(res);
-  return res;
+    await throwIfResNotOk(res);
+    return res;
+  } catch (err) {
+    if (
+      !options?.skipQueue &&
+      shouldQueue(method, route) &&
+      isNetworkError(err)
+    ) {
+      await enqueueOperation({ method, path: route, body: data });
+    }
+    throw err;
+  }
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
