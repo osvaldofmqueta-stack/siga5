@@ -987,3 +987,33 @@ export const transferencias = pgTable("transferencias", {
   criadoEm: timestamp("criado_em", { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizado_em", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// BOLSAS E DESCONTOS
+// -----------------------
+export const bolsas = pgTable("bolsas", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId")
+    .notNull()
+    .references(() => alunos.id, { onDelete: "cascade" }),
+
+  tipo: text("tipo").notNull().default("social"),
+  // 'social' | 'merito' | 'desportivo' | 'funcionario' | 'parcial' | 'outro'
+
+  percentagem: real("percentagem").notNull().default(100),
+  // 0 = sem desconto, 100 = isento total, 50 = 50% de desconto
+
+  descricao: text("descricao").default(""),
+  dataInicio: text("dataInicio"),
+  dataFim: text("dataFim"), // null = sem prazo definido
+
+  ativo: boolean("ativo").notNull().default(true),
+  aprovadoPor: text("aprovadoPor"),
+  observacao: text("observacao"),
+
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
+});

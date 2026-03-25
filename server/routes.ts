@@ -3112,6 +3112,98 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── BOLSAS E DESCONTOS ─────────────────────────────────────────────────────
+
+  app.get('/api/bolsas', requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`
+        SELECT b.*, a.nome, a.apelido, a."numeroMatricula", a."turmaId"
+        FROM public.bolsas b
+        JOIN public.alunos a ON a.id = b."alunoId"
+        ORDER BY b."criadoEm" DESC
+      `);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get('/api/bolsas/aluno/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.bolsas WHERE "alunoId"=$1 ORDER BY "criadoEm" DESC`,
+        [req.params.alunoId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/bolsas', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      if (!b.alunoId) return json(res, 400, { error: 'alunoId é obrigatório.' });
+      if (b.percentagem === undefined || b.percentagem === null) return json(res, 400, { error: 'percentagem é obrigatória.' });
+
+      const pct = Number(b.percentagem);
+      if (isNaN(pct) || pct < 0 || pct > 100) return json(res, 400, { error: 'Percentagem deve ser entre 0 e 100.' });
+
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.bolsas
+           (id, "alunoId", tipo, percentagem, descricao, "dataInicio", "dataFim", ativo, "aprovadoPor", observacao)
+         VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          String(b.alunoId),
+          String(b.tipo ?? 'social'),
+          pct,
+          String(b.descricao ?? ''),
+          b.dataInicio ? String(b.dataInicio) : null,
+          b.dataFim ? String(b.dataFim) : null,
+          b.ativo !== false,
+          b.aprovadoPor ? String(b.aprovadoPor) : null,
+          b.observacao ? String(b.observacao) : null,
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/bolsas/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const fields: string[] = [];
+      const vals: unknown[] = [];
+
+      const add = (col: string, val: unknown) => { vals.push(val); fields.push(`"${col}"=$${vals.length}`); };
+
+      if (b.tipo !== undefined) add('tipo', String(b.tipo));
+      if (b.percentagem !== undefined) add('percentagem', Number(b.percentagem));
+      if (b.descricao !== undefined) add('descricao', String(b.descricao));
+      if (b.dataInicio !== undefined) add('dataInicio', b.dataInicio ? String(b.dataInicio) : null);
+      if (b.dataFim !== undefined) add('dataFim', b.dataFim ? String(b.dataFim) : null);
+      if (b.ativo !== undefined) add('ativo', Boolean(b.ativo));
+      if (b.aprovadoPor !== undefined) add('aprovadoPor', b.aprovadoPor ? String(b.aprovadoPor) : null);
+      if (b.observacao !== undefined) add('observacao', b.observacao ? String(b.observacao) : null);
+
+      if (!fields.length) return json(res, 400, { error: 'Sem campos para atualizar.' });
+      add('atualizadoEm', new Date().toISOString());
+
+      vals.push(id);
+      const rows = await query<JsonObject>(
+        `UPDATE public.bolsas SET ${fields.join(',')} WHERE id=$${vals.length} RETURNING *`,
+        vals
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Bolsa não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/bolsas/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.bolsas WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
