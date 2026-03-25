@@ -29,6 +29,20 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const STORAGE_KEY = '@sgaa_user';
 const LAST_USER_KEY = '@sgaa_last_user';
+const TOKEN_KEY = '@sgaa_token';
+
+export async function saveAuthToken(token: string) {
+  await AsyncStorage.setItem(TOKEN_KEY, token);
+}
+
+export async function getAuthToken(): Promise<string | null> {
+  try { return await AsyncStorage.getItem(TOKEN_KEY); }
+  catch { return null; }
+}
+
+export async function clearAuthToken() {
+  await AsyncStorage.removeItem(TOKEN_KEY);
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -62,9 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    // Logout de verdade: limpa o usuário da sessão e também o "lastUser"
-    // para evitar re-login automático via biometria na tela de login.
-    await AsyncStorage.multiRemove([STORAGE_KEY, LAST_USER_KEY]);
+    await AsyncStorage.multiRemove([STORAGE_KEY, LAST_USER_KEY, TOKEN_KEY]);
     setUser(null);
     setLastUser(null);
   }

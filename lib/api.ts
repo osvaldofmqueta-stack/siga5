@@ -1,11 +1,18 @@
 import { getApiUrl } from './query-client';
+import { getAuthToken } from '../context/AuthContext';
 
 async function req<T = unknown>(method: string, path: string, body?: unknown): Promise<T> {
   const base = getApiUrl();
   const url = new URL(path, base).toString();
+
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+
   const res = await fetch(url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
     credentials: 'include',
   });

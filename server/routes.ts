@@ -6,6 +6,7 @@ import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
 import { v4 as uuidv4 } from "uuid";
+import { signToken, requireAuth, requirePermission, type UserRole } from "./auth";
 
 type JsonObject = Record<string, unknown>;
 
@@ -33,6 +34,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
+  });
+
+  // -----------------------
+  // AUTENTICAÇÃO (LOGIN)
+  // -----------------------
+  const HARDCODED_ACCOUNTS: Array<{ email: string; senha: string; id: string; nome: string; role: UserRole; escola: string }> = [
+    { email: "ceo@sige.ao",        senha: "Sige@2025",       id: "usr_ceo",            nome: "Administrador SIGE",           role: "ceo",       escola: "SIGE — Sistema Integral de Gestão Escolar" },
+    { email: "financeiro@sige.ao", senha: "Financeiro@2025", id: "usr_financeiro_001", nome: "Gestor Financeiro",            role: "financeiro", escola: "SIGE — Sistema Integral de Gestão Escolar" },
+    { email: "secretaria@sige.ao", senha: "Secretaria@2025", id: "usr_secretaria_001", nome: "Secretária Académica",         role: "secretaria", escola: "SIGE — Sistema Integral de Gestão Escolar" },
+    { email: "rh@sige.ao",         senha: "RH@2025",         id: "usr_rh_001",         nome: "Gestor de Recursos Humanos",  role: "rh",        escola: "SIGE — Sistema Integral de Gestão Escolar" },
+  ];
+
+  app.post("/api/login", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const email = String(b.email ?? "").toLowerCase().trim();
+      const senha = String(b.senha ?? "").trim();
+      if (!email || !senha) {
+        return json(res, 400, { error: "Email e senha são obrigatórios." });
+      }
+
+      // Verificar contas fixas primeiro
+      const hardcoded = HARDCODED_ACCOUNTS.find(
+        a => a.email.toLowerCase() === email && a.senha === senha
+      );
+      if (hardcoded) {
+        const token = signToken({ userId: hardcoded.id, role: hardcoded.role, email: hardcoded.email });
+        return json(res, 200, {
+          token,
+          user: { id: hardcoded.id, nome: hardcoded.nome, email: hardcoded.email, role: hardcoded.role, escola: hardcoded.escola },
+        });
+      }
+
+      // Verificar na base de dados
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND senha=$2 AND ativo=true LIMIT 1`,
+        [email, senha]
+      );
+      if (!rows[0]) {
+        return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha." });
+      }
+      const u = rows[0];
+      const token = signToken({ userId: String(u.id), role: String(u.role) as UserRole, email: String(u.email) });
+      return json(res, 200, {
+        token,
+        user: { id: u.id, nome: u.nome, email: u.email, role: u.role, escola: u.escola ?? "" },
+      });
+    } catch (e: unknown) {
+      return json(res, 500, { error: String(e) });
+    }
   });
 
   // -----------------------
@@ -82,7 +133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/alunos", async (req: Request, res: Response) => {
+  app.post("/api/alunos", requireAuth, requirePermission("alunos"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -116,7 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/alunos/:id", async (req: Request, res: Response) => {
+  app.put("/api/alunos/:id", requireAuth, requirePermission("alunos"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -164,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/alunos/:id", async (req: Request, res: Response) => {
+  app.delete("/api/alunos/:id", requireAuth, requirePermission("alunos"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.alunos WHERE id = $1 RETURNING *`,
@@ -185,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/professores", async (req: Request, res: Response) => {
+  app.post("/api/professores", requireAuth, requirePermission("professores"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -215,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/professores/:id", async (req: Request, res: Response) => {
+  app.put("/api/professores/:id", requireAuth, requirePermission("professores"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -264,7 +315,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/professores/:id", async (req: Request, res: Response) => {
+  app.delete("/api/professores/:id", requireAuth, requirePermission("professores"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.professores WHERE id = $1 RETURNING *`,
@@ -345,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/turmas", async (req: Request, res: Response) => {
+  app.post("/api/turmas", requireAuth, requirePermission("turmas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -374,7 +425,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/turmas/:id", async (req: Request, res: Response) => {
+  app.put("/api/turmas/:id", requireAuth, requirePermission("turmas"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -416,7 +467,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/turmas/:id", async (req: Request, res: Response) => {
+  app.delete("/api/turmas/:id", requireAuth, requirePermission("turmas"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.turmas WHERE id = $1 RETURNING *`,
@@ -437,7 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/notas", async (req: Request, res: Response) => {
+  app.post("/api/notas", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -484,7 +535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/notas/:id", async (req: Request, res: Response) => {
+  app.put("/api/notas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -545,7 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/notas/:id", async (req: Request, res: Response) => {
+  app.delete("/api/notas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.notas WHERE id = $1 RETURNING *`,
@@ -566,7 +617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/presencas", async (req: Request, res: Response) => {
+  app.post("/api/presencas", requireAuth, requirePermission("presencas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -591,7 +642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/presencas/:id", async (req: Request, res: Response) => {
+  app.put("/api/presencas/:id", requireAuth, requirePermission("presencas"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -630,7 +681,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/presencas/:id", async (req: Request, res: Response) => {
+  app.delete("/api/presencas/:id", requireAuth, requirePermission("presencas"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.presencas WHERE id = $1 RETURNING *`,
@@ -833,7 +884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // UTILIZADORES DO SISTEMA
   // -----------------------
-  app.get("/api/utilizadores", async (_req: Request, res: Response) => {
+  app.get("/api/utilizadores", requireAuth, async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(
       `SELECT * FROM public.utilizadores ORDER BY "criadoEm" DESC`,
       [],
@@ -841,7 +892,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/utilizadores", async (req: Request, res: Response) => {
+  app.post("/api/utilizadores", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -864,7 +915,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
-  app.put("/api/utilizadores/:id", async (req: Request, res: Response) => {
+  app.put("/api/utilizadores/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -881,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/utilizadores/:id", async (req: Request, res: Response) => {
+  app.delete("/api/utilizadores/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.utilizadores WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
@@ -1006,7 +1057,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/pautas", async (req: Request, res: Response) => {
+  app.post("/api/pautas", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -1018,7 +1069,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/pautas/:id", async (req: Request, res: Response) => {
+  app.put("/api/pautas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1035,7 +1086,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/pautas/:id", async (req: Request, res: Response) => {
+  app.delete("/api/pautas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.pautas WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
@@ -1236,12 +1287,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // TAXAS
   // -----------------------
-  app.get("/api/taxas", async (_req: Request, res: Response) => {
+  app.get("/api/taxas", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.taxas ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
   });
 
-  app.post("/api/taxas", async (req: Request, res: Response) => {
+  app.post("/api/taxas", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -1253,7 +1304,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/taxas/:id", async (req: Request, res: Response) => {
+  app.put("/api/taxas/:id", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1270,7 +1321,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/taxas/:id", async (req: Request, res: Response) => {
+  app.delete("/api/taxas/:id", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.taxas WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
@@ -1279,12 +1330,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // PAGAMENTOS
   // -----------------------
-  app.get("/api/pagamentos", async (_req: Request, res: Response) => {
+  app.get("/api/pagamentos", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.pagamentos ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
   });
 
-  app.post("/api/pagamentos", async (req: Request, res: Response) => {
+  app.post("/api/pagamentos", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -1296,7 +1347,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/pagamentos/:id", async (req: Request, res: Response) => {
+  app.put("/api/pagamentos/:id", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1313,7 +1364,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/pagamentos/:id", async (req: Request, res: Response) => {
+  app.delete("/api/pagamentos/:id", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.pagamentos WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
@@ -1359,12 +1410,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // RUPES
   // -----------------------
-  app.get("/api/rupes", async (_req: Request, res: Response) => {
+  app.get("/api/rupes", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.rupes ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
   });
 
-  app.post("/api/rupes", async (req: Request, res: Response) => {
+  app.post("/api/rupes", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -1376,7 +1427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/rupes/:id", async (req: Request, res: Response) => {
+  app.put("/api/rupes/:id", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1645,18 +1696,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // PERMISSÕES DE UTILIZADORES
   // -----------------------
-  app.get("/api/user-permissions", async (_req: Request, res: Response) => {
+  app.get("/api/user-permissions", requireAuth, requirePermission("gestao_acessos"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.user_permissions`, []);
     json(res, 200, rows);
   });
 
-  app.get("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+  app.get("/api/user-permissions/:userId", requireAuth, async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.user_permissions WHERE user_id=$1`, [req.params.userId]);
     if (!rows[0]) return json(res, 200, { userId: req.params.userId, permissoes: {} });
     json(res, 200, rows[0]);
   });
 
-  app.put("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+  app.put("/api/user-permissions/:userId", requireAuth, requirePermission("gestao_acessos"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const permissoes = b.permissoes ?? {};
@@ -1672,7 +1723,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/user-permissions/:userId", async (req: Request, res: Response) => {
+  app.delete("/api/user-permissions/:userId", requireAuth, requirePermission("gestao_acessos"), async (req: Request, res: Response) => {
     await query(`DELETE FROM public.user_permissions WHERE user_id=$1`, [req.params.userId]);
     json(res, 200, { ok: true });
   });

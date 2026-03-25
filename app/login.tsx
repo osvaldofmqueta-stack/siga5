@@ -10,7 +10,7 @@ import * as LocalAuthentication from 'expo-local-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, saveAuthToken } from '@/context/AuthContext';
 import type { AuthUser } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -283,33 +283,36 @@ export default function LoginScreen() {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const emailTrimmed = email.toLowerCase().trim();
     const savedAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
-    if (emailTrimmed === CEO_ACCOUNT.email && senha === CEO_ACCOUNT.senha) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const u: AuthUser = { id: CEO_ACCOUNT.id, nome: CEO_ACCOUNT.nome, email: CEO_ACCOUNT.email, role: CEO_ACCOUNT.role, escola: CEO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); router.replace(getRouteForRole(CEO_ACCOUNT.role) as any);
-    } else if (emailTrimmed === FINANCEIRO_ACCOUNT.email && senha === FINANCEIRO_ACCOUNT.senha) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const u: AuthUser = { id: FINANCEIRO_ACCOUNT.id, nome: FINANCEIRO_ACCOUNT.nome, email: FINANCEIRO_ACCOUNT.email, role: FINANCEIRO_ACCOUNT.role, escola: FINANCEIRO_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); router.replace(getRouteForRole(FINANCEIRO_ACCOUNT.role) as any);
-    } else if (emailTrimmed === SECRETARIA_ACCOUNT.email && senha === SECRETARIA_ACCOUNT.senha) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const u: AuthUser = { id: SECRETARIA_ACCOUNT.id, nome: SECRETARIA_ACCOUNT.nome, email: SECRETARIA_ACCOUNT.email, role: SECRETARIA_ACCOUNT.role, escola: SECRETARIA_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); router.replace(getRouteForRole(SECRETARIA_ACCOUNT.role) as any);
-    } else if (emailTrimmed === RH_ACCOUNT.email && senha === RH_ACCOUNT.senha) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const u: AuthUser = { id: RH_ACCOUNT.id, nome: RH_ACCOUNT.nome, email: RH_ACCOUNT.email, role: RH_ACCOUNT.role, escola: RH_ACCOUNT.escola, biometricEnabled: false, avatar: savedAvatar };
-      await login(u); router.replace(getRouteForRole(RH_ACCOUNT.role) as any);
-    } else {
-      const account = findByCredentials(emailTrimmed, senha);
-      if (account) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        const u: AuthUser = { id: account.id, nome: account.nome, email: account.email, role: account.role, escola: account.escola, biometricEnabled: false, avatar: savedAvatar };
-        await login(u); router.replace(getRouteForRole(account.role) as any);
-      } else {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailTrimmed, senha }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        showAlert('Credenciais Inválidas', 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
+        showAlert('Credenciais Inválidas', data.error ?? 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
         setIsLoading(false);
+        return;
       }
+      await saveAuthToken(data.token);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      const u: AuthUser = {
+        id: data.user.id,
+        nome: data.user.nome,
+        email: data.user.email,
+        role: data.user.role,
+        escola: data.user.escola ?? '',
+        biometricEnabled: false,
+        avatar: savedAvatar,
+      };
+      await login(u);
+      router.replace(getRouteForRole(data.user.role) as any);
+    } catch (e) {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      showAlert('Erro de Ligação', 'Não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.');
+      setIsLoading(false);
     }
   }
 
