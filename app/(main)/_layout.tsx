@@ -97,6 +97,7 @@ export default function MainLayout() {
           <Stack.Screen name="bolsas" />
           <Stack.Screen name="avaliacao-professores" />
           <Stack.Screen name="chat-interno" />
+          <Stack.Screen name="auditoria" />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>

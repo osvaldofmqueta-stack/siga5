@@ -312,3 +312,5 @@ Run: `node server_dist/index.js` - serves static web build and API
 - Dark-themed UI with Angolan-inspired colors (Navy Blue, Red, Gold)
 - Student/teacher management
 - Financial reporting
+- Offline mode with sync queue (AsyncStorage, auto-sync on reconnect, OfflineBanner)
+- Audit log system (server/audit.ts): auto-logs all write operations, login/logout events; `GET /api/audit-logs` + `/stats` endpoints restricted to admin roles; frontend screen at `app/(main)/auditoria.tsx` with search, filters, pagination, CSV export, expandable log detail rows

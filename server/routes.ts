@@ -14,6 +14,7 @@ import {
   notifyGuardianAboutFalta,
   notifyGuardianAboutPropina,
 } from "./notifications";
+import { logAudit, setupAuditMiddleware } from "./audit";
 
 type JsonObject = Record<string, unknown>;
 
@@ -36,8 +37,8 @@ function jsonbParam(value: unknown) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // Audit middleware — intercepts all successful write operations automatically
+  setupAuditMiddleware(app);
 
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
@@ -62,12 +63,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return json(res, 400, { error: "Email e senha são obrigatórios." });
       }
 
+      const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0] ?? req.socket?.remoteAddress;
+      const ua = req.headers["user-agent"];
+
       // Verificar contas fixas primeiro
       const hardcoded = HARDCODED_ACCOUNTS.find(
         a => a.email.toLowerCase() === email && a.senha === senha
       );
       if (hardcoded) {
         const token = signToken({ userId: hardcoded.id, role: hardcoded.role, email: hardcoded.email });
+        logAudit({
+          userId: hardcoded.id, userEmail: hardcoded.email, userRole: hardcoded.role, userName: hardcoded.nome,
+          acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${hardcoded.email}`,
+          ipAddress: ip, userAgent: ua,
+        }).catch(() => {});
         return json(res, 200, {
           token,
           user: { id: hardcoded.id, nome: hardcoded.nome, email: hardcoded.email, role: hardcoded.role, escola: hardcoded.escola },
@@ -80,10 +89,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [email, senha]
       );
       if (!rows[0]) {
+        logAudit({
+          userId: "unknown", userEmail: email, userRole: "desconhecido",
+          acao: "login_falhado", modulo: "Autenticação", descricao: `Tentativa de login falhada: ${email}`,
+          ipAddress: ip, userAgent: ua,
+        }).catch(() => {});
         return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha." });
       }
       const u = rows[0];
       const token = signToken({ userId: String(u.id), role: String(u.role) as UserRole, email: String(u.email) });
+      logAudit({
+        userId: String(u.id), userEmail: String(u.email), userRole: String(u.role), userName: String(u.nome),
+        acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${u.email}`,
+        ipAddress: ip, userAgent: ua,
+      }).catch(() => {});
       return json(res, 200, {
         token,
         user: { id: u.id, nome: u.nome, email: u.email, role: u.role, escola: u.escola ?? "" },
@@ -3397,6 +3416,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await query(`DELETE FROM public.avaliacoes_professores WHERE id=$1`, [req.params.id]);
       json(res, 200, { ok: true });
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // AUDIT LOGS
+  // -----------------------
+  app.get("/api/audit-logs", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowedRoles = ["ceo", "pca", "admin", "director", "chefe_secretaria"];
+      if (!allowedRoles.includes(role)) {
+        return json(res, 403, { error: "Acesso negado. Apenas administradores podem ver o audit log." });
+      }
+
+      const {
+        page = "1",
+        limit = "50",
+        acao,
+        modulo,
+        userId,
+        search,
+        dataInicio,
+        dataFim,
+      } = req.query as Record<string, string>;
+
+      const pageNum = Math.max(1, parseInt(page));
+      const limitNum = Math.min(200, Math.max(1, parseInt(limit)));
+      const offset = (pageNum - 1) * limitNum;
+
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+      let p = 1;
+
+      if (acao) { conditions.push(`acao = $${p++}`); params.push(acao); }
+      if (modulo) { conditions.push(`modulo = $${p++}`); params.push(modulo); }
+      if (userId) { conditions.push(`"userId" = $${p++}`); params.push(userId); }
+      if (search) {
+        conditions.push(`(descricao ILIKE $${p} OR "userEmail" ILIKE $${p} OR "userName" ILIKE $${p})`);
+        params.push(`%${search}%`); p++;
+      }
+      if (dataInicio) { conditions.push(`"criadoEm" >= $${p++}`); params.push(dataInicio); }
+      if (dataFim)    { conditions.push(`"criadoEm" <= $${p++}`); params.push(dataFim); }
+
+      const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+      const countRows = await query<{ total: string }>(
+        `SELECT COUNT(*) as total FROM public.audit_logs ${where}`,
+        params
+      );
+      const total = parseInt(countRows[0]?.total ?? "0");
+
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.audit_logs ${where} ORDER BY "criadoEm" DESC LIMIT $${p} OFFSET $${p + 1}`,
+        [...params, limitNum, offset]
+      );
+
+      json(res, 200, {
+        logs: rows,
+        total,
+        page: pageNum,
+        pages: Math.ceil(total / limitNum),
+        limit: limitNum,
+      });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.get("/api/audit-logs/stats", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowedRoles = ["ceo", "pca", "admin", "director", "chefe_secretaria"];
+      if (!allowedRoles.includes(role)) {
+        return json(res, 403, { error: "Acesso negado." });
+      }
+
+      const [byAcao, byModulo, recentActivity] = await Promise.all([
+        query<{ acao: string; total: string }>(
+          `SELECT acao, COUNT(*) as total FROM public.audit_logs GROUP BY acao ORDER BY total DESC`
+        ),
+        query<{ modulo: string; total: string }>(
+          `SELECT modulo, COUNT(*) as total FROM public.audit_logs GROUP BY modulo ORDER BY total DESC LIMIT 10`
+        ),
+        query<{ dia: string; total: string }>(
+          `SELECT DATE("criadoEm") as dia, COUNT(*) as total
+           FROM public.audit_logs
+           WHERE "criadoEm" >= NOW() - INTERVAL '30 days'
+           GROUP BY dia ORDER BY dia`
+        ),
+      ]);
+
+      json(res, 200, { byAcao, byModulo, recentActivity });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
   });
 
   const httpServer = createServer(app);

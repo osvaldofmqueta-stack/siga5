@@ -303,6 +303,7 @@ export default function DrawerLeft() {
         { label: 'Configurações do Sistema', route: '/(main)/admin', icon: <Ionicons name="settings" size={20} color="inherit" />, permKey: 'admin' },
         { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
         { label: 'Controlo & Supervisão', route: '/(main)/controlo-supervisao', icon: <MaterialCommunityIcons name="shield-search" size={20} color="inherit" />, permKey: 'controlo_supervisao' },
+        { label: 'Auditoria do Sistema', route: '/(main)/auditoria', icon: <MaterialCommunityIcons name="file-search-outline" size={20} color="inherit" />, permKey: 'admin' },
       ],
     },
   ];
@@ -608,6 +609,33 @@ export default function DrawerLeft() {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color={Colors.danger} />
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+
+          {/* ── Auditoria do Sistema ── */}
+          {(isCeo || isPca || isAdmin || isDirector || isChefeSec) && (
+            <TouchableOpacity
+              style={styles.auditoriaCTA}
+              onPress={() => { router.push('/(main)/auditoria' as any); closeLeft && closeLeft(); }}
+              activeOpacity={0.85}
+            >
+              <LinearGradient
+                colors={['#1A0A3D', '#0D052A', '#060215']}
+                style={styles.auditoriaCTAGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={styles.auditoriaCTALeft}>
+                  <View style={styles.auditoriaCTAIcon}>
+                    <MaterialCommunityIcons name="file-search-outline" size={20} color="#A78BFA" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.auditoriaCTATitle}>Auditoria do Sistema</Text>
+                    <Text style={styles.auditoriaCTASub}>Logs · Rastreio · Segurança</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#A78BFA" />
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -1282,6 +1310,50 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontFamily: 'Inter_400Regular',
     color: 'rgba(74,222,128,0.65)',
+  },
+
+  auditoriaCTA: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#A78BFA50',
+  },
+  auditoriaCTAGrad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 10,
+  },
+  auditoriaCTALeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  auditoriaCTAIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: '#A78BFA25',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#A78BFA45',
+  },
+  auditoriaCTATitle: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: '#A78BFA',
+    marginBottom: 2,
+  },
+  auditoriaCTASub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(167,139,250,0.65)',
   },
 
   editorCTA: {

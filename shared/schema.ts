@@ -1081,3 +1081,28 @@ export const avaliacoesProfessores = pgTable("avaliacoes_professores", {
   criadoEm:     timestamp("criadoEm",    { withTimezone: true }).notNull().defaultNow(),
   atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// AUDIT LOG
+// -----------------------
+export const auditLogs = pgTable("audit_logs", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  userId:    varchar("userId").notNull(),
+  userEmail: text("userEmail").notNull(),
+  userRole:  text("userRole").notNull(),
+  userName:  text("userName"),
+
+  acao:      text("acao").notNull(),      // 'criar' | 'atualizar' | 'eliminar' | 'login' | 'login_falhado' | 'aprovar' | 'rejeitar' | 'exportar'
+  modulo:    text("modulo").notNull(),    // 'Alunos' | 'Professores' | 'Turmas' | ...
+  descricao: text("descricao").notNull(), // Human-readable description
+
+  recursoId: varchar("recursoId"),        // ID of the affected resource
+  ipAddress: text("ipAddress"),
+  userAgent: text("userAgent"),
+  dados:     jsonb("dados"),              // sanitised request body / extra context
+
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
