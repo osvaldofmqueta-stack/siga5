@@ -16,6 +16,7 @@ import {
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
+import { useConfig } from '@/context/ConfigContext';
 import { useRouter } from 'expo-router';
 import { alertSucesso, alertErro } from '@/utils/toast';
 
@@ -76,6 +77,8 @@ export default function FinanceiroScreen() {
   const { alunos, turmas } = useData();
   const { anoSelecionado } = useAnoAcademico();
   const { user } = useAuth();
+  const { config } = useConfig();
+  const propinaHabilitada = config.propinaHabilitada;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 24 : insets.bottom;
@@ -123,9 +126,15 @@ export default function FinanceiroScreen() {
   const [propSearchAluno, setPropSearchAluno] = useState('');
 
   const defaultFormPag = { alunoId: '', taxaId: '', valor: '', mes: '', metodoPagamento: 'multicaixa' as MetodoPagamento, referencia: '', observacao: '' };
-  const defaultFormTaxa = { tipo: 'propina' as TipoTaxa, descricao: '', valor: '', frequencia: 'mensal' as FrequenciaTaxa, nivel: 'Todos' };
+  const defaultFormTaxa = { tipo: (propinaHabilitada ? 'propina' : 'matricula') as TipoTaxa, descricao: '', valor: '', frequencia: 'mensal' as FrequenciaTaxa, nivel: 'Todos' };
   const [formPag,  setFormPag]  = useState(defaultFormPag);
   const [formTaxa, setFormTaxa] = useState(defaultFormTaxa);
+
+  React.useEffect(() => {
+    if (!propinaHabilitada && tab === 'em_atraso') {
+      setTab('painel');
+    }
+  }, [propinaHabilitada]);
 
   const pagamentosAno = useMemo(() => pagamentos.filter(p => p.ano === anoAtual), [pagamentos, anoAtual]);
   const taxasAno      = useMemo(() => taxas.filter(t => t.anoAcademico === anoAtual), [taxas, anoAtual]);
@@ -141,6 +150,7 @@ export default function FinanceiroScreen() {
   const alunosAtivos = useMemo(() => alunos.filter(a => a.ativo), [alunos]);
 
   const alunosEmAtraso = useMemo(() => {
+    if (!propinaHabilitada) return [];
     return alunosAtivos
       .map(a => {
         const meses = getMesesEmAtraso(a.id, anoAtual);
@@ -153,7 +163,7 @@ export default function FinanceiroScreen() {
       })
       .filter(x => x.mesesAtraso > 0 || x.pendente > 0)
       .sort((a, b) => b.mesesAtraso - a.mesesAtraso);
-  }, [alunosAtivos, pagamentosAno, taxasAtivas, anoAtual, multaConfig]);
+  }, [propinaHabilitada, alunosAtivos, pagamentosAno, taxasAtivas, anoAtual, multaConfig]);
 
   const todasMensagens = useMemo(() => [...mensagens].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()), [mensagens]);
 
@@ -418,6 +428,15 @@ export default function FinanceiroScreen() {
 
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
+        {!propinaHabilitada && (
+          <View style={{ backgroundColor: Colors.warning + '18', borderWidth: 1, borderColor: Colors.warning + '55', borderRadius: 12, padding: 14, marginBottom: 14, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Ionicons name="information-circle" size={22} color={Colors.warning} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.warning, fontSize: 13 }}>Propinas Desactivadas</Text>
+              <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>Esta escola não cobra propinas. Os alertas de dívida, cálculos de atraso e cobranças mensais estão desactivados.</Text>
+            </View>
+          </View>
+        )}
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 10 }}>
           <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.success }]}>
             <Ionicons name="trending-up" size={16} color={Colors.success} />
@@ -1518,7 +1537,7 @@ export default function FinanceiroScreen() {
     );
   }
 
-  const tabsConfig = [
+  const tabsConfigAll = [
     ['painel', 'pie-chart', 'Painel'],
     ['resumo', 'stats-chart', 'Resumo'],
     ['relatorios', 'bar-chart', 'Relatórios'],
@@ -1528,6 +1547,9 @@ export default function FinanceiroScreen() {
     ['rubricas', 'pricetag', 'Rubricas'],
     ['por_aluno', 'person', 'Por Aluno'],
   ] as const;
+  const tabsConfig = propinaHabilitada
+    ? tabsConfigAll
+    : tabsConfigAll.filter(([k]) => k !== 'em_atraso');
 
   return (
     <View style={st.container}>
@@ -1814,7 +1836,7 @@ export default function FinanceiroScreen() {
               <Text style={st.fieldLabel}>Tipo</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-                  {TIPOS.map(t => (
+                  {TIPOS.filter(t => propinaHabilitada || t !== 'propina').map(t => (
                     <TouchableOpacity key={t} style={[st.tipoChip, formTaxa.tipo === t && { backgroundColor: TIPO_COLOR[t], borderColor: TIPO_COLOR[t] }]}
                       onPress={() => setFormTaxa(f => ({ ...f, tipo: t }))}>
                       <Ionicons name={TIPO_ICON[t] as any} size={12} color={formTaxa.tipo === t ? '#fff' : TIPO_COLOR[t]} />
