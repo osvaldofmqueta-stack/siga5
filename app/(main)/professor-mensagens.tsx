@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   tipoBadge: { borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   tipoText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   fab: { position: 'absolute', bottom: 80, right: 20, width: 54, height: 54, borderRadius: 27, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', elevation: 6 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end', alignItems: 'center' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '95%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 },
   modalTitle: { flex: 1, fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },

@@ -378,7 +378,7 @@ export default function SalasScreen() {
 }
 
 const mS = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', alignItems: 'center' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
   container: {
     backgroundColor: Colors.primaryDark,
     borderTopLeftRadius: 24,

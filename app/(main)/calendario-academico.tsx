@@ -992,7 +992,7 @@ export default function CalendarioAcademicoScreen() {
 // STYLES
 // ─────────────────────────────────────────────────────────────
 const mS = StyleSheet.create({
-  overlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  overlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center' },
   container:    { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: Colors.border, padding: 20, maxHeight: '92%' },
   header:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingLeft: 8 },
   title:        { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },

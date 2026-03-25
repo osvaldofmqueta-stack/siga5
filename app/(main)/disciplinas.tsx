@@ -482,7 +482,7 @@ export default function DisciplinasScreen() {
 const mStyles = StyleSheet.create({
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'flex-end', alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
   },
   container: {
     backgroundColor: Colors.backgroundCard,
