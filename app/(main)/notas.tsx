@@ -13,10 +13,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 
-const DISCIPLINAS_FALLBACK = [
-  'Matemática', 'Português', 'Física', 'Química', 'Biologia',
-  'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia', 'Desenho',
-];
+import { useLookup } from '@/hooks/useLookup';
 
 const ALL_AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
 type AvalKey = typeof ALL_AVAL_KEYS[number];
@@ -122,7 +119,7 @@ function NotaFormModal({
   const makeEmpty = (): Partial<Nota> => ({
     alunoId: alunos[0]?.id || '',
     turmaId: '',
-    disciplina: disciplinas[0] || DISCIPLINAS[0],
+    disciplina: disciplinas[0] || '',
     trimestre,
     aval1: 0, aval2: 0, aval3: 0, aval4: 0, aval5: 0, aval6: 0, aval7: 0, aval8: 0,
     mac1: 0, pp1: 0, ppt: 0, mt1: 0, nf: 0, mac: 0,

@@ -754,6 +754,26 @@ export const configGeral = pgTable("config_geral", {
   licencaPlano: text("licencaPlano").default('avaliacao'),
 
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+
+  // Taxas salariais (configuráveis pelo admin)
+  inssEmpPerc: real("inssEmpPerc").notNull().default(3),           // % INSS empregado
+  inssPatrPerc: real("inssPatrPerc").notNull().default(8),          // % INSS patronal
+  irtTabela: jsonb("irtTabela").notNull().default(sql`'[]'::jsonb`), // tabela IRT por escalões
+
+  // Meses do ano académico (ordem de exibição no boletim de propinas e painel financeiro)
+  mesesAnoAcademico: jsonb("mesesAnoAcademico").notNull().default(sql`'[9,10,11,12,1,2,3,4,5,6,7]'::jsonb`),
+});
+
+// -----------------------
+// LOOKUP ITEMS (listas configuráveis do sistema)
+// -----------------------
+export const lookupItems = pgTable("lookup_items", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  categoria: text("categoria").notNull(), // classes | niveis | turnos | tipos_sala | areas_conhecimento | areas_curso | tipos_taxa | metodos_pagamento | disciplinas_fallback
+  valor: text("valor").notNull(),         // valor técnico (chave usada no código)
+  label: text("label").notNull(),         // label de exibição
+  ordem: integer("ordem").notNull().default(0),
+  ativo: boolean("ativo").notNull().default(true),
 });
 
 // -----------------------

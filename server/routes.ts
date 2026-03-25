@@ -1953,8 +1953,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade"] as const;
-      const jsonbKeys = new Set(["flashScreen","multaConfig"]);
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico"] as const;
+      const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -2037,7 +2037,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const count = parseInt(String((existing[0] as any).count), 10);
       if (count > 0) return;
 
-      const escola = 'Escola Secundária N.º 1 de Luanda';
+      const cfgEscola = await query<JsonObject>(`SELECT "nomeEscola" FROM public.config_geral LIMIT 1`, []);
+      const escola = (cfgEscola[0] as any)?.nomeEscola || 'Escola SIGA';
       const agora = new Date().toISOString();
 
       const defaultUsers = [
@@ -2061,6 +2062,198 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   await seedDefaultUsers();
+
+  // -----------------------
+  // SEED LOOKUP ITEMS
+  // -----------------------
+  async function seedLookupItems() {
+    try {
+      const existing = await query<JsonObject>(`SELECT COUNT(*) as count FROM public.lookup_items`, []);
+      const count = parseInt(String((existing[0] as any).count), 10);
+      if (count > 0) return;
+
+      console.log('[seed] A popular lookup_items...');
+      const defaults: { categoria: string; valor: string; label: string; ordem: number }[] = [
+        // classes
+        { categoria: 'classes', valor: 'Iniciação', label: 'Iniciação', ordem: 0 },
+        { categoria: 'classes', valor: '1ª Classe', label: '1ª Classe', ordem: 1 },
+        { categoria: 'classes', valor: '2ª Classe', label: '2ª Classe', ordem: 2 },
+        { categoria: 'classes', valor: '3ª Classe', label: '3ª Classe', ordem: 3 },
+        { categoria: 'classes', valor: '4ª Classe', label: '4ª Classe', ordem: 4 },
+        { categoria: 'classes', valor: '5ª Classe', label: '5ª Classe', ordem: 5 },
+        { categoria: 'classes', valor: '6ª Classe', label: '6ª Classe', ordem: 6 },
+        { categoria: 'classes', valor: '7ª Classe', label: '7ª Classe', ordem: 7 },
+        { categoria: 'classes', valor: '8ª Classe', label: '8ª Classe', ordem: 8 },
+        { categoria: 'classes', valor: '9ª Classe', label: '9ª Classe', ordem: 9 },
+        { categoria: 'classes', valor: '10ª Classe', label: '10ª Classe', ordem: 10 },
+        { categoria: 'classes', valor: '11ª Classe', label: '11ª Classe', ordem: 11 },
+        { categoria: 'classes', valor: '12ª Classe', label: '12ª Classe', ordem: 12 },
+        { categoria: 'classes', valor: '13ª Classe', label: '13ª Classe', ordem: 13 },
+        // niveis
+        { categoria: 'niveis', valor: 'Primário', label: 'Primário', ordem: 0 },
+        { categoria: 'niveis', valor: 'I Ciclo', label: 'I Ciclo', ordem: 1 },
+        { categoria: 'niveis', valor: 'II Ciclo', label: 'II Ciclo', ordem: 2 },
+        // turnos
+        { categoria: 'turnos', valor: 'Manhã', label: 'Manhã', ordem: 0 },
+        { categoria: 'turnos', valor: 'Tarde', label: 'Tarde', ordem: 1 },
+        { categoria: 'turnos', valor: 'Noite', label: 'Noite', ordem: 2 },
+        // tipos de sala
+        { categoria: 'tipos_sala', valor: 'Sala Normal', label: 'Sala Normal', ordem: 0 },
+        { categoria: 'tipos_sala', valor: 'Laboratório', label: 'Laboratório', ordem: 1 },
+        { categoria: 'tipos_sala', valor: 'Sala de Informática', label: 'Sala de Informática', ordem: 2 },
+        { categoria: 'tipos_sala', valor: 'Auditório', label: 'Auditório', ordem: 3 },
+        { categoria: 'tipos_sala', valor: 'Sala de Reunião', label: 'Sala de Reunião', ordem: 4 },
+        // áreas de conhecimento (disciplinas)
+        { categoria: 'areas_conhecimento', valor: 'Ciências Exactas', label: 'Ciências Exactas', ordem: 0 },
+        { categoria: 'areas_conhecimento', valor: 'Ciências Naturais', label: 'Ciências Naturais', ordem: 1 },
+        { categoria: 'areas_conhecimento', valor: 'Ciências Sociais e Humanas', label: 'Ciências Sociais e Humanas', ordem: 2 },
+        { categoria: 'areas_conhecimento', valor: 'Línguas e Comunicação', label: 'Línguas e Comunicação', ordem: 3 },
+        { categoria: 'areas_conhecimento', valor: 'Artes e Expressão', label: 'Artes e Expressão', ordem: 4 },
+        { categoria: 'areas_conhecimento', valor: 'Tecnologia e Informática', label: 'Tecnologia e Informática', ordem: 5 },
+        { categoria: 'areas_conhecimento', valor: 'Educação Física', label: 'Educação Física', ordem: 6 },
+        { categoria: 'areas_conhecimento', valor: 'Formação Profissional', label: 'Formação Profissional', ordem: 7 },
+        { categoria: 'areas_conhecimento', valor: 'Outra', label: 'Outra', ordem: 8 },
+        // áreas de formação (cursos)
+        { categoria: 'areas_curso', valor: 'Ciências Físicas e Biológicas', label: 'Ciências Físicas e Biológicas', ordem: 0 },
+        { categoria: 'areas_curso', valor: 'Ciências Económicas e Jurídicas', label: 'Ciências Económicas e Jurídicas', ordem: 1 },
+        { categoria: 'areas_curso', valor: 'Humanidades', label: 'Humanidades', ordem: 2 },
+        { categoria: 'areas_curso', valor: 'Artes Visuais', label: 'Artes Visuais', ordem: 3 },
+        { categoria: 'areas_curso', valor: 'Ciências de Informática', label: 'Ciências de Informática', ordem: 4 },
+        { categoria: 'areas_curso', valor: 'Formação de Professores', label: 'Formação de Professores', ordem: 5 },
+        { categoria: 'areas_curso', valor: 'Outro', label: 'Outro', ordem: 6 },
+        // tipos de taxa financeira
+        { categoria: 'tipos_taxa', valor: 'propina', label: 'Propina', ordem: 0 },
+        { categoria: 'tipos_taxa', valor: 'matricula', label: 'Matrícula', ordem: 1 },
+        { categoria: 'tipos_taxa', valor: 'material', label: 'Material Didáctico', ordem: 2 },
+        { categoria: 'tipos_taxa', valor: 'exame', label: 'Exame', ordem: 3 },
+        { categoria: 'tipos_taxa', valor: 'multa', label: 'Multa', ordem: 4 },
+        { categoria: 'tipos_taxa', valor: 'outro', label: 'Outro', ordem: 5 },
+        // métodos de pagamento
+        { categoria: 'metodos_pagamento', valor: 'dinheiro', label: 'Dinheiro', ordem: 0 },
+        { categoria: 'metodos_pagamento', valor: 'transferencia', label: 'RUPE/Transferência', ordem: 1 },
+        { categoria: 'metodos_pagamento', valor: 'multicaixa', label: 'Multicaixa', ordem: 2 },
+        // disciplinas fallback (usadas quando turma não tem disciplinas atribuídas)
+        { categoria: 'disciplinas_fallback', valor: 'Matemática', label: 'Matemática', ordem: 0 },
+        { categoria: 'disciplinas_fallback', valor: 'Português', label: 'Português', ordem: 1 },
+        { categoria: 'disciplinas_fallback', valor: 'Física', label: 'Física', ordem: 2 },
+        { categoria: 'disciplinas_fallback', valor: 'Química', label: 'Química', ordem: 3 },
+        { categoria: 'disciplinas_fallback', valor: 'Biologia', label: 'Biologia', ordem: 4 },
+        { categoria: 'disciplinas_fallback', valor: 'História', label: 'História', ordem: 5 },
+        { categoria: 'disciplinas_fallback', valor: 'Geografia', label: 'Geografia', ordem: 6 },
+        { categoria: 'disciplinas_fallback', valor: 'Inglês', label: 'Inglês', ordem: 7 },
+        { categoria: 'disciplinas_fallback', valor: 'Educação Física', label: 'Educação Física', ordem: 8 },
+        { categoria: 'disciplinas_fallback', valor: 'Filosofia', label: 'Filosofia', ordem: 9 },
+        { categoria: 'disciplinas_fallback', valor: 'Desenho', label: 'Desenho', ordem: 10 },
+      ];
+      for (const item of defaults) {
+        await query(
+          `INSERT INTO public.lookup_items (categoria, valor, label, ordem, ativo) VALUES ($1,$2,$3,$4,true) ON CONFLICT DO NOTHING`,
+          [item.categoria, item.valor, item.label, item.ordem]
+        );
+      }
+      console.log('[seed] Lookup items inseridos com sucesso.');
+    } catch (e) {
+      console.error('[seed] Erro ao popular lookup_items:', e);
+    }
+  }
+
+  async function seedConfigDefaults() {
+    try {
+      const rows = await query<JsonObject>(`SELECT id, "irtTabela" FROM public.config_geral LIMIT 1`, []);
+      if (!rows[0]) return;
+      const cfg = rows[0] as any;
+      const tabelaVazia = !cfg.irtTabela || (Array.isArray(cfg.irtTabela) && cfg.irtTabela.length === 0);
+      if (!tabelaVazia) return;
+
+      const defaultIRT = [
+        { max: 70000,    taxa: 0,    baseFixa: 0,      limiteAnterior: 0 },
+        { max: 100000,   taxa: 0.10, baseFixa: 0,      limiteAnterior: 70000 },
+        { max: 150000,   taxa: 0.13, baseFixa: 3000,   limiteAnterior: 100000 },
+        { max: 200000,   taxa: 0.16, baseFixa: 9500,   limiteAnterior: 150000 },
+        { max: 300000,   taxa: 0.18, baseFixa: 17500,  limiteAnterior: 200000 },
+        { max: 500000,   taxa: 0.19, baseFixa: 35500,  limiteAnterior: 300000 },
+        { max: 1000000,  taxa: 0.20, baseFixa: 73500,  limiteAnterior: 500000 },
+        { max: null,     taxa: 0.25, baseFixa: 173500, limiteAnterior: 1000000 },
+      ];
+      await query(
+        `UPDATE public.config_geral SET "irtTabela"=$1::jsonb WHERE id=$2`,
+        [JSON.stringify(defaultIRT), cfg.id]
+      );
+      console.log('[seed] Tabela IRT inserida com valores padrão.');
+    } catch (e) {
+      console.error('[seed] Erro ao popular config defaults:', e);
+    }
+  }
+
+  await seedLookupItems();
+  await seedConfigDefaults();
+
+  // -----------------------
+  // LOOKUP ITEMS — API
+  // -----------------------
+
+  // GET /api/lookup/:categoria — público (sem auth)
+  app.get("/api/lookup/:categoria", async (req: Request, res: Response) => {
+    try {
+      const { categoria } = req.params;
+      const rows = await query<JsonObject>(
+        `SELECT id, categoria, valor, label, ordem, ativo FROM public.lookup_items WHERE categoria=$1 AND ativo=true ORDER BY ordem ASC, label ASC`,
+        [categoria]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET /api/lookup — lista todas as categorias disponíveis (admin)
+  app.get("/api/lookup", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT DISTINCT categoria FROM public.lookup_items ORDER BY categoria ASC`, []
+      );
+      json(res, 200, rows.map((r: any) => r.categoria));
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/lookup — criar item (admin)
+  app.post("/api/lookup", requireAuth, requirePermission("admin"), async (req: Request, res: Response) => {
+    try {
+      const { categoria, valor, label, ordem } = requireBodyObject(req) as any;
+      if (!categoria || !valor || !label) return json(res, 400, { error: 'categoria, valor e label são obrigatórios.' });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.lookup_items (categoria, valor, label, ordem, ativo) VALUES ($1,$2,$3,$4,true) RETURNING *`,
+        [categoria, valor, label, ordem ?? 99]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/lookup/:id — atualizar item (admin)
+  app.put("/api/lookup/:id", requireAuth, requirePermission("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { valor, label, ordem, ativo } = requireBodyObject(req) as any;
+      const setParts: string[] = []; const values: unknown[] = [];
+      if (valor !== undefined) { values.push(valor); setParts.push(`valor=$${values.length}`); }
+      if (label !== undefined) { values.push(label); setParts.push(`label=$${values.length}`); }
+      if (ordem !== undefined) { values.push(ordem); setParts.push(`ordem=$${values.length}`); }
+      if (ativo !== undefined) { values.push(ativo); setParts.push(`ativo=$${values.length}`); }
+      if (!setParts.length) return json(res, 400, { error: 'Nenhum campo para atualizar.' });
+      values.push(id);
+      const rows = await query<JsonObject>(
+        `UPDATE public.lookup_items SET ${setParts.join(',')} WHERE id=$${values.length} RETURNING *`, values
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // DELETE /api/lookup/:id — remover item (admin)
+  app.delete("/api/lookup/:id", requireAuth, requirePermission("admin"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await query(`DELETE FROM public.lookup_items WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
 
   // -----------------------
   // DOCUMENTOS EMITIDOS (HISTÓRICO)

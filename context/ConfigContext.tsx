@@ -12,6 +12,13 @@ export interface FlashScreenConfig {
   dataFim: string;
 }
 
+export interface IrtEscalao {
+  max: number | null;
+  taxa: number;
+  baseFixa: number;
+  limiteAnterior: number;
+}
+
 export interface ConfigGeral {
   nomeEscola: string;
   logoUrl?: string;
@@ -27,17 +34,20 @@ export interface ConfigGeral {
   directorGeral?: string;
   directorPedagogico?: string;
   directorProvincialEducacao?: string;
-  // Propinas
   propinaHabilitada: boolean;
-  // Dados bancários / pagamento
   numeroEntidade?: string;
   iban?: string;
   nomeBeneficiario?: string;
   bancoTransferencia?: string;
   telefoneMulticaixaExpress?: string;
   nib?: string;
-  // Prazos de lançamento de notas por trimestre (YYYY-MM-DD)
   prazosLancamento?: { t1?: string; t2?: string; t3?: string };
+  // Taxas salariais
+  inssEmpPerc: number;
+  inssPatrPerc: number;
+  irtTabela: IrtEscalao[];
+  // Meses do ano académico (números: 9=Set, 10=Out, ...)
+  mesesAnoAcademico: number[];
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -51,8 +61,19 @@ const DEFAULT_FLASH: FlashScreenConfig = {
   dataFim: '',
 };
 
+const DEFAULT_IRT: IrtEscalao[] = [
+  { max: 70000,    taxa: 0,    baseFixa: 0,      limiteAnterior: 0 },
+  { max: 100000,   taxa: 0.10, baseFixa: 0,      limiteAnterior: 70000 },
+  { max: 150000,   taxa: 0.13, baseFixa: 3000,   limiteAnterior: 100000 },
+  { max: 200000,   taxa: 0.16, baseFixa: 9500,   limiteAnterior: 150000 },
+  { max: 300000,   taxa: 0.18, baseFixa: 17500,  limiteAnterior: 200000 },
+  { max: 500000,   taxa: 0.19, baseFixa: 35500,  limiteAnterior: 300000 },
+  { max: 1000000,  taxa: 0.20, baseFixa: 73500,  limiteAnterior: 500000 },
+  { max: null,     taxa: 0.25, baseFixa: 173500, limiteAnterior: 1000000 },
+];
+
 const DEFAULT_CONFIG: ConfigGeral = {
-  nomeEscola: 'Escola Secundária N.º 1 de Luanda',
+  nomeEscola: 'Escola SIGA',
   propinaHabilitada: true,
   pp1Habilitado: true,
   pptHabilitado: true,
@@ -63,6 +84,10 @@ const DEFAULT_CONFIG: ConfigGeral = {
   macMax: 5,
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
   flashScreen: DEFAULT_FLASH,
+  inssEmpPerc: 3,
+  inssPatrPerc: 8,
+  irtTabela: DEFAULT_IRT,
+  mesesAnoAcademico: [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7],
 };
 
 interface ConfigContextValue {
@@ -104,6 +129,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           telefoneMulticaixaExpress: (raw.telefoneMulticaixaExpress as string) || undefined,
           nib: (raw.nib as string) || undefined,
           prazosLancamento: (raw.prazosLancamento as { t1?: string; t2?: string; t3?: string }) || undefined,
+          inssEmpPerc: (raw.inssEmpPerc as number) ?? DEFAULT_CONFIG.inssEmpPerc,
+          inssPatrPerc: (raw.inssPatrPerc as number) ?? DEFAULT_CONFIG.inssPatrPerc,
+          irtTabela: Array.isArray(raw.irtTabela) && (raw.irtTabela as any[]).length > 0
+            ? (raw.irtTabela as IrtEscalao[])
+            : DEFAULT_IRT,
+          mesesAnoAcademico: Array.isArray(raw.mesesAnoAcademico) && (raw.mesesAnoAcademico as any[]).length > 0
+            ? (raw.mesesAnoAcademico as number[])
+            : DEFAULT_CONFIG.mesesAnoAcademico,
         };
         setConfig(parsed);
       })
@@ -135,4 +168,15 @@ export function useConfig() {
   const ctx = useContext(ConfigContext);
   if (!ctx) throw new Error('useConfig must be used within ConfigProvider');
   return ctx;
+}
+
+export function calcIRT(base: number, tabela: IrtEscalao[]): number {
+  if (!tabela || tabela.length === 0) return 0;
+  for (const escalao of tabela) {
+    if (escalao.max === null || base <= escalao.max) {
+      if (escalao.taxa === 0) return 0;
+      return escalao.baseFixa + (base - escalao.limiteAnterior) * escalao.taxa;
+    }
+  }
+  return 0;
 }
