@@ -465,6 +465,7 @@ export default function SecretariaHubScreen() {
   }
 
   const QUICK_ACTIONS = [
+    { label: 'Gerar\nDocumento PDF', icon: 'print', color: Colors.gold, action: () => router.push('/(main)/gerar-documento' as any) },
     { label: 'Emitir\nDeclaração', icon: 'document-text', color: Colors.info, action: () => setShowEmitirModal(true) },
     { label: 'Abrir\nProcesso', icon: 'folder-open', color: Colors.warning, action: () => setShowProcessoModal(true) },
     { label: 'Gestão\nde Alunos', icon: 'people', color: Colors.success, action: () => router.push('/(main)/alunos' as any) },
