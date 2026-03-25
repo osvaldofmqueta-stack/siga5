@@ -27,6 +27,8 @@ export interface ConfigGeral {
   directorGeral?: string;
   directorPedagogico?: string;
   directorProvincialEducacao?: string;
+  // Propinas
+  propinaHabilitada: boolean;
   // Dados bancários / pagamento
   numeroEntidade?: string;
   iban?: string;
@@ -51,6 +53,7 @@ const DEFAULT_FLASH: FlashScreenConfig = {
 
 const DEFAULT_CONFIG: ConfigGeral = {
   nomeEscola: 'Escola Secundária N.º 1 de Luanda',
+  propinaHabilitada: true,
   pp1Habilitado: true,
   pptHabilitado: true,
   notaMinimaAprovacao: 10,
@@ -81,6 +84,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
         const parsed: ConfigGeral = {
           nomeEscola: (raw.nomeEscola as string) || DEFAULT_CONFIG.nomeEscola,
           logoUrl: raw.logoUrl as string | undefined,
+          propinaHabilitada: raw.propinaHabilitada !== undefined ? Boolean(raw.propinaHabilitada) : DEFAULT_CONFIG.propinaHabilitada,
           pp1Habilitado: raw.pp1Habilitado !== undefined ? Boolean(raw.pp1Habilitado) : DEFAULT_CONFIG.pp1Habilitado,
           pptHabilitado: raw.pptHabilitado !== undefined ? Boolean(raw.pptHabilitado) : DEFAULT_CONFIG.pptHabilitado,
           notaMinimaAprovacao: (raw.notaMinimaAprovacao as number) ?? DEFAULT_CONFIG.notaMinimaAprovacao,

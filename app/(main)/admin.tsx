@@ -947,6 +947,52 @@ export default function AdminScreen() {
         {activeSection === 'config' && (
           <View style={{ gap: 14, paddingBottom: 0 }}>
 
+            {/* ── MASTER SWITCH: PROPINAS ── */}
+            <View style={[styles.card, { borderWidth: 2, borderColor: config.propinaHabilitada ? Colors.success + '60' : Colors.danger + '60' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                <View style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: config.propinaHabilitada ? Colors.success + '20' : Colors.danger + '20' }}>
+                  <Ionicons name="cash" size={24} color={config.propinaHabilitada ? Colors.success : Colors.danger} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Propinas e Pagamentos</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2, lineHeight: 18 }}>
+                    Controla se esta escola cobra propinas. Quando desactivado, todos os alertas de dívida, cálculos de atraso e opções de pagamento são removidos do sistema.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.propinaHabilitada ? Colors.success + '22' : Colors.danger + '22' }]}>
+                    <Ionicons name={config.propinaHabilitada ? 'checkmark-circle' : 'close-circle'} size={18} color={config.propinaHabilitada ? Colors.success : Colors.danger} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Cobrança de Propinas</Text>
+                    <Text style={[styles.configToggleDesc, { color: config.propinaHabilitada ? Colors.success : Colors.danger }]}>
+                      {config.propinaHabilitada
+                        ? 'ACTIVO — A escola cobra propinas mensais'
+                        : 'INACTIVO — Esta escola não cobra propinas'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={config.propinaHabilitada}
+                  onValueChange={v => updateConfig({ propinaHabilitada: v })}
+                  trackColor={{ false: Colors.danger + '88', true: Colors.success + '88' }}
+                  thumbColor={config.propinaHabilitada ? Colors.success : Colors.danger}
+                />
+              </View>
+
+              {!config.propinaHabilitada && (
+                <View style={{ marginTop: 12, flexDirection: 'row', gap: 8, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12, alignItems: 'flex-start' }}>
+                  <Ionicons name="information-circle" size={16} color={Colors.warning} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 16 }}>
+                    Com as propinas desactivadas: os encarregados não verão alertas de dívida, o portal financeiro não mostrará cálculos de atraso, e o boletim de propinas indicará que a escola não cobra mensalidades.
+                  </Text>
+                </View>
+              )}
+            </View>
+
             {/* Escola / Identidade */}
             <View style={styles.card}>
               <View style={styles.cardHeaderRow}>
