@@ -11,7 +11,9 @@ export type PermKey =
   | 'professor_mensagens' | 'professor_materiais'
   | 'portal_estudante' | 'eventos' | 'notificacoes'
   | 'boletim_matricula' | 'boletim_propina' | 'gestao_academica'
-  | 'gestao_acessos';
+  | 'gestao_acessos'
+  | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
+  | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado';
 
 export interface FeatureDef {
   key: PermKey;
@@ -37,6 +39,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'secretaria_hub', label: 'Painel da Secretaria', desc: 'Hub central da secretaria escolar', roles: ['secretaria', 'ceo', 'pca'] },
       { key: 'professor_hub', label: 'Painel do Professor', desc: 'Hub pessoal do professor', roles: ['professor', 'ceo', 'pca'] },
       { key: 'portal_estudante', label: 'Portal do Estudante', desc: 'Área pessoal do aluno', roles: ['aluno', 'ceo', 'pca'] },
+      { key: 'portal_encarregado', label: 'Portal do Encarregado', desc: 'Painel do encarregado de educação com notas, presenças e financeiro', roles: ['encarregado', 'ceo', 'pca'] },
     ],
   },
   {
@@ -53,6 +56,8 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'historico', label: 'Histórico Académico', desc: 'Registo histórico de percurso', roles: ['admin', 'director', 'secretaria', 'aluno', 'ceo', 'pca'] },
       { key: 'grelha', label: 'Grelha Curricular', desc: 'Estrutura e plano curricular', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'gestao_academica', label: 'Gestão Académica (Hub)', desc: 'Hub geral de gestão académica', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'admissao', label: 'Admissões', desc: 'Processo de candidatura e admissão de novos alunos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'disciplinas', label: 'Disciplinas', desc: 'Gestão e configuração das disciplinas e conteúdos programáticos', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -64,6 +69,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'professor_sumario', label: 'Sumário / Presenças', desc: 'Registos de aula e assiduidade', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_mensagens', label: 'Mensagens', desc: 'Comunicação interna do professor', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_materiais', label: 'Materiais Didáticos', desc: 'Partilha de conteúdos pedagógicos', roles: ['professor', 'ceo', 'pca'] },
+      { key: 'pedagogico', label: 'Área Pedagógica', desc: 'Gestão pedagógica: sumários, calendário de provas, solicitações e pautas', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -88,6 +94,9 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     features: [
       { key: 'relatorios', label: 'Relatórios & Análise', desc: 'Gráficos e exportação de dados', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
       { key: 'rh_controle', label: 'Controlo de RH', desc: 'Gestão de recursos humanos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'desempenho', label: 'Análise de Desempenho', desc: 'Análise detalhada de notas e desempenho por turma e aluno', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'visao_geral', label: 'Visão Geral Multi-Ano', desc: 'Comparação de indicadores académicos e financeiros entre anos lectivos', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'rh_hub', label: 'Hub de Recursos Humanos', desc: 'Centro de gestão de RH: professores, contratos, avaliações e presenças', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -104,6 +113,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     features: [
       { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'controlo_supervisao', label: 'Controlo & Supervisão', desc: 'Painel de supervisão geral: utilizadores, secretaria, académico e financeiro', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
 ];
@@ -114,14 +124,36 @@ const ALL_KEYS: PermKey[] = FEATURE_CATEGORIES.flatMap(c => c.features.map(f => 
 export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   ceo: [...ALL_KEYS],
   pca: [...ALL_KEYS],
-  // Chefe de Secretaria: parametriza tudo excepto dashboard CEO e gestão interna de licenças
+  // Chefe de Secretaria: parametriza tudo excepto dashboard CEO
   chefe_secretaria: ALL_KEYS.filter(k => k !== 'ceo_dashboard'),
-  admin: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica', 'secretaria_hub', 'editor_documentos', 'gestao_acessos'],
-  director: ['dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios', 'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos', 'gestao_academica', 'gestao_acessos'],
-  secretaria: ['secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios', 'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica'],
-  professor: ['professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario', 'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais'],
+  admin: [
+    'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
+    'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios',
+    'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
+    'secretaria_hub', 'editor_documentos', 'gestao_acessos',
+    'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
+  ],
+  director: [
+    'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
+    'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios',
+    'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos',
+    'gestao_academica', 'gestao_acessos',
+    'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
+  ],
+  secretaria: [
+    'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',
+    'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios',
+    'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
+    'admissao', 'disciplinas', 'desempenho',
+  ],
+  professor: [
+    'professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario',
+    'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais',
+  ],
   aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos'],
   financeiro: ['financeiro', 'notificacoes', 'boletim_propina'],
+  encarregado: ['portal_encarregado', 'notificacoes'],
+  rh: ['rh_hub', 'rh_controle', 'notificacoes'],
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
