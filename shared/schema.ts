@@ -762,3 +762,26 @@ export const disciplinas = pgTable("disciplinas", {
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// CURSO_DISCIPLINAS (ligação muitos-para-muitos: curso ↔ disciplina do catálogo)
+// -----------------------
+export const cursoDisciplinas = pgTable("curso_disciplinas", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  cursoId: varchar("cursoId")
+    .notNull()
+    .references(() => cursos.id),
+
+  disciplinaId: varchar("disciplinaId")
+    .notNull()
+    .references(() => disciplinas.id),
+
+  obrigatoria: boolean("obrigatoria").notNull().default(true),
+  cargaHoraria: integer("cargaHoraria").notNull().default(0),
+  ordem: integer("ordem").notNull().default(0),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});

@@ -160,6 +160,48 @@ export default function AdminScreen() {
   const [savingCurso, setSavingCurso] = useState(false);
   const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
 
+  interface DisciplinaCat { id: string; nome: string; codigo: string; area: string; ativo: boolean; }
+  const [gDiscCurso, setGDiscCurso] = useState<Curso | null>(null);
+  const [gDiscCatalogo, setGDiscCatalogo] = useState<DisciplinaCat[]>([]);
+  const [gDiscSelected, setGDiscSelected] = useState<string[]>([]);
+  const [gDiscSaving, setGDiscSaving] = useState(false);
+
+  async function abrirGestaoDisciplinas(c: Curso) {
+    setGDiscCurso(c);
+    setGDiscSelected([]);
+    setGDiscCatalogo([]);
+    try {
+      const [catRes, selRes] = await Promise.all([
+        fetch('/api/disciplinas'),
+        fetch(`/api/cursos/${c.id}/disciplinas`),
+      ]);
+      const cat: DisciplinaCat[] = catRes.ok ? await catRes.json() : [];
+      const sel: { disciplinaId: string }[] = selRes.ok ? await selRes.json() : [];
+      setGDiscCatalogo(cat.filter(d => d.ativo));
+      setGDiscSelected(sel.map(s => s.disciplinaId));
+    } catch {}
+  }
+
+  function toggleGDisc(id: string) {
+    setGDiscSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }
+
+  async function guardarDiscCurso() {
+    if (!gDiscCurso) return;
+    setGDiscSaving(true);
+    try {
+      const res = await fetch(`/api/cursos/${gDiscCurso.id}/disciplinas`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ disciplinaIds: gDiscSelected }),
+      });
+      if (!res.ok) throw new Error('Erro ao guardar');
+      alertSucesso('Disciplinas guardadas', `As disciplinas do curso "${gDiscCurso.nome}" foram actualizadas.`);
+      setGDiscCurso(null);
+    } catch (e: any) { alertErro('Erro', e.message); }
+    setGDiscSaving(false);
+  }
+
   async function fetchCursos() {
     setLoadingCursos(true);
     try {
@@ -733,6 +775,9 @@ export default function AdminScreen() {
                           {!!c.descricao && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>{c.descricao}</Text>}
                         </View>
                         <View style={{ flexDirection: 'row', gap: 6 }}>
+                          <TouchableOpacity onPress={() => abrirGestaoDisciplinas(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.info + '44', backgroundColor: Colors.info + '11' }]}>
+                            <Ionicons name="book-outline" size={15} color={Colors.info} />
+                          </TouchableOpacity>
                           <TouchableOpacity onPress={() => abrirEditarCurso(c)} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.gold + '44' }]}>
                             <Ionicons name="pencil-outline" size={15} color={Colors.gold} />
                           </TouchableOpacity>
@@ -1396,6 +1441,67 @@ export default function AdminScreen() {
                 <Text style={styles.saveBtnText}>Guardar Alterações</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Gerir Disciplinas de Curso */}
+      <Modal visible={!!gDiscCurso} transparent animationType="slide" onRequestClose={() => setGDiscCurso(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Disciplinas — {gDiscCurso?.nome}</Text>
+              <TouchableOpacity onPress={() => setGDiscCurso(null)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 12, lineHeight: 18 }}>
+              Seleccione as disciplinas que fazem parte deste curso. Serão usadas automaticamente nas turmas associadas.
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }}>
+              {gDiscCatalogo.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 32, gap: 8 }}>
+                  <Ionicons name="book-outline" size={40} color={Colors.textMuted} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
+                    Nenhuma disciplina no catálogo. Adicione disciplinas primeiro.
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ gap: 8 }}>
+                  {gDiscCatalogo.map(d => {
+                    const sel = gDiscSelected.includes(d.id);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        onPress={() => toggleGDisc(d.id)}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: sel ? Colors.success + '66' : Colors.border, backgroundColor: sel ? Colors.success + '10' : Colors.surface }}
+                      >
+                        <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: sel ? Colors.success : Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? Colors.success + '22' : 'transparent' }}>
+                          {sel && <Ionicons name="checkmark" size={14} color={Colors.success} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: sel ? Colors.text : Colors.textSecondary }}>{d.nome}</Text>
+                          {!!d.codigo && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{d.codigo} · {d.area}</Text>}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </ScrollView>
+            <View style={{ marginTop: 16, flexDirection: 'row', gap: 8 }}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setGDiscCurso(null)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, gDiscSaving && { opacity: 0.6 }]}
+                onPress={guardarDiscCurso}
+                disabled={gDiscSaving}
+              >
+                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Text style={styles.submitBtnText}>{gDiscSaving ? 'A guardar...' : `Guardar (${gDiscSelected.length} selec.)`}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

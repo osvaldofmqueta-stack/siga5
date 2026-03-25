@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
   Modal, ScrollView, Alert, Platform
@@ -11,6 +11,8 @@ import { useData, Turma, Sala } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 
+interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
+
 const NIVEIS = ['Primário', 'I Ciclo', 'II Ciclo'] as const;
 const TURNOS = ['Manhã', 'Tarde', 'Noite'] as const;
 const CLASSES = ['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
@@ -20,9 +22,16 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
     nome: '', classe: '7ª Classe', turno: 'Manhã', anoLetivo: '2025',
     nivel: 'I Ciclo', professorId: professores[0]?.id || '', sala: '', capacidade: 35, ativo: true,
   });
+  const [cursos, setCursos] = useState<Curso[]>([]);
   const set = (k: keyof Turma, v: any) => setForm(f => ({ ...f, [k]: v }));
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  useEffect(() => {
+    if (visible) {
+      fetch('/api/cursos').then(r => r.json()).then((list: Curso[]) => setCursos(list.filter(c => c.ativo))).catch(() => {});
+    }
+  }, [visible]);
 
   const salasAtivas: Sala[] = (salas || []).filter((s: Sala) => s.ativo);
   const salaSelected = salasAtivas.find((s: Sala) => s.nome === form.sala);
@@ -139,6 +148,32 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
                 </View>
               </ScrollView>
             </View>
+
+            {cursos.length > 0 && (
+              <View style={mS.field}>
+                <Text style={mS.fieldLabel}>Curso (II Ciclo — opcional)</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={mS.toggleRow}>
+                    <TouchableOpacity style={[mS.toggleBtn, !form.cursoId && mS.toggleActive]} onPress={() => set('cursoId', undefined)}>
+                      <Text style={[mS.toggleText, !form.cursoId && mS.toggleTextActive]}>Nenhum</Text>
+                    </TouchableOpacity>
+                    {cursos.map((c: Curso) => (
+                      <TouchableOpacity key={c.id} style={[mS.toggleBtn, form.cursoId === c.id && mS.toggleActive]} onPress={() => set('cursoId', c.id)}>
+                        <Text style={[mS.toggleText, form.cursoId === c.id && mS.toggleTextActive]}>{c.nome}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+                {form.cursoId && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6, backgroundColor: `${Colors.success}12`, borderRadius: 8, padding: 8 }}>
+                    <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success }}>
+                      As disciplinas do curso serão usadas nas pautas e notas desta turma.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
           </ScrollView>
           <TouchableOpacity style={mS.saveBtn} onPress={handleSave}>
             <Ionicons name="checkmark" size={18} color={Colors.text} />

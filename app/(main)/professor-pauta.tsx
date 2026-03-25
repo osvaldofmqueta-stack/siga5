@@ -81,7 +81,24 @@ export default function ProfessorPautaScreen() {
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
   const minhasTurmas = useMemo(() => prof ? turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo) : [], [prof, turmas]);
   const turmaAtual = minhasTurmas.find(t => t.id === turmaId);
-  const disciplinas = prof?.disciplinas || [];
+
+  const [disciplinas, setDisciplinas] = useState<string[]>([]);
+  useEffect(() => {
+    if (!turmaId) {
+      setDisciplinas(prof?.disciplinas || []);
+      return;
+    }
+    fetch(`/api/turmas/${turmaId}/disciplinas`)
+      .then(r => r.json())
+      .then((list: { nome: string }[]) => {
+        if (list && list.length > 0) {
+          setDisciplinas(list.map(d => d.nome));
+        } else {
+          setDisciplinas(prof?.disciplinas || []);
+        }
+      })
+      .catch(() => { setDisciplinas(prof?.disciplinas || []); });
+  }, [turmaId, prof]);
 
   const alunosDaTurma = useMemo(() =>
     turmaId ? alunos.filter(a => a.turmaId === turmaId && a.ativo) : [],

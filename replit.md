@@ -1,6 +1,19 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Área Pedagógica Completa)
+## Recent Changes (Latest Session — Integração Disciplina-Curso Completa)
+- **shared/schema.ts**: Nova tabela `curso_disciplinas` (muitos-para-muitos: curso ↔ disciplina do catálogo). Campos: `cursoId`, `disciplinaId`, `obrigatoria`, `cargaHoraria`, `ordem`. Tabela `turmas` já tinha `cursoId` (presente desde sessão anterior).
+- **server/routes.ts**: 3 novas rotas:
+  - `GET /api/cursos/:id/disciplinas` — devolve disciplinas ligadas a um curso (com JOIN ao catálogo)
+  - `PUT /api/cursos/:id/disciplinas` — repõe lista de disciplinaIds para um curso (substitui tudo)
+  - `GET /api/turmas/:id/disciplinas` — devolve disciplinas de uma turma via cursoId. Adicionado `cursoId` ao INSERT e PUT de `/api/turmas`.
+- **context/DataContext.tsx**: `cursoId?: string` adicionado à interface `Turma`.
+- **app/(main)/turmas.tsx**: `TurmaFormModal` carrega cursos via `/api/cursos` e apresenta picker de curso (II Ciclo — opcional). Ao seleccionar, mostra aviso de que as disciplinas do curso serão usadas.
+- **app/(main)/professores.tsx**: O campo de disciplinas passou de texto livre para multi-select do catálogo (`/api/disciplinas`). Carrega ao abrir o modal; professor toca para seleccionar/deseleccionar disciplinas.
+- **app/(main)/professor-pauta.tsx**: `disciplinas` passou de `prof?.disciplinas` para `useState` + `useEffect` que faz fetch a `/api/turmas/:id/disciplinas` quando `turmaId` muda. Fallback para as disciplinas do professor se o curso não tiver disciplinas configuradas.
+- **app/(main)/notas.tsx**: `disciplinasDisponiveis` passou de `useMemo` com lista hardcoded para `useState` + `useEffect` que faz fetch a `/api/turmas/:id/disciplinas` quando `filterTurma` muda. Fallback progressivo: turma → professor → lista padrão.
+- **app/(main)/admin.tsx**: Secção Cursos tem agora botão (ícone livro) em cada card que abre um modal de gestão de disciplinas. Modal mostra catálogo completo com checkboxes; guarda via `PUT /api/cursos/:id/disciplinas`.
+
+## Recent Changes (Previous Session — Área Pedagógica Completa)
 - **shared/schema.ts**: 3 novas tabelas:
   - `planificacoes`: Planos de aula por professor, turma, disciplina, trimestre e semana. Campos: tema, objectivos, conteúdos, metodologia, recursos, avaliação, nº aulas, cumprida.
   - `conteudos_programaticos`: Mapa do programa por disciplina, classe e trimestre. Campos: título, descrição, percentagem de cumprimento, cumprido, ordem.

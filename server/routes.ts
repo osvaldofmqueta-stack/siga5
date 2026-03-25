@@ -402,9 +402,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(
         `INSERT INTO public.turmas (
           id, "nome", "classe", "turno", "anoLetivo", "nivel",
-          "professorId", "sala", "capacidade", "ativo"
+          "professorId", "sala", "capacidade", "ativo", "cursoId"
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10
+          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
         ) RETURNING *`,
         [
           b.id,
@@ -417,6 +417,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.sala,
           b.capacidade,
           b.ativo,
+          b.cursoId ?? null,
         ],
       );
       json(res, 201, rows[0]);
@@ -440,6 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "sala",
         "capacidade",
         "ativo",
+        "cursoId",
       ] as const;
 
       const setParts: string[] = [];
@@ -2043,6 +2045,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       await query(`UPDATE public.cursos SET ativo=false WHERE id=$1`, [id]);
       json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // CURSO_DISCIPLINAS (ligação curso ↔ disciplina)
+  // -----------------------
+
+  // GET disciplinas de um curso específico (com detalhes da disciplina)
+  app.get("/api/cursos/:id/disciplinas", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const rows = await query<JsonObject>(
+        `SELECT cd.id, cd."cursoId", cd."disciplinaId", cd.obrigatoria, cd."cargaHoraria", cd.ordem,
+                d.nome, d.codigo, d.area, d.descricao, d.ativo
+         FROM public.curso_disciplinas cd
+         JOIN public.disciplinas d ON d.id = cd."disciplinaId"
+         WHERE cd."cursoId" = $1
+         ORDER BY cd.ordem ASC, d.nome ASC`,
+        [id]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT — repõe a lista de disciplinas de um curso (substitui tudo)
+  app.put("/api/cursos/:id/disciplinas", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const body = requireBodyObject(req);
+      const disciplinaIds = (body.disciplinaIds as string[]) || [];
+
+      // Remove todas as existentes e re-insere
+      await query(`DELETE FROM public.curso_disciplinas WHERE "cursoId"=$1`, [id]);
+
+      if (disciplinaIds.length > 0) {
+        for (let i = 0; i < disciplinaIds.length; i++) {
+          await query(
+            `INSERT INTO public.curso_disciplinas ("cursoId","disciplinaId",obrigatoria,"cargaHoraria",ordem)
+             VALUES ($1,$2,true,0,$3)
+             ON CONFLICT DO NOTHING`,
+            [id, disciplinaIds[i], i]
+          );
+        }
+      }
+
+      // Retorna a lista actualizada
+      const rows = await query<JsonObject>(
+        `SELECT cd.id, cd."cursoId", cd."disciplinaId", cd.obrigatoria, cd."cargaHoraria", cd.ordem,
+                d.nome, d.codigo, d.area, d.descricao, d.ativo
+         FROM public.curso_disciplinas cd
+         JOIN public.disciplinas d ON d.id = cd."disciplinaId"
+         WHERE cd."cursoId" = $1
+         ORDER BY cd.ordem ASC, d.nome ASC`,
+        [id]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET disciplinas de uma turma (via cursoId da turma)
+  app.get("/api/turmas/:id/disciplinas", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const turmaRows = await query<JsonObject>(
+        `SELECT "cursoId" FROM public.turmas WHERE id=$1`, [id]
+      );
+      if (!turmaRows.length) return json(res, 404, { error: 'Turma não encontrada.' });
+
+      const cursoId = turmaRows[0].cursoId as string | null;
+      if (!cursoId) return json(res, 200, []); // Turma sem curso não tem disciplinas via curso
+
+      const rows = await query<JsonObject>(
+        `SELECT cd."disciplinaId" AS id, d.nome, d.codigo, d.area, d.descricao, d.ativo,
+                cd.obrigatoria, cd."cargaHoraria", cd.ordem
+         FROM public.curso_disciplinas cd
+         JOIN public.disciplinas d ON d.id = cd."disciplinaId"
+         WHERE cd."cursoId" = $1 AND d.ativo = true
+         ORDER BY cd.ordem ASC, d.nome ASC`,
+        [cursoId]
+      );
+      json(res, 200, rows);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 

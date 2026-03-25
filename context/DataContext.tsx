@@ -45,6 +45,7 @@ export interface Turma {
   sala: string;
   capacidade: number;
   ativo: boolean;
+  cursoId?: string;
 }
 
 export interface NotaLancamentos {

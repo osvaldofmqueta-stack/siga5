@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   TextInput, Modal, ScrollView, Alert, Platform,
@@ -13,7 +13,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 
-const DISCIPLINAS = [
+const DISCIPLINAS_FALLBACK = [
   'Matemática', 'Português', 'Física', 'Química', 'Biologia',
   'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia', 'Desenho',
 ];
@@ -466,10 +466,36 @@ export default function NotasScreen() {
     return turmas.filter(t => professorActual.turmasIds.includes(t.id));
   }, [isProfessor, professorActual, turmas]);
 
-  const disciplinasDisponiveis = useMemo(() => {
-    if (!isProfessor || !professorActual) return DISCIPLINAS;
-    return professorActual.disciplinas.length > 0 ? professorActual.disciplinas : DISCIPLINAS;
-  }, [isProfessor, professorActual]);
+  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>(DISCIPLINAS_FALLBACK);
+  useEffect(() => {
+    const turmaParaFetch = filterTurma || (turmasDoProf.length === 1 ? turmasDoProf[0].id : '');
+    if (!turmaParaFetch) {
+      if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
+        setDisciplinasDisponiveis(professorActual.disciplinas);
+      } else {
+        setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+      }
+      return;
+    }
+    fetch(`/api/turmas/${turmaParaFetch}/disciplinas`)
+      .then(r => r.json())
+      .then((list: { nome: string }[]) => {
+        if (list && list.length > 0) {
+          setDisciplinasDisponiveis(list.map(d => d.nome));
+        } else if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
+          setDisciplinasDisponiveis(professorActual.disciplinas);
+        } else {
+          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+        }
+      })
+      .catch(() => {
+        if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
+          setDisciplinasDisponiveis(professorActual.disciplinas);
+        } else {
+          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+        }
+      });
+  }, [filterTurma, turmasDoProf, isProfessor, professorActual]);
 
   const alunosDisponiveis = useMemo(() => {
     if (!isProfessor || !professorActual) return alunos.filter(a => a.ativo);

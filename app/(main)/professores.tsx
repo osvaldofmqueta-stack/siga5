@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
   Modal, ScrollView, Alert, Platform
@@ -14,23 +14,32 @@ import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import QRCodeModal from '@/components/QRCodeModal';
 
+interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
+
 function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
   const [form, setForm] = useState<Partial<Professor>>(professor || {
     nome: '', apelido: '', disciplinas: [], turmasIds: [],
     telefone: '', email: '', habilitacoes: 'Licenciatura', ativo: true,
   });
-  const [disciplinaInput, setDisciplinaInput] = useState('');
+  const [catalogDisc, setCatalogDisc] = useState<DisciplinaCatalog[]>([]);
+
+  useEffect(() => {
+    if (visible) {
+      fetch('/api/disciplinas').then(r => r.json()).then((list: DisciplinaCatalog[]) => {
+        setCatalogDisc(list.filter((d: any) => d.ativo !== false));
+      }).catch(() => {});
+    }
+  }, [visible]);
 
   const set = (k: keyof Professor, v: any) => setForm(f => ({ ...f, [k]: v }));
 
-  function addDisciplina() {
-    if (!disciplinaInput.trim()) return;
-    set('disciplinas', [...(form.disciplinas || []), disciplinaInput.trim()]);
-    setDisciplinaInput('');
-  }
-
-  function removeDisciplina(d: string) {
-    set('disciplinas', (form.disciplinas || []).filter((x: string) => x !== d));
+  function toggleDisciplina(nome: string) {
+    const cur: string[] = form.disciplinas || [];
+    if (cur.includes(nome)) {
+      set('disciplinas', cur.filter(x => x !== nome));
+    } else {
+      set('disciplinas', [...cur, nome]);
+    }
   }
 
   function handleSave() {
@@ -73,29 +82,28 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
             ))}
 
             <View style={mStyles.field}>
-              <Text style={mStyles.fieldLabel}>Disciplinas</Text>
-              <View style={mStyles.tagInputRow}>
-                <TextInput
-                  style={[mStyles.input, { flex: 1 }]}
-                  value={disciplinaInput}
-                  onChangeText={setDisciplinaInput}
-                  placeholder="Adicionar disciplina..."
-                  placeholderTextColor={Colors.textMuted}
-                />
-                <TouchableOpacity style={mStyles.addBtn} onPress={addDisciplina}>
-                  <Ionicons name="add" size={20} color={Colors.text} />
-                </TouchableOpacity>
-              </View>
-              <View style={mStyles.tagRow}>
-                {(form.disciplinas || []).map((d: string) => (
-                  <View key={d} style={mStyles.tag}>
-                    <Text style={mStyles.tagText}>{d}</Text>
-                    <TouchableOpacity onPress={() => removeDisciplina(d)}>
-                      <Ionicons name="close-circle" size={14} color={Colors.textSecondary} />
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </View>
+              <Text style={mStyles.fieldLabel}>Disciplinas que lecciona</Text>
+              {catalogDisc.length === 0 ? (
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>
+                  Nenhuma disciplina no catálogo. Adicione disciplinas em Administração primeiro.
+                </Text>
+              ) : (
+                <View style={mStyles.tagRow}>
+                  {catalogDisc.map((d: DisciplinaCatalog) => {
+                    const selected = (form.disciplinas || []).includes(d.nome);
+                    return (
+                      <TouchableOpacity
+                        key={d.id}
+                        style={[mStyles.tag, selected && { backgroundColor: `${Colors.success}22`, borderWidth: 1, borderColor: Colors.success + '66' }]}
+                        onPress={() => toggleDisciplina(d.nome)}
+                      >
+                        {selected && <Ionicons name="checkmark-circle" size={13} color={Colors.success} />}
+                        <Text style={[mStyles.tagText, selected && { color: Colors.success }]}>{d.nome}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           </ScrollView>
 
