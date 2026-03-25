@@ -785,3 +785,17 @@ export const cursoDisciplinas = pgTable("curso_disciplinas", {
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// TOKENS DE RESET DE SENHA
+// -----------------------
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expiresAt", { withTimezone: true }).notNull(),
+  usedAt: timestamp("usedAt", { withTimezone: true }),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+});

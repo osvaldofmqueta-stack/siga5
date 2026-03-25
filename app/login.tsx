@@ -462,7 +462,12 @@ export default function LoginScreen() {
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Senha de Acesso</Text>
+        <View style={styles.senhaLabelRow}>
+          <Text style={styles.inputLabel}>Senha de Acesso</Text>
+          <TouchableOpacity onPress={() => router.push('/esqueceu-senha' as any)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Text style={styles.forgotLink}>Esqueceu a senha?</Text>
+          </TouchableOpacity>
+        </View>
         <View style={[styles.inputBox, focusedField === 'senha' && styles.inputBoxFocused]}>
           <Ionicons
             name="lock-closed-outline"
@@ -918,6 +923,17 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
+  },
+  senhaLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  forgotLink: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.gold,
+    opacity: 0.85,
   },
   inputBox: {
     flexDirection: 'row', alignItems: 'center',

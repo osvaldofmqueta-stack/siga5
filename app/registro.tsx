@@ -371,7 +371,16 @@ export default function RegistroScreen() {
               </View>
 
               <InputField label="Telefone" value={form.telefone} onChangeText={v => set('telefone', v)} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" />
-              <InputField label="Email" value={form.email} onChangeText={v => set('email', v)} placeholder="email@exemplo.ao" required keyboardType="email-address" autoCapitalize="none" hint="Será usado para aceder à conta provisória" />
+
+              <View style={styles.emailAlertBox}>
+                <Ionicons name="warning-outline" size={16} color="#F39C12" style={{ marginTop: 1 }} />
+                <Text style={styles.emailAlertText}>
+                  <Text style={{ fontFamily: 'Inter_700Bold', color: '#F39C12' }}>Atenção:</Text>{' '}
+                  Use um email real e válido. Caso esqueça a sua senha, o link de recuperação será enviado para este endereço. Um email inválido impedirá o acesso à sua conta.
+                </Text>
+              </View>
+
+              <InputField label="Email de Contacto" value={form.email} onChangeText={v => set('email', v)} placeholder="email@exemplo.ao" required keyboardType="email-address" autoCapitalize="none" hint="Use um email real — necessário para recuperar a senha e aceder à conta provisória" />
 
               <View style={styles.sectionLabel}>
                 <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
@@ -570,6 +579,24 @@ const styles = StyleSheet.create({
   stepCardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
   stepCardIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   stepCardTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+
+  emailAlertBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: 'rgba(243,156,18,0.08)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(243,156,18,0.3)',
+    padding: 12,
+  },
+  emailAlertText: {
+    flex: 1,
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.7)',
+    lineHeight: 18,
+  },
 
   fieldGroup: { gap: 7 },
   fieldLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },

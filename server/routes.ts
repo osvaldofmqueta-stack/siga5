@@ -5,8 +5,10 @@ import { query } from "./db";
 import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
+import * as crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { signToken, requireAuth, requirePermission, type UserRole } from "./auth";
+import { sendPasswordResetEmail } from "./email";
 
 type JsonObject = Record<string, unknown>;
 
@@ -2366,6 +2368,141 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       json(res, 200, rows);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // RECUPERAÇÃO DE SENHA
+  // -----------------------
+  app.post("/api/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const email = String(b.email ?? "").toLowerCase().trim();
+      if (!email) return json(res, 400, { error: "Email é obrigatório." });
+
+      // Verificar se o email existe (utilizadores da BD ou contas fixas)
+      const FIXED_EMAILS = [
+        "ceo@sige.ao", "financeiro@sige.ao", "secretaria@sige.ao", "rh@sige.ao"
+      ];
+      let nomeUtilizador = "";
+
+      if (FIXED_EMAILS.includes(email)) {
+        return json(res, 400, {
+          error: "Este email pertence a uma conta de sistema. Contacte o administrador para redefinir a senha."
+        });
+      }
+
+      const rows = await query<JsonObject>(
+        `SELECT id, nome, email FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
+        [email]
+      );
+      if (!rows[0]) {
+        // Por segurança, responder com sucesso mesmo que o email não exista
+        return json(res, 200, { ok: true, message: "Se o email existir no sistema, receberá um link de redefinição." });
+      }
+      nomeUtilizador = String(rows[0].nome);
+
+      // Invalidar tokens anteriores deste email
+      await query(
+        `UPDATE public.password_reset_tokens SET "usedAt"=NOW() WHERE email=LOWER($1) AND "usedAt" IS NULL`,
+        [email]
+      );
+
+      // Gerar novo token seguro
+      const token = crypto.randomBytes(32).toString("hex");
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+      await query(
+        `INSERT INTO public.password_reset_tokens (email, token, "expiresAt") VALUES (LOWER($1), $2, $3)`,
+        [email, token, expiresAt.toISOString()]
+      );
+
+      // Construir link de reset
+      let appDomain = "";
+      if (process.env.REPLIT_DOMAINS) {
+        appDomain = `https://${process.env.REPLIT_DOMAINS.split(",")[0].trim()}`;
+      } else if (process.env.REPLIT_DEV_DOMAIN) {
+        appDomain = `https://${process.env.REPLIT_DEV_DOMAIN}`;
+      } else {
+        appDomain = `http://localhost:5000`;
+      }
+      const resetLink = `${appDomain}/redefinir-senha?token=${token}`;
+
+      const result = await sendPasswordResetEmail(email, nomeUtilizador, resetLink);
+
+      if (!result.success) {
+        return json(res, 500, { error: result.message });
+      }
+
+      return json(res, 200, { ok: true, message: "Link de redefinição enviado para o seu email." });
+    } catch (e) {
+      console.error("[forgot-password]", e);
+      return json(res, 500, { error: "Erro interno. Tente novamente mais tarde." });
+    }
+  });
+
+  app.post("/api/reset-password", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const token = String(b.token ?? "").trim();
+      const novaSenha = String(b.novaSenha ?? "").trim();
+
+      if (!token || !novaSenha) {
+        return json(res, 400, { error: "Token e nova senha são obrigatórios." });
+      }
+      if (novaSenha.length < 6) {
+        return json(res, 400, { error: "A senha deve ter pelo menos 6 caracteres." });
+      }
+
+      // Verificar token
+      const tokenRows = await query<JsonObject>(
+        `SELECT * FROM public.password_reset_tokens WHERE token=$1 AND "usedAt" IS NULL AND "expiresAt" > NOW() LIMIT 1`,
+        [token]
+      );
+      if (!tokenRows[0]) {
+        return json(res, 400, { error: "Link inválido ou expirado. Solicite um novo link de redefinição." });
+      }
+
+      const tokenRecord = tokenRows[0];
+      const email = String(tokenRecord.email);
+
+      // Atualizar senha do utilizador
+      const updateRows = await query<JsonObject>(
+        `UPDATE public.utilizadores SET senha=$1 WHERE LOWER(email)=LOWER($2) AND ativo=true RETURNING id`,
+        [novaSenha, email]
+      );
+      if (!updateRows[0]) {
+        return json(res, 404, { error: "Utilizador não encontrado ou inactivo." });
+      }
+
+      // Marcar token como usado
+      await query(
+        `UPDATE public.password_reset_tokens SET "usedAt"=NOW() WHERE token=$1`,
+        [token]
+      );
+
+      return json(res, 200, { ok: true, message: "Senha redefinida com sucesso. Pode agora iniciar sessão." });
+    } catch (e) {
+      console.error("[reset-password]", e);
+      return json(res, 500, { error: "Erro interno. Tente novamente mais tarde." });
+    }
+  });
+
+  app.get("/api/verify-reset-token", async (req: Request, res: Response) => {
+    try {
+      const token = String(req.query.token ?? "").trim();
+      if (!token) return json(res, 400, { error: "Token é obrigatório." });
+
+      const rows = await query<JsonObject>(
+        `SELECT email FROM public.password_reset_tokens WHERE token=$1 AND "usedAt" IS NULL AND "expiresAt" > NOW() LIMIT 1`,
+        [token]
+      );
+      if (!rows[0]) {
+        return json(res, 400, { valid: false, error: "Link inválido ou expirado." });
+      }
+      return json(res, 200, { valid: true, email: String(rows[0].email) });
+    } catch (e) {
+      return json(res, 500, { error: (e as Error).message });
+    }
   });
 
   const httpServer = createServer(app);
