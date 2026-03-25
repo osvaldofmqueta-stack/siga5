@@ -11,7 +11,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
+import { useConfig } from '@/context/ConfigContext';
 import { useData } from '@/context/DataContext';
+import ExportMenu from '@/components/ExportMenu';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import { api } from '@/lib/api';
@@ -37,6 +39,7 @@ const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function RHHubScreen() {
   const { user } = useAuth();
+  const { config } = useConfig();
   const router = useRouter();
   const { professores, turmas } = useData();
   const {
@@ -470,6 +473,32 @@ export default function RHHubScreen() {
                 <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
               </TouchableOpacity>
             )}
+            <ExportMenu
+              title="Quadro de Pessoal Docente"
+              columns={[
+                { header: 'Nº Professor', key: 'numero', width: 14 },
+                { header: 'Nome Completo', key: 'nome', width: 26 },
+                { header: 'Disciplinas', key: 'disciplinas', width: 30 },
+                { header: 'Habilitações', key: 'habilitacoes', width: 20 },
+                { header: 'Turmas', key: 'turmas', width: 22 },
+                { header: 'Nº Turmas', key: 'numTurmas', width: 10 },
+                { header: 'Telefone', key: 'telefone', width: 16 },
+                { header: 'Estado', key: 'estado', width: 10 },
+              ]}
+              rows={profFiltrados.map(p => ({
+                numero: p.numeroProfessor,
+                nome: `${p.nome} ${p.apelido}`,
+                disciplinas: (p.disciplinas as string[]).join(', '),
+                habilitacoes: p.habilitacoes,
+                turmas: turmas.filter(t => (p.turmasIds as string[]).includes(t.id)).map(t => t.nome).join(', '),
+                numTurmas: turmas.filter(t => (p.turmasIds as string[]).includes(t.id)).length,
+                telefone: p.telefone ?? '',
+                estado: p.ativo ? 'Activo' : 'Inactivo',
+              }))}
+              school={{ nomeEscola: config?.nomeEscola ?? 'Escola', directorGeral: config?.directorGeral }}
+              filename="quadro_pessoal_docente"
+              landscape
+            />
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
             <View style={styles.filterInner}>

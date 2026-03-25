@@ -16,6 +16,7 @@ import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
 import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
+import ExportMenu from '@/components/ExportMenu';
 
 function normalizeEmail(str: string) {
   return str
@@ -430,6 +431,33 @@ export default function AlunosScreen() {
             <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
           </TouchableOpacity>
         )}
+        <ExportMenu
+          title="Lista de Alunos"
+          columns={[
+            { header: 'Nº Matrícula', key: 'numeroMatricula', width: 16 },
+            { header: 'Nome Completo', key: 'nomeCompleto', width: 26 },
+            { header: 'Turma', key: 'turmaNome', width: 14 },
+            { header: 'Género', key: 'genero', width: 10 },
+            { header: 'Data Nasc.', key: 'dataNascimento', width: 14 },
+            { header: 'Província', key: 'provincia', width: 14 },
+            { header: 'Encarregado', key: 'nomeEncarregado', width: 24 },
+            { header: 'Tel. Encarregado', key: 'telefoneEncarregado', width: 18 },
+            { header: 'Estado', key: 'estado', width: 10 },
+          ]}
+          rows={filtered.map(a => ({
+            numeroMatricula: a.numeroMatricula,
+            nomeCompleto: `${a.nome} ${a.apelido}`,
+            turmaNome: turmas.find(t => t.id === a.turmaId)?.nome ?? '—',
+            genero: a.genero === 'M' ? 'Masculino' : 'Feminino',
+            dataNascimento: a.dataNascimento,
+            provincia: a.provincia,
+            nomeEncarregado: a.nomeEncarregado ?? '',
+            telefoneEncarregado: a.telefoneEncarregado ?? '',
+            estado: a.ativo ? 'Activo' : 'Inactivo',
+          }))}
+          school={{ nomeEscola: config?.nomeEscola ?? 'Escola' }}
+          filename="lista_alunos"
+        />
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>

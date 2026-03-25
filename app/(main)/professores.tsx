@@ -10,9 +10,11 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Professor } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
+import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import QRCodeModal from '@/components/QRCodeModal';
+import ExportMenu from '@/components/ExportMenu';
 
 interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
 
@@ -120,6 +122,7 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
 export default function ProfessoresScreen() {
   const { professores, turmas, updateProfessor, deleteProfessor } = useData();
   const { user } = useAuth();
+  const { config } = useConfig();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
@@ -240,6 +243,29 @@ export default function ProfessoresScreen() {
         <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
         <TextInput style={styles.searchInput} value={search} onChangeText={setSearch} placeholder="Pesquisar..." placeholderTextColor={Colors.textMuted} />
         {search.length > 0 && <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={16} color={Colors.textMuted} /></TouchableOpacity>}
+        <ExportMenu
+          title="Lista de Professores"
+          columns={[
+            { header: 'Nº Professor', key: 'numeroProfessor', width: 16 },
+            { header: 'Nome Completo', key: 'nomeCompleto', width: 26 },
+            { header: 'Disciplinas', key: 'disciplinas', width: 30 },
+            { header: 'Habilitações', key: 'habilitacoes', width: 20 },
+            { header: 'Turmas', key: 'numTurmas', width: 10 },
+            { header: 'Telefone', key: 'telefone', width: 16 },
+            { header: 'Estado', key: 'estado', width: 10 },
+          ]}
+          rows={filtered.map(p => ({
+            numeroProfessor: p.numeroProfessor,
+            nomeCompleto: `${p.nome} ${p.apelido}`,
+            disciplinas: p.disciplinas.join(', '),
+            habilitacoes: p.habilitacoes,
+            numTurmas: turmas.filter(t => p.turmasIds.includes(t.id)).length,
+            telefone: p.telefone ?? '',
+            estado: p.ativo ? 'Activo' : 'Inactivo',
+          }))}
+          school={{ nomeEscola: config?.nomeEscola ?? 'Escola' }}
+          filename="lista_professores"
+        />
       </View>
 
       <FlatList

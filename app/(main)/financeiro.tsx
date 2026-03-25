@@ -19,6 +19,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
 import { useRouter } from 'expo-router';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import ExportMenu from '@/components/ExportMenu';
 
 const TIPO_LABEL: Record<TipoTaxa, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -712,9 +713,34 @@ export default function FinanceiroScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 24 }}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListHeaderComponent={() => (
-          <View style={st.atrasoHeader}>
-            <Ionicons name="alert-circle" size={16} color={Colors.danger} />
-            <Text style={st.atrasoHeaderTxt}>{alunosEmAtraso.length} estudante(s) com pagamentos em atraso</Text>
+          <View>
+            <View style={st.atrasoHeader}>
+              <Ionicons name="alert-circle" size={16} color={Colors.danger} />
+              <Text style={[st.atrasoHeaderTxt, { flex: 1 }]}>{alunosEmAtraso.length} estudante(s) com pagamentos em atraso</Text>
+              <ExportMenu
+                title="Alunos com Propinas em Atraso"
+                columns={[
+                  { header: 'Nº Matrícula', key: 'matricula', width: 14 },
+                  { header: 'Nome Completo', key: 'nome', width: 26 },
+                  { header: 'Turma', key: 'turma', width: 12 },
+                  { header: 'Meses em Atraso', key: 'meses', width: 16 },
+                  { header: 'Valor Pendente (AOA)', key: 'pendente', width: 20 },
+                  { header: 'Multa Estimada (AOA)', key: 'multa', width: 20 },
+                  { header: 'Estado', key: 'estado', width: 12 },
+                ]}
+                rows={alunosEmAtraso.map(({ aluno, mesesAtraso, multa, pendente }) => ({
+                  matricula: aluno.numeroMatricula,
+                  nome: `${aluno.nome} ${aluno.apelido}`,
+                  turma: turmas.find(t => t.id === aluno.turmaId)?.nome ?? '—',
+                  meses: mesesAtraso,
+                  pendente: pendente,
+                  multa: multa,
+                  estado: isAlunoBloqueado(aluno.id) ? 'Bloqueado' : 'Em Atraso',
+                }))}
+                school={{ nomeEscola: config?.nomeEscola ?? 'Escola', anoLetivo: anoSelecionado?.nome, directorGeral: config?.directorGeral }}
+                filename="alunos_em_atraso"
+              />
+            </View>
           </View>
         )}
         renderItem={({ item }) => {
@@ -840,6 +866,36 @@ export default function FinanceiroScreen() {
               placeholderTextColor={Colors.textMuted}
               value={searchPagAluno}
               onChangeText={setSearchPagAluno}
+            />
+            <ExportMenu
+              title="Registo de Pagamentos"
+              columns={[
+                { header: 'Aluno', key: 'nomeAluno', width: 26 },
+                { header: 'Turma', key: 'turma', width: 12 },
+                { header: 'Rubrica', key: 'nomeTaxa', width: 22 },
+                { header: 'Tipo', key: 'tipo', width: 14 },
+                { header: 'Valor (AOA)', key: 'valor', width: 14 },
+                { header: 'Data', key: 'data', width: 14 },
+                { header: 'Mês', key: 'mes', width: 8 },
+                { header: 'Método', key: 'metodo', width: 16 },
+                { header: 'Estado', key: 'estado', width: 12 },
+                { header: 'Referência', key: 'referencia', width: 16 },
+              ]}
+              rows={pagamentosFiltrados.map(p => ({
+                nomeAluno: getNomeAluno(p.alunoId),
+                turma: getTurmaAluno(p.alunoId),
+                nomeTaxa: getNomeTaxa(p.taxaId),
+                tipo: TIPO_LABEL[getTipoTaxa(p.taxaId)],
+                valor: p.valor,
+                data: new Date(p.data).toLocaleDateString('pt-PT'),
+                mes: p.mes ? MESES[p.mes - 1] : '',
+                metodo: METODO_LABEL[p.metodoPagamento],
+                estado: STATUS_CFG[p.status].label,
+                referencia: p.referencia ?? '',
+              }))}
+              school={{ nomeEscola: config?.nomeEscola ?? 'Escola', anoLetivo: anoSelecionado?.nome, directorGeral: config?.directorGeral }}
+              filename="registos_pagamentos"
+              landscape
             />
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>

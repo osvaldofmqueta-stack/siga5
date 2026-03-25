@@ -9,8 +9,10 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Presenca } from '@/context/DataContext';
+import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro, showToast } from '@/utils/toast';
+import ExportMenu from '@/components/ExportMenu';
 
 const { width } = Dimensions.get('window');
 
@@ -89,6 +91,7 @@ const DISCIPLINAS = ['Matemática', 'Português', 'Física', 'Química', 'Biolog
 
 export default function PresencasScreen() {
   const { alunos, turmas, presencas, addPresenca } = useData();
+  const { config } = useConfig();
   const insets = useSafeAreaInsets();
   const [filterTurma, setFilterTurma] = useState(turmas[0]?.id || '');
   const [disciplina, setDisciplina] = useState(DISCIPLINAS[0]);
@@ -234,6 +237,31 @@ export default function PresencasScreen() {
           <Ionicons name="qr-code" size={14} color={Colors.gold} />
           <Text style={[styles.bulkBtnText, { color: Colors.gold }]}>QR Code</Text>
         </TouchableOpacity>
+        <ExportMenu
+          title={`Presenças — ${turmas.find(t => t.id === filterTurma)?.nome ?? ''} — ${date}`}
+          columns={[
+            { header: 'Nº Matrícula', key: 'matricula', width: 14 },
+            { header: 'Nome Completo', key: 'nome', width: 26 },
+            { header: 'Turma', key: 'turma', width: 12 },
+            { header: 'Disciplina', key: 'disciplina', width: 16 },
+            { header: 'Data', key: 'data', width: 12 },
+            { header: 'Estado', key: 'estado', width: 12 },
+          ]}
+          rows={turmaAlunos.map(a => {
+            const p = todayPresencas.find(pr => pr.alunoId === a.id);
+            return {
+              matricula: a.numeroMatricula,
+              nome: `${a.nome} ${a.apelido}`,
+              turma: turmas.find(t => t.id === filterTurma)?.nome ?? '',
+              disciplina,
+              data: date,
+              estado: p ? (p.status === 'P' ? 'Presente' : p.status === 'F' ? 'Falta' : 'Justificado') : 'Não marcado',
+            };
+          })}
+          school={{ nomeEscola: config?.nomeEscola ?? 'Escola' }}
+          filename={`presencas_${filterTurma}_${date}`}
+          subtitle={`Disciplina: ${disciplina}`}
+        />
       </View>
 
       <FlatList

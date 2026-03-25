@@ -8,8 +8,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Turma, Sala } from '@/context/DataContext';
+import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import ExportMenu from '@/components/ExportMenu';
 
 interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
 
@@ -187,6 +189,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
 
 export default function TurmasScreen() {
   const { turmas, professores, alunos, salas, addTurma, updateTurma, deleteTurma } = useData();
+  const { config } = useConfig();
   const insets = useSafeAreaInsets();
   const [filterNivel, setFilterNivel] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -284,13 +287,43 @@ export default function TurmasScreen() {
     <View style={styles.screen}>
       <TopBar title="Turmas" subtitle={`${filtered.length} turmas`} rightAction={{ icon: 'add-circle', onPress: () => { setEditTurma(null); setShowForm(true); } }} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-        {['', ...NIVEIS].map(n => (
-          <TouchableOpacity key={n} style={[styles.filterChip, filterNivel === n && styles.filterChipActive]} onPress={() => setFilterNivel(n)}>
-            <Text style={[styles.filterChipText, filterNivel === n && styles.filterChipTextActive]}>{n || 'Todos'}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 14, paddingTop: 4 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterScroll, { flex: 1 }]} contentContainerStyle={styles.filterContent}>
+          {['', ...NIVEIS].map(n => (
+            <TouchableOpacity key={n} style={[styles.filterChip, filterNivel === n && styles.filterChipActive]} onPress={() => setFilterNivel(n)}>
+              <Text style={[styles.filterChipText, filterNivel === n && styles.filterChipTextActive]}>{n || 'Todos'}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+        <ExportMenu
+          title="Lista de Turmas"
+          columns={[
+            { header: 'Turma', key: 'nome', width: 16 },
+            { header: 'Classe', key: 'classe', width: 14 },
+            { header: 'Nível', key: 'nivel', width: 12 },
+            { header: 'Turno', key: 'turno', width: 10 },
+            { header: 'Ano Lectivo', key: 'anoLetivo', width: 14 },
+            { header: 'Alunos', key: 'numAlunos', width: 10 },
+            { header: 'Capacidade', key: 'capacidade', width: 12 },
+            { header: 'Sala', key: 'sala', width: 12 },
+            { header: 'Director de Turma', key: 'director', width: 24 },
+          ]}
+          rows={filtered.map(t => ({
+            nome: t.nome,
+            classe: t.classe,
+            nivel: t.nivel,
+            turno: t.turno,
+            anoLetivo: t.anoLetivo,
+            numAlunos: alunos.filter(a => a.turmaId === t.id).length,
+            capacidade: t.capacidade,
+            sala: t.sala,
+            director: professores.find(p => p.id === t.professorId) ? `${professores.find(p => p.id === t.professorId)!.nome} ${professores.find(p => p.id === t.professorId)!.apelido}` : '—',
+          }))}
+          school={{ nomeEscola: config?.nomeEscola ?? 'Escola' }}
+          filename="lista_turmas"
+          landscape
+        />
+      </View>
 
       <FlatList
         data={filtered}
