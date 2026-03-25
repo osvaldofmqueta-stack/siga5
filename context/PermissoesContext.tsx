@@ -13,7 +13,8 @@ export type PermKey =
   | 'boletim_matricula' | 'boletim_propina' | 'gestao_academica'
   | 'gestao_acessos'
   | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
-  | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado';
+  | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado'
+  | 'biblioteca';
 
 export interface FeatureDef {
   key: PermKey;
@@ -108,6 +109,13 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     ],
   },
   {
+    categoria: 'Biblioteca Escolar',
+    icon: 'library',
+    features: [
+      { key: 'biblioteca', label: 'Biblioteca Escolar', desc: 'Gestão de livros, empréstimos e devoluções', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
+    ],
+  },
+  {
     categoria: 'Administração',
     icon: 'shield-checkmark',
     features: [
@@ -132,6 +140,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
     'secretaria_hub', 'editor_documentos', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
+    'biblioteca',
   ],
   director: [
     'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
@@ -139,18 +148,19 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos',
     'gestao_academica', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
+    'biblioteca',
   ],
   secretaria: [
     'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',
     'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios',
     'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
-    'admissao', 'disciplinas', 'desempenho',
+    'admissao', 'disciplinas', 'desempenho', 'biblioteca',
   ],
   professor: [
     'professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario',
-    'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais',
+    'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais', 'biblioteca',
   ],
-  aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos'],
+  aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos', 'biblioteca'],
   financeiro: ['financeiro', 'notificacoes', 'boletim_propina'],
   encarregado: ['portal_encarregado', 'notificacoes'],
   rh: ['rh_hub', 'rh_controle', 'notificacoes'],

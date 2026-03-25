@@ -1,6 +1,23 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Notificações Push & Email para Encarregados)
+## Recent Changes (Latest Session — Módulo Biblioteca Escolar)
+- **app/(main)/biblioteca.tsx** *(new)*: Ecrã completo da Biblioteca Escolar com 3 tabs:
+  - **Catálogo**: Listagem de livros com pesquisa por título/autor/ISBN, filtro por categoria (18 categorias), cards com disponibilidade em destaque, modal de adição/edição de livros.
+  - **Empréstimos**: Lista de empréstimos com filtros (Ativos/Atrasados/Devolvidos/Todos), pesquisa, destaque de empréstimos em atraso (dias de atraso calculados), botão de "Registar Devolução", modal para novo empréstimo com pesquisa de livros disponíveis.
+  - **Estatísticas**: KPIs (Títulos, Exemplares, Disponíveis, Emprestados, Atrasados, Devolvidos), taxa de ocupação com barra de progresso colorida, gráfico de livros por categoria, lista de empréstimos em atraso.
+- **shared/schema.ts**: 2 novas tabelas PostgreSQL:
+  - `livros` (id, titulo, autor, isbn, categoria, editora, anoPublicacao, quantidadeTotal, quantidadeDisponivel, localizacao, descricao, ativo, createdAt)
+  - `emprestimos` (id, livroId→livros, alunoId, nomeLeitor, tipoLeitor, dataEmprestimo, dataPrevistaDevolucao, dataDevolucao, status: emprestado/devolvido/atrasado, observacao, registadoPor, createdAt)
+- **server/routes.ts**: 7 novas rotas com guard `requirePermission('biblioteca')`:
+  - GET/POST/PUT/DELETE `/api/livros` — CRUD do catálogo (soft delete)
+  - GET/POST/PUT `/api/emprestimos` — gestão de empréstimos com controlo automático de stock
+  - POST `/api/emprestimos/sync-atrasos` — actualiza status para 'atrasado' com base na data
+- **context/PermissoesContext.tsx**: `PermKey` expandida com `'biblioteca'`, nova categoria "Biblioteca Escolar" em FEATURE_CATEGORIES, biblioteca adicionada a ROLE_DEFAULTS de admin, director, secretaria, professor, aluno.
+- **components/DrawerLeft.tsx**: Link "Biblioteca" adicionado às secções de admin/director (Académico), CEO/PCA (Académico), secretaria (Gestão Académica) e professor (Académico).
+- **app/(main)/_layout.tsx**: `<Stack.Screen name="biblioteca" />` registado.
+- Alunos e professores têm acesso de leitura; admins/directores/secretaria têm acesso de escrita completo.
+
+## Recent Changes (Previous Session — Notificações Push & Email para Encarregados)
 - **server/notifications.ts** *(new)*: Serviço unificado de notificações com:
   - `notifyGuardianAboutNota` — alerta quando uma nota é lançada
   - `notifyGuardianAboutFalta` — alerta quando uma falta é registada (apenas status='falta')

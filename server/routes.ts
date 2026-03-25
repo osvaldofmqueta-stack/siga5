@@ -2912,6 +2912,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
+  // ─── BIBLIOTECA ESCOLAR ─────────────────────────────────────────────────────
+  app.get('/api/livros', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.livros WHERE ativo=true ORDER BY titulo ASC`);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/livros', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.livros (titulo, autor, isbn, categoria, editora, "anoPublicacao", "quantidadeTotal", "quantidadeDisponivel", localizacao, descricao)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9) RETURNING *`,
+        [b.titulo, b.autor, b.isbn || '', b.categoria || 'Geral', b.editora || '', b.anoPublicacao || null,
+         b.quantidadeTotal || 1, b.localizacao || '', b.descricao || '']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/livros/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body as Record<string, unknown>;
+      const allowed = ['titulo', 'autor', 'isbn', 'categoria', 'editora', 'anoPublicacao', 'quantidadeTotal', 'quantidadeDisponivel', 'localizacao', 'descricao', 'ativo'];
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        if (key in b) { values.push(b[key]); setParts.push(`"${key}"=$${values.length}`); }
+      }
+      if (!setParts.length) return json(res, 400, { error: 'Sem campos para atualizar.' });
+      const rows = await query<JsonObject>(
+        `UPDATE public.livros SET ${setParts.join(',')} WHERE id=$${values.length + 1} RETURNING *`,
+        [...values, id]
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/livros/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      await query(`UPDATE public.livros SET ativo=false WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Emprestimos
+  app.get('/api/emprestimos', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.emprestimos ORDER BY "createdAt" DESC`);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/emprestimos', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      // Check availability
+      const livro = await query<JsonObject>(`SELECT * FROM public.livros WHERE id=$1`, [b.livroId]);
+      if (!livro[0]) return json(res, 404, { error: 'Livro não encontrado.' });
+      if (Number(livro[0].quantidadeDisponivel) < 1) return json(res, 400, { error: 'Livro sem exemplares disponíveis.' });
+
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.emprestimos ("livroId", "livroTitulo", "alunoId", "nomeLeitor", "tipoLeitor", "dataEmprestimo", "dataPrevistaDevolucao", status, observacao, "registadoPor")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,'emprestado',$8,$9) RETURNING *`,
+        [b.livroId, livro[0].titulo, b.alunoId || null, b.nomeLeitor, b.tipoLeitor || 'aluno',
+         b.dataEmprestimo, b.dataPrevistaDevolucao, b.observacao || null, b.registadoPor || 'Sistema']
+      );
+      // Decrement available
+      await query(`UPDATE public.livros SET "quantidadeDisponivel"="quantidadeDisponivel"-1 WHERE id=$1`, [b.livroId]);
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/emprestimos/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = req.body as Record<string, unknown>;
+      const emp = await query<JsonObject>(`SELECT * FROM public.emprestimos WHERE id=$1`, [id]);
+      if (!emp[0]) return json(res, 404, { error: 'Empréstimo não encontrado.' });
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.emprestimos SET status=$1, "dataDevolucao"=$2, observacao=COALESCE($3, observacao) WHERE id=$4 RETURNING *`,
+        [b.status || emp[0].status, b.dataDevolucao || emp[0].dataDevolucao || null, b.observacao || null, id]
+      );
+      // If returning, increment available
+      if (b.status === 'devolvido' && emp[0].status !== 'devolvido') {
+        await query(`UPDATE public.livros SET "quantidadeDisponivel"="quantidadeDisponivel"+1 WHERE id=$1`, [emp[0].livroId]);
+      }
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Sync atrasados on read
+  app.post('/api/emprestimos/sync-atrasos', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const today = new Date().toISOString().slice(0, 10);
+      await query(
+        `UPDATE public.emprestimos SET status='atrasado' WHERE status='emprestado' AND "dataPrevistaDevolucao" < $1`,
+        [today]
+      );
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

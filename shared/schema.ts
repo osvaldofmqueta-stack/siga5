@@ -651,7 +651,46 @@ export const userPermissions = pgTable("user_permissions", {
 });
 
 // -----------------------
-// CURSOS (II CICLO — 10ª CLASSE)
+// BIBLIOTECA ESCOLAR
+// -----------------------
+export const livros = pgTable("livros", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  titulo: text("titulo").notNull(),
+  autor: text("autor").notNull(),
+  isbn: text("isbn").notNull().default(''),
+  categoria: text("categoria").notNull().default('Geral'),
+  editora: text("editora").notNull().default(''),
+  anoPublicacao: integer("anoPublicacao"),
+  quantidadeTotal: integer("quantidadeTotal").notNull().default(1),
+  quantidadeDisponivel: integer("quantidadeDisponivel").notNull().default(1),
+  localizacao: text("localizacao").notNull().default(''),
+  descricao: text("descricao").notNull().default(''),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const emprestimos = pgTable("emprestimos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  livroId: varchar("livroId").notNull().references(() => livros.id),
+  livroTitulo: text("livroTitulo").notNull(),
+  alunoId: varchar("alunoId"),
+  nomeLeitor: text("nomeLeitor").notNull(),
+  tipoLeitor: text("tipoLeitor").notNull().default('aluno'), // 'aluno' | 'professor' | 'externo'
+  dataEmprestimo: text("dataEmprestimo").notNull(),
+  dataPrevistaDevolucao: text("dataPrevistaDevolucao").notNull(),
+  dataDevolucao: text("dataDevolucao"),
+  status: text("status").notNull().default('emprestado'), // 'emprestado' | 'devolvido' | 'atrasado'
+  observacao: text("observacao"),
+  registadoPor: text("registadoPor").notNull().default('Sistema'),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// CURSOS
 // -----------------------
 export const cursos = pgTable("cursos", {
   id: varchar("id")
