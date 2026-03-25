@@ -9,6 +9,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useFinanceiro, formatAOA } from '@/context/FinanceiroContext';
+import { useConfig } from '@/context/ConfigContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useUsers } from '@/context/UsersContext';
@@ -63,7 +64,8 @@ export default function PortalEncarregadoScreen() {
   const { user } = useAuth();
   const { users } = useUsers();
   const { alunos, turmas, notas, presencas, eventos } = useData();
-  const { taxas, pagamentos, getPagamentosAluno, getTaxasByNivel, getMesesEmAtraso, calcularMulta } = useFinanceiro();
+  const { taxas, pagamentos, getPagamentosAluno, getTaxasByNivel, getMesesEmAtraso, calcularMulta, gerarRUPE, getRUPEsAluno, addPagamento } = useFinanceiro();
+  const { config } = useConfig();
   const { mensagens, sumarios, materiais, calendarioProvas } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
@@ -72,6 +74,10 @@ export default function PortalEncarregadoScreen() {
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
   const [diaHorario, setDiaHorario] = useState(0);
   const [horarios, setHorarios] = useState<any[]>([]);
+  const [paymentMonth, setPaymentMonth] = useState<number | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'multicaixa' | 'referencia' | null>(null);
+  const [generatingRupe, setGeneratingRupe] = useState(false);
+  const [activeRupe, setActiveRupe] = useState<any | null>(null);
 
   const anoLetivo = anoSelecionado?.ano || new Date().getFullYear().toString();
 
@@ -303,6 +309,64 @@ export default function PortalEncarregadoScreen() {
   }
 
   function renderFinanceiro() {
+    const MESES: Record<number, string> = {
+      1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril', 5: 'Maio', 6: 'Junho',
+      7: 'Julho', 8: 'Agosto', 9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro',
+    };
+    const mesesLetivosAll = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const mesAtual = new Date().getMonth() + 1;
+    const mesesPassados = mesesLetivosAll.filter(m => m <= mesAtual);
+    const mesesPagosSet = new Set(pagamentosAluno.filter(p => p.status === 'pago').map(p => p.mes));
+    const mesesPendentesSet = new Set(pagamentosAluno.filter(p => p.status === 'pendente').map(p => p.mes));
+    const mesesEmAtraso = mesesPassados.filter(m => !mesesPagosSet.has(m) && !mesesPendentesSet.has(m));
+    const rupesAluno = aluno ? getRUPEsAluno(aluno.id) : [];
+    const valorPropina = taxaPropina?.valor || 0;
+    const temMulticaixa = !!config.telefoneMulticaixaExpress;
+    const temReferencia = !!(config.numeroEntidade || config.iban);
+    const temPagamentoOnline = temMulticaixa || temReferencia;
+
+    async function handleGerarRUPE(mes: number) {
+      if (!aluno || !taxaPropina || generatingRupe) return;
+      setGeneratingRupe(true);
+      try {
+        const rupe = await gerarRUPE(aluno.id, taxaPropina.id, valorPropina);
+        await addPagamento({
+          alunoId: aluno.id,
+          taxaId: taxaPropina.id,
+          valor: valorPropina,
+          data: new Date().toISOString().slice(0, 10),
+          mes,
+          ano: anoLetivo,
+          status: 'pendente',
+          metodoPagamento: 'transferencia',
+          referencia: rupe.referencia,
+          observacao: `Referência bancária — Propina de ${MESES[mes]}`,
+        });
+        setActiveRupe(rupe);
+        setPaymentMethod('referencia');
+        setPaymentMonth(mes);
+      } finally {
+        setGeneratingRupe(false);
+      }
+    }
+
+    async function handleSolicitarMulticaixa(mes: number) {
+      if (!aluno || !taxaPropina) return;
+      await addPagamento({
+        alunoId: aluno.id,
+        taxaId: taxaPropina.id,
+        valor: valorPropina,
+        data: new Date().toISOString().slice(0, 10),
+        mes,
+        ano: anoLetivo,
+        status: 'pendente',
+        metodoPagamento: 'multicaixa',
+        observacao: `Multicaixa Express — Propina de ${MESES[mes]}`,
+      });
+      setPaymentMethod('multicaixa');
+      setPaymentMonth(mes);
+    }
+
     return (
       <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
         <View style={styles.statsRow}>
@@ -315,21 +379,276 @@ export default function PortalEncarregadoScreen() {
             <Ionicons name="alert-circle" size={18} color={Colors.danger} />
             <View style={{ flex: 1 }}>
               <Text style={styles.alertTitle}>{mesesAtraso} {mesesAtraso === 1 ? 'mês em atraso' : 'meses em atraso'}</Text>
-              <Text style={styles.alertText}>Multa estimada: {formatAOA(multaEstimada)}</Text>
+              <Text style={styles.alertText}>Multa estimada: {formatAOA(multaEstimada)} · Regularize para evitar penalizações.</Text>
             </View>
           </View>
         )}
 
-        <SectionTitle title="Taxas Aplicáveis" icon="pricetag" />
-        {taxasNivel.map(t => (
-          <View key={t.id} style={styles.taxaCard}>
-            <View style={styles.taxaInfo}>
-              <Text style={styles.taxaNome}>{t.nome}</Text>
-              <Text style={styles.taxaTipo}>{t.tipo}</Text>
+        {/* ── PAGAMENTOS ONLINE ── */}
+        {temPagamentoOnline && mesesEmAtraso.length > 0 && (
+          <>
+            <SectionTitle title="Pagar Online" icon="card" />
+            <Text style={{ fontSize: 12, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', marginBottom: 12, lineHeight: 18 }}>
+              Pague as propinas em atraso sem sair de casa. Escolha um mês e o método de pagamento.
+            </Text>
+
+            {mesesEmAtraso.map(mes => {
+              const isSelected = paymentMonth === mes;
+              return (
+                <View key={mes} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: isSelected ? Colors.gold : Colors.border, marginBottom: 10, overflow: 'hidden' }}>
+                  {/* Cabeçalho do mês */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: `${Colors.danger}18`, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="calendar" size={20} color={Colors.danger} />
+                      </View>
+                      <View>
+                        <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{MESES[mes]}</Text>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{formatAOA(valorPropina)} · Propina</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        if (isSelected) { setPaymentMonth(null); setPaymentMethod(null); setActiveRupe(null); }
+                        else { setPaymentMonth(mes); setPaymentMethod(null); setActiveRupe(null); }
+                      }}
+                      style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: isSelected ? `${Colors.gold}20` : `${Colors.danger}15`, borderWidth: 1, borderColor: isSelected ? Colors.gold : `${Colors.danger}40` }}
+                    >
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: isSelected ? Colors.gold : Colors.danger }}>
+                        {isSelected ? 'Fechar' : 'Pagar'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Seleção de método */}
+                  {isSelected && paymentMethod === null && (
+                    <View style={{ paddingHorizontal: 14, paddingBottom: 14, gap: 8 }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, marginBottom: 4 }}>Escolha o método de pagamento:</Text>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        {temMulticaixa && (
+                          <TouchableOpacity
+                            onPress={() => handleSolicitarMulticaixa(mes)}
+                            style={{ flex: 1, backgroundColor: `${Colors.success}12`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.success}40`, padding: 14, alignItems: 'center', gap: 8 }}
+                          >
+                            <MaterialCommunityIcons name="cellphone" size={28} color={Colors.success} />
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.success, textAlign: 'center' }}>Multicaixa{'\n'}Express</Text>
+                          </TouchableOpacity>
+                        )}
+                        {temReferencia && (
+                          <TouchableOpacity
+                            onPress={() => handleGerarRUPE(mes)}
+                            disabled={generatingRupe}
+                            style={{ flex: 1, backgroundColor: `${Colors.info}12`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.info}40`, padding: 14, alignItems: 'center', gap: 8, opacity: generatingRupe ? 0.6 : 1 }}
+                          >
+                            <Ionicons name="document-text" size={28} color={Colors.info} />
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.info, textAlign: 'center' }}>Referência{'\n'}Bancária</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Instruções Multicaixa Express */}
+                  {isSelected && paymentMethod === 'multicaixa' && (
+                    <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                      <View style={{ backgroundColor: `${Colors.success}10`, borderRadius: 14, borderWidth: 1, borderColor: `${Colors.success}30`, padding: 14, gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <MaterialCommunityIcons name="cellphone" size={20} color={Colors.success} />
+                          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.success }}>Multicaixa Express</Text>
+                        </View>
+
+                        <View style={{ backgroundColor: Colors.background, borderRadius: 12, padding: 14, gap: 8 }}>
+                          <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Número do Beneficiário</Text>
+                          <Text style={{ fontSize: 26, fontFamily: 'Inter_700Bold', color: Colors.success, letterSpacing: 3 }}>{config.telefoneMulticaixaExpress}</Text>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>{config.nomeBeneficiario || config.nomeEscola}</Text>
+                          <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 8, flexDirection: 'row', justifyContent: 'space-between' }}>
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Valor a pagar</Text>
+                            <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{formatAOA(valorPropina)}</Text>
+                          </View>
+                        </View>
+
+                        <View style={{ backgroundColor: Colors.background, borderRadius: 12, padding: 12, gap: 5 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 }}>Como pagar (passo a passo):</Text>
+                          {[
+                            '1. Abra a app Multicaixa Express ou marque *840#',
+                            '2. Seleccione "Pagamento" → "Pagamento de Serviços"',
+                            `3. Introduza o número: ${config.telefoneMulticaixaExpress}`,
+                            `4. Introduza o valor: ${formatAOA(valorPropina)}`,
+                            `5. Descrição: Propina ${MESES[mes]} — ${aluno.nome} ${aluno.apelido}`,
+                            '6. Confirme com o seu PIN Multicaixa',
+                            '7. Guarde o comprovativo e envie à secretaria',
+                          ].map((step, i) => (
+                            <Text key={i} style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 }}>{step}</Text>
+                          ))}
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 8, backgroundColor: `${Colors.warning}15`, borderRadius: 10, padding: 10, alignItems: 'flex-start' }}>
+                          <Ionicons name="information-circle" size={16} color={Colors.warning} />
+                          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 16 }}>
+                            Após o pagamento, a secretaria irá confirmar e actualizar o seu estado em até 1 dia útil.
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity onPress={() => { setPaymentMethod(null); setPaymentMonth(null); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+                          <Ionicons name="arrow-back" size={14} color={Colors.textMuted} />
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Voltar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Referência Bancária gerada */}
+                  {isSelected && paymentMethod === 'referencia' && activeRupe && (
+                    <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                      <View style={{ backgroundColor: `${Colors.info}10`, borderRadius: 14, borderWidth: 1, borderColor: `${Colors.info}30`, padding: 14, gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <Ionicons name="document-text" size={20} color={Colors.info} />
+                          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.info }}>Referência Bancária Gerada</Text>
+                        </View>
+
+                        <View style={{ backgroundColor: Colors.background, borderRadius: 12, padding: 14, gap: 10 }}>
+                          {config.numeroEntidade && (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Entidade</Text>
+                              <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, letterSpacing: 1 }}>{config.numeroEntidade}</Text>
+                            </View>
+                          )}
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Referência</Text>
+                            <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.info, letterSpacing: 1 }}>{activeRupe.referencia}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Valor</Text>
+                            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success }}>{formatAOA(activeRupe.valor)}</Text>
+                          </View>
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Válida até</Text>
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{new Date(activeRupe.dataValidade).toLocaleDateString('pt-PT')}</Text>
+                          </View>
+                          {config.iban && (
+                            <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 8, gap: 3 }}>
+                              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>IBAN / NIB</Text>
+                              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.text, letterSpacing: 0.5 }}>{config.iban}</Text>
+                            </View>
+                          )}
+                          {config.bancoTransferencia && (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Banco</Text>
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{config.bancoTransferencia}</Text>
+                            </View>
+                          )}
+                          {config.nomeBeneficiario && (
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Beneficiário</Text>
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{config.nomeBeneficiario}</Text>
+                            </View>
+                          )}
+                        </View>
+
+                        <View style={{ backgroundColor: Colors.background, borderRadius: 12, padding: 12, gap: 5 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 4 }}>Como pagar (passo a passo):</Text>
+                          {[
+                            '1. Dirija-se a qualquer caixa Multicaixa (ATM) ou balcão bancário',
+                            '2. Seleccione "Pagamento de Serviços" ou "Referências"',
+                            `3. Entidade: ${config.numeroEntidade || '(ver acima)'}`,
+                            '4. Introduza a Referência acima exactamente como indicado',
+                            `5. Confirme o valor: ${formatAOA(activeRupe.valor)}`,
+                            '6. Guarde o talão/comprovativo do pagamento',
+                            '7. Envie foto do comprovativo à secretaria',
+                          ].map((step, i) => (
+                            <Text key={i} style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 }}>{step}</Text>
+                          ))}
+                        </View>
+
+                        <View style={{ flexDirection: 'row', gap: 8, backgroundColor: `${Colors.warning}15`, borderRadius: 10, padding: 10, alignItems: 'flex-start' }}>
+                          <Ionicons name="time" size={16} color={Colors.warning} />
+                          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 16 }}>
+                            Esta referência é válida por 15 dias. Após o prazo, será necessário gerar uma nova referência.
+                          </Text>
+                        </View>
+
+                        <TouchableOpacity onPress={() => { setPaymentMethod(null); setActiveRupe(null); setPaymentMonth(null); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+                          <Ionicons name="arrow-back" size={14} color={Colors.textMuted} />
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Voltar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+          </>
+        )}
+
+        {/* Pagamentos em processamento */}
+        {mesesPendentesSet.size > 0 && (
+          <>
+            <SectionTitle title="Em Processamento" icon="hourglass" />
+            {Array.from(mesesPendentesSet).map(mes => (
+              <View key={mes} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.warning}40`, padding: 12, marginBottom: 6 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Ionicons name="hourglass-outline" size={18} color={Colors.warning} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{MESES[mes] || `Mês ${mes}`}</Text>
+                </View>
+                <View style={{ backgroundColor: `${Colors.warning}20`, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.warning }}>A aguardar confirmação</Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {/* Referências Geradas */}
+        {rupesAluno.length > 0 && (
+          <>
+            <SectionTitle title="Referências Geradas" icon="receipt" />
+            {rupesAluno.slice(0, 5).map(r => (
+              <View key={r.id} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 6, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{r.referencia}</Text>
+                  <View style={{ borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, backgroundColor: r.status === 'pago' ? `${Colors.success}20` : r.status === 'expirado' ? `${Colors.danger}20` : `${Colors.info}20` }}>
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: r.status === 'pago' ? Colors.success : r.status === 'expirado' ? Colors.danger : Colors.info }}>
+                      {r.status === 'pago' ? 'Pago' : r.status === 'expirado' ? 'Expirado' : 'Activo'}
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{formatAOA(r.valor)}</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Válido até {new Date(r.dataValidade).toLocaleDateString('pt-PT')}</Text>
+                </View>
+              </View>
+            ))}
+          </>
+        )}
+
+        {!temPagamentoOnline && mesesEmAtraso.length > 0 && (
+          <View style={{ backgroundColor: `${Colors.info}10`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.info}30`, padding: 14, marginBottom: 16, gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+              <Ionicons name="information-circle" size={16} color={Colors.info} />
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Pagamento Presencial</Text>
             </View>
-            <Text style={styles.taxaValor}>{formatAOA(t.valor)}</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18 }}>
+              Dirija-se ao balcão financeiro da escola para regularizar as propinas em atraso. Traga o cartão do aluno e o comprovativo do último pagamento.
+            </Text>
           </View>
-        ))}
+        )}
+
+        <SectionTitle title="Taxas Aplicáveis" icon="pricetag" />
+        {taxasNivel.length === 0 ? (
+          <View style={[styles.emptyTab, { paddingTop: 20 }]}>
+            <Text style={styles.emptyTabText}>Sem taxas configuradas para este nível</Text>
+          </View>
+        ) : (
+          taxasNivel.map(t => (
+            <View key={t.id} style={styles.taxaCard}>
+              <View style={styles.taxaInfo}>
+                <Text style={styles.taxaNome}>{t.descricao || t.tipo}</Text>
+                <Text style={styles.taxaTipo}>{t.tipo} · {t.frequencia}</Text>
+              </View>
+              <Text style={styles.taxaValor}>{formatAOA(t.valor)}</Text>
+            </View>
+          ))
+        )}
 
         <SectionTitle title="Histórico de Pagamentos" icon="receipt" />
         {pagamentosAluno.length === 0 ? (
@@ -341,10 +660,15 @@ export default function PortalEncarregadoScreen() {
           pagamentosAluno.slice(0, 20).map(p => (
             <View key={p.id} style={styles.pagCard}>
               <View style={styles.pagInfo}>
-                <Text style={styles.pagDesc}>{p.descricao || p.tipo || 'Pagamento'}</Text>
-                <Text style={styles.pagData}>{p.data || p.createdAt?.slice(0, 10)}</Text>
+                <Text style={styles.pagDesc}>{p.observacao || (p.mes ? `Propina de ${MESES[p.mes]}` : 'Pagamento')}</Text>
+                <Text style={styles.pagData}>{p.data || (p as any).createdAt?.slice(0, 10)}</Text>
               </View>
-              <Text style={styles.pagValor}>{formatAOA(p.valor)}</Text>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <Text style={styles.pagValor}>{formatAOA(p.valor)}</Text>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: p.status === 'pago' ? Colors.success : p.status === 'pendente' ? Colors.warning : Colors.textMuted }}>
+                  {p.status === 'pago' ? 'Pago' : p.status === 'pendente' ? 'Pendente' : 'Cancelado'}
+                </Text>
+              </View>
             </View>
           ))
         )}

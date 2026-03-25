@@ -1298,6 +1298,103 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Pagamentos Online */}
+            <View style={styles.card}>
+              <SectionHeader title="Pagamentos Online" icon="card" color={Colors.success} />
+              <Text style={styles.configSectionDesc}>
+                Configure os dados bancários e o número Multicaixa Express da escola. Os encarregados poderão gerar referências e pagar propinas directamente pelo portal, sem se deslocarem à escola.
+              </Text>
+
+              {/* Multicaixa Express */}
+              <View style={{ backgroundColor: `${Colors.success}10`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.success}30`, padding: 12, marginBottom: 12, gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <MaterialCommunityIcons name="cellphone" size={16} color={Colors.success} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Multicaixa Express</Text>
+                </View>
+                <Text style={styles.configFieldLabel}>Número de Telemóvel (Multicaixa Express)</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6 }]}
+                  value={config.telefoneMulticaixaExpress || ''}
+                  onChangeText={v => updateConfig({ telefoneMulticaixaExpress: v })}
+                  placeholder="Ex: 923 456 789"
+                  keyboardType="phone-pad"
+                  placeholderTextColor={Colors.textMuted}
+                />
+                {config.telefoneMulticaixaExpress ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success }}>Multicaixa Express activo — os encarregados podem pagar por este número.</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>Deixe em branco para desactivar esta opção.</Text>
+                )}
+              </View>
+
+              {/* Referência Bancária / RUPE */}
+              <View style={{ backgroundColor: `${Colors.info}10`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.info}30`, padding: 12, gap: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                  <Ionicons name="document-text" size={16} color={Colors.info} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Referência Bancária / RUPE</Text>
+                </View>
+
+                <Text style={styles.configFieldLabel}>Nome do Beneficiário</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
+                  value={config.nomeBeneficiario || ''}
+                  onChangeText={v => updateConfig({ nomeBeneficiario: v })}
+                  placeholder="Ex: Escola Secundária N.º 1 de Luanda"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.configFieldLabel}>Número de Entidade</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
+                  value={config.numeroEntidade || ''}
+                  onChangeText={v => updateConfig({ numeroEntidade: v })}
+                  placeholder="Ex: 12345"
+                  keyboardType="number-pad"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.configFieldLabel}>Banco</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
+                  value={config.bancoTransferencia || ''}
+                  onChangeText={v => updateConfig({ bancoTransferencia: v })}
+                  placeholder="Ex: Banco de Fomento Angola (BFA)"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.configFieldLabel}>IBAN / NIB</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
+                  value={config.iban || ''}
+                  onChangeText={v => updateConfig({ iban: v })}
+                  placeholder="Ex: AO06.0040.0000.0000.1234.1019.2"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={styles.configFieldLabel}>NIB (alternativo)</Text>
+                <TextInput
+                  style={[styles.input, { marginTop: 6 }]}
+                  value={config.nib || ''}
+                  onChangeText={v => updateConfig({ nib: v })}
+                  placeholder="Ex: 000400001234101920"
+                  keyboardType="number-pad"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                {(config.numeroEntidade || config.iban) ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info }}>Referências bancárias activas — os encarregados podem gerar referências RUPE.</Text>
+                  </View>
+                ) : (
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8 }}>Preencha o número de entidade ou IBAN para activar esta opção.</Text>
+                )}
+              </View>
+            </View>
+
           </View>
         )}
 

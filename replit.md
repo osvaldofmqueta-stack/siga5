@@ -1,6 +1,25 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Integração Disciplina-Curso Completa)
+## Recent Changes (Latest Session — Pagamentos Online: Multicaixa Express + Referências Bancárias)
+- **app/(main)/portal-encarregado.tsx**: Aba "Financeiro" totalmente remodelada:
+  - Secção "Pagar Online" aparece para encarregados com propinas em atraso
+  - Por cada mês em atraso: botão "Pagar" abre seletor de método de pagamento
+  - **Multicaixa Express**: instruções passo-a-passo (app/USSD *840#), número do beneficiário, valor, descrição a inserir. Cria pagamento `pendente` com `metodoPagamento: 'multicaixa'`
+  - **Referência Bancária**: gera RUPE automaticamente (`gerarRUPE`), mostra Entidade, Referência, Valor, Validade (15 dias), IBAN, Banco, Beneficiário. Cria pagamento `pendente` com referência
+  - Secção "Em Processamento": mostra meses com pagamentos `pendente` aguardando confirmação da secretaria
+  - Secção "Referências Geradas": histórico de RUPEs com estado (Activo/Pago/Expirado)
+  - Info de pagamento presencial quando métodos online não estão configurados
+  - Histórico de pagamentos melhorado: mostra estado (Pago/Pendente/Cancelado) em cada entrada
+- **app/(main)/admin.tsx**: Novo cartão "Pagamentos Online" na secção Configurações:
+  - **Multicaixa Express**: campo de número de telemóvel; indicador activo/inactivo
+  - **Referência Bancária / RUPE**: campos para Nome do Beneficiário, Número de Entidade, Banco, IBAN/NIB, NIB; indicador activo quando Entidade ou IBAN preenchidos
+  - Configuração guarda em `config` via `updateConfig` para os campos existentes: `telefoneMulticaixaExpress`, `nomeBeneficiario`, `numeroEntidade`, `bancoTransferencia`, `iban`, `nib`
+
+## Recent Changes (Previous Session — Pautas e Prazos de Lançamento)
+- **app/(main)/secretaria-hub.tsx**: Nova aba "Pautas" com filtros por estado/trimestre/turma, impressão HTML oficial e exportação Excel (XLSX). Apenas pautas fechadas podem ser impressas/exportadas.
+- **app/(main)/admin.tsx**: Cartão "Prazos de Lançamento de Notas" na secção Configurações com DatePickerField para T1, T2, T3. Estado activo/expirado visível.
+
+## Recent Changes (Previous — Integração Disciplina-Curso Completa)
 - **shared/schema.ts**: Nova tabela `curso_disciplinas` (muitos-para-muitos: curso ↔ disciplina do catálogo). Campos: `cursoId`, `disciplinaId`, `obrigatoria`, `cargaHoraria`, `ordem`. Tabela `turmas` já tinha `cursoId` (presente desde sessão anterior).
 - **server/routes.ts**: 3 novas rotas:
   - `GET /api/cursos/:id/disciplinas` — devolve disciplinas ligadas a um curso (com JOIN ao catálogo)
