@@ -1,0 +1,1070 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Modal, ActivityIndicator, RefreshControl, Alert,
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useAuth } from '../../context/AuthContext';
+import { api } from '../../lib/api';
+import { Colors } from '../../constants/colors';
+import { useToast } from '../../context/ToastContext';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+interface FolhaSalarios {
+  id: string;
+  mes: number;
+  ano: number;
+  descricao: string;
+  status: 'rascunho' | 'processada' | 'aprovada' | 'paga';
+  totalBruto: number;
+  totalLiquido: number;
+  totalInssEmpregado: number;
+  totalInssPatronal: number;
+  totalIrt: number;
+  totalSubsidios: number;
+  numFuncionarios: number;
+  processadaPor: string | null;
+  observacoes: string | null;
+  criadoEm: string;
+}
+
+interface ItemFolha {
+  id: string;
+  folhaId: string;
+  professorId: string;
+  professorNome: string;
+  cargo: string;
+  categoria: string;
+  salarioBase: number;
+  subsidioAlimentacao: number;
+  subsidioTransporte: number;
+  subsidioHabitacao: number;
+  outrosSubsidios: number;
+  salarioBruto: number;
+  inssEmpregado: number;
+  inssPatronal: number;
+  irt: number;
+  outrosDescontos: number;
+  totalDescontos: number;
+  salarioLiquido: number;
+  observacao: string | null;
+}
+
+interface ProfessorSalario {
+  id: string;
+  nome: string;
+  apelido: string;
+  cargo: string | null;
+  categoria: string | null;
+  salarioBase: number | null;
+  subsidioAlimentacao: number | null;
+  subsidioTransporte: number | null;
+  subsidioHabitacao: number | null;
+  dataContratacao: string | null;
+  tipoContrato: string | null;
+  ativo: boolean;
+  email: string;
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 })
+    .format(n).replace('AOA', 'Kz');
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  rascunho:   { label: 'Rascunho',   color: '#aaa' },
+  processada: { label: 'Processada', color: Colors.accent ?? '#4FC3F7' },
+  aprovada:   { label: 'Aprovada',   color: '#66BB6A' },
+  paga:       { label: 'Paga',       color: '#AB47BC' },
+};
+
+const CONTRATOS = ['efectivo', 'contratado', 'prestacao_servicos'];
+const CONTRATO_LABELS: Record<string, string> = {
+  efectivo: 'Efectivo', contratado: 'Contratado', prestacao_servicos: 'Prestação de Serviços',
+};
+
+// ─── Glass Card ───────────────────────────────────────────────────────────────
+function Card({ children, style }: { children: React.ReactNode; style?: object }) {
+  return <View style={[styles.card, style]}>{children}</View>;
+}
+
+// ─── KPI Tile ────────────────────────────────────────────────────────────────
+function KpiTile({ icon, label, value, sub, color }: {
+  icon: React.ReactNode; label: string; value: string; sub?: string; color?: string;
+}) {
+  return (
+    <View style={[styles.kpi, { borderLeftColor: color ?? Colors.primary }]}>
+      <View style={styles.kpiIcon}>{icon}</View>
+      <Text style={styles.kpiLabel}>{label}</Text>
+      <Text style={[styles.kpiValue, color ? { color } : {}]}>{value}</Text>
+      {sub && <Text style={styles.kpiSub}>{sub}</Text>}
+    </View>
+  );
+}
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+export default function RhPayrollScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { showToast } = useToast();
+
+  const [tab, setTab] = useState<'painel' | 'folhas' | 'funcionarios' | 'detalhe'>('painel');
+  const [folhas, setFolhas] = useState<FolhaSalarios[]>([]);
+  const [profs, setProfs] = useState<ProfessorSalario[]>([]);
+  const [selectedFolha, setSelectedFolha] = useState<FolhaSalarios | null>(null);
+  const [itensFolha, setItensFolha] = useState<ItemFolha[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Modals
+  const [showNovaFolha, setShowNovaFolha] = useState(false);
+  const [showProcessar, setShowProcessar] = useState(false);
+  const [showProfModal, setShowProfModal] = useState(false);
+  const [editingProf, setEditingProf] = useState<ProfessorSalario | null>(null);
+
+  // Nova Folha form
+  const now = new Date();
+  const [newMes, setNewMes] = useState(now.getMonth() + 1);
+  const [newAno, setNewAno] = useState(now.getFullYear());
+  const [newDescricao, setNewDescricao] = useState('');
+
+  // Prof edit form
+  const [profForm, setProfForm] = useState({
+    cargo: '', categoria: '', salarioBase: '', subsidioAlimentacao: '',
+    subsidioTransporte: '', subsidioHabitacao: '', dataContratacao: '', tipoContrato: 'efectivo',
+  });
+
+  // Filter
+  const [profSearch, setProfSearch] = useState('');
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [f, p] = await Promise.all([
+        api.get<FolhaSalarios[]>('/api/folhas-salarios'),
+        api.get<ProfessorSalario[]>('/api/professores'),
+      ]);
+      setFolhas(f);
+      setProfs(p);
+    } catch {
+      showToast('Erro ao carregar dados de payroll', 'error');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const loadItens = useCallback(async (folhaId: string) => {
+    try {
+      const items = await api.get<ItemFolha[]>(`/api/folhas-salarios/${folhaId}/itens`);
+      setItensFolha(items);
+    } catch { showToast('Erro ao carregar detalhes da folha', 'error'); }
+  }, []);
+
+  const openFolha = (f: FolhaSalarios) => {
+    setSelectedFolha(f);
+    setItensFolha([]);
+    loadItens(f.id);
+    setTab('detalhe');
+  };
+
+  // ─── Computed KPIs ─────────────────────────────────────────────────────────
+  const latestFolha = folhas[0];
+  const profsComSalario = profs.filter(p => p.ativo && p.salarioBase && p.salarioBase > 0);
+  const totalMassaSalarial = profsComSalario.reduce((s, p) => s + (p.salarioBase ?? 0), 0);
+
+  // ─── Nova Folha ─────────────────────────────────────────────────────────────
+  const criarFolha = async () => {
+    try {
+      await api.post('/api/folhas-salarios', {
+        mes: newMes, ano: newAno, descricao: newDescricao,
+      });
+      showToast('Folha de salários criada', 'success');
+      setShowNovaFolha(false);
+      await loadData();
+    } catch (e: unknown) {
+      showToast((e as Error).message.includes('409') || (e as Error).message.includes('Já existe')
+        ? 'Já existe uma folha para este mês/ano' : 'Erro ao criar folha', 'error');
+    }
+  };
+
+  // ─── Processar ──────────────────────────────────────────────────────────────
+  const processarFolha = async () => {
+    if (!selectedFolha) return;
+    try {
+      const res = await api.post<{ numProcessados: number }>(`/api/folhas-salarios/${selectedFolha.id}/processar`, {
+        processadaPor: user?.nome ?? 'Sistema',
+      });
+      showToast(`Folha processada — ${res.numProcessados} funcionários`, 'success');
+      setShowProcessar(false);
+      await loadData();
+      await loadItens(selectedFolha.id);
+      const updated = folhas.find(f => f.id === selectedFolha.id);
+      if (updated) setSelectedFolha({ ...updated });
+    } catch { showToast('Erro ao processar folha', 'error'); }
+  };
+
+  // ─── Aprovar / Pagar ────────────────────────────────────────────────────────
+  const mudarStatus = async (folha: FolhaSalarios, novoStatus: string) => {
+    try {
+      await api.put(`/api/folhas-salarios/${folha.id}`, { status: novoStatus });
+      showToast(`Folha marcada como ${STATUS_LABELS[novoStatus]?.label}`, 'success');
+      await loadData();
+      if (selectedFolha?.id === folha.id) setSelectedFolha({ ...folha, status: novoStatus as FolhaSalarios['status'] });
+    } catch { showToast('Erro ao atualizar estado', 'error'); }
+  };
+
+  const eliminarFolha = async (id: string) => {
+    try {
+      await api.delete(`/api/folhas-salarios/${id}`);
+      showToast('Folha eliminada', 'success');
+      if (selectedFolha?.id === id) { setSelectedFolha(null); setTab('folhas'); }
+      await loadData();
+    } catch { showToast('Erro ao eliminar folha', 'error'); }
+  };
+
+  // ─── Prof Edit ──────────────────────────────────────────────────────────────
+  const openProfEdit = (p: ProfessorSalario) => {
+    setEditingProf(p);
+    setProfForm({
+      cargo: p.cargo ?? 'Professor',
+      categoria: p.categoria ?? '',
+      salarioBase: String(p.salarioBase ?? 0),
+      subsidioAlimentacao: String(p.subsidioAlimentacao ?? 0),
+      subsidioTransporte: String(p.subsidioTransporte ?? 0),
+      subsidioHabitacao: String(p.subsidioHabitacao ?? 0),
+      dataContratacao: p.dataContratacao ?? '',
+      tipoContrato: p.tipoContrato ?? 'efectivo',
+    });
+    setShowProfModal(true);
+  };
+
+  const guardarProf = async () => {
+    if (!editingProf) return;
+    try {
+      await api.put(`/api/professores/${editingProf.id}`, {
+        cargo: profForm.cargo,
+        categoria: profForm.categoria,
+        salarioBase: Number(profForm.salarioBase),
+        subsidioAlimentacao: Number(profForm.subsidioAlimentacao),
+        subsidioTransporte: Number(profForm.subsidioTransporte),
+        subsidioHabitacao: Number(profForm.subsidioHabitacao),
+        dataContratacao: profForm.dataContratacao,
+        tipoContrato: profForm.tipoContrato,
+      });
+      showToast('Dados salariais atualizados', 'success');
+      setShowProfModal(false);
+      setEditingProf(null);
+      await loadData();
+    } catch { showToast('Erro ao guardar dados salariais', 'error'); }
+  };
+
+  const filteredProfs = profs.filter(p => {
+    const q = profSearch.toLowerCase();
+    return `${p.nome} ${p.apelido}`.toLowerCase().includes(q) ||
+      (p.cargo ?? '').toLowerCase().includes(q);
+  });
+
+  // ─── Render Helpers ─────────────────────────────────────────────────────────
+  const renderFolhaRow = (f: FolhaSalarios) => {
+    const st = STATUS_LABELS[f.status] ?? STATUS_LABELS.rascunho;
+    return (
+      <TouchableOpacity key={f.id} style={styles.row} onPress={() => openFolha(f)} activeOpacity={0.8}>
+        <View style={styles.rowLeft}>
+          <Text style={styles.rowTitle}>{MESES[f.mes - 1]} {f.ano}</Text>
+          {f.descricao ? <Text style={styles.rowSub}>{f.descricao}</Text> : null}
+          <Text style={styles.rowMeta}>{f.numFuncionarios} funcionários · {fmt(f.totalLiquido)} líquido</Text>
+        </View>
+        <View style={styles.rowRight}>
+          <View style={[styles.badge, { backgroundColor: st.color + '28', borderColor: st.color }]}>
+            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={Colors.textSecondary ?? '#aaa'} />
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderProfRow = (p: ProfessorSalario) => (
+    <TouchableOpacity key={p.id} style={styles.row} onPress={() => openProfEdit(p)} activeOpacity={0.8}>
+      <View style={styles.rowLeft}>
+        <Text style={styles.rowTitle}>{p.nome} {p.apelido}</Text>
+        <Text style={styles.rowSub}>{p.cargo ?? 'Professor'} {p.categoria ? `· ${p.categoria}` : ''}</Text>
+        <Text style={styles.rowMeta}>
+          Base: {fmt(p.salarioBase ?? 0)}
+          {p.subsidioAlimentacao ? ` · Alim.: ${fmt(p.subsidioAlimentacao)}` : ''}
+          {p.subsidioTransporte ? ` · Transp.: ${fmt(p.subsidioTransporte)}` : ''}
+        </Text>
+      </View>
+      <View style={styles.rowRight}>
+        {!p.salarioBase || p.salarioBase === 0 ? (
+          <View style={[styles.badge, { backgroundColor: '#FF714128', borderColor: '#FF7141' }]}>
+            <Text style={[styles.badgeText, { color: '#FF7141' }]}>Sem salário</Text>
+          </View>
+        ) : (
+          <View style={[styles.badge, { backgroundColor: '#66BB6A28', borderColor: '#66BB6A' }]}>
+            <Text style={[styles.badgeText, { color: '#66BB6A' }]}>{fmt(p.salarioBase)}</Text>
+          </View>
+        )}
+        <Ionicons name="pencil" size={16} color={Colors.textSecondary ?? '#aaa'} />
+      </View>
+    </TouchableOpacity>
+  );
+
+  const renderItemRow = (item: ItemFolha) => (
+    <View key={item.id} style={styles.itemRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowTitle}>{item.professorNome}</Text>
+        <Text style={styles.rowSub}>{item.cargo}</Text>
+      </View>
+      <View style={styles.itemCols}>
+        <View style={styles.itemCol}>
+          <Text style={styles.itemColLabel}>Bruto</Text>
+          <Text style={styles.itemColVal}>{fmt(item.salarioBruto)}</Text>
+        </View>
+        <View style={styles.itemCol}>
+          <Text style={[styles.itemColLabel, { color: '#EF5350' }]}>INSS</Text>
+          <Text style={[styles.itemColVal, { color: '#EF5350' }]}>{fmt(item.inssEmpregado)}</Text>
+        </View>
+        <View style={styles.itemCol}>
+          <Text style={[styles.itemColLabel, { color: '#EF5350' }]}>IRT</Text>
+          <Text style={[styles.itemColVal, { color: '#EF5350' }]}>{fmt(item.irt)}</Text>
+        </View>
+        <View style={styles.itemCol}>
+          <Text style={[styles.itemColLabel, { color: '#66BB6A' }]}>Líquido</Text>
+          <Text style={[styles.itemColVal, { color: '#66BB6A' }]}>{fmt(item.salarioLiquido)}</Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  // ─── Tabs ──────────────────────────────────────────────────────────────────
+  const TABS: Array<{ key: typeof tab; label: string; icon: string }> = [
+    { key: 'painel', label: 'Painel', icon: 'home-outline' },
+    { key: 'folhas', label: 'Folhas', icon: 'receipt-outline' },
+    { key: 'funcionarios', label: 'Funcionários', icon: 'people-outline' },
+  ];
+
+  return (
+    <View style={styles.root}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View>
+          <Text style={styles.headerTitle}>
+            {tab === 'detalhe' && selectedFolha
+              ? `${MESES[selectedFolha.mes - 1]} ${selectedFolha.ano}`
+              : 'Folha de Salários'}
+          </Text>
+          <Text style={styles.headerSub}>Processamento Salarial · Angola</Text>
+        </View>
+        {tab === 'folhas' && (
+          <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovaFolha(true)}>
+            <Ionicons name="add" size={22} color="#fff" />
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Tab Bar — hidden on detalhe */}
+      {tab !== 'detalhe' && (
+        <View style={styles.tabBar}>
+          {TABS.map(t => (
+            <TouchableOpacity key={t.key} style={[styles.tabItem, tab === t.key && styles.tabItemActive]}
+              onPress={() => setTab(t.key)}>
+              <Ionicons name={t.icon as never} size={18} color={tab === t.key ? '#fff' : Colors.textSecondary ?? '#aaa'} />
+              <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {loading && !refreshing ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+          <Text style={styles.loadingText}>A carregar dados...</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={Colors.primary} />}
+        >
+          {/* ── PAINEL ── */}
+          {tab === 'painel' && (
+            <>
+              <Text style={styles.sectionTitle}>Resumo Salarial</Text>
+              <View style={styles.kpiGrid}>
+                <KpiTile
+                  icon={<MaterialCommunityIcons name="account-group" size={24} color={Colors.primary} />}
+                  label="Funcionários c/ Salário"
+                  value={String(profsComSalario.length)}
+                  sub={`de ${profs.length} docentes`}
+                  color={Colors.primary}
+                />
+                <KpiTile
+                  icon={<FontAwesome5 name="money-bill-wave" size={20} color="#66BB6A" />}
+                  label="Massa Salarial Base"
+                  value={fmt(totalMassaSalarial)}
+                  sub="soma dos salários base"
+                  color="#66BB6A"
+                />
+                <KpiTile
+                  icon={<MaterialCommunityIcons name="calculator" size={24} color="#FF7141" />}
+                  label="INSS Patronal Total"
+                  value={fmt(totalMassaSalarial * 0.08)}
+                  sub="estimativa (8% base)"
+                  color="#FF7141"
+                />
+                <KpiTile
+                  icon={<MaterialCommunityIcons name="file-document" size={24} color={Colors.accent ?? '#4FC3F7'} />}
+                  label="Folhas Processadas"
+                  value={String(folhas.filter(f => f.status !== 'rascunho').length)}
+                  sub={`de ${folhas.length} total`}
+                  color={Colors.accent ?? '#4FC3F7'}
+                />
+              </View>
+
+              {latestFolha && (
+                <>
+                  <Text style={styles.sectionTitle}>Última Folha</Text>
+                  <Card>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>Período</Text>
+                      <Text style={styles.cardValue}>{MESES[latestFolha.mes - 1]} {latestFolha.ano}</Text>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>Estado</Text>
+                      <View style={[styles.badge, {
+                        backgroundColor: (STATUS_LABELS[latestFolha.status]?.color ?? '#aaa') + '28',
+                        borderColor: STATUS_LABELS[latestFolha.status]?.color ?? '#aaa',
+                      }]}>
+                        <Text style={[styles.badgeText, { color: STATUS_LABELS[latestFolha.status]?.color ?? '#aaa' }]}>
+                          {STATUS_LABELS[latestFolha.status]?.label ?? latestFolha.status}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>Total Bruto</Text>
+                      <Text style={styles.cardValue}>{fmt(latestFolha.totalBruto)}</Text>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>INSS Empregado</Text>
+                      <Text style={[styles.cardValue, { color: '#EF5350' }]}>{fmt(latestFolha.totalInssEmpregado)}</Text>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>INSS Patronal</Text>
+                      <Text style={[styles.cardValue, { color: '#EF5350' }]}>{fmt(latestFolha.totalInssPatronal)}</Text>
+                    </View>
+                    <View style={styles.cardRow}>
+                      <Text style={styles.cardLabel}>IRT Total</Text>
+                      <Text style={[styles.cardValue, { color: '#EF5350' }]}>{fmt(latestFolha.totalIrt)}</Text>
+                    </View>
+                    <View style={[styles.cardRow, styles.cardRowLast]}>
+                      <Text style={[styles.cardLabel, { fontWeight: '700', color: '#fff' }]}>Total Líquido</Text>
+                      <Text style={[styles.cardValue, { color: '#66BB6A', fontWeight: '700', fontSize: 16 }]}>{fmt(latestFolha.totalLiquido)}</Text>
+                    </View>
+                    <TouchableOpacity style={styles.viewBtn} onPress={() => openFolha(latestFolha)}>
+                      <Text style={styles.viewBtnText}>Ver detalhes</Text>
+                      <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
+                    </TouchableOpacity>
+                  </Card>
+                </>
+              )}
+
+              <Text style={styles.sectionTitle}>Tabela IRT Angola (2024)</Text>
+              <Card>
+                {[
+                  ['0 – 70.000 Kz', '0%', '0 Kz'],
+                  ['70.001 – 100.000 Kz', '10%', 'sobre excedente a 70.000'],
+                  ['100.001 – 150.000 Kz', '13%', '+ 3.000 Kz'],
+                  ['150.001 – 200.000 Kz', '16%', '+ 9.500 Kz'],
+                  ['200.001 – 300.000 Kz', '18%', '+ 17.500 Kz'],
+                  ['300.001 – 500.000 Kz', '19%', '+ 35.500 Kz'],
+                  ['500.001 – 1.000.000 Kz', '20%', '+ 73.500 Kz'],
+                  ['> 1.000.000 Kz', '25%', '+ 173.500 Kz'],
+                ].map(([escalao, taxa, parcela], i) => (
+                  <View key={i} style={[styles.irtRow, i % 2 === 0 && styles.irtRowAlt]}>
+                    <Text style={styles.irtEscalao}>{escalao}</Text>
+                    <Text style={styles.irtTaxa}>{taxa}</Text>
+                    <Text style={styles.irtParcela}>{parcela}</Text>
+                  </View>
+                ))}
+                <View style={styles.irtNote}>
+                  <Ionicons name="information-circle-outline" size={14} color={Colors.textSecondary ?? '#aaa'} />
+                  <Text style={styles.irtNoteText}>INSS: 3% (empregado) + 8% (patronal) sobre salário base</Text>
+                </View>
+              </Card>
+            </>
+          )}
+
+          {/* ── FOLHAS ── */}
+          {tab === 'folhas' && (
+            <>
+              {folhas.length === 0 ? (
+                <Card style={styles.emptyCard}>
+                  <MaterialCommunityIcons name="file-document-outline" size={48} color={Colors.textSecondary ?? '#aaa'} />
+                  <Text style={styles.emptyText}>Nenhuma folha de salários criada</Text>
+                  <TouchableOpacity style={styles.emptyBtn} onPress={() => setShowNovaFolha(true)}>
+                    <Text style={styles.emptyBtnText}>Criar primeira folha</Text>
+                  </TouchableOpacity>
+                </Card>
+              ) : (
+                <Card>{folhas.map(renderFolhaRow)}</Card>
+              )}
+            </>
+          )}
+
+          {/* ── FUNCIONÁRIOS ── */}
+          {tab === 'funcionarios' && (
+            <>
+              <View style={styles.searchRow}>
+                <Ionicons name="search-outline" size={18} color={Colors.textSecondary ?? '#aaa'} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Pesquisar funcionário..."
+                  placeholderTextColor={Colors.textSecondary ?? '#aaa'}
+                  value={profSearch}
+                  onChangeText={setProfSearch}
+                />
+              </View>
+              {profsComSalario.length < profs.filter(p => p.ativo).length && (
+                <View style={styles.alertBox}>
+                  <Ionicons name="warning-outline" size={16} color="#FF7141" />
+                  <Text style={styles.alertText}>
+                    {profs.filter(p => p.ativo && (!p.salarioBase || p.salarioBase === 0)).length} funcionário(s) sem salário base definido
+                  </Text>
+                </View>
+              )}
+              <Card>{filteredProfs.map(renderProfRow)}</Card>
+            </>
+          )}
+
+          {/* ── DETALHE ── */}
+          {tab === 'detalhe' && selectedFolha && (
+            <>
+              <TouchableOpacity style={styles.backLink} onPress={() => setTab('folhas')}>
+                <Ionicons name="arrow-back" size={16} color={Colors.primary} />
+                <Text style={styles.backLinkText}>Voltar às folhas</Text>
+              </TouchableOpacity>
+
+              {/* Summary card */}
+              <Card>
+                <View style={styles.detalheTitleRow}>
+                  <Text style={styles.detalheTitle}>{MESES[selectedFolha.mes - 1]} {selectedFolha.ano}</Text>
+                  <View style={[styles.badge, {
+                    backgroundColor: (STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa') + '28',
+                    borderColor: STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa',
+                  }]}>
+                    <Text style={[styles.badgeText, { color: STATUS_LABELS[selectedFolha.status]?.color ?? '#aaa' }]}>
+                      {STATUS_LABELS[selectedFolha.status]?.label ?? selectedFolha.status}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.summaryGrid}>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Funcionários</Text>
+                    <Text style={styles.summaryVal}>{selectedFolha.numFuncionarios}</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={styles.summaryLabel}>Total Bruto</Text>
+                    <Text style={styles.summaryVal}>{fmt(selectedFolha.totalBruto)}</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[styles.summaryLabel, { color: '#EF5350' }]}>INSS Emp.</Text>
+                    <Text style={[styles.summaryVal, { color: '#EF5350' }]}>{fmt(selectedFolha.totalInssEmpregado)}</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[styles.summaryLabel, { color: '#EF5350' }]}>INSS Patr.</Text>
+                    <Text style={[styles.summaryVal, { color: '#EF5350' }]}>{fmt(selectedFolha.totalInssPatronal)}</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[styles.summaryLabel, { color: '#EF5350' }]}>IRT Total</Text>
+                    <Text style={[styles.summaryVal, { color: '#EF5350' }]}>{fmt(selectedFolha.totalIrt)}</Text>
+                  </View>
+                  <View style={styles.summaryItem}>
+                    <Text style={[styles.summaryLabel, { color: '#66BB6A' }]}>Total Líquido</Text>
+                    <Text style={[styles.summaryVal, { color: '#66BB6A', fontWeight: '700' }]}>{fmt(selectedFolha.totalLiquido)}</Text>
+                  </View>
+                </View>
+
+                {selectedFolha.processadaPor && (
+                  <Text style={styles.processadaPor}>Processada por: {selectedFolha.processadaPor}</Text>
+                )}
+              </Card>
+
+              {/* Action buttons */}
+              <View style={styles.actionRow}>
+                <TouchableOpacity style={styles.actionBtn} onPress={() => setShowProcessar(true)}>
+                  <MaterialCommunityIcons name="cog-sync" size={18} color="#fff" />
+                  <Text style={styles.actionBtnText}>Processar</Text>
+                </TouchableOpacity>
+                {selectedFolha.status === 'processada' && (
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#66BB6A' }]}
+                    onPress={() => mudarStatus(selectedFolha, 'aprovada')}>
+                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                    <Text style={styles.actionBtnText}>Aprovar</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedFolha.status === 'aprovada' && (
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#AB47BC' }]}
+                    onPress={() => mudarStatus(selectedFolha, 'paga')}>
+                    <MaterialCommunityIcons name="cash-check" size={18} color="#fff" />
+                    <Text style={styles.actionBtnText}>Marcar Paga</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedFolha.status === 'rascunho' && (
+                  <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EF5350' }]}
+                    onPress={() => {
+                      Alert.alert('Eliminar Folha', 'Tem a certeza que pretende eliminar esta folha?', [
+                        { text: 'Cancelar', style: 'cancel' },
+                        { text: 'Eliminar', style: 'destructive', onPress: () => eliminarFolha(selectedFolha.id) },
+                      ]);
+                    }}>
+                    <Ionicons name="trash" size={18} color="#fff" />
+                    <Text style={styles.actionBtnText}>Eliminar</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Items */}
+              {itensFolha.length > 0 ? (
+                <>
+                  <Text style={styles.sectionTitle}>Detalhes por Funcionário</Text>
+                  <Card>{itensFolha.map(renderItemRow)}</Card>
+                </>
+              ) : (
+                <Card style={styles.emptyCard}>
+                  <MaterialCommunityIcons name="account-clock" size={40} color={Colors.textSecondary ?? '#aaa'} />
+                  <Text style={styles.emptyText}>Folha ainda não foi processada</Text>
+                  <Text style={styles.emptySub}>Prima "Processar" para calcular os salários</Text>
+                </Card>
+              )}
+            </>
+          )}
+        </ScrollView>
+      )}
+
+      {/* ── Modal: Nova Folha ── */}
+      <Modal visible={showNovaFolha} transparent animationType="fade" onRequestClose={() => setShowNovaFolha(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Nova Folha de Salários</Text>
+
+            <Text style={styles.fieldLabel}>Mês</Text>
+            <View style={styles.monthGrid}>
+              {MESES.map((m, i) => (
+                <TouchableOpacity key={i} style={[styles.monthBtn, newMes === i + 1 && styles.monthBtnActive]}
+                  onPress={() => setNewMes(i + 1)}>
+                  <Text style={[styles.monthBtnText, newMes === i + 1 && styles.monthBtnTextActive]}>{m.slice(0, 3)}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Ano</Text>
+            <View style={styles.yearRow}>
+              {[now.getFullYear() - 1, now.getFullYear(), now.getFullYear() + 1].map(y => (
+                <TouchableOpacity key={y} style={[styles.yearBtn, newAno === y && styles.yearBtnActive]}
+                  onPress={() => setNewAno(y)}>
+                  <Text style={[styles.yearBtnText, newAno === y && styles.yearBtnTextActive]}>{y}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Descrição (opcional)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={newDescricao}
+              onChangeText={setNewDescricao}
+              placeholder="Ex: Salários referentes a Janeiro 2025"
+              placeholderTextColor={Colors.textSecondary ?? '#aaa'}
+            />
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setShowNovaFolha(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnPrimary} onPress={criarFolha}>
+                <Text style={styles.modalBtnPrimaryText}>Criar Folha</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Processar ── */}
+      <Modal visible={showProcessar} transparent animationType="fade" onRequestClose={() => setShowProcessar(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <MaterialCommunityIcons name="cog-sync" size={40} color={Colors.primary} style={{ alignSelf: 'center', marginBottom: 12 }} />
+            <Text style={styles.modalTitle}>Processar Folha</Text>
+            <Text style={styles.modalBody}>
+              Serão calculados os salários de {profsComSalario.length} funcionário(s) com salário base definido.{'\n\n'}
+              O cálculo inclui:{'\n'}
+              · INSS Empregado: 3% do salário base{'\n'}
+              · INSS Patronal: 8% do salário base{'\n'}
+              · IRT: tabela progressiva Angola 2024{'\n\n'}
+              Subsídios (alimentação, transporte, habitação) são adicionados ao bruto mas não incluídos na base tributável.
+            </Text>
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setShowProcessar(false)}>
+                <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalBtnPrimary} onPress={processarFolha}>
+                <Text style={styles.modalBtnPrimaryText}>Processar Agora</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Editar Dados Salariais Prof ── */}
+      <Modal visible={showProfModal} transparent animationType="slide" onRequestClose={() => setShowProfModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Dados Salariais</Text>
+              {editingProf && (
+                <Text style={styles.modalSubTitle}>{editingProf.nome} {editingProf.apelido}</Text>
+              )}
+
+              <Text style={styles.fieldLabel}>Cargo</Text>
+              <TextInput style={styles.textInput} value={profForm.cargo}
+                onChangeText={v => setProfForm(f => ({ ...f, cargo: v }))}
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Professor" />
+
+              <Text style={styles.fieldLabel}>Categoria</Text>
+              <TextInput style={styles.textInput} value={profForm.categoria}
+                onChangeText={v => setProfForm(f => ({ ...f, categoria: v }))}
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Técnico Superior" />
+
+              <Text style={styles.fieldLabel}>Salário Base (Kz)</Text>
+              <TextInput style={styles.textInput} value={profForm.salarioBase}
+                onChangeText={v => setProfForm(f => ({ ...f, salarioBase: v }))}
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+
+              <Text style={styles.fieldLabel}>Subsídio de Alimentação (Kz)</Text>
+              <TextInput style={styles.textInput} value={profForm.subsidioAlimentacao}
+                onChangeText={v => setProfForm(f => ({ ...f, subsidioAlimentacao: v }))}
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+
+              <Text style={styles.fieldLabel}>Subsídio de Transporte (Kz)</Text>
+              <TextInput style={styles.textInput} value={profForm.subsidioTransporte}
+                onChangeText={v => setProfForm(f => ({ ...f, subsidioTransporte: v }))}
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+
+              <Text style={styles.fieldLabel}>Subsídio de Habitação (Kz)</Text>
+              <TextInput style={styles.textInput} value={profForm.subsidioHabitacao}
+                onChangeText={v => setProfForm(f => ({ ...f, subsidioHabitacao: v }))}
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+
+              <Text style={styles.fieldLabel}>Data de Contratação</Text>
+              <TextInput style={styles.textInput} value={profForm.dataContratacao}
+                onChangeText={v => setProfForm(f => ({ ...f, dataContratacao: v }))}
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="YYYY-MM-DD" />
+
+              <Text style={styles.fieldLabel}>Tipo de Contrato</Text>
+              <View style={styles.contractRow}>
+                {CONTRATOS.map(c => (
+                  <TouchableOpacity key={c}
+                    style={[styles.contractBtn, profForm.tipoContrato === c && styles.contractBtnActive]}
+                    onPress={() => setProfForm(f => ({ ...f, tipoContrato: c }))}>
+                    <Text style={[styles.contractBtnText, profForm.tipoContrato === c && styles.contractBtnTextActive]}>
+                      {CONTRATO_LABELS[c]}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Preview calculation */}
+              {Number(profForm.salarioBase) > 0 && (
+                <View style={styles.calcPreview}>
+                  <Text style={styles.calcPreviewTitle}>Pré-visualização do Cálculo</Text>
+                  {(() => {
+                    const base = Number(profForm.salarioBase);
+                    const subs = Number(profForm.subsidioAlimentacao) + Number(profForm.subsidioTransporte) + Number(profForm.subsidioHabitacao);
+                    const bruto = base + subs;
+                    const inssEmp = Math.round(base * 0.03 * 100) / 100;
+                    const inssPatr = Math.round(base * 0.08 * 100) / 100;
+                    const irt = Math.round(calcIRT(base) * 100) / 100;
+                    const liquido = Math.round((bruto - inssEmp - irt) * 100) / 100;
+                    return (
+                      <>
+                        <View style={styles.calcRow}><Text style={styles.calcLabel}>Salário Bruto</Text><Text style={styles.calcVal}>{fmt(bruto)}</Text></View>
+                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#EF5350' }]}>INSS Empregado (3%)</Text><Text style={[styles.calcVal, { color: '#EF5350' }]}>- {fmt(inssEmp)}</Text></View>
+                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#FF7141' }]}>INSS Patronal (8%)</Text><Text style={[styles.calcVal, { color: '#FF7141' }]}>{fmt(inssPatr)}</Text></View>
+                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#EF5350' }]}>IRT</Text><Text style={[styles.calcVal, { color: '#EF5350' }]}>- {fmt(irt)}</Text></View>
+                        <View style={[styles.calcRow, { borderTopWidth: 1, borderTopColor: '#ffffff22', marginTop: 6, paddingTop: 6 }]}>
+                          <Text style={[styles.calcLabel, { fontWeight: '700', color: '#fff' }]}>Salário Líquido</Text>
+                          <Text style={[styles.calcVal, { color: '#66BB6A', fontWeight: '700' }]}>{fmt(liquido)}</Text>
+                        </View>
+                      </>
+                    );
+                  })()}
+                </View>
+              )}
+
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalBtnCancel} onPress={() => setShowProfModal(false)}>
+                  <Text style={styles.modalBtnCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalBtnPrimary} onPress={guardarProf}>
+                  <Text style={styles.modalBtnPrimaryText}>Guardar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// IRT client-side preview (mirrors server calculation)
+function calcIRT(base: number): number {
+  if (base <= 70000)    return 0;
+  if (base <= 100000)   return (base - 70000) * 0.10;
+  if (base <= 150000)   return 3000  + (base - 100000) * 0.13;
+  if (base <= 200000)   return 9500  + (base - 150000) * 0.16;
+  if (base <= 300000)   return 17500 + (base - 200000) * 0.18;
+  if (base <= 500000)   return 35500 + (base - 300000) * 0.19;
+  if (base <= 1000000)  return 73500 + (base - 500000) * 0.20;
+  return 173500 + (base - 1000000) * 0.25;
+}
+
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const GLASS = 'rgba(255,255,255,0.06)';
+const BORDER = 'rgba(255,255,255,0.12)';
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: Colors.background ?? '#0a0a1a' },
+
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 52, paddingBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  backBtn: { padding: 4 },
+  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1 },
+  headerSub: { color: Colors.textSecondary ?? '#aaa', fontSize: 12 },
+  addBtn: {
+    padding: 8, borderRadius: 8,
+    backgroundColor: Colors.primary ?? '#5E6AD2',
+  },
+
+  tabBar: {
+    flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: BORDER,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  tabItem: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent',
+  },
+  tabItemActive: { borderBottomColor: Colors.primary ?? '#5E6AD2' },
+  tabLabel: { fontSize: 13, color: Colors.textSecondary ?? '#aaa' },
+  tabLabelActive: { color: '#fff', fontWeight: '600' },
+
+  scroll: { flex: 1 },
+  scrollContent: { padding: 16, paddingBottom: 40 },
+
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { color: Colors.textSecondary ?? '#aaa', fontSize: 14 },
+
+  sectionTitle: { color: '#fff', fontSize: 15, fontWeight: '700', marginTop: 8, marginBottom: 10 },
+
+  card: {
+    backgroundColor: GLASS, borderRadius: 16,
+    borderWidth: 1, borderColor: BORDER,
+    marginBottom: 16, overflow: 'hidden',
+  },
+
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  kpi: {
+    flex: 1, minWidth: '46%',
+    backgroundColor: GLASS, borderRadius: 14,
+    borderWidth: 1, borderColor: BORDER,
+    borderLeftWidth: 3, padding: 14, gap: 4,
+  },
+  kpiIcon: { marginBottom: 4 },
+  kpiLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 11, fontWeight: '600' },
+  kpiValue: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  kpiSub: { color: Colors.textSecondary ?? '#aaa', fontSize: 11 },
+
+  row: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: BORDER, gap: 10,
+  },
+  rowLeft: { flex: 1 },
+  rowRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  rowTitle: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  rowSub: { color: Colors.textSecondary ?? '#aaa', fontSize: 12, marginTop: 2 },
+  rowMeta: { color: Colors.textSecondary ?? '#aaa', fontSize: 11, marginTop: 3 },
+
+  badge: {
+    borderRadius: 6, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+
+  cardRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  cardRowLast: { borderBottomWidth: 0 },
+  cardLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 13 },
+  cardValue: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  viewBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, padding: 12,
+    justifyContent: 'center', borderTopWidth: 1, borderTopColor: BORDER,
+  },
+  viewBtnText: { color: Colors.primary ?? '#5E6AD2', fontSize: 14, fontWeight: '600' },
+
+  irtRow: { flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 8, gap: 8 },
+  irtRowAlt: { backgroundColor: 'rgba(255,255,255,0.03)' },
+  irtEscalao: { flex: 2, color: '#fff', fontSize: 11 },
+  irtTaxa: { flex: 1, color: Colors.primary ?? '#5E6AD2', fontSize: 11, fontWeight: '700', textAlign: 'center' },
+  irtParcela: { flex: 2, color: Colors.textSecondary ?? '#aaa', fontSize: 10, textAlign: 'right' },
+  irtNote: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    padding: 12, borderTopWidth: 1, borderTopColor: BORDER, marginTop: 4,
+  },
+  irtNoteText: { color: Colors.textSecondary ?? '#aaa', fontSize: 11, flex: 1 },
+
+  emptyCard: { alignItems: 'center', justifyContent: 'center', padding: 40, gap: 12 },
+  emptyText: { color: Colors.textSecondary ?? '#aaa', fontSize: 15, textAlign: 'center' },
+  emptySub: { color: Colors.textSecondary ?? '#aaa', fontSize: 12, textAlign: 'center' },
+  emptyBtn: {
+    backgroundColor: Colors.primary ?? '#5E6AD2', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10,
+  },
+  emptyBtnText: { color: '#fff', fontWeight: '700' },
+
+  searchRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: GLASS, borderRadius: 10, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12,
+  },
+  searchInput: { flex: 1, color: '#fff', fontSize: 14 },
+
+  alertBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FF714118', borderRadius: 10, borderWidth: 1, borderColor: '#FF714144',
+    padding: 12, marginBottom: 12,
+  },
+  alertText: { color: '#FF7141', fontSize: 13, flex: 1 },
+
+  backLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 },
+  backLinkText: { color: Colors.primary ?? '#5E6AD2', fontSize: 14 },
+
+  detalheTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16 },
+  detalheTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
+
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 8, gap: 8 },
+  summaryItem: {
+    flex: 1, minWidth: '30%',
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: BORDER,
+  },
+  summaryLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 11, marginBottom: 4 },
+  summaryVal: { color: '#fff', fontSize: 14, fontWeight: '700' },
+
+  processadaPor: {
+    color: Colors.textSecondary ?? '#aaa', fontSize: 11, padding: 12,
+    borderTopWidth: 1, borderTopColor: BORDER,
+  },
+
+  actionRow: { flexDirection: 'row', gap: 10, marginBottom: 16, flexWrap: 'wrap' },
+  actionBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: Colors.primary ?? '#5E6AD2',
+    paddingVertical: 12, borderRadius: 10,
+  },
+  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  itemRow: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: BORDER,
+  },
+  itemCols: { flexDirection: 'row', gap: 8 },
+  itemCol: { alignItems: 'flex-end', minWidth: 72 },
+  itemColLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 10 },
+  itemColVal: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
+  // Modals
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  modalScrollContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalBox: {
+    backgroundColor: '#141428', borderRadius: 20,
+    borderWidth: 1, borderColor: BORDER,
+    padding: 24, width: '100%', maxWidth: 440,
+  },
+  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700', marginBottom: 4, textAlign: 'center' },
+  modalSubTitle: { color: Colors.textSecondary ?? '#aaa', fontSize: 13, textAlign: 'center', marginBottom: 16 },
+  modalBody: { color: Colors.textSecondary ?? '#aaa', fontSize: 13, lineHeight: 20, marginVertical: 12 },
+
+  fieldLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 12, fontWeight: '600', marginTop: 12, marginBottom: 6 },
+  textInput: {
+    backgroundColor: GLASS, borderWidth: 1, borderColor: BORDER, borderRadius: 10,
+    color: '#fff', fontSize: 14, paddingHorizontal: 14, paddingVertical: 11,
+  },
+
+  monthGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  monthBtn: {
+    paddingHorizontal: 10, paddingVertical: 8, borderRadius: 8,
+    backgroundColor: GLASS, borderWidth: 1, borderColor: BORDER, minWidth: 54, alignItems: 'center',
+  },
+  monthBtnActive: { backgroundColor: Colors.primary + '44', borderColor: Colors.primary ?? '#5E6AD2' },
+  monthBtnText: { color: Colors.textSecondary ?? '#aaa', fontSize: 12, fontWeight: '600' },
+  monthBtnTextActive: { color: '#fff' },
+
+  yearRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
+  yearBtn: {
+    flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center',
+    backgroundColor: GLASS, borderWidth: 1, borderColor: BORDER,
+  },
+  yearBtnActive: { backgroundColor: Colors.primary + '44', borderColor: Colors.primary ?? '#5E6AD2' },
+  yearBtnText: { color: Colors.textSecondary ?? '#aaa', fontWeight: '600' },
+  yearBtnTextActive: { color: '#fff' },
+
+  contractRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 4 },
+  contractBtn: {
+    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8,
+    backgroundColor: GLASS, borderWidth: 1, borderColor: BORDER,
+  },
+  contractBtnActive: { backgroundColor: Colors.primary + '44', borderColor: Colors.primary ?? '#5E6AD2' },
+  contractBtnText: { color: Colors.textSecondary ?? '#aaa', fontSize: 12, fontWeight: '600' },
+  contractBtnTextActive: { color: '#fff' },
+
+  calcPreview: {
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12,
+    borderWidth: 1, borderColor: BORDER, padding: 14, marginTop: 12,
+  },
+  calcPreviewTitle: { color: '#fff', fontSize: 13, fontWeight: '700', marginBottom: 10 },
+  calcRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  calcLabel: { color: Colors.textSecondary ?? '#aaa', fontSize: 12 },
+  calcVal: { color: '#fff', fontSize: 12, fontWeight: '600' },
+
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalBtnCancel: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: GLASS, borderWidth: 1, borderColor: BORDER, alignItems: 'center',
+  },
+  modalBtnCancelText: { color: Colors.textSecondary ?? '#aaa', fontWeight: '600' },
+  modalBtnPrimary: {
+    flex: 1, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: Colors.primary ?? '#5E6AD2', alignItems: 'center',
+  },
+  modalBtnPrimaryText: { color: '#fff', fontWeight: '700' },
+});

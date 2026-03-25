@@ -289,6 +289,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "habilitacoes",
         "ativo",
         "createdAt",
+        // Payroll fields
+        "cargo",
+        "categoria",
+        "salarioBase",
+        "subsidioAlimentacao",
+        "subsidioTransporte",
+        "subsidioHabitacao",
+        "dataContratacao",
+        "tipoContrato",
       ] as const;
 
       const jsonbKeys = new Set(["disciplinas", "turmasIds"]);
@@ -2687,6 +2696,220 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await query(`DELETE FROM public.planos_aula WHERE id=$1`, [req.params.id]);
       return json(res, 200, { ok: true });
     } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // FOLHAS DE SALÁRIOS (PAYROLL)
+  // -----------------------
+
+  // IRT Angola — cálculo do Imposto sobre Rendimento do Trabalho
+  function calcularIRT(rendimentoBruto: number): number {
+    if (rendimentoBruto <= 70000)   return 0;
+    if (rendimentoBruto <= 100000)  return (rendimentoBruto - 70000) * 0.10;
+    if (rendimentoBruto <= 150000)  return 3000  + (rendimentoBruto - 100000) * 0.13;
+    if (rendimentoBruto <= 200000)  return 9500  + (rendimentoBruto - 150000) * 0.16;
+    if (rendimentoBruto <= 300000)  return 17500 + (rendimentoBruto - 200000) * 0.18;
+    if (rendimentoBruto <= 500000)  return 35500 + (rendimentoBruto - 300000) * 0.19;
+    if (rendimentoBruto <= 1000000) return 73500 + (rendimentoBruto - 500000) * 0.20;
+    return 173500 + (rendimentoBruto - 1000000) * 0.25;
+  }
+
+  app.get("/api/folhas-salarios", requireAuth, requirePermission("rh"), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.folhas_salarios ORDER BY ano DESC, mes DESC`, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/folhas-salarios/:id", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.folhas_salarios WHERE id=$1`, [req.params.id]);
+      if (!rows[0]) return json(res, 404, { error: 'Folha não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/folhas-salarios/:id/itens", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.itens_folha WHERE "folhaId"=$1 ORDER BY "professorNome"`, [req.params.id]);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/folhas-salarios", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const mes = Number(b.mes);
+      const ano = Number(b.ano);
+      if (!mes || !ano) return json(res, 400, { error: 'Mês e ano são obrigatórios.' });
+
+      // Check if sheet already exists for this month/year
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.folhas_salarios WHERE mes=$1 AND ano=$2 LIMIT 1`,
+        [mes, ano]
+      );
+      if (existing[0]) return json(res, 409, { error: 'Já existe uma folha de salários para este mês/ano.' });
+
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.folhas_salarios (id,mes,ano,descricao,status,observacoes)
+         VALUES (gen_random_uuid(),$1,$2,$3,'rascunho',$4) RETURNING *`,
+        [mes, ano, String(b.descricao ?? ''), String(b.observacoes ?? '')]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/folhas-salarios/:id", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["descricao","status","observacoes","processadaPor"] as const;
+      const setParts: string[] = [];
+      const values: unknown[] = [];
+      for (const key of allowed) {
+        if (b[key] === undefined) continue;
+        values.push(b[key]);
+        setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: 'Sem campos para atualizar.' });
+      setParts.push(`"atualizadoEm"=NOW()`);
+      const rows = await query<JsonObject>(
+        `UPDATE public.folhas_salarios SET ${setParts.join(',')} WHERE id=$${values.length+1} RETURNING *`,
+        [...values, id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Folha não encontrada.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/folhas-salarios/:id", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.folhas_salarios WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Processar folha: gera itens automáticos para todos os professores ativos com salário definido
+  app.post("/api/folhas-salarios/:id/processar", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+
+      const folha = await query<JsonObject>(`SELECT * FROM public.folhas_salarios WHERE id=$1`, [id]);
+      if (!folha[0]) return json(res, 404, { error: 'Folha não encontrada.' });
+
+      const profs = await query<JsonObject>(
+        `SELECT * FROM public.professores WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0 ORDER BY nome`,
+        []
+      );
+
+      // Delete existing items and rebuild
+      await query(`DELETE FROM public.itens_folha WHERE "folhaId"=$1`, [id]);
+
+      let totalBruto = 0, totalLiquido = 0, totalInssEmp = 0, totalInssPatr = 0, totalIrtSum = 0, totalSubs = 0;
+
+      for (const p of profs) {
+        const salBase = Number(p.salarioBase ?? 0);
+        const subAlim = Number(p.subsidioAlimentacao ?? 0);
+        const subTrans = Number(p.subsidioTransporte ?? 0);
+        const subHab = Number(p.subsidioHabitacao ?? 0);
+        const outrosSubs = Number(b.outrosSubsidios ?? 0);
+        const outrosDesc = Number(b.outrosDescontos ?? 0);
+
+        const totalSubsidios = subAlim + subTrans + subHab + outrosSubs;
+        const salBruto = salBase + totalSubsidios;
+
+        // INSS: 3% empregado, 8% patronal (Angola)
+        const inssEmp = Math.round(salBase * 0.03 * 100) / 100;
+        const inssPatr = Math.round(salBase * 0.08 * 100) / 100;
+
+        // IRT: calculado sobre salário base (Angola, subsídios em geral isentos)
+        const irt = Math.round(calcularIRT(salBase) * 100) / 100;
+
+        const totalDescontos = inssEmp + irt + outrosDesc;
+        const salLiquido = Math.round((salBruto - totalDescontos) * 100) / 100;
+
+        await query(
+          `INSERT INTO public.itens_folha
+           (id,"folhaId","professorId","professorNome",cargo,categoria,
+            "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios","salarioBruto",
+            "inssEmpregado","inssPatronal",irt,"outrosDescontos","totalDescontos","salarioLiquido")
+           VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+          [id, String(p.id), `${p.nome} ${p.apelido}`,
+           String(p.cargo ?? 'Professor'), String(p.categoria ?? ''),
+           salBase, subAlim, subTrans, subHab, outrosSubs, salBruto,
+           inssEmp, inssPatr, irt, outrosDesc, totalDescontos, salLiquido]
+        );
+
+        totalBruto += salBruto;
+        totalLiquido += salLiquido;
+        totalInssEmp += inssEmp;
+        totalInssPatr += inssPatr;
+        totalIrtSum += irt;
+        totalSubs += totalSubsidios;
+      }
+
+      const nomeProcBy = String(b.processadaPor ?? 'Sistema');
+
+      const updated = await query<JsonObject>(
+        `UPDATE public.folhas_salarios SET
+           status='processada',"totalBruto"=$1,"totalLiquido"=$2,"totalInssEmpregado"=$3,
+           "totalInssPatronal"=$4,"totalIrt"=$5,"totalSubsidios"=$6,"numFuncionarios"=$7,
+           "processadaPor"=$8,"atualizadoEm"=NOW()
+         WHERE id=$9 RETURNING *`,
+        [Math.round(totalBruto*100)/100, Math.round(totalLiquido*100)/100,
+         Math.round(totalInssEmp*100)/100, Math.round(totalInssPatr*100)/100,
+         Math.round(totalIrtSum*100)/100, Math.round(totalSubs*100)/100,
+         profs.length, nomeProcBy, id]
+      );
+
+      json(res, 200, { folha: updated[0], numProcessados: profs.length });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Update a single payroll item (manual adjustments)
+  app.put("/api/itens-folha/:id", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["cargo","categoria","salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios","outrosDescontos","observacao"] as const;
+      const setParts: string[] = [];
+      const values: unknown[] = [];
+      for (const key of allowed) {
+        if (b[key] === undefined) continue;
+        values.push(b[key]);
+        setParts.push(`"${key}"=$${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: 'Sem campos para atualizar.' });
+
+      // Recalculate derived fields if salary fields changed
+      const item = await query<JsonObject>(`SELECT * FROM public.itens_folha WHERE id=$1`, [id]);
+      if (!item[0]) return json(res, 404, { error: 'Item não encontrado.' });
+
+      const salBase = Number(b.salarioBase ?? item[0].salarioBase ?? 0);
+      const subAlim = Number(b.subsidioAlimentacao ?? item[0].subsidioAlimentacao ?? 0);
+      const subTrans = Number(b.subsidioTransporte ?? item[0].subsidioTransporte ?? 0);
+      const subHab = Number(b.subsidioHabitacao ?? item[0].subsidioHabitacao ?? 0);
+      const outrosSubs = Number(b.outrosSubsidios ?? item[0].outrosSubsidios ?? 0);
+      const outrosDesc = Number(b.outrosDescontos ?? item[0].outrosDescontos ?? 0);
+
+      const salBruto = salBase + subAlim + subTrans + subHab + outrosSubs;
+      const inssEmp = Math.round(salBase * 0.03 * 100) / 100;
+      const inssPatr = Math.round(salBase * 0.08 * 100) / 100;
+      const irt = Math.round(calcularIRT(salBase) * 100) / 100;
+      const totalDescontos = inssEmp + irt + outrosDesc;
+      const salLiquido = Math.round((salBruto - totalDescontos) * 100) / 100;
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.itens_folha SET
+           ${setParts.join(',')},
+           "salarioBruto"=$${values.length+1},"inssEmpregado"=$${values.length+2},"inssPatronal"=$${values.length+3},
+           irt=$${values.length+4},"totalDescontos"=$${values.length+5},"salarioLiquido"=$${values.length+6}
+         WHERE id=$${values.length+7} RETURNING *`,
+        [...values, salBruto, inssEmp, inssPatr, irt, totalDescontos, salLiquido, id]
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   const httpServer = createServer(app);

@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
@@ -36,6 +37,7 @@ const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 export default function RHHubScreen() {
   const { user } = useAuth();
+  const router = useRouter();
   const { professores, turmas } = useData();
   const {
     sumarios, updateSumario,
@@ -432,6 +434,22 @@ export default function RHHubScreen() {
               <Text style={styles.emptySmall}>Sem horários configurados.</Text>
             )}
           </View>
+
+          {/* Payroll quick access */}
+          <TouchableOpacity
+            style={[styles.sectionCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}
+            onPress={() => router.push('/(main)/rh-payroll' as never)}
+            activeOpacity={0.8}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="cash-multiple" size={24} color={Colors.gold} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Folha de Salários</Text>
+              <Text style={styles.emptySmall}>Processamento salarial · INSS · IRT Angola</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
         </ScrollView>
       )}
 

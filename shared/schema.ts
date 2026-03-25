@@ -123,7 +123,70 @@ export const professores = pgTable("professores", {
   habilitacoes: text("habilitacoes").notNull(),
   ativo: boolean("ativo").notNull().default(true),
 
+  // Dados Salariais (Payroll)
+  cargo: text("cargo").default('Professor'),
+  categoria: text("categoria").default(''),
+  salarioBase: real("salarioBase").default(0),
+  subsidioAlimentacao: real("subsidioAlimentacao").default(0),
+  subsidioTransporte: real("subsidioTransporte").default(0),
+  subsidioHabitacao: real("subsidioHabitacao").default(0),
+  dataContratacao: text("dataContratacao"),
+  tipoContrato: text("tipoContrato").default('efectivo'), // 'efectivo' | 'contratado' | 'prestacao_servicos'
+
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// FOLHAS DE SALÁRIOS (Payroll)
+// -----------------------
+export const folhasSalarios = pgTable("folhas_salarios", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  mes: integer("mes").notNull(),           // 1-12
+  ano: integer("ano").notNull(),
+  descricao: text("descricao").notNull().default(''),
+  status: text("status").notNull().default('rascunho'), // 'rascunho' | 'processada' | 'aprovada' | 'paga'
+  totalBruto: real("totalBruto").notNull().default(0),
+  totalLiquido: real("totalLiquido").notNull().default(0),
+  totalInssEmpregado: real("totalInssEmpregado").notNull().default(0),
+  totalInssPatronal: real("totalInssPatronal").notNull().default(0),
+  totalIrt: real("totalIrt").notNull().default(0),
+  totalSubsidios: real("totalSubsidios").notNull().default(0),
+  numFuncionarios: integer("numFuncionarios").notNull().default(0),
+  processadaPor: text("processadaPor"),
+  observacoes: text("observacoes"),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const itensFolha = pgTable("itens_folha", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  folhaId: varchar("folhaId").notNull().references(() => folhasSalarios.id, { onDelete: "cascade" }),
+  professorId: varchar("professorId").notNull(),
+  professorNome: text("professorNome").notNull(),
+  cargo: text("cargo").notNull().default('Professor'),
+  categoria: text("categoria").notNull().default(''),
+  // Vencimentos
+  salarioBase: real("salarioBase").notNull().default(0),
+  subsidioAlimentacao: real("subsidioAlimentacao").notNull().default(0),
+  subsidioTransporte: real("subsidioTransporte").notNull().default(0),
+  subsidioHabitacao: real("subsidioHabitacao").notNull().default(0),
+  outrosSubsidios: real("outrosSubsidios").notNull().default(0),
+  salarioBruto: real("salarioBruto").notNull().default(0),
+  // Descontos
+  inssEmpregado: real("inssEmpregado").notNull().default(0),   // 3%
+  inssPatronal: real("inssPatronal").notNull().default(0),     // 8%
+  irt: real("irt").notNull().default(0),                        // IRT Angola
+  outrosDescontos: real("outrosDescontos").notNull().default(0),
+  totalDescontos: real("totalDescontos").notNull().default(0),
+  // Líquido
+  salarioLiquido: real("salarioLiquido").notNull().default(0),
+  // Meta
+  observacao: text("observacao"),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
 
 // -----------------------

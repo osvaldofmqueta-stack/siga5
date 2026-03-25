@@ -90,6 +90,7 @@ export default function MainLayout() {
           <Stack.Screen name="admissao" />
           <Stack.Screen name="visao-geral" />
           <Stack.Screen name="rh-hub" />
+          <Stack.Screen name="rh-payroll" />
           <Stack.Screen name="pedagogico" />
           <Stack.Screen name="calendario-academico" />
         </Stack>
