@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions,
-  Platform, ScrollView,
+  Platform, ScrollView, Image,
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -731,9 +731,13 @@ export default function DrawerLeft() {
             onPress={() => navigate('/(main)/perfil')}
           >
             <View style={styles.perfilAvatar}>
-              <Text style={styles.perfilAvatarText}>
-                {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') || 'U'}
-              </Text>
+              {user?.avatar ? (
+                <Image source={{ uri: user.avatar }} style={styles.perfilAvatarImg} />
+              ) : (
+                <Text style={styles.perfilAvatarText}>
+                  {user?.nome?.split(' ').map(n => n[0]).slice(0, 2).join('') || 'U'}
+                </Text>
+              )}
             </View>
             <View style={styles.perfilInfo}>
               <Text style={styles.perfilNome} numberOfLines={1}>{user?.nome}</Text>
@@ -994,6 +998,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.gold,
+  },
+  perfilAvatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   perfilAvatarText: {
     fontSize: 13,
