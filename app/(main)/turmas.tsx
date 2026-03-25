@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Turma, Sala } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
+import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
@@ -20,8 +21,10 @@ const TURNOS = ['Manhã', 'Tarde', 'Noite'] as const;
 const CLASSES = ['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
 
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
+  const { anoSelecionado } = useAnoAcademico();
+  const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
   const [form, setForm] = useState<Partial<Turma>>(turma || {
-    nome: '', classe: '7ª Classe', turno: 'Manhã', anoLetivo: '2025',
+    nome: '', classe: '7ª Classe', turno: 'Manhã', anoLetivo: anoAtual,
     nivel: 'I Ciclo', professorId: professores[0]?.id || '', sala: '', capacidade: 35, ativo: true,
   });
   const [cursos, setCursos] = useState<Curso[]>([]);

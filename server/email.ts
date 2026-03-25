@@ -30,7 +30,8 @@ function createTransporter() {
 export async function sendPasswordResetEmail(
   toEmail: string,
   nomeUtilizador: string,
-  resetLink: string
+  resetLink: string,
+  nomeEscola?: string
 ): Promise<{ success: boolean; message: string }> {
   if (!isEmailConfigured()) {
     console.warn("[email] SMTP não configurado. Defina SMTP_HOST, SMTP_USER e SMTP_PASS nas variáveis de ambiente.");
@@ -39,6 +40,7 @@ export async function sendPasswordResetEmail(
 
   const transporter = createTransporter();
   const primeiroNome = nomeUtilizador.split(" ")[0] || nomeUtilizador;
+  const sistemaLabel = nomeEscola || "Sistema Integral de Gestão Escolar";
 
   const htmlBody = `
 <!DOCTYPE html>
@@ -61,7 +63,7 @@ export async function sendPasswordResetEmail(
                 <span style="font-size:28px;">🔐</span>
               </div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:0.5px;">Redefinição de Senha</h1>
-              <p style="margin:8px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">Sistema Integral de Gestão Escolar</p>
+              <p style="margin:8px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">${sistemaLabel}</p>
             </td>
           </tr>
 
@@ -125,9 +127,9 @@ export async function sendPasswordResetEmail(
 
   try {
     await transporter.sendMail({
-      from: `"SIGE — Sistema Escolar" <${SMTP_FROM}>`,
+      from: `"${sistemaLabel}" <${SMTP_FROM}>`,
       to: toEmail,
-      subject: "Redefinição de Senha — SIGE",
+      subject: `Redefinição de Senha — ${sistemaLabel}`,
       html: htmlBody,
       text: `Olá ${primeiroNome},\n\nClique no link abaixo para redefinir a sua senha:\n${resetLink}\n\nEste link expira em 1 hora.\n\nSe não solicitou esta operação, ignore este email.`,
     });

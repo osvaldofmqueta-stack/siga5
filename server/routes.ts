@@ -2624,7 +2624,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const resetLink = `${appDomain}/redefinir-senha?token=${token}`;
 
-      const result = await sendPasswordResetEmail(email, nomeUtilizador, resetLink);
+      let nomeEscola: string | undefined;
+      try {
+        const cfgRows = await query<JsonObject>(`SELECT "nomeEscola" FROM public.config_geral LIMIT 1`, []);
+        if (cfgRows[0]?.nomeEscola) nomeEscola = String(cfgRows[0].nomeEscola);
+      } catch { /* sem configuração disponível */ }
+
+      const result = await sendPasswordResetEmail(email, nomeUtilizador, resetLink, nomeEscola);
 
       if (!result.success) {
         return json(res, 500, { error: result.message });

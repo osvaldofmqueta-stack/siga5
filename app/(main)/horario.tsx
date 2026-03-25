@@ -42,7 +42,7 @@ const PERIODOS = [
   { numero: 6, inicio: '11:15', fim: '12:00' },
 ];
 
-const DISCIPLINAS_POR_NIVEL: Record<string, string[]> = {
+const DISCIPLINAS_FALLBACK: Record<string, string[]> = {
   'Primário': ['Língua Portuguesa', 'Matemática', 'Estudo do Meio', 'Educação Física', 'Educação Artística', 'Educação Moral e Cívica', 'Língua Estrangeira'],
   'I Ciclo': ['Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Língua Estrangeira I', 'Educação Física', 'Educação Visual e Plástica'],
   'II Ciclo': ['Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Língua Estrangeira I', 'Filosofia', 'Educação Física'],
@@ -81,10 +81,25 @@ export default function HorarioScreen() {
   const [form, setForm] = useState({ disciplina: '', professorId: '', sala: '' });
   const [showDisciplinaList, setShowDisciplinaList] = useState(false);
   const [showProfList, setShowProfList] = useState(false);
+  const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
   useEffect(() => {
     loadHorarios();
   }, []);
+
+  useEffect(() => {
+    if (!turmaAtual) { setDisciplinas([]); return; }
+    fetch(`/api/turmas/${turmaAtual.id}/disciplinas`)
+      .then(r => r.json())
+      .then((list: { nome: string }[]) => {
+        if (list && list.length > 0) {
+          setDisciplinas(list.map(d => d.nome));
+        } else {
+          setDisciplinas(DISCIPLINAS_FALLBACK[turmaAtual.nivel] || []);
+        }
+      })
+      .catch(() => setDisciplinas(DISCIPLINAS_FALLBACK[turmaAtual.nivel] || []));
+  }, [turmaAtual?.id]);
 
   async function loadHorarios() {
     try {
@@ -234,7 +249,6 @@ export default function HorarioScreen() {
     setShowSumarioModal(true);
   }
 
-  const disciplinas = turmaAtual ? (DISCIPLINAS_POR_NIVEL[turmaAtual.nivel] || []) : [];
   const profOptions = professores.filter(p => p.ativo);
 
   if (isLoading) {
