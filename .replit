@@ -65,3 +65,8 @@ build = ["bash", "-c", "node node_modules/.bin/patch-package && npx expo export 
 [userenv]
 
 [userenv.development]
+
+[userenv.shared]
+VAPID_PUBLIC_KEY = "BCgpPBzjV-anmdQl9jMbX2JWEpLNW_izqrh_rsZliZvYMKEpYdFsBzsCRhqbNTBvEXH3RfSnCLh4IHDNS6j8TFE"
+VAPID_PRIVATE_KEY = "lFMGOCJrb-oqUUrdWId6NnIrfhB9z-uAeHzY2hobyBU"
+VAPID_SUBJECT = "mailto:sige@escola.ao"

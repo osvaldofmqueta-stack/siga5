@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions, Linking,
+  ActivityIndicator, Dimensions, Linking, Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useUsers } from '@/context/UsersContext';
 import TopBar from '@/components/TopBar';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 const { width } = Dimensions.get('window');
 
@@ -69,6 +70,8 @@ export default function PortalEncarregadoScreen() {
   const { mensagens, sumarios, materiais, calendarioProvas } = useProfessor();
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
+  const { pushState, subscribe, unsubscribe, isSupported } = usePushNotifications();
+  const [pushLoading, setPushLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
@@ -215,6 +218,72 @@ export default function PortalEncarregadoScreen() {
             ))}
           </>
         )}
+
+        {isSupported && (
+          <>
+            <SectionTitle title="Alertas & Notificações" icon="notifications" />
+            <View style={styles.pushCard}>
+              <View style={styles.pushCardRow}>
+                <View style={styles.pushIconWrap}>
+                  <Ionicons
+                    name={pushState === 'granted' ? 'notifications' : 'notifications-off-outline'}
+                    size={24}
+                    color={pushState === 'granted' ? Colors.success : Colors.textMuted}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pushTitle}>
+                    {pushState === 'granted' ? 'Notificações ativas' : 'Ativar notificações push'}
+                  </Text>
+                  <Text style={styles.pushSubtitle}>
+                    {pushState === 'granted'
+                      ? 'Recebes alertas de notas, faltas e propinas diretamente no browser.'
+                      : pushState === 'denied'
+                      ? 'Notificações bloqueadas. Ativa nas definições do browser.'
+                      : 'Recebe alertas de notas, faltas e propinas no teu dispositivo.'}
+                  </Text>
+                </View>
+              </View>
+              {pushState !== 'denied' && (
+                <TouchableOpacity
+                  style={[
+                    styles.pushBtn,
+                    pushState === 'granted' ? styles.pushBtnOff : styles.pushBtnOn,
+                    (pushState === 'loading' || pushLoading) && { opacity: 0.6 },
+                  ]}
+                  disabled={pushState === 'loading' || pushLoading}
+                  onPress={async () => {
+                    setPushLoading(true);
+                    const result = pushState === 'granted'
+                      ? await unsubscribe()
+                      : await subscribe();
+                    setPushLoading(false);
+                    Alert.alert(
+                      result.success ? 'Sucesso' : 'Erro',
+                      result.message
+                    );
+                  }}
+                >
+                  {(pushState === 'loading' || pushLoading)
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Text style={styles.pushBtnText}>
+                        {pushState === 'granted' ? 'Desativar' : 'Ativar notificações'}
+                      </Text>
+                  }
+                </TouchableOpacity>
+              )}
+              {pushState === 'denied' && (
+                <View style={styles.pushDenied}>
+                  <Ionicons name="warning-outline" size={14} color={Colors.warning} />
+                  <Text style={styles.pushDeniedText}>
+                    Acede às definições do browser e permite notificações para este site.
+                  </Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
     );
@@ -967,4 +1036,16 @@ const styles = StyleSheet.create({
   provaInfo: { flex: 1, gap: 2 },
   provaTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   provaDisc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+
+  pushCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 8, gap: 14 },
+  pushCardRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  pushIconWrap: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center' },
+  pushTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
+  pushSubtitle: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, lineHeight: 16 },
+  pushBtn: { borderRadius: 10, paddingVertical: 11, alignItems: 'center' },
+  pushBtnOn: { backgroundColor: Colors.success },
+  pushBtnOff: { backgroundColor: `${Colors.danger}22`, borderWidth: 1, borderColor: Colors.danger },
+  pushBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff' },
+  pushDenied: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${Colors.warning}15`, borderRadius: 8, padding: 10 },
+  pushDeniedText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 15 },
 });

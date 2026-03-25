@@ -1,6 +1,31 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Calendário Académico Oficial)
+## Recent Changes (Latest Session — Notificações Push & Email para Encarregados)
+- **server/notifications.ts** *(new)*: Serviço unificado de notificações com:
+  - `notifyGuardianAboutNota` — alerta quando uma nota é lançada
+  - `notifyGuardianAboutFalta` — alerta quando uma falta é registada (apenas status='falta')
+  - `notifyGuardianAboutPropina` — alerta sobre estado de pagamentos (pendente/confirmado)
+  - `notifyGuardianGeneric` — notificação genérica reutilizável
+  - Envia simultaneamente: push notification (via VAPID/Web Push) + email (via SMTP)
+  - Remove automaticamente subscrições expiradas (HTTP 410/404)
+- **server/email.ts**: Nova função `sendGuardianNotificationEmail` com template HTML premium por tipo (nota/falta/propina/mensagem/geral), com ícones e cores distintas por tipo.
+- **shared/schema.ts**: Nova tabela `push_subscriptions` (endpoint, p256dh, auth, utilizadorId, userAgent).
+- **server/routes.ts**:
+  - `GET /api/push/vapid-key` — devolve a chave pública VAPID
+  - `POST /api/push/subscribe` — guarda subscrição do browser do encarregado
+  - `DELETE /api/push/unsubscribe` — remove subscrição
+  - `GET /api/push/status/:utilizadorId` — conta subscrições activas
+  - Hook em `POST /api/notas` → dispara `notifyGuardianAboutNota` (non-blocking)
+  - Hook em `POST /api/presencas` → dispara `notifyGuardianAboutFalta` se status='falta'
+  - Hook em `POST /api/pagamentos` → dispara `notifyGuardianAboutPropina`
+- **public/sw.js**: Actualizado para v3 com handlers `push` e `notificationclick` para exibir e navegar notificações no browser/PWA.
+- **hooks/usePushNotifications.ts** *(new)*: Hook React que gere o ciclo de vida completo das push subscriptions (pedir permissão, subscrever, dessubscrever, estado).
+- **app/(main)/portal-encarregado.tsx**: Novo card "Alertas & Notificações" no Painel com botão de activar/desactivar push notifications, indicador de estado e mensagem de orientação quando bloqueado.
+- **Variáveis de ambiente**: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` adicionadas (shared).
+- **Push technology**: Web Push API (VAPID) — gratuito, sem conta Firebase necessária, funciona na PWA em todos os browsers modernos.
+- **Email**: Requer configuração SMTP (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`). Sem SMTP apenas o push funciona; o email loga aviso e continua silenciosamente.
+
+## Recent Changes (Previous Session — Calendário Académico Oficial)
 - **app/(main)/calendario-academico.tsx** *(new)*: Ecrã completo de gestão do calendário académico com 4 tabs:
   - **Trimestres**: 3 cards (T1/T2/T3) com datas de início/fim e período de exames editáveis. Mostra progresso do trimestre (barra %) e progresso global do ano. Indicador de trimestre activo vs. futuro vs. concluído. Edição via modal com campos: dataInicio, dataFim, dataInicioExames, dataFimExames, ativo.
   - **Feriados**: Lista de feriados (filtrado de `eventos` com tipo='Feriado'). KPIs: total / próximos / passados. Botão "Feriados Nacionais de Angola" que insere automaticamente os 12 feriados oficiais angolanos (Ano Novo, Independência, Herói Nacional, etc.) sem duplicar os já existentes. CRUD com confirmação.

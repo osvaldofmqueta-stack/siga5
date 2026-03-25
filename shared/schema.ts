@@ -489,6 +489,21 @@ export const rupes = pgTable("rupes", {
 });
 
 // -----------------------
+// PUSH SUBSCRIPTIONS (Web Push / VAPID)
+// -----------------------
+export const pushSubscriptions = pgTable("push_subscriptions", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  utilizadorId: varchar("utilizadorId").notNull(), // encarregado's user id
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("userAgent"),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
 // NOTIFICAÇÕES
 // -----------------------
 export const notificacoes = pgTable("notificacoes", {

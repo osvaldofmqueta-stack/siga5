@@ -9,6 +9,11 @@ import * as crypto from "crypto";
 import { v4 as uuidv4 } from "uuid";
 import { signToken, requireAuth, requirePermission, type UserRole } from "./auth";
 import { sendPasswordResetEmail } from "./email";
+import {
+  notifyGuardianAboutNota,
+  notifyGuardianAboutFalta,
+  notifyGuardianAboutPropina,
+} from "./notifications";
 
 type JsonObject = Record<string, unknown>;
 
@@ -534,6 +539,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
       );
       json(res, 201, rows[0]);
+      // Notify guardian (non-blocking)
+      if (b.alunoId && b.disciplina) {
+        notifyGuardianAboutNota(
+          String(b.alunoId),
+          String(b.disciplina),
+          b.nf !== undefined && b.nf !== null ? Number(b.nf) : null,
+          String(b.trimestre ?? "")
+        ).catch(() => {});
+      }
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
     }
@@ -641,6 +655,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ],
       );
       json(res, 201, rows[0]);
+      // Notify guardian on falta (non-blocking)
+      if (b.alunoId && b.status === "falta" && b.disciplina && b.data) {
+        notifyGuardianAboutFalta(
+          String(b.alunoId),
+          String(b.disciplina),
+          String(b.data),
+          String(b.status)
+        ).catch(() => {});
+      }
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
     }
@@ -1342,12 +1365,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/pagamentos", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      const status = String(b.status ?? "pendente");
       const rows = await query<JsonObject>(
         `INSERT INTO public.pagamentos (id,"alunoId","taxaId","valor","data","mes","trimestre","ano","status","metodoPagamento","referencia","observacao")
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
-        [b.id??null,b.alunoId,b.taxaId,b.valor,b.data,b.mes??null,b.trimestre??null,b.ano,b.status??'pendente',b.metodoPagamento,b.referencia??null,b.observacao??null],
+        [b.id??null,b.alunoId,b.taxaId,b.valor,b.data,b.mes??null,b.trimestre??null,b.ano,status,b.metodoPagamento,b.referencia??null,b.observacao??null],
       );
       json(res, 201, rows[0]);
+      // Notify guardian about payment status (non-blocking)
+      if (b.alunoId && b.mes) {
+        notifyGuardianAboutPropina(
+          String(b.alunoId),
+          String(b.mes),
+          Number(b.valor ?? 0),
+          status
+        ).catch(() => {});
+      }
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
@@ -1494,6 +1527,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/notificacoes", async (_req: Request, res: Response) => {
     await query(`DELETE FROM public.notificacoes`, []);
     json(res, 200, { ok: true });
+  });
+
+  // -----------------------
+  // PUSH SUBSCRIPTIONS (Web Push VAPID)
+  // -----------------------
+  app.get("/api/push/vapid-key", (_req: Request, res: Response) => {
+    const publicKey = process.env.VAPID_PUBLIC_KEY ?? "";
+    if (!publicKey) return json(res, 503, { error: "Push notifications not configured." });
+    json(res, 200, { publicKey });
+  });
+
+  app.post("/api/push/subscribe", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const sub = b.subscription as { endpoint: string; keys: { p256dh: string; auth: string } } | undefined;
+      const utilizadorId = String(b.utilizadorId ?? "");
+      if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth || !utilizadorId) {
+        return json(res, 400, { error: "Dados da subscrição inválidos." });
+      }
+      await query(
+        `INSERT INTO public.push_subscriptions (id,"utilizadorId",endpoint,p256dh,auth,"userAgent")
+         VALUES (gen_random_uuid(),$1,$2,$3,$4,$5)
+         ON CONFLICT (endpoint) DO UPDATE SET "utilizadorId"=$1, p256dh=$3, auth=$4, "userAgent"=$5`,
+        [utilizadorId, sub.endpoint, sub.keys.p256dh, sub.keys.auth, String(b.userAgent ?? "")]
+      );
+      json(res, 201, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/push/unsubscribe", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const endpoint = String(b.endpoint ?? "");
+      if (!endpoint) return json(res, 400, { error: "endpoint obrigatório." });
+      await query(`DELETE FROM public.push_subscriptions WHERE endpoint=$1`, [endpoint]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/push/status/:utilizadorId", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT id, endpoint, "criadoEm" FROM public.push_subscriptions WHERE "utilizadorId"=$1`,
+        [req.params.utilizadorId]
+      );
+      json(res, 200, { subscriptions: rows.length, active: rows.length > 0 });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   // -----------------------
