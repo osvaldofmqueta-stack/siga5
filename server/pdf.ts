@@ -95,6 +95,303 @@ function fmtMoney(n: number): string {
   return new Intl.NumberFormat('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 }
 
+function fmtAOA(v: number): string {
+  return `${v.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kz`;
+}
+
+const MESES_SHORT_EXT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const MESES_LONG_EXT  = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const METODO_LABEL_EXT: Record<string, string> = {
+  dinheiro: 'Dinheiro', transferencia: 'Transferência', multicaixa: 'Multicaixa Express',
+};
+const TIPO_LABEL_EXT: Record<string, string> = {
+  propina: 'Propina', matricula: 'Matrícula', material: 'Material', exame: 'Exame', multa: 'Multa', outro: 'Outro',
+};
+
+function docRefExtrato(matricula: string): string {
+  const ts = Date.now().toString(36).toUpperCase();
+  const m = (matricula || 'X').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 6);
+  return `EXTR-${m}-${ts}`;
+}
+
+function buildExtratoHTML(opts: {
+  aluno: any;
+  pagamentos: any[];
+  resumo: { totalPago: number; totalPendente: number; totalCancelado: number; total: number };
+  filtros: { dataInicio: string | null; dataFim: string | null };
+  nomeEscola?: string;
+  directorGeral?: string;
+  chefeSecretaria?: string;
+  autoprint?: boolean;
+}): string {
+  const { aluno, pagamentos, resumo, filtros } = opts;
+  const escola     = opts.nomeEscola    || 'Escola Secundária';
+  const director   = opts.directorGeral || '___________________________';
+  const chefeSec   = opts.chefeSecretaria || '___________________________';
+  const docId      = docRefExtrato(aluno.numeroMatricula || aluno.id || '');
+  const now        = new Date();
+  const dataEmissao = now.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+  const hora        = now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+  function fmtDateLocal(d: string): string {
+    if (!d) return '—';
+    const parts = d.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    return d;
+  }
+
+  function mesLabel(mes?: number | null): string {
+    if (!mes) return '';
+    return MESES_SHORT_EXT[(mes - 1) % 12] || '';
+  }
+
+  const periodoLabel = filtros.dataInicio
+    ? `${fmtDateLocal(filtros.dataInicio)} a ${fmtDateLocal(filtros.dataFim || 'Presente')}`
+    : 'Todos os pagamentos registados';
+
+  const qrLines = [
+    `DOC: ${docId}`,
+    `ESCOLA: ${escola}`,
+    `ALUNO: ${aluno.nome || ''} ${aluno.apelido || ''}`.trim(),
+    `MATRICULA: ${aluno.numeroMatricula || 'N/D'}`,
+    `TURMA: ${aluno.turmaNome || 'N/D'}`,
+    `TOTAL PAGO: ${fmtAOA(resumo.totalPago)}`,
+    `PENDENTE: ${fmtAOA(resumo.totalPendente)}`,
+    `TRANSACCOES: ${resumo.total}`,
+    `EMITIDO: ${dataEmissao}`,
+    filtros.dataInicio ? `PERIODO: ${fmtDateLocal(filtros.dataInicio)} a ${fmtDateLocal(filtros.dataFim || 'Presente')}` : 'PERIODO: Todos',
+  ].join('\n');
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrLines)}&bgcolor=ffffff&color=1a2540&margin=6&ecc=M`;
+  const barcodeVal = safeBarcode(aluno.numeroMatricula || 'REF000');
+
+  const rows = pagamentos.map((p: any, idx: number) => {
+    const descricao = [
+      p.taxaDescricao || TIPO_LABEL_EXT[p.taxaTipo || ''] || (p.taxaTipo || ''),
+      p.mes ? mesLabel(p.mes) : '',
+      p.ano || '',
+    ].filter(Boolean).join(' · ');
+    const statusStyle = p.status === 'pago'
+      ? 'color:#1a6b2a;background:#d4edda;'
+      : p.status === 'pendente' ? 'color:#856404;background:#fff3cd;' : 'color:#6c757d;background:#e2e3e5;';
+    const valor = p.status === 'cancelado'
+      ? `<span style="color:#aaa;text-decoration:line-through;">${fmtAOA(Number(p.valor || 0))}</span>`
+      : `<strong style="color:${p.status === 'pago' ? '#1a6b2a' : '#856404'};">${fmtAOA(Number(p.valor || 0))}</strong>`;
+    const bg = idx % 2 === 0 ? '#fff' : '#f9f9ff';
+    const ref = [p.referencia ? `Ref: ${p.referencia}` : '', p.observacao || ''].filter(Boolean).join(' · ');
+    return `<tr style="background:${bg};">
+      <td style="padding:6px 8px;font-size:10px;color:#555;white-space:nowrap;">${fmtDateLocal(p.data)}</td>
+      <td style="padding:6px 8px;font-size:10px;">
+        <span style="font-weight:600;color:#1a2540;">${descricao}</span>
+        ${ref ? `<br><span style="font-size:9px;color:#888;">${ref}</span>` : ''}
+      </td>
+      <td style="padding:6px 8px;font-size:10px;color:#555;">${METODO_LABEL_EXT[p.metodoPagamento] || p.metodoPagamento || '—'}</td>
+      <td style="padding:6px 8px;text-align:right;white-space:nowrap;">${valor}</td>
+      <td style="padding:4px 8px;text-align:center;">
+        <span style="font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;${statusStyle}">${(p.status || '').charAt(0).toUpperCase() + (p.status || '').slice(1)}</span>
+      </td>
+    </tr>`;
+  }).join('');
+
+  const nomeCompleto = `${aluno.nome || ''} ${aluno.apelido || ''}`.trim();
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Extracto de Propinas — ${nomeCompleto}</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:11px;color:#111;background:#fff}
+.page{max-width:210mm;margin:0 auto;padding:18mm 18mm 14mm;min-height:297mm;position:relative}
+.print-btn{display:block;margin:10px auto 16px;padding:10px 40px;background:#1a2540;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold}
+.print-btn:hover{background:#2d3f6e}
+.doc-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid #1a2540;padding-bottom:12px;margin-bottom:14px}
+.doc-header-logo{width:56px;height:56px;object-fit:contain}
+.doc-header-text{flex:1}
+.rep{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600}
+.escola-nome{font-size:14px;font-weight:800;color:#1a2540;text-transform:uppercase;letter-spacing:.5px}
+.doc-header-title{text-align:right}
+.titulo{font-size:13px;font-weight:800;color:#1a2540;text-transform:uppercase;letter-spacing:1px}
+.docnum{font-size:9.5px;color:#888;margin-top:4px;font-family:monospace}
+.periodo-badge{display:inline-block;margin-top:4px;background:#1a2540;color:#fff;padding:2px 8px;border-radius:10px;font-size:9px;letter-spacing:.5px}
+.aluno-box{background:#f0f4ff;border:1px solid #c5d0ee;border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.aluno-name{font-size:15px;font-weight:800;color:#1a2540}
+.aluno-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 14px;margin-top:8px}
+.aluno-grid .field label{font-size:8.5px;text-transform:uppercase;color:#888;font-weight:600;letter-spacing:.5px;display:block}
+.aluno-grid .field span{font-size:10.5px;font-weight:600;color:#1a2540}
+.resumo-row{display:grid;grid-template-columns:repeat(3,1fr) 1fr;gap:8px;margin-bottom:14px}
+.resumo-card{border-radius:8px;padding:8px 10px;text-align:center}
+.val{font-size:13px;font-weight:800;display:block}
+.lbl{font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-top:2px}
+.card-pago{background:#d4edda;color:#155724}
+.card-pend{background:#fff3cd;color:#856404}
+.card-canc{background:#e2e3e5;color:#495057}
+.card-total{background:#1a2540;color:#fff}
+.section-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;color:#1a2540;margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid #1a2540}
+table{width:100%;border-collapse:collapse}
+thead th{background:#1a2540;color:#fff;padding:7px 8px;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;text-align:left}
+thead th:last-child{text-align:center}
+thead th:nth-child(4){text-align:right}
+tbody tr:last-child td{border-bottom:2px solid #1a2540}
+.qr-bar-row{display:flex;gap:24px;align-items:center;margin:14px 0 10px;padding:12px;border:1px solid #dde0ef;border-radius:8px;background:#f9faff}
+.qr-box{text-align:center}
+.qr-box img{width:110px;height:110px;border:1px solid #dde;border-radius:4px}
+.qr-lbl{font-size:8px;text-transform:uppercase;color:#888;margin-top:4px;letter-spacing:.5px}
+.bar-box{flex:1;text-align:center}
+.bar-box svg{max-width:100%;height:60px}
+.bar-lbl{font-size:8px;text-transform:uppercase;color:#888;margin-top:2px;letter-spacing:.5px}
+.doc-info{flex:1.2;font-size:9.5px;line-height:1.7;color:#555}
+.doc-info strong{color:#1a2540}
+.footer-totals{display:flex;justify-content:flex-end;margin-top:10px}
+.totals-table{border:1px solid #dde;border-radius:8px;overflow:hidden;min-width:280px}
+.tot-row{display:flex;justify-content:space-between;padding:5px 12px;font-size:10px}
+.tot-row:not(:last-child){border-bottom:1px solid #eee}
+.tot-grand{background:#1a2540;color:#fff;font-weight:800;font-size:11px}
+.sig-section{display:flex;gap:20px;margin-top:20px;justify-content:space-between}
+.sig-block{text-align:center;flex:1}
+.sig-label{font-size:9px;font-weight:700;color:#333;text-transform:uppercase;margin-bottom:24px}
+.sig-line{border-top:1px solid #333;margin:0 auto 4px;width:150px}
+.sig-name{font-size:9px;font-weight:700;color:#1a2540}
+.footer-note{margin-top:18px;border-top:1px dashed #ccc;padding-top:8px;font-size:8.5px;color:#aaa;text-align:center;line-height:1.7}
+.no-print{display:block}
+@media print{
+  @page{size:A4 portrait;margin:12mm 14mm}
+  body{margin:0}
+  .page{padding:0;max-width:100%}
+  .no-print{display:none!important}
+}
+</style>
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>
+<div class="page">
+  <div class="doc-header">
+    <img class="doc-header-logo" src="/icons/icon-192.png" alt="Logo" onerror="this.style.display='none'"/>
+    <div class="doc-header-text">
+      <div class="rep">República de Angola</div>
+      <div class="escola-nome">${escola}</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Sistema Integrado de Gestão Académica</div>
+    </div>
+    <div class="doc-header-title">
+      <div class="titulo">Extracto de Propinas</div>
+      <div class="docnum">${docId}</div>
+      <div class="periodo-badge">Período: ${periodoLabel}</div>
+    </div>
+  </div>
+
+  <div class="aluno-box">
+    <div class="aluno-name">${nomeCompleto}</div>
+    <div class="aluno-grid">
+      <div class="field"><label>Nº de Matrícula</label><span>${aluno.numeroMatricula || '—'}</span></div>
+      ${aluno.turmaNome ? `<div class="field"><label>Turma</label><span>${aluno.turmaNome}</span></div>` : '<div></div>'}
+      ${aluno.cursoNome ? `<div class="field"><label>Curso</label><span>${aluno.cursoNome}</span></div>` : '<div></div>'}
+      ${aluno.nomeEncarregado ? `<div class="field"><label>Encarregado</label><span>${aluno.nomeEncarregado}</span></div>` : '<div></div>'}
+      <div class="field"><label>Data de Emissão</label><span>${dataEmissao}</span></div>
+      <div class="field"><label>Hora</label><span>${hora}</span></div>
+    </div>
+  </div>
+
+  <div class="resumo-row">
+    <div class="resumo-card card-pago"><span class="val">${fmtAOA(resumo.totalPago)}</span><span class="lbl">✓ Total Pago</span></div>
+    <div class="resumo-card card-pend"><span class="val">${fmtAOA(resumo.totalPendente)}</span><span class="lbl">⏳ Pendente</span></div>
+    <div class="resumo-card card-canc"><span class="val">${fmtAOA(resumo.totalCancelado)}</span><span class="lbl">✗ Cancelado</span></div>
+    <div class="resumo-card card-total"><span class="val">${resumo.total}</span><span class="lbl">Transacções</span></div>
+  </div>
+
+  <div class="section-title">Movimentos no Período</div>
+  ${pagamentos.length === 0
+    ? `<div style="text-align:center;padding:30px;color:#aaa;font-size:12px;border:1px dashed #ddd;border-radius:8px;">Nenhum pagamento encontrado para o período seleccionado.</div>`
+    : `<table>
+        <thead>
+          <tr>
+            <th style="width:80px;">Data</th>
+            <th>Descrição</th>
+            <th style="width:100px;">Método</th>
+            <th style="width:110px;text-align:right;">Valor</th>
+            <th style="width:70px;text-align:center;">Estado</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>`
+  }
+
+  <div class="footer-totals">
+    <div class="totals-table">
+      ${resumo.totalPago > 0 ? `<div class="tot-row"><span>Total Pago</span><span style="color:#155724;font-weight:700;">${fmtAOA(resumo.totalPago)}</span></div>` : ''}
+      ${resumo.totalPendente > 0 ? `<div class="tot-row"><span>Total Pendente</span><span style="color:#856404;font-weight:700;">${fmtAOA(resumo.totalPendente)}</span></div>` : ''}
+      ${resumo.totalCancelado > 0 ? `<div class="tot-row"><span>Total Cancelado</span><span style="color:#aaa;">${fmtAOA(resumo.totalCancelado)}</span></div>` : ''}
+      <div class="tot-row tot-grand"><span>TOTAL GERAL</span><span>${fmtAOA(resumo.totalPago + resumo.totalPendente)}</span></div>
+    </div>
+  </div>
+
+  <div class="qr-bar-row">
+    <div class="qr-box">
+      <img src="${qrUrl}" alt="QR Verificação" onerror="this.style.display='none'"/>
+      <div class="qr-lbl">QR Verificação</div>
+    </div>
+    <div class="bar-box">
+      <svg id="extrato-barcode"></svg>
+      <div class="bar-lbl">Código de Barras — Nº Matrícula</div>
+    </div>
+    <div class="doc-info">
+      <strong>Documento:</strong> ${docId}<br>
+      <strong>Aluno:</strong> ${nomeCompleto}<br>
+      <strong>Matrícula:</strong> ${aluno.numeroMatricula || '—'}<br>
+      <strong>Turma:</strong> ${aluno.turmaNome || '—'}<br>
+      <strong>Data:</strong> ${dataEmissao} às ${hora}<br>
+      <strong>Total Pago:</strong> ${fmtAOA(resumo.totalPago)}<br>
+      <strong>Transacções:</strong> ${resumo.total}<br>
+      <span style="font-size:7.5pt;color:#9ca3af">Documento autêntico verificável pelo QR</span>
+    </div>
+  </div>
+
+  <div class="sig-section">
+    <div class="sig-block">
+      <div class="sig-label">O Director Geral</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${director}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O Chefe de Secretaria</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">${chefeSec}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O(A) Encarregado(a)</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">____________________________</div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    Documento emitido em ${dataEmissao} às ${hora} · ${escola}<br>
+    Este extracto é meramente informativo e não substitui recibo oficial de pagamento.<br>
+    Os dados apresentados reflectem o estado dos registos no sistema à data de emissão. · Ref. ${docId}
+  </div>
+</div>
+<script>
+window.addEventListener('load', function() {
+  try {
+    JsBarcode('#extrato-barcode', '${barcodeVal}', {
+      format: 'CODE128', width: 2, height: 50, displayValue: true,
+      fontSize: 11, margin: 4, background: 'transparent',
+      lineColor: '#1a2540', fontOptions: 'bold',
+    });
+  } catch(e) {
+    var el = document.getElementById('extrato-barcode');
+    if (el) el.style.display = 'none';
+  }
+});
+</script>
+${opts.autoprint ? `<script>window.onload=function(){setTimeout(function(){window.print()},800)}</script>` : ''}
+</body>
+</html>`;
+}
+
 function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
   const numRef = `REC-${(p.id || '').toString().replace(/-/g,'').substring(0,8).toUpperCase()}`;
   const mesTxt = p.mes ? `${MESES[p.mes] || ''} ` : '';
@@ -1080,6 +1377,62 @@ export function registerPDFRoutes(app: Express) {
       const config = configRows[0] || {};
 
       const html = buildRelatorioTurmaHTML(turma, alunoRows, notas, config, trimestre, autoprint);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── EXTRACTO DE PROPINAS ───
+  app.get('/api/pdf/extrato-propinas/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const { dataInicio, dataFim, autoprint } = req.query as Record<string, string>;
+
+      const alunoRows = await query<any>(
+        `SELECT a.*, t.nome as "turmaNome", c.nome as "cursoNome"
+         FROM public.alunos a
+         LEFT JOIN public.turmas t ON t.id = a."turmaId"
+         LEFT JOIN public.cursos c ON c.id = a."cursoId"
+         WHERE a.id = $1`,
+        [alunoId]
+      );
+      if (!alunoRows.length) return res.status(404).json({ error: 'Aluno não encontrado' });
+      const aluno = alunoRows[0];
+
+      let whereDate = '';
+      const params: any[] = [alunoId];
+      if (dataInicio) { params.push(dataInicio); whereDate += ` AND p.data >= $${params.length}`; }
+      if (dataFim)    { params.push(dataFim);    whereDate += ` AND p.data <= $${params.length}`; }
+
+      const pagamentos = await query<any>(
+        `SELECT p.*, t.descricao as "taxaDescricao", t.tipo as "taxaTipo"
+         FROM public.pagamentos p
+         LEFT JOIN public.taxas t ON t.id = p."taxaId"
+         WHERE p."alunoId" = $1 ${whereDate}
+         ORDER BY p.data ASC, p."createdAt" ASC`,
+        params
+      );
+
+      const totalPago      = pagamentos.filter((p: any) => p.status === 'pago').reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+      const totalPendente  = pagamentos.filter((p: any) => p.status === 'pendente').reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+      const totalCancelado = pagamentos.filter((p: any) => p.status === 'cancelado').reduce((s: number, p: any) => s + Number(p.valor || 0), 0);
+
+      const configRows = await query<any>(`SELECT * FROM public.config_geral LIMIT 1`, []);
+      const cfg = configRows[0] || {};
+
+      const html = buildExtratoHTML({
+        aluno,
+        pagamentos,
+        resumo: { totalPago, totalPendente, totalCancelado, total: pagamentos.length },
+        filtros: { dataInicio: dataInicio || null, dataFim: dataFim || null },
+        nomeEscola: cfg.nomeEscola,
+        directorGeral: cfg.directorGeral,
+        chefeSecretaria: cfg.chefeSecretaria,
+        autoprint: autoprint !== 'false',
+      });
+
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (e: any) {

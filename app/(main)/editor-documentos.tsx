@@ -2389,6 +2389,9 @@ export default function EditorDocumentos() {
   function isCertificadoPrimarioType(t: DocTemplate | null) {
     return t?.tipo === 'certificado_primario';
   }
+  function isExtratoPropinaType(t: DocTemplate | null) {
+    return t?.tipo === 'extrato_propina';
+  }
 
   // ─── Certificado do Ensino Primário HTML Builder ───────────────────────────
 
@@ -3299,7 +3302,9 @@ export default function EditorDocumentos() {
 
   function handleSelectAluno(alunoId: string) {
     setEmitAlunoId(alunoId);
-    if (emitTemplate) setEmitPreview(buildPreview(emitTemplate, alunoId));
+    if (emitTemplate && !isExtratoPropinaType(emitTemplate)) {
+      setEmitPreview(buildPreview(emitTemplate, alunoId));
+    }
     setAlunoSearch('');
   }
 
@@ -5905,6 +5910,13 @@ export default function EditorDocumentos() {
       return;
     }
 
+    // ── Extracto de Propinas: use server-side PDF route with QR + barcode ────
+    if (emitTemplate?.tipo === 'extrato_propina' && emitAlunoId) {
+      win.location.href = `/api/pdf/extrato-propinas/${emitAlunoId}`;
+      saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
+      return;
+    }
+
     // ── Lista da Turma: use generated HTML directly ───────────────────────────
     if (emitTemplate?.tipo === 'lista_turma' && emitTurmaId) {
       const html = buildListaTurmaHtml(emitTurmaId);
@@ -6329,8 +6341,6 @@ export default function EditorDocumentos() {
       if (bloqueado) return;
       if (isBoletimInscricao) {
         router.push('/boletim-inscricao' as any);
-      } else if (isExtratoPropina) {
-        router.push('/extrato-propinas' as any);
       } else {
         openEmit(template);
       }
@@ -6705,6 +6715,7 @@ export default function EditorDocumentos() {
     const isMapa = isMapaType(emitTemplate);
     const isListaTurma = isListaTurmaType(emitTemplate);
     const isCertificadoPrimario = isCertificadoPrimarioType(emitTemplate);
+    const isExtratoPropina = isExtratoPropinaType(emitTemplate);
 
     // ── Turma-level (pauta) variables ─────────────────────────────────────
     const turmasAtivas = turmas.filter(t => t.ativo);
@@ -6744,7 +6755,7 @@ export default function EditorDocumentos() {
     const sortedTurmasForMapa = [...turmas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo));
     const anoLetivoMapa = sortedTurmasForMapa[0]?.anoLetivo || String(new Date().getFullYear());
 
-    const canPrint = isMapa ? true : (isListaTurma ? !!emitTurmaId : (isPauta ? !!emitTurmaId : (isCertificadoPrimario ? !!emitAlunoId : (!!emitAlunoId && !!emitPreview))));
+    const canPrint = isMapa ? true : (isListaTurma ? !!emitTurmaId : (isPauta ? !!emitTurmaId : (isCertificadoPrimario ? !!emitAlunoId : (isExtratoPropina ? !!emitAlunoId : (!!emitAlunoId && !!emitPreview)))));
 
     return (
       <View style={[styles.container, { paddingTop: topInset }]}>
@@ -7102,6 +7113,57 @@ export default function EditorDocumentos() {
                       <Ionicons name="information-circle-outline" size={18} color='#7c3aed' />
                       <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 }}>
                         Campos como pai, mãe, BI e Decreto Executivo aparecem em branco para preenchimento manual após impressão.
+                      </Text>
+                    </View>
+                  </ScrollView>
+                )}
+              </>
+            ) : isExtratoPropina ? (
+              <>
+                <Text style={styles.emitSectionTitle}>2. Extracto de Propinas</Text>
+                {!selectedAluno ? (
+                  <View style={styles.previewEmpty}>
+                    <Ionicons name="card-outline" size={48} color={Colors.textMuted} />
+                    <Text style={styles.previewEmptyText}>Seleccione um aluno para gerar o Extracto de Propinas</Text>
+                  </View>
+                ) : (
+                  <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    <View style={{ backgroundColor: '#0f1f3d', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#3b82f6' }}>
+                      <Text style={{ color: '#3b82f6', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>EXTRACTO DE PROPINAS — FORMATO A4</Text>
+                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
+                        {selectedTurmaForAluno?.classe || 'Sem turma'} · Nº {selectedAluno.numeroMatricula}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="receipt-outline" size={22} color='#3b82f6' />
+                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>
+                          {selectedAluno.numeroMatricula || '—'}
+                        </Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Nº Matrícula</Text>
+                      </View>
+                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
+                        <Ionicons name="person-outline" size={22} color='#3b82f6' />
+                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>
+                          {selectedAluno.genero === 'F' ? 'Feminino' : 'Masculino'}
+                        </Text>
+                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Género</Text>
+                      </View>
+                    </View>
+                    <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>CONTEÚDO DO EXTRACTO</Text>
+                      {['Data e valor de cada transacção', 'Método de pagamento', 'Estado de cada propina', 'Totais pago / pendente / cancelado', 'QR Code de verificação', 'Código de barras (nº de matrícula)', 'Assinaturas de Director e Secretaria'].map(l => (
+                        <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color='#3b82f6' />
+                          <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{l}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={{ backgroundColor: '#0f1f3d', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#3b82f6', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <Ionicons name="print-outline" size={18} color='#3b82f6' />
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 }}>
+                        O extracto será gerado em formato A4 com todos os pagamentos registados no sistema, incluindo QR Code e código de barras para verificação.
                       </Text>
                     </View>
                   </ScrollView>
