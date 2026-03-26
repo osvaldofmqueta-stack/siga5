@@ -942,6 +942,12 @@ export const disciplinas = pgTable("disciplinas", {
   descricao: text("descricao").notNull().default(''),
   ativo: boolean("ativo").notNull().default(true),
 
+  // Tipo: 'terminal' (termina antes da 12ª) ou 'continuidade' (10ª a 12ª)
+  tipo: text("tipo").notNull().default('continuidade'),
+  // Classes em que a disciplina é leccionada (valores do lookup 'classes')
+  classeInicio: text("classeInicio").notNull().default(''),
+  classeFim: text("classeFim").notNull().default(''),
+
   // Ligação ao curso (opcional — se null é uma disciplina global/partilhada)
   cursoId: varchar("cursoId").references(() => cursos.id),
   // Carga horária semanal e se é obrigatória nesse curso

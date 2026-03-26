@@ -24,6 +24,13 @@ const AREAS_DEFAULT = [
   'Outra',
 ];
 
+const CLASSES_DEFAULT = [
+  'Iniciação',
+  '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe',
+  '7ª Classe', '8ª Classe', '9ª Classe',
+  '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe',
+];
+
 interface Disciplina {
   id: string;
   nome: string;
@@ -31,6 +38,9 @@ interface Disciplina {
   area: string;
   descricao: string;
   ativo: boolean;
+  tipo: string;
+  classeInicio: string;
+  classeFim: string;
   createdAt: string;
 }
 
@@ -40,6 +50,9 @@ interface FormState {
   area: string;
   descricao: string;
   ativo: boolean;
+  tipo: string;
+  classeInicio: string;
+  classeFim: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -48,7 +61,12 @@ const EMPTY_FORM: FormState = {
   area: AREAS_DEFAULT[0],
   descricao: '',
   ativo: true,
+  tipo: 'continuidade',
+  classeInicio: '',
+  classeFim: '',
 };
+
+type PickerField = 'area' | 'classeInicio' | 'classeFim' | null;
 
 function DisciplinaFormModal({
   visible, onClose, onSave, disciplina,
@@ -59,9 +77,10 @@ function DisciplinaFormModal({
   disciplina: Disciplina | null;
 }) {
   const { values: areas } = useLookup('areas_conhecimento', AREAS_DEFAULT);
+  const { values: classesRaw } = useLookup('classes', CLASSES_DEFAULT);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
-  const [showAreaPicker, setShowAreaPicker] = useState(false);
+  const [activePicker, setActivePicker] = useState<PickerField>(null);
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -73,6 +92,9 @@ function DisciplinaFormModal({
         area: disciplina.area || areas[0] || AREAS_DEFAULT[0],
         descricao: disciplina.descricao,
         ativo: disciplina.ativo,
+        tipo: disciplina.tipo || 'continuidade',
+        classeInicio: disciplina.classeInicio || '',
+        classeFim: disciplina.classeFim || '',
       });
     } else {
       setForm({ ...EMPTY_FORM, area: areas[0] || AREAS_DEFAULT[0] });
@@ -80,6 +102,10 @@ function DisciplinaFormModal({
   }, [disciplina, visible, areas]);
 
   const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
+
+  function handleTipoChange(t: string) {
+    set('tipo', t);
+  }
 
   async function handleSave() {
     if (!form.nome.trim()) {
@@ -94,6 +120,18 @@ function DisciplinaFormModal({
       setSaving(false);
     }
   }
+
+  const pickerOptions: Record<NonNullable<PickerField>, string[]> = {
+    area: areas,
+    classeInicio: classesRaw,
+    classeFim: classesRaw,
+  };
+
+  const pickerTitles: Record<NonNullable<PickerField>, string> = {
+    area: 'Área de Conhecimento',
+    classeInicio: 'Classe de Início',
+    classeFim: 'Classe de Fim',
+  };
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -136,13 +174,84 @@ function DisciplinaFormModal({
               <Text style={mStyles.fieldLabel}>Área de Conhecimento</Text>
               <TouchableOpacity
                 style={[mStyles.input, mStyles.pickerBtn]}
-                onPress={() => setShowAreaPicker(true)}
+                onPress={() => setActivePicker('area')}
               >
                 <Text style={{ color: Colors.text, fontSize: 14, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                  {form.area}
+                  {form.area || 'Seleccionar área...'}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
               </TouchableOpacity>
+            </View>
+
+            {/* Tipo: Terminal ou Continuidade */}
+            <View style={mStyles.field}>
+              <Text style={mStyles.fieldLabel}>Tipo de Disciplina</Text>
+              <View style={mStyles.tipoRow}>
+                <TouchableOpacity
+                  style={[mStyles.tipoBtn, form.tipo === 'continuidade' && mStyles.tipoBtnActive]}
+                  onPress={() => handleTipoChange('continuidade')}
+                >
+                  <MaterialCommunityIcons
+                    name="arrow-right-bold-circle"
+                    size={16}
+                    color={form.tipo === 'continuidade' ? Colors.info : Colors.textMuted}
+                  />
+                  <Text style={[mStyles.tipoBtnText, form.tipo === 'continuidade' && mStyles.tipoBtnTextActive]}>
+                    Continuidade
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[mStyles.tipoBtn, form.tipo === 'terminal' && mStyles.tipoBtnTerminal]}
+                  onPress={() => handleTipoChange('terminal')}
+                >
+                  <MaterialCommunityIcons
+                    name="flag-checkered"
+                    size={16}
+                    color={form.tipo === 'terminal' ? Colors.warning : Colors.textMuted}
+                  />
+                  <Text style={[mStyles.tipoBtnText, form.tipo === 'terminal' && mStyles.tipoBtnTextTerminal]}>
+                    Terminal
+                  </Text>
+                </TouchableOpacity>
+              </View>
+              <Text style={mStyles.tipoHint}>
+                {form.tipo === 'terminal'
+                  ? 'Disciplina terminal: leccionada num intervalo específico de classes (ex: só na 10ª ou 10ª–11ª).'
+                  : 'Disciplina de continuidade: leccionada ao longo de vários anos consecutivos.'}
+              </Text>
+            </View>
+
+            {/* Intervalo de Classes */}
+            <View style={mStyles.classeRow}>
+              <View style={[mStyles.field, { flex: 1 }]}>
+                <Text style={mStyles.fieldLabel}>Classe de Início</Text>
+                <TouchableOpacity
+                  style={[mStyles.input, mStyles.pickerBtn]}
+                  onPress={() => setActivePicker('classeInicio')}
+                >
+                  <Text style={{ color: form.classeInicio ? Colors.text : Colors.textMuted, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }} numberOfLines={1}>
+                    {form.classeInicio || 'Seleccionar...'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={mStyles.classeSep}>
+                <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
+              </View>
+
+              <View style={[mStyles.field, { flex: 1 }]}>
+                <Text style={mStyles.fieldLabel}>Classe de Fim</Text>
+                <TouchableOpacity
+                  style={[mStyles.input, mStyles.pickerBtn]}
+                  onPress={() => setActivePicker('classeFim')}
+                >
+                  <Text style={{ color: form.classeFim ? Colors.text : Colors.textMuted, fontSize: 13, fontFamily: 'Inter_400Regular', flex: 1 }} numberOfLines={1}>
+                    {form.classeFim || 'Seleccionar...'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={mStyles.field}>
@@ -183,23 +292,28 @@ function DisciplinaFormModal({
         </View>
       </View>
 
-      <Modal visible={showAreaPicker} transparent animationType="fade" onRequestClose={() => setShowAreaPicker(false)}>
-        <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setShowAreaPicker(false)} activeOpacity={1}>
-          <View style={mStyles.pickerList}>
-            <Text style={mStyles.pickerTitle}>Seleccionar Área</Text>
-            {areas.map(a => (
-              <TouchableOpacity
-                key={a}
-                style={[mStyles.pickerItem, form.area === a && mStyles.pickerItemActive]}
-                onPress={() => { set('area', a); setShowAreaPicker(false); }}
-              >
-                <Text style={[mStyles.pickerItemText, form.area === a && mStyles.pickerItemTextActive]}>{a}</Text>
-                {form.area === a && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </TouchableOpacity>
-      </Modal>
+      {/* Picker modal genérico */}
+      {activePicker && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setActivePicker(null)}>
+          <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setActivePicker(null)} activeOpacity={1}>
+            <View style={mStyles.pickerList}>
+              <Text style={mStyles.pickerTitle}>{pickerTitles[activePicker]}</Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
+                {pickerOptions[activePicker].map(opt => (
+                  <TouchableOpacity
+                    key={opt}
+                    style={[mStyles.pickerItem, form[activePicker] === opt && mStyles.pickerItemActive]}
+                    onPress={() => { set(activePicker, opt); setActivePicker(null); }}
+                  >
+                    <Text style={[mStyles.pickerItemText, form[activePicker] === opt && mStyles.pickerItemTextActive]}>{opt}</Text>
+                    {form[activePicker] === opt && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
+      )}
     </Modal>
   );
 }
@@ -220,6 +334,14 @@ function areaColor(area: string) {
   return AREA_COLORS[area] || Colors.textMuted;
 }
 
+function tipoBadge(tipo: string, classeInicio: string, classeFim: string) {
+  const isTerminal = tipo === 'terminal';
+  const range = classeInicio && classeFim
+    ? (classeInicio === classeFim ? classeInicio : `${classeInicio} – ${classeFim}`)
+    : classeInicio || classeFim || null;
+  return { isTerminal, range };
+}
+
 export default function DisciplinasScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -229,9 +351,13 @@ export default function DisciplinasScreen() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterArea, setFilterArea] = useState<string>('Todas');
+  const [filterTipo, setFilterTipo] = useState<string>('Todos');
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Disciplina | null>(null);
   const [showAreaFilter, setShowAreaFilter] = useState(false);
+  const [showTipoFilter, setShowTipoFilter] = useState(false);
+
+  const { values: areasFromDB } = useLookup('areas_conhecimento', AREAS_DEFAULT);
 
   const canEdit = ['admin', 'ceo', 'pca', 'director', 'chefe_secretaria', 'secretaria'].includes(user?.role ?? '');
 
@@ -249,15 +375,22 @@ export default function DisciplinasScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const areas = ['Todas', ...AREAS_DEFAULT];
+  const areas = ['Todas', ...areasFromDB];
+  const tiposFilter = ['Todos', 'Continuidade', 'Terminal'];
 
   const filtered = disciplinas.filter(d => {
     const matchSearch = d.nome.toLowerCase().includes(search.toLowerCase()) ||
       d.codigo.toLowerCase().includes(search.toLowerCase()) ||
       d.area.toLowerCase().includes(search.toLowerCase());
     const matchArea = filterArea === 'Todas' || d.area === filterArea;
-    return matchSearch && matchArea;
+    const matchTipo = filterTipo === 'Todos' ||
+      (filterTipo === 'Terminal' && d.tipo === 'terminal') ||
+      (filterTipo === 'Continuidade' && d.tipo !== 'terminal');
+    return matchSearch && matchArea && matchTipo;
   });
+
+  const contTerminal = disciplinas.filter(d => d.tipo === 'terminal').length;
+  const contContinuidade = disciplinas.filter(d => d.tipo !== 'terminal').length;
 
   async function handleSave(form: FormState) {
     try {
@@ -309,13 +442,9 @@ export default function DisciplinasScreen() {
     );
   }
 
-  const byArea = areas.slice(1).map(a => ({
-    area: a,
-    count: disciplinas.filter(d => d.area === a).length,
-  })).filter(x => x.count > 0);
-
   const renderItem = ({ item }: { item: Disciplina }) => {
     const color = areaColor(item.area);
+    const { isTerminal, range } = tipoBadge(item.tipo, item.classeInicio, item.classeFim);
     return (
       <View style={[styles.card, !item.ativo && styles.cardInactive]}>
         <View style={[styles.cardLeft, { backgroundColor: color + '18', borderColor: color + '30' }]}>
@@ -329,6 +458,17 @@ export default function DisciplinasScreen() {
                 <Text style={[styles.codeText, { color }]}>{item.codigo}</Text>
               </View>
             ) : null}
+            {/* Tipo badge */}
+            <View style={[styles.tipoBadge, isTerminal ? styles.tipoBadgeTerminal : styles.tipoBadgeCont]}>
+              <MaterialCommunityIcons
+                name={isTerminal ? 'flag-checkered' : 'arrow-right-bold-circle'}
+                size={10}
+                color={isTerminal ? Colors.warning : Colors.info}
+              />
+              <Text style={[styles.tipoBadgeText, { color: isTerminal ? Colors.warning : Colors.info }]}>
+                {isTerminal ? 'Terminal' : 'Continuidade'}
+              </Text>
+            </View>
             {!item.ativo && (
               <View style={styles.inactiveBadge}>
                 <Text style={styles.inactiveText}>Inactiva</Text>
@@ -339,6 +479,12 @@ export default function DisciplinasScreen() {
             <View style={styles.areaRow}>
               <View style={[styles.areaDot, { backgroundColor: color }]} />
               <Text style={styles.areaText}>{item.area}</Text>
+            </View>
+          ) : null}
+          {range ? (
+            <View style={styles.classeRangeRow}>
+              <Ionicons name="school-outline" size={11} color={Colors.textMuted} />
+              <Text style={styles.classeRangeText}>{range}</Text>
             </View>
           ) : null}
           {item.descricao ? (
@@ -378,13 +524,13 @@ export default function DisciplinasScreen() {
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
-            <Text style={[styles.heroVal, { color: Colors.success }]}>{disciplinas.filter(d => d.ativo).length}</Text>
-            <Text style={styles.heroLbl}>Activas</Text>
+            <Text style={[styles.heroVal, { color: Colors.info }]}>{contContinuidade}</Text>
+            <Text style={styles.heroLbl}>Continuidade</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
-            <Text style={[styles.heroVal, { color: Colors.info }]}>{byArea.length}</Text>
-            <Text style={styles.heroLbl}>Áreas</Text>
+            <Text style={[styles.heroVal, { color: Colors.warning }]}>{contTerminal}</Text>
+            <Text style={styles.heroLbl}>Terminais</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
@@ -411,15 +557,39 @@ export default function DisciplinasScreen() {
           )}
         </View>
         <TouchableOpacity
-          style={[styles.areaFilterBtn, filterArea !== 'Todas' && styles.areaFilterBtnActive]}
+          style={[styles.filterBtn, filterTipo !== 'Todos' && styles.filterBtnActive]}
+          onPress={() => setShowTipoFilter(true)}
+        >
+          <MaterialCommunityIcons
+            name="flag-checkered"
+            size={14}
+            color={filterTipo !== 'Todos' ? Colors.warning : Colors.textMuted}
+          />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filterBtn, filterArea !== 'Todas' && styles.filterBtnAreaActive]}
           onPress={() => setShowAreaFilter(true)}
         >
-          <Ionicons name="filter" size={15} color={filterArea !== 'Todas' ? Colors.gold : Colors.textMuted} />
-          <Text style={[styles.areaFilterText, filterArea !== 'Todas' && { color: Colors.gold }]} numberOfLines={1}>
-            {filterArea === 'Todas' ? 'Área' : filterArea.split(' ')[0]}
-          </Text>
+          <Ionicons name="filter" size={14} color={filterArea !== 'Todas' ? Colors.gold : Colors.textMuted} />
         </TouchableOpacity>
       </View>
+
+      {(filterTipo !== 'Todos' || filterArea !== 'Todas') && (
+        <View style={styles.activeFiltersRow}>
+          {filterTipo !== 'Todos' && (
+            <TouchableOpacity style={styles.activeFilterChip} onPress={() => setFilterTipo('Todos')}>
+              <Text style={styles.activeFilterText}>{filterTipo}</Text>
+              <Ionicons name="close" size={11} color={Colors.warning} />
+            </TouchableOpacity>
+          )}
+          {filterArea !== 'Todas' && (
+            <TouchableOpacity style={[styles.activeFilterChip, styles.activeFilterChipArea]} onPress={() => setFilterArea('Todas')}>
+              <Text style={[styles.activeFilterText, { color: Colors.gold }]}>{filterArea.split(' ')[0]}</Text>
+              <Ionicons name="close" size={11} color={Colors.gold} />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -438,10 +608,12 @@ export default function DisciplinasScreen() {
             <View style={styles.empty}>
               <MaterialCommunityIcons name="book-open-page-variant-outline" size={44} color={Colors.textMuted} />
               <Text style={styles.emptyTitle}>
-                {search || filterArea !== 'Todas' ? 'Nenhuma disciplina encontrada' : 'Sem disciplinas no catálogo'}
+                {search || filterArea !== 'Todas' || filterTipo !== 'Todos'
+                  ? 'Nenhuma disciplina encontrada'
+                  : 'Sem disciplinas no catálogo'}
               </Text>
               <Text style={styles.emptyDesc}>
-                {canEdit && !search && filterArea === 'Todas'
+                {canEdit && !search && filterArea === 'Todas' && filterTipo === 'Todos'
                   ? 'Clique em "+" para adicionar a primeira disciplina ao catálogo da escola.'
                   : 'Tente ajustar os filtros de pesquisa.'}
               </Text>
@@ -457,6 +629,30 @@ export default function DisciplinasScreen() {
         disciplina={editItem}
       />
 
+      {/* Filtro por Tipo */}
+      <Modal visible={showTipoFilter} transparent animationType="fade" onRequestClose={() => setShowTipoFilter(false)}>
+        <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setShowTipoFilter(false)} activeOpacity={1}>
+          <View style={mStyles.pickerList}>
+            <Text style={mStyles.pickerTitle}>Filtrar por Tipo</Text>
+            {tiposFilter.map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[mStyles.pickerItem, filterTipo === t && mStyles.pickerItemActive]}
+                onPress={() => { setFilterTipo(t); setShowTipoFilter(false); }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {t === 'Terminal' && <MaterialCommunityIcons name="flag-checkered" size={14} color={Colors.warning} />}
+                  {t === 'Continuidade' && <MaterialCommunityIcons name="arrow-right-bold-circle" size={14} color={Colors.info} />}
+                  <Text style={[mStyles.pickerItemText, filterTipo === t && mStyles.pickerItemTextActive]}>{t}</Text>
+                </View>
+                {filterTipo === t && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Filtro por Área */}
       <Modal visible={showAreaFilter} transparent animationType="fade" onRequestClose={() => setShowAreaFilter(false)}>
         <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setShowAreaFilter(false)} activeOpacity={1}>
           <View style={mStyles.pickerList}>
@@ -484,20 +680,20 @@ export default function DisciplinasScreen() {
 const mStyles = StyleSheet.create({
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center', alignItems: 'center',
+    justifyContent: 'flex-end', alignItems: 'center',
   },
   container: {
     backgroundColor: Colors.backgroundCard,
     borderTopLeftRadius: 24, borderTopRightRadius: 24,
     borderTopWidth: 1, borderColor: Colors.border,
-    padding: 20, maxHeight: '90%', width: '100%', maxWidth: 480,
+    padding: 20, maxHeight: '92%', width: '100%', maxWidth: 520,
   },
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 20,
   },
   title: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
-  field: { marginBottom: 16 },
+  field: { marginBottom: 14 },
   fieldLabel: {
     fontSize: 12, fontFamily: 'Inter_600SemiBold',
     color: Colors.textSecondary, marginBottom: 6,
@@ -510,6 +706,31 @@ const mStyles = StyleSheet.create({
   },
   textarea: { minHeight: 70, textAlignVertical: 'top' },
   pickerBtn: { flexDirection: 'row', alignItems: 'center' },
+  // Tipo selector
+  tipoRow: { flexDirection: 'row', gap: 10 },
+  tipoBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    paddingVertical: 10, borderRadius: 10,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+  },
+  tipoBtnActive: {
+    backgroundColor: Colors.info + '18', borderColor: Colors.info + '60',
+  },
+  tipoBtnTerminal: {
+    backgroundColor: Colors.warning + '18', borderColor: Colors.warning + '60',
+  },
+  tipoBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  tipoBtnTextActive: { color: Colors.info, fontFamily: 'Inter_600SemiBold' },
+  tipoBtnTextTerminal: { color: Colors.warning, fontFamily: 'Inter_600SemiBold' },
+  tipoHint: {
+    fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
+    marginTop: 6, lineHeight: 16,
+  },
+  // Classe row
+  classeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 14 },
+  classeSep: {
+    paddingBottom: 14, alignItems: 'center', justifyContent: 'center',
+  },
   switchRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 16,
@@ -571,13 +792,28 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, height: 42, gap: 8,
   },
   searchInput: { flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text },
-  areaFilterBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.backgroundCard, borderRadius: 12,
-    borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, height: 42,
+  filterBtn: {
+    width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border,
   },
-  areaFilterBtnActive: { borderColor: Colors.gold + '60', backgroundColor: Colors.gold + '10' },
-  areaFilterText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  filterBtnActive: { borderColor: Colors.warning + '60', backgroundColor: Colors.warning + '10' },
+  filterBtnAreaActive: { borderColor: Colors.gold + '60', backgroundColor: Colors.gold + '10' },
+
+  activeFiltersRow: {
+    flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 4, flexWrap: 'wrap',
+  },
+  activeFilterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.warning + '18', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 4,
+    borderWidth: 1, borderColor: Colors.warning + '40',
+  },
+  activeFilterChipArea: {
+    backgroundColor: Colors.gold + '18', borderColor: Colors.gold + '40',
+  },
+  activeFilterText: {
+    fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.warning,
+  },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
@@ -595,15 +831,24 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   cardBody: { flex: 1 },
-  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+  cardTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   cardName: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   codeBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
   codeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
+  tipoBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6,
+  },
+  tipoBadgeTerminal: { backgroundColor: Colors.warning + '18' },
+  tipoBadgeCont: { backgroundColor: Colors.info + '18' },
+  tipoBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   inactiveBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: Colors.textMuted + '20' },
   inactiveText: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
   areaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   areaDot: { width: 6, height: 6, borderRadius: 3 },
   areaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  classeRangeRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+  classeRangeText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   descricao: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
   cardActions: { flexDirection: 'column', gap: 6 },
   actionBtn: {
