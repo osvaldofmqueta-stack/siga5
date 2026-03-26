@@ -37,6 +37,21 @@ if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
 }
 
+// On web, expo-font's fontfaceobserver fires internally even without useFonts().
+// Fonts are already loaded via @font-face CSS injected by the Express server.
+// Suppress the unhandled promise rejection so it doesn't appear as a console error.
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (
+      event?.reason?.message &&
+      typeof event.reason.message === 'string' &&
+      event.reason.message.includes('ms timeout exceeded')
+    ) {
+      event.preventDefault();
+    }
+  });
+}
+
 function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
