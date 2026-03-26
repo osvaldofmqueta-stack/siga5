@@ -20,27 +20,28 @@ import { useConfig } from '@/context/ConfigContext';
 import { useRouter } from 'expo-router';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
+import { useLookup } from '@/hooks/useLookup';
 
-const TIPO_LABEL: Record<TipoTaxa, string> = {
+const TIPO_LABEL: Record<string, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
 };
-const TIPO_ICON: Record<TipoTaxa, string> = {
+const TIPO_ICON: Record<string, string> = {
   propina: 'cash', matricula: 'document-text', material: 'book', exame: 'newspaper', multa: 'warning', outro: 'ellipsis-horizontal',
 };
-const TIPO_COLOR: Record<TipoTaxa, string> = {
+const TIPO_COLOR: Record<string, string> = {
   propina: Colors.info, matricula: Colors.gold, material: Colors.success, exame: Colors.warning, multa: Colors.danger, outro: Colors.textMuted,
 };
-const METODO_LABEL: Record<MetodoPagamento, string> = {
+const METODO_LABEL_DEFAULT: Record<string, string> = {
   dinheiro: 'Dinheiro', transferencia: 'RUPE/Transfer.', multicaixa: 'Multicaixa',
 };
+const TIPOS_FALLBACK: TipoTaxa[] = ['propina','matricula','material','exame','multa','outro'];
+const METODOS_FALLBACK: MetodoPagamento[] = ['dinheiro','transferencia','multicaixa'];
 const STATUS_CFG = {
   pago:     { color: Colors.success, bg: Colors.success + '22', label: 'Pago',      icon: 'checkmark-circle' },
   pendente: { color: Colors.warning, bg: Colors.warning + '22', label: 'Pendente',  icon: 'time' },
   cancelado:{ color: Colors.textMuted, bg: Colors.border,       label: 'Cancelado', icon: 'close-circle' },
 };
-const NIVEIS = ['Todos', 'Primário', 'I Ciclo', 'II Ciclo'];
 const MESES  = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
-const TIPOS: TipoTaxa[] = ['propina','matricula','material','exame','multa','outro'];
 const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
@@ -83,6 +84,13 @@ export default function FinanceiroScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 24 : insets.bottom;
+
+  const { values: tiposLookup } = useLookup('tipos_taxa', TIPOS_FALLBACK);
+  const { valueToLabel: metodoLabelFn } = useLookup('metodos_pagamento', METODOS_FALLBACK);
+  const { values: niveisLookup } = useLookup('niveis', ['Primário', 'I Ciclo', 'II Ciclo']);
+  const TIPOS = tiposLookup as TipoTaxa[];
+  const NIVEIS = ['Todos', ...niveisLookup];
+  const metodoLabel = (m: string) => metodoLabelFn(m) || METODO_LABEL_DEFAULT[m] || m;
 
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
   const nomeRemetente = user?.nome || 'Departamento Financeiro';
@@ -889,7 +897,7 @@ export default function FinanceiroScreen() {
                 valor: p.valor,
                 data: new Date(p.data).toLocaleDateString('pt-PT'),
                 mes: p.mes ? MESES[p.mes - 1] : '',
-                metodo: METODO_LABEL[p.metodoPagamento],
+                metodo: metodoLabel(p.metodoPagamento),
                 estado: STATUS_CFG[p.status].label,
                 referencia: p.referencia ?? '',
               }))}
@@ -925,7 +933,7 @@ export default function FinanceiroScreen() {
               {(['todos','dinheiro','transferencia','multicaixa'] as const).map(m => (
                 <TouchableOpacity key={m} style={[st.chip, metodoPagFilter === m && st.chipActive]} onPress={() => setMetodoPagFilter(m as any)}>
                   <Text style={[st.chipText, metodoPagFilter === m && st.chipTextActive]}>
-                    {m === 'todos' ? 'Todos métodos' : METODO_LABEL[m as MetodoPagamento]}
+                    {m === 'todos' ? 'Todos métodos' : metodoLabel(m)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -972,7 +980,7 @@ export default function FinanceiroScreen() {
                       <Ionicons name="calendar-outline" size={10} color={Colors.textMuted} />
                       <Text style={st.pagMetaTxt}>{new Date(pag.data).toLocaleDateString('pt-PT')}</Text>
                       <Text style={st.pagMetaTxt}>·</Text>
-                      <Text style={st.pagMetaTxt}>{METODO_LABEL[pag.metodoPagamento]}</Text>
+                      <Text style={st.pagMetaTxt}>{metodoLabel(pag.metodoPagamento)}</Text>
                       <Text style={st.pagMetaTxt}>·</Text>
                       <Text style={st.pagMetaTxt}>{getTurmaAluno(pag.alunoId)}</Text>
                     </View>
@@ -1102,7 +1110,7 @@ export default function FinanceiroScreen() {
 
     const receitaPorMetodo = (['dinheiro','transferencia','multicaixa'] as MetodoPagamento[]).map(m => {
       const val = relatorioFiltrado.filter(p => p.metodoPagamento === m).reduce((s, p) => s + p.valor, 0);
-      return { label: METODO_LABEL[m], value: val, color: m === 'dinheiro' ? Colors.gold : m === 'multicaixa' ? Colors.info : Colors.success };
+      return { label: metodoLabel(m), value: val, color: m === 'dinheiro' ? Colors.gold : m === 'multicaixa' ? Colors.info : Colors.success };
     }).filter(d => d.value > 0);
 
     const receitaPorMes = MESES.map((nome, i) => {
@@ -1174,7 +1182,7 @@ export default function FinanceiroScreen() {
             <View style={st.chipRow}>
               {(['todos','dinheiro','transferencia','multicaixa'] as const).map(m => (
                 <TouchableOpacity key={m} style={[st.chip, relMetodo === m && st.chipActive]} onPress={() => setRelMetodo(m as any)}>
-                  <Text style={[st.chipText, relMetodo === m && st.chipTextActive]}>{m === 'todos' ? 'Todos' : METODO_LABEL[m as MetodoPagamento]}</Text>
+                  <Text style={[st.chipText, relMetodo === m && st.chipTextActive]}>{m === 'todos' ? 'Todos' : metodoLabel(m)}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1505,7 +1513,7 @@ export default function FinanceiroScreen() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={st.pagTaxa}>{getNomeTaxa(p.taxaId)}</Text>
-                      <Text style={st.pagMetaTxt}>{new Date(p.data).toLocaleDateString('pt-PT')} · {METODO_LABEL[p.metodoPagamento]}</Text>
+                      <Text style={st.pagMetaTxt}>{new Date(p.data).toLocaleDateString('pt-PT')} · {metodoLabel(p.metodoPagamento)}</Text>
                       {p.referencia && <Text style={st.pagRef}>Ref: {p.referencia}</Text>}
                     </View>
                     <View style={{ alignItems: 'flex-end', gap: 6 }}>
@@ -1864,7 +1872,7 @@ export default function FinanceiroScreen() {
                 {(['dinheiro','transferencia','multicaixa'] as MetodoPagamento[]).map(m => (
                   <TouchableOpacity key={m} style={[st.metodoBtn, formPag.metodoPagamento === m && st.metodoBtnActive]}
                     onPress={() => setFormPag(f => ({ ...f, metodoPagamento: m }))}>
-                    <Text style={[st.metodoTxt, formPag.metodoPagamento === m && st.metodoTxtActive]}>{METODO_LABEL[m]}</Text>
+                    <Text style={[st.metodoTxt, formPag.metodoPagamento === m && st.metodoTxtActive]}>{metodoLabel(m)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

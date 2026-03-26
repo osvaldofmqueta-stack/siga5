@@ -10,8 +10,9 @@ import { Colors } from '@/constants/colors';
 import { useData, Sala } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { useLookup } from '@/hooks/useLookup';
 
-const TIPOS = ['Sala Normal', 'Laboratório', 'Sala de Informática', 'Auditório', 'Sala de Reunião'] as const;
+const TIPOS_SALA_FALLBACK = ['Sala Normal', 'Laboratório', 'Sala de Informática', 'Auditório', 'Sala de Reunião'];
 
 const TIPO_ICONS: Record<string, string> = {
   'Sala Normal': 'door-open',
@@ -30,15 +31,17 @@ const TIPO_COLORS: Record<string, string> = {
 };
 
 function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; onClose: () => void; onSave: (s: Partial<Sala>) => void; sala?: Sala | null }) {
+  const { values: tiposSala } = useLookup('tipos_sala', TIPOS_SALA_FALLBACK);
+  const defaultTipo = tiposSala[0] || 'Sala Normal';
   const [form, setForm] = useState<Partial<Sala>>(sala || {
-    nome: '', bloco: '', capacidade: 30, tipo: 'Sala Normal', ativo: true,
+    nome: '', bloco: '', capacidade: 30, tipo: defaultTipo, ativo: true,
   });
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   React.useEffect(() => {
     if (visible) {
-      setForm(sala || { nome: '', bloco: '', capacidade: 30, tipo: 'Sala Normal', ativo: true });
+      setForm(sala || { nome: '', bloco: '', capacidade: 30, tipo: defaultTipo, ativo: true });
     }
   }, [visible, sala]);
 
@@ -105,7 +108,7 @@ function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; o
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Tipo de Sala</Text>
               <View style={mS.tipoGrid}>
-                {TIPOS.map(t => (
+                {tiposSala.map(t => (
                   <TouchableOpacity
                     key={t}
                     style={[mS.tipoBtn, form.tipo === t && { backgroundColor: (TIPO_COLORS[t] || Colors.accent) + '22', borderColor: TIPO_COLORS[t] || Colors.accent }]}
@@ -160,6 +163,7 @@ function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; o
 export default function SalasScreen() {
   const insets = useSafeAreaInsets();
   const { salas, addSala, updateSala, deleteSala } = useData();
+  const { values: tiposSalaFiltro } = useLookup('tipos_sala', TIPOS_SALA_FALLBACK);
   const [search, setSearch] = useState('');
   const [filterTipo, setFilterTipo] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -344,7 +348,7 @@ export default function SalasScreen() {
               >
                 <Text style={[styles.filterChipText, !filterTipo && styles.filterChipTextActive]}>Todos</Text>
               </TouchableOpacity>
-              {TIPOS.map(t => (
+              {tiposSalaFiltro.map(t => (
                 <TouchableOpacity
                   key={t}
                   style={[styles.filterChip, filterTipo === t && { backgroundColor: (TIPO_COLORS[t] || Colors.accent) + '22', borderColor: TIPO_COLORS[t] || Colors.accent }]}

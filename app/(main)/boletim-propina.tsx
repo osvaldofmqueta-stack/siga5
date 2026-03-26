@@ -15,7 +15,13 @@ import TopBar from '@/components/TopBar';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const MESES_LETIVOS = [
+const MONTH_NAMES: Record<number, string> = {
+  1: 'JANEIRO', 2: 'FEVEREIRO', 3: 'MARÇO', 4: 'ABRIL',
+  5: 'MAIO', 6: 'JUNHO', 7: 'JULHO', 8: 'AGOSTO',
+  9: 'SETEMBRO', 10: 'OUTUBRO', 11: 'NOVEMBRO', 12: 'DEZEMBRO',
+};
+
+const DEFAULT_MESES_LETIVOS = [
   { num: 9,  nome: 'SETEMBRO' },
   { num: 10, nome: 'OUTUBRO' },
   { num: 11, nome: 'NOVEMBRO' },
@@ -110,6 +116,7 @@ function generateCadernetaHTML(
   anoLetivo: string,
   qrDataUrl: string,
   numeroCaderneta: string,
+  mesesLetivos: Array<{ num: number; nome: string }> = DEFAULT_MESES_LETIVOS,
 ): string {
   const nomeCompleto = `${aluno.nome} ${aluno.apelido}`;
   const classe = turma?.classe ?? '—';
@@ -134,9 +141,9 @@ function generateCadernetaHTML(
   }
 
   // Organizar em grupos de 4 colunas
-  const rows: Array<typeof MESES_LETIVOS> = [];
-  for (let i = 0; i < MESES_LETIVOS.length; i += 4) {
-    rows.push(MESES_LETIVOS.slice(i, i + 4));
+  const rows: Array<typeof mesesLetivos> = [];
+  for (let i = 0; i < mesesLetivos.length; i += 4) {
+    rows.push(mesesLetivos.slice(i, i + 4));
   }
 
   const mesesHTML = rows.map(row => `
@@ -269,6 +276,14 @@ export default function BoletimPropinaScreen() {
 
   const anoLetivo = anoSelecionado?.ano ?? String(new Date().getFullYear());
 
+  const mesesLetivos = useMemo(() => {
+    const nums = config.mesesAnoAcademico;
+    if (nums && nums.length > 0) {
+      return nums.map(n => ({ num: n, nome: MONTH_NAMES[n] || String(n) }));
+    }
+    return DEFAULT_MESES_LETIVOS;
+  }, [config.mesesAnoAcademico]);
+
   const [search, setSearch] = useState('');
   const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
   const [showSearch, setShowSearch] = useState(true);
@@ -314,8 +329,8 @@ export default function BoletimPropinaScreen() {
   // Stats
   const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);
   const totalPendente = pagamentosAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
-  const mesesPagos = MESES_LETIVOS.filter(m => getStatusMes(m.num, anoLetivo, pagamentosAluno) === 'pago').length;
-  const mesesAtraso = MESES_LETIVOS.filter(m => getStatusMes(m.num, anoLetivo, pagamentosAluno) === 'atraso').length;
+  const mesesPagos = mesesLetivos.filter(m => getStatusMes(m.num, anoLetivo, pagamentosAluno) === 'pago').length;
+  const mesesAtraso = mesesLetivos.filter(m => getStatusMes(m.num, anoLetivo, pagamentosAluno) === 'atraso').length;
 
   function handleSelectAluno(aluno: Aluno) {
     setSelectedAluno(aluno);
@@ -330,7 +345,7 @@ export default function BoletimPropinaScreen() {
     const doGenerate = (dataUrl: string) => {
       const html = generateCadernetaHTML(
         selectedAluno, turmaDoAluno, config.nomeEscola,
-        pagamentosAluno, anoLetivo, dataUrl, numeroCaderneta
+        pagamentosAluno, anoLetivo, dataUrl, numeroCaderneta, mesesLetivos
       );
       const win = window.open('', '_blank');
       if (win) {
@@ -465,7 +480,7 @@ export default function BoletimPropinaScreen() {
               </View>
 
               <View style={styles.mesesGrid}>
-                {MESES_LETIVOS.map(mes => {
+                {mesesLetivos.map(mes => {
                   const status = getStatusMes(mes.num, anoLetivo, pagamentosAluno);
                   const pag = getPagamento(mes.num, anoLetivo, pagamentosAluno);
                   const cfg = STATUS_CFG[status];

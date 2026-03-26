@@ -3010,7 +3010,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
 
   // IRT Angola — cálculo do Imposto sobre Rendimento do Trabalho
-  function calcularIRT(rendimentoBruto: number): number {
+  function calcularIRT(rendimentoBruto: number, tabela?: Array<{max: number|null, taxa: number, baseFixa: number, limiteAnterior: number}>): number {
+    if (tabela && tabela.length > 0) {
+      for (const escalao of tabela) {
+        if (escalao.max === null || rendimentoBruto <= escalao.max) {
+          return Math.max(0, escalao.baseFixa + (rendimentoBruto - escalao.limiteAnterior) * escalao.taxa);
+        }
+      }
+    }
     if (rendimentoBruto <= 70000)   return 0;
     if (rendimentoBruto <= 100000)  return (rendimentoBruto - 70000) * 0.10;
     if (rendimentoBruto <= 150000)  return 3000  + (rendimentoBruto - 100000) * 0.13;
@@ -3113,6 +3120,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete existing items and rebuild
       await query(`DELETE FROM public.itens_folha WHERE "folhaId"=$1`, [id]);
 
+      const cfgRows = await query<JsonObject>(`SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral LIMIT 1`, []);
+      const cfg = cfgRows[0] as any;
+      const inssEmpRate = ((cfg?.inssEmpPerc ?? 3)) / 100;
+      const inssPatrRate = ((cfg?.inssPatrPerc ?? 8)) / 100;
+      const irtTabela = Array.isArray(cfg?.irtTabela) && (cfg.irtTabela as any[]).length > 0 ? cfg.irtTabela : undefined;
+
       let totalBruto = 0, totalLiquido = 0, totalInssEmp = 0, totalInssPatr = 0, totalIrtSum = 0, totalSubs = 0;
 
       for (const p of profs) {
@@ -3126,12 +3139,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const totalSubsidios = subAlim + subTrans + subHab + outrosSubs;
         const salBruto = salBase + totalSubsidios;
 
-        // INSS: 3% empregado, 8% patronal (Angola)
-        const inssEmp = Math.round(salBase * 0.03 * 100) / 100;
-        const inssPatr = Math.round(salBase * 0.08 * 100) / 100;
+        // INSS: taxas configuráveis em config_geral
+        const inssEmp = Math.round(salBase * inssEmpRate * 100) / 100;
+        const inssPatr = Math.round(salBase * inssPatrRate * 100) / 100;
 
-        // IRT: calculado sobre salário base (Angola, subsídios em geral isentos)
-        const irt = Math.round(calcularIRT(salBase) * 100) / 100;
+        // IRT: calculado com tabela configurável (Angola, subsídios em geral isentos)
+        const irt = Math.round(calcularIRT(salBase, irtTabela) * 100) / 100;
 
         const totalDescontos = inssEmp + irt + outrosDesc;
         const salLiquido = Math.round((salBruto - totalDescontos) * 100) / 100;
@@ -3201,9 +3214,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const outrosDesc = Number(b.outrosDescontos ?? item[0].outrosDescontos ?? 0);
 
       const salBruto = salBase + subAlim + subTrans + subHab + outrosSubs;
-      const inssEmp = Math.round(salBase * 0.03 * 100) / 100;
-      const inssPatr = Math.round(salBase * 0.08 * 100) / 100;
-      const irt = Math.round(calcularIRT(salBase) * 100) / 100;
+      const cfgRowsUpd = await query<JsonObject>(`SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral LIMIT 1`, []);
+      const cfgUpd = cfgRowsUpd[0] as any;
+      const inssEmpRateUpd = ((cfgUpd?.inssEmpPerc ?? 3)) / 100;
+      const inssPatrRateUpd = ((cfgUpd?.inssPatrPerc ?? 8)) / 100;
+      const irtTabelaUpd = Array.isArray(cfgUpd?.irtTabela) && (cfgUpd.irtTabela as any[]).length > 0 ? cfgUpd.irtTabela : undefined;
+      const inssEmp = Math.round(salBase * inssEmpRateUpd * 100) / 100;
+      const inssPatr = Math.round(salBase * inssPatrRateUpd * 100) / 100;
+      const irt = Math.round(calcularIRT(salBase, irtTabelaUpd) * 100) / 100;
       const totalDescontos = inssEmp + irt + outrosDesc;
       const salLiquido = Math.round((salBruto - totalDescontos) * 100) / 100;
 

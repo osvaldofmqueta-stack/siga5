@@ -13,19 +13,26 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
+import { useLookup } from '@/hooks/useLookup';
 
 interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
 
-const NIVEIS = ['Primário', 'I Ciclo', 'II Ciclo'] as const;
-const TURNOS = ['Manhã', 'Tarde', 'Noite'] as const;
-const CLASSES = ['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
+const NIVEIS_FALLBACK = ['Primário', 'I Ciclo', 'II Ciclo'];
+const TURNOS_FALLBACK = ['Manhã', 'Tarde', 'Noite'];
+const CLASSES_FALLBACK = ['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
 
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
   const { anoSelecionado } = useAnoAcademico();
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
+  const { values: niveis } = useLookup('niveis', NIVEIS_FALLBACK);
+  const { values: turnos } = useLookup('turnos', TURNOS_FALLBACK);
+  const { values: classes } = useLookup('classes', CLASSES_FALLBACK);
+  const defaultClasse = classes[6] || classes[0] || '7ª Classe';
+  const defaultTurno = turnos[0] || 'Manhã';
+  const defaultNivel = niveis[1] || niveis[0] || 'I Ciclo';
   const [form, setForm] = useState<Partial<Turma>>(turma || {
-    nome: '', classe: '7ª Classe', turno: 'Manhã', anoLetivo: anoAtual,
-    nivel: 'I Ciclo', professorId: professores[0]?.id || '', sala: '', capacidade: 35, ativo: true,
+    nome: '', classe: defaultClasse, turno: defaultTurno, anoLetivo: anoAtual,
+    nivel: defaultNivel, professorId: professores[0]?.id || '', sala: '', capacidade: 35, ativo: true,
   });
   const [cursos, setCursos] = useState<Curso[]>([]);
   const set = (k: keyof Turma, v: any) => setForm(f => ({ ...f, [k]: v }));
@@ -112,7 +119,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Nível</Text>
               <View style={mS.toggleRow}>
-                {NIVEIS.map(n => (
+                {niveis.map(n => (
                   <TouchableOpacity key={n} style={[mS.toggleBtn, form.nivel === n && mS.toggleActive]} onPress={() => set('nivel', n)}>
                     <Text style={[mS.toggleText, form.nivel === n && mS.toggleTextActive]}>{n}</Text>
                   </TouchableOpacity>
@@ -122,7 +129,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Turno</Text>
               <View style={mS.toggleRow}>
-                {TURNOS.map(t => (
+                {turnos.map(t => (
                   <TouchableOpacity key={t} style={[mS.toggleBtn, form.turno === t && mS.toggleActive]} onPress={() => set('turno', t)}>
                     <Text style={[mS.toggleText, form.turno === t && mS.toggleTextActive]}>{t}</Text>
                   </TouchableOpacity>
@@ -133,7 +140,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
               <Text style={mS.fieldLabel}>Classe</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={mS.toggleRow}>
-                  {CLASSES.map(c => (
+                  {classes.map(c => (
                     <TouchableOpacity key={c} style={[mS.toggleBtn, form.classe === c && mS.toggleActive]} onPress={() => set('classe', c)}>
                       <Text style={[mS.toggleText, form.classe === c && mS.toggleTextActive]}>{c}</Text>
                     </TouchableOpacity>
@@ -193,6 +200,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
 export default function TurmasScreen() {
   const { turmas, professores, alunos, salas, addTurma, updateTurma, deleteTurma } = useData();
   const { config } = useConfig();
+  const { values: nivelsFiltro } = useLookup('niveis', NIVEIS_FALLBACK);
   const insets = useSafeAreaInsets();
   const [filterNivel, setFilterNivel] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -292,7 +300,7 @@ export default function TurmasScreen() {
 
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingRight: 14, paddingTop: 4 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterScroll, { flex: 1 }]} contentContainerStyle={styles.filterContent}>
-          {['', ...NIVEIS].map(n => (
+          {['', ...nivelsFiltro].map(n => (
             <TouchableOpacity key={n} style={[styles.filterChip, filterNivel === n && styles.filterChipActive]} onPress={() => setFilterNivel(n)}>
               <Text style={[styles.filterChipText, filterNivel === n && styles.filterChipTextActive]}>{n || 'Todos'}</Text>
             </TouchableOpacity>

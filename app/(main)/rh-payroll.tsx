@@ -6,6 +6,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useConfig, calcIRT as calcIRTFromTabela, IrtEscalao } from '../../context/ConfigContext';
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { useToast } from '../../context/ToastContext';
@@ -93,7 +94,12 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
 }
 
 // ─── Simulador Salarial ───────────────────────────────────────────────────────
-function SimuladorSalarial({ profs }: { profs: ProfessorSalario[] }) {
+function SimuladorSalarial({ profs, inssEmpPerc = 3, inssPatrPerc = 8, irtTabela }: {
+  profs: ProfessorSalario[];
+  inssEmpPerc?: number;
+  inssPatrPerc?: number;
+  irtTabela?: IrtEscalao[];
+}) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const calcRow = (p: ProfessorSalario) => {
@@ -103,9 +109,9 @@ function SimuladorSalarial({ profs }: { profs: ProfessorSalario[] }) {
     const subHab = p.subsidioHabitacao ?? 0;
     const subs = subAlim + subTrans + subHab;
     const bruto = base + subs;
-    const inssEmp = Math.round(base * 0.03 * 100) / 100;
-    const inssPatr = Math.round(base * 0.08 * 100) / 100;
-    const irt = Math.round(calcIRT(base) * 100) / 100;
+    const inssEmp = Math.round(base * (inssEmpPerc / 100) * 100) / 100;
+    const inssPatr = Math.round(base * (inssPatrPerc / 100) * 100) / 100;
+    const irt = Math.round((irtTabela ? calcIRTFromTabela(base, irtTabela) : calcIRT(base)) * 100) / 100;
     const liquido = Math.round((bruto - inssEmp - irt) * 100) / 100;
     return { base, subAlim, subTrans, subHab, subs, bruto, inssEmp, inssPatr, irt, liquido };
   };
@@ -183,12 +189,12 @@ function SimuladorSalarial({ profs }: { profs: ProfessorSalario[] }) {
                 {r.subHab > 0 && <SimRow label="Subsídio Habitação" val={fmt(r.subHab)} />}
                 <View style={simStyles.breakdownDivider} />
                 <SimRow label="Salário Bruto" val={fmt(r.bruto)} bold />
-                <SimRow label="INSS Empregado (3%)" val={`- ${fmt(r.inssEmp)}`} color="#EF5350" />
+                <SimRow label={`INSS Empregado (${inssEmpPerc}%)`} val={`- ${fmt(r.inssEmp)}`} color="#EF5350" />
                 <SimRow label="IRT (tabela Angola)" val={`- ${fmt(r.irt)}`} color="#EF5350" />
                 <View style={simStyles.breakdownDivider} />
                 <SimRow label="Salário Líquido" val={fmt(r.liquido)} bold color="#66BB6A" />
                 <View style={[simStyles.breakdownDivider, { marginTop: 6 }]} />
-                <SimRow label="INSS Patronal (8%)" val={fmt(r.inssPatr)} color="#FF7141" />
+                <SimRow label={`INSS Patronal (${inssPatrPerc}%)`} val={fmt(r.inssPatr)} color="#FF7141" />
                 <Text style={simStyles.patronalNote}>Custo adicional para a instituição (não desconta no funcionário)</Text>
               </View>
             )}
@@ -243,8 +249,13 @@ function KpiTile({ icon, label, value, sub, color }: {
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function RhPayrollScreen() {
   const { user } = useAuth();
+  const { config } = useConfig();
   const router = useRouter();
   const { showToast } = useToast();
+
+  const inssEmpPerc = config.inssEmpPerc;
+  const inssPatrPerc = config.inssPatrPerc;
+  const irtTabela = config.irtTabela;
 
   const [tab, setTab] = useState<'painel' | 'folhas' | 'funcionarios' | 'detalhe'>('painel');
   const [folhas, setFolhas] = useState<FolhaSalarios[]>([]);
@@ -559,8 +570,8 @@ export default function RhPayrollScreen() {
                 <KpiTile
                   icon={<MaterialCommunityIcons name="calculator" size={24} color="#FF7141" />}
                   label="INSS Patronal Total"
-                  value={fmt(totalMassaSalarial * 0.08)}
-                  sub="estimativa (8% base)"
+                  value={fmt(totalMassaSalarial * (inssPatrPerc / 100))}
+                  sub={`estimativa (${inssPatrPerc}% base)`}
                   color="#FF7141"
                 />
                 <KpiTile
@@ -576,7 +587,7 @@ export default function RhPayrollScreen() {
                 <>
                   <Text style={styles.sectionTitle}>Simulação de Salários — Mês Corrente</Text>
                   <Card>
-                    <SimuladorSalarial profs={profsComSalario} />
+                    <SimuladorSalarial profs={profsComSalario} inssEmpPerc={inssEmpPerc} inssPatrPerc={inssPatrPerc} irtTabela={irtTabela} />
                   </Card>
                 </>
               )}
@@ -648,7 +659,7 @@ export default function RhPayrollScreen() {
                 ))}
                 <View style={styles.irtNote}>
                   <Ionicons name="information-circle-outline" size={14} color={Colors.textSecondary ?? '#aaa'} />
-                  <Text style={styles.irtNoteText}>INSS: 3% (empregado) + 8% (patronal) sobre salário base</Text>
+                  <Text style={styles.irtNoteText}>{`INSS: ${inssEmpPerc}% (empregado) + ${inssPatrPerc}% (patronal) sobre salário base`}</Text>
                 </View>
               </Card>
             </>
@@ -941,15 +952,15 @@ export default function RhPayrollScreen() {
                     const base = Number(profForm.salarioBase);
                     const subs = Number(profForm.subsidioAlimentacao) + Number(profForm.subsidioTransporte) + Number(profForm.subsidioHabitacao);
                     const bruto = base + subs;
-                    const inssEmp = Math.round(base * 0.03 * 100) / 100;
-                    const inssPatr = Math.round(base * 0.08 * 100) / 100;
-                    const irt = Math.round(calcIRT(base) * 100) / 100;
+                    const inssEmp = Math.round(base * (inssEmpPerc / 100) * 100) / 100;
+                    const inssPatr = Math.round(base * (inssPatrPerc / 100) * 100) / 100;
+                    const irt = Math.round(calcIRTFromTabela(base, irtTabela) * 100) / 100;
                     const liquido = Math.round((bruto - inssEmp - irt) * 100) / 100;
                     return (
                       <>
                         <View style={styles.calcRow}><Text style={styles.calcLabel}>Salário Bruto</Text><Text style={styles.calcVal}>{fmt(bruto)}</Text></View>
-                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#EF5350' }]}>INSS Empregado (3%)</Text><Text style={[styles.calcVal, { color: '#EF5350' }]}>- {fmt(inssEmp)}</Text></View>
-                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#FF7141' }]}>INSS Patronal (8%)</Text><Text style={[styles.calcVal, { color: '#FF7141' }]}>{fmt(inssPatr)}</Text></View>
+                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#EF5350' }]}>{`INSS Empregado (${inssEmpPerc}%)`}</Text><Text style={[styles.calcVal, { color: '#EF5350' }]}>- {fmt(inssEmp)}</Text></View>
+                        <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#FF7141' }]}>{`INSS Patronal (${inssPatrPerc}%)`}</Text><Text style={[styles.calcVal, { color: '#FF7141' }]}>{fmt(inssPatr)}</Text></View>
                         <View style={styles.calcRow}><Text style={[styles.calcLabel, { color: '#EF5350' }]}>IRT</Text><Text style={[styles.calcVal, { color: '#EF5350' }]}>- {fmt(irt)}</Text></View>
                         <View style={[styles.calcRow, { borderTopWidth: 1, borderTopColor: '#ffffff22', marginTop: 6, paddingTop: 6 }]}>
                           <Text style={[styles.calcLabel, { fontWeight: '700', color: '#fff' }]}>Salário Líquido</Text>
@@ -1019,7 +1030,7 @@ export default function RhPayrollScreen() {
                   {/* Descontos */}
                   <Text style={reciboStyles.sectionLabel}>DESCONTOS</Text>
                   <View style={reciboStyles.infoGrid}>
-                    <RLine label="INSS Empregado (3%)" val={fmt(reciboItem.inssEmpregado)} deducao />
+                    <RLine label={`INSS Empregado (${inssEmpPerc}%)`} val={fmt(reciboItem.inssEmpregado)} deducao />
                     <RLine label="IRT (tabela progressiva)" val={fmt(reciboItem.irt)} deducao />
                     {reciboItem.outrosDescontos > 0 && <RLine label="Outros Descontos" val={fmt(reciboItem.outrosDescontos)} deducao />}
                     <RLine label="Total Descontos" val={fmt(reciboItem.totalDescontos)} bold deducao />
@@ -1035,7 +1046,7 @@ export default function RhPayrollScreen() {
 
                   {/* Encargos patronais (informativo) */}
                   <View style={reciboStyles.patronalBox}>
-                    <Text style={reciboStyles.patronalLabel}>Encargo patronal INSS (8%) — não desconta no funcionário</Text>
+                    <Text style={reciboStyles.patronalLabel}>{`Encargo patronal INSS (${inssPatrPerc}%) — não desconta no funcionário`}</Text>
                     <Text style={reciboStyles.patronalVal}>{fmt(reciboItem.inssPatronal)}</Text>
                   </View>
 
