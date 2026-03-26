@@ -144,6 +144,11 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           mesesAnoAcademico: Array.isArray(raw.mesesAnoAcademico) && (raw.mesesAnoAcademico as any[]).length > 0
             ? (raw.mesesAnoAcademico as number[])
             : DEFAULT_CONFIG.mesesAnoAcademico,
+          papHabilitado: raw.papHabilitado !== undefined ? Boolean(raw.papHabilitado) : DEFAULT_CONFIG.papHabilitado,
+          estagioComoDisciplina: raw.estagioComoDisciplina !== undefined ? Boolean(raw.estagioComoDisciplina) : DEFAULT_CONFIG.estagioComoDisciplina,
+          papDisciplinasContribuintes: Array.isArray(raw.papDisciplinasContribuintes)
+            ? (raw.papDisciplinasContribuintes as string[])
+            : DEFAULT_CONFIG.papDisciplinasContribuintes,
         };
         setConfig(parsed);
       })

@@ -2178,8 +2178,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico"] as const;
-      const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico"]);
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado"] as const;
+      const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -4658,6 +4658,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
         info: 'Ano de fecho das disciplinas de continuidade. O Exame de Época Normal é aplicado no final deste ano para fechar o plano curricular.',
       });
 
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // -----------------------
+  // PAP — PROVA DE APTIDÃO PROFISSIONAL (13ª Classe)
+  // -----------------------
+
+  // GET /api/pap-alunos?turmaId=&anoLetivo=
+  app.get("/api/pap-alunos", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, anoLetivo, alunoId } = req.query as Record<string, string>;
+      if (alunoId) {
+        const rows = await query<JsonObject>(
+          `SELECT pa.*, a.nome, a.apelido, a."numeroMatricula"
+           FROM public.pap_alunos pa
+           JOIN public.alunos a ON a.id = pa."alunoId"
+           WHERE pa."alunoId"=$1 AND pa."anoLetivo"=$2
+           LIMIT 1`,
+          [alunoId, anoLetivo || '']
+        );
+        return json(res, 200, rows[0] || null);
+      }
+      if (!turmaId) return json(res, 400, { error: "turmaId obrigatório" });
+      const rows = await query<JsonObject>(
+        `SELECT pa.*, a.nome, a.apelido, a."numeroMatricula"
+         FROM public.pap_alunos pa
+         JOIN public.alunos a ON a.id = pa."alunoId"
+         WHERE pa."turmaId"=$1 ${anoLetivo ? `AND pa."anoLetivo"=$2` : ''}
+         ORDER BY a.nome`,
+        anoLetivo ? [turmaId, anoLetivo] : [turmaId]
+      );
+      json(res, 200, rows);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // POST /api/pap-alunos — upsert (create or update)
+  app.post("/api/pap-alunos", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, turmaId, anoLetivo, professorId, notaEstagio, notaDefesa, notasDisciplinas, observacoes } = b as Record<string, unknown>;
+      if (!alunoId || !turmaId || !anoLetivo || !professorId) {
+        return json(res, 400, { error: "alunoId, turmaId, anoLetivo e professorId são obrigatórios" });
+      }
+
+      const disciplinas: { nome: string; nota: number }[] = Array.isArray(notasDisciplinas) ? notasDisciplinas as { nome: string; nota: number }[] : [];
+      const estagio = typeof notaEstagio === 'number' ? notaEstagio : (notaEstagio !== null && notaEstagio !== undefined ? parseFloat(String(notaEstagio)) : null);
+      const defesa = typeof notaDefesa === 'number' ? notaDefesa : (notaDefesa !== null && notaDefesa !== undefined ? parseFloat(String(notaDefesa)) : null);
+
+      // Calcula Nota PAP: (notaEstagio + notaDefesa + avg(disciplinas)) / 3
+      // A divisão é SEMPRE por 3 (regulamento MED).
+      // Requer pelo menos a nota de defesa para calcular.
+      let notaPAP: number | null = null;
+      if (defesa !== null && !isNaN(defesa)) {
+        let soma = defesa;
+        if (estagio !== null && !isNaN(estagio)) soma += estagio;
+        if (disciplinas.length > 0) {
+          const avgDisc = disciplinas.reduce((s: number, d: { nome: string; nota: number }) => s + d.nota, 0) / disciplinas.length;
+          soma += avgDisc;
+        }
+        notaPAP = Math.round((soma / 3) * 10) / 10;
+      }
+
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.pap_alunos WHERE "alunoId"=$1 AND "anoLetivo"=$2 LIMIT 1`,
+        [alunoId, anoLetivo]
+      );
+
+      let rows: JsonObject[];
+      if (existing.length > 0) {
+        rows = await query<JsonObject>(
+          `UPDATE public.pap_alunos
+           SET "turmaId"=$1, "professorId"=$2, "notaEstagio"=$3, "notaDefesa"=$4,
+               "notasDisciplinas"=$5::jsonb, "notaPAP"=$6, "observacoes"=$7, "updatedAt"=NOW()
+           WHERE "alunoId"=$8 AND "anoLetivo"=$9
+           RETURNING *`,
+          [turmaId, professorId, estagio, defesa, JSON.stringify(disciplinas), notaPAP, observacoes || null, alunoId, anoLetivo]
+        );
+      } else {
+        rows = await query<JsonObject>(
+          `INSERT INTO public.pap_alunos ("alunoId","turmaId","anoLetivo","professorId","notaEstagio","notaDefesa","notasDisciplinas","notaPAP","observacoes")
+           VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)
+           RETURNING *`,
+          [alunoId, turmaId, anoLetivo, professorId, estagio, defesa, JSON.stringify(disciplinas), notaPAP, observacoes || null]
+        );
+      }
+      json(res, 200, rows[0]);
     } catch (e) {
       json(res, 500, { error: (e as Error).message });
     }

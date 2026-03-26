@@ -33,6 +33,14 @@ interface NotaForm {
   ppt: string;
 }
 
+interface PapForm {
+  alunoId: string;
+  notaEstagio: string;
+  notaDefesa: string;
+  notasDisciplinas: Record<string, string>;
+  notaPAP: number | null;
+}
+
 type AvalKey = 'aval1' | 'aval2' | 'aval3' | 'aval4' | 'aval5' | 'aval6' | 'aval7' | 'aval8';
 const ALL_AVAL_KEYS: AvalKey[] = ['aval1', 'aval2', 'aval3', 'aval4', 'aval5', 'aval6', 'aval7', 'aval8'];
 
@@ -68,7 +76,7 @@ export default function ProfessorPautaScreen() {
   const [turmaId, setTurmaId] = useState('');
   const [disciplina, setDisciplina] = useState('');
   const [trimestre, setTrimestre] = useState<Trimestre>(1);
-  const [step, setStep] = useState<'selecao' | 'pauta'>('selecao');
+  const [step, setStep] = useState<'selecao' | 'pauta' | 'pap'>('selecao');
   const [notasForms, setNotasForms] = useState<NotaForm[]>([]);
   const [saving, setSaving] = useState(false);
   const [showSolicitModal, setShowSolicitModal] = useState(false);
@@ -77,6 +85,10 @@ export default function ProfessorPautaScreen() {
 
   const [showTurmaList, setShowTurmaList] = useState(false);
   const [showDiscList, setShowDiscList] = useState(false);
+
+  // PAP state
+  const [papForms, setPapForms] = useState<PapForm[]>([]);
+  const [papSaving, setPapSaving] = useState(false);
 
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
   const minhasTurmas = useMemo(() => prof ? turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo) : [], [prof, turmas]);
@@ -112,6 +124,113 @@ export default function ProfessorPautaScreen() {
 
   const isPautaFechada = pautaAtual?.status === 'fechada';
   const isPendente = pautaAtual?.status === 'pendente_abertura';
+
+  // PAP derived values
+  const is13Classe = turmaAtual?.classe === '13ª Classe' || turmaAtual?.classe === '13';
+  const isPapMode = is13Classe && config.papHabilitado;
+  const papDiscContribuintes: string[] = config.papDisciplinasContribuintes || [];
+  const showEstagioField = !config.estagioComoDisciplina;
+
+  function calcPapNota(form: PapForm): number | null {
+    const defesa = parseFloat(form.notaDefesa.replace(',', '.'));
+    if (isNaN(defesa)) return null;
+    let soma = Math.min(20, Math.max(0, defesa));
+    if (showEstagioField) {
+      const e = parseFloat(form.notaEstagio.replace(',', '.'));
+      if (!isNaN(e)) soma += Math.min(20, Math.max(0, e));
+    }
+    const discVals = papDiscContribuintes.map(nome => {
+      const v = parseFloat((form.notasDisciplinas[nome] || '').replace(',', '.'));
+      return isNaN(v) ? null : Math.min(20, Math.max(0, v));
+    }).filter((v): v is number => v !== null);
+    if (discVals.length > 0) soma += discVals.reduce((a, b) => a + b, 0) / discVals.length;
+    return Math.round((soma / 3) * 10) / 10;
+  }
+
+  function updatePapForm(alunoId: string, field: 'notaEstagio' | 'notaDefesa', value: string) {
+    setPapForms(prev => prev.map(f => {
+      if (f.alunoId !== alunoId) return f;
+      const updated = { ...f, [field]: value };
+      return { ...updated, notaPAP: calcPapNota(updated) };
+    }));
+  }
+
+  function updatePapDisc(alunoId: string, discNome: string, value: string) {
+    setPapForms(prev => prev.map(f => {
+      if (f.alunoId !== alunoId) return f;
+      const updated = { ...f, notasDisciplinas: { ...f.notasDisciplinas, [discNome]: value } };
+      return { ...updated, notaPAP: calcPapNota(updated) };
+    }));
+  }
+
+  async function iniciarPAP() {
+    if (!turmaId || !prof) return;
+    const anoLetivo = anoSelecionado?.ano || '2025';
+    let existingPap: Record<string, { notaEstagio?: number; notaDefesa?: number; notasDisciplinas?: { nome: string; nota: number }[] }> = {};
+    try {
+      const resp = await fetch(`/api/pap-alunos?turmaId=${turmaId}&anoLetivo=${anoLetivo}`);
+      if (resp.ok) {
+        const data: { alunoId: string; notaEstagio?: number; notaDefesa?: number; notasDisciplinas?: { nome: string; nota: number }[] }[] = await resp.json();
+        data.forEach(r => { existingPap[r.alunoId] = r; });
+      }
+    } catch {}
+
+    const forms: PapForm[] = alunosDaTurma.map(aluno => {
+      const ex = existingPap[aluno.id];
+      const notasDisciplinas: Record<string, string> = {};
+      papDiscContribuintes.forEach(nome => {
+        const found = ex?.notasDisciplinas?.find((d: { nome: string; nota: number }) => d.nome === nome);
+        notasDisciplinas[nome] = found ? String(found.nota) : '';
+      });
+      const form: PapForm = {
+        alunoId: aluno.id,
+        notaEstagio: ex?.notaEstagio != null ? String(ex.notaEstagio) : '',
+        notaDefesa: ex?.notaDefesa != null ? String(ex.notaDefesa) : '',
+        notasDisciplinas,
+        notaPAP: null,
+      };
+      form.notaPAP = calcPapNota(form);
+      return form;
+    });
+    setPapForms(forms);
+    setStep('pap');
+  }
+
+  async function guardarPAP() {
+    if (!prof || !turmaAtual) return;
+    setPapSaving(true);
+    try {
+      const anoLetivo = anoSelecionado?.ano || '2025';
+      for (const form of papForms) {
+        const disciplinasArr = papDiscContribuintes.map(nome => {
+          const v = parseFloat((form.notasDisciplinas[nome] || '').replace(',', '.'));
+          return { nome, nota: isNaN(v) ? 0 : Math.min(20, Math.max(0, v)) };
+        }).filter(d => d.nota > 0);
+
+        const estagio = parseFloat(form.notaEstagio.replace(',', '.'));
+        const defesa = parseFloat(form.notaDefesa.replace(',', '.'));
+
+        await fetch('/api/pap-alunos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            alunoId: form.alunoId,
+            turmaId,
+            anoLetivo,
+            professorId: prof.id,
+            notaEstagio: isNaN(estagio) ? null : Math.min(20, Math.max(0, estagio)),
+            notaDefesa: isNaN(defesa) ? null : Math.min(20, Math.max(0, defesa)),
+            notasDisciplinas: disciplinasArr,
+          }),
+        });
+      }
+      Alert.alert('PAP Guardado', 'As notas PAP foram guardadas com sucesso.');
+    } catch {
+      Alert.alert('Erro', 'Não foi possível guardar as notas PAP.');
+    } finally {
+      setPapSaving(false);
+    }
+  }
   const temSolicPendente = solicitacoes.some(s => s.pautaId === pautaAtual?.id && s.status === 'pendente');
 
   // Verificar prazo de lançamento configurado pela direcção
@@ -586,6 +705,19 @@ export default function ProfessorPautaScreen() {
             </View>
           )}
 
+          {/* Aviso PAP para 13ª Classe */}
+          {isPapMode && (
+            <View style={{ flexDirection: 'row', gap: 8, backgroundColor: Colors.gold + '18', borderRadius: 12, borderWidth: 1, borderColor: Colors.gold + '44', padding: 12, marginTop: 14 }}>
+              <Ionicons name="ribbon-outline" size={18} color={Colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold, marginBottom: 2 }}>Turma de 13ª Classe — PAP Habilitado</Text>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 16 }}>
+                  Para além do lançamento de notas disciplinar, pode lançar as notas do Estágio Curricular, Defesa e{papDiscContribuintes.length > 0 ? ` disciplinas contribuintes (${papDiscContribuintes.join(', ')})` : ''} para calcular a Nota PAP automaticamente.
+                </Text>
+              </View>
+            </View>
+          )}
+
           <TouchableOpacity
             style={[styles.openBtn, (!turmaId || !disciplina) && styles.openBtnDisabled]}
             onPress={iniciarPauta}
@@ -596,6 +728,17 @@ export default function ProfessorPautaScreen() {
               {pautaAtual ? (isPautaFechada ? 'Ver Pauta Fechada' : 'Continuar Lançamento') : 'Iniciar Lançamento'}
             </Text>
           </TouchableOpacity>
+
+          {/* Botão PAP — apenas para 13ª Classe com PAP habilitado */}
+          {isPapMode && turmaId && (
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.gold + '22', borderRadius: 14, paddingVertical: 14, borderWidth: 1, borderColor: Colors.gold + '55', marginTop: 10 }}
+              onPress={iniciarPAP}
+            >
+              <Ionicons name="ribbon" size={20} color={Colors.gold} />
+              <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.gold }}>Lançamento PAP — Estágio & Defesa</Text>
+            </TouchableOpacity>
+          )}
 
           {/* My Pautas History */}
           {prof && pautas.filter(p => p.professorId === prof.id).length > 0 && (
@@ -629,6 +772,137 @@ export default function ProfessorPautaScreen() {
             </>
           )}
         </ScrollView>
+      </View>
+    );
+  }
+
+  // ====== PASSO PAP ======
+  if (step === 'pap') {
+    return (
+      <View style={styles.container}>
+        <TopBar
+          title="Lançamento PAP"
+          subtitle={`${turmaAtual?.nome || ''} · Prova de Aptidão Profissional`}
+        />
+
+        {/* Header PAP */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: Colors.gold + '18', borderBottomWidth: 1, borderBottomColor: Colors.gold + '33' }}>
+          <Ionicons name="ribbon" size={18} color={Colors.gold} />
+          <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>
+            Nota PAP = (Estágio + Defesa{papDiscContribuintes.length > 0 ? ' + Média Disciplinas' : ''}) ÷ 3
+          </Text>
+          <TouchableOpacity onPress={() => setStep('selecao')} style={{ padding: 6 }}>
+            <Ionicons name="arrow-back" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Legenda */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+          <Text style={{ width: 44, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Nº</Text>
+          <Text style={{ flex: 1, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted }}>Aluno</Text>
+          {showEstagioField && <Text style={{ width: 52, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Estágio</Text>}
+          <Text style={{ width: 52, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Defesa</Text>
+          {papDiscContribuintes.map(d => (
+            <Text key={d} style={{ width: 52, fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }} numberOfLines={2}>{d}</Text>
+          ))}
+          <Text style={{ width: 52, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold, textAlign: 'center' }}>PAP</Text>
+        </View>
+
+        <FlatList
+          data={papForms}
+          keyExtractor={f => f.alunoId}
+          contentContainerStyle={{ paddingBottom: bottomInset + 100 }}
+          renderItem={({ item: form, index }) => {
+            const aluno = alunos.find(a => a.id === form.alunoId);
+            if (!aluno) return null;
+            const isEditing = editingAlunoId === aluno.id;
+            const papColor = form.notaPAP !== null
+              ? (form.notaPAP >= (config.notaMinimaAprovacao ?? 10) ? Colors.success : Colors.danger)
+              : Colors.textMuted;
+
+            return (
+              <TouchableOpacity
+                style={[styles.alunoRow, isEditing && styles.alunoRowEditing]}
+                onPress={() => setEditingAlunoId(isEditing ? null : aluno.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.rowCell44}>
+                  <Text style={styles.rowNum}>{String(index + 1).padStart(2, '0')}</Text>
+                </View>
+                <View style={styles.rowFlex}>
+                  <Text style={styles.rowNome} numberOfLines={1}>{aluno.nome} {aluno.apelido}</Text>
+                </View>
+                {isEditing ? (
+                  <>
+                    {showEstagioField && (
+                      <TextInput
+                        style={[styles.gradeInput, { width: 52 }]}
+                        value={form.notaEstagio}
+                        onChangeText={v => updatePapForm(aluno.id, 'notaEstagio', v)}
+                        keyboardType="decimal-pad"
+                        placeholder="—"
+                        placeholderTextColor={Colors.textMuted}
+                      />
+                    )}
+                    <TextInput
+                      style={[styles.gradeInput, { width: 52 }]}
+                      value={form.notaDefesa}
+                      onChangeText={v => updatePapForm(aluno.id, 'notaDefesa', v)}
+                      keyboardType="decimal-pad"
+                      placeholder="—"
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                    {papDiscContribuintes.map(discNome => (
+                      <TextInput
+                        key={discNome}
+                        style={[styles.gradeInput, { width: 52 }]}
+                        value={form.notasDisciplinas[discNome] || ''}
+                        onChangeText={v => updatePapDisc(aluno.id, discNome, v)}
+                        keyboardType="decimal-pad"
+                        placeholder="—"
+                        placeholderTextColor={Colors.textMuted}
+                      />
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {showEstagioField && (
+                      <View style={{ width: 52, alignItems: 'center' }}>
+                        <Text style={styles.gradeCellText}>{form.notaEstagio || '—'}</Text>
+                      </View>
+                    )}
+                    <View style={{ width: 52, alignItems: 'center' }}>
+                      <Text style={styles.gradeCellText}>{form.notaDefesa || '—'}</Text>
+                    </View>
+                    {papDiscContribuintes.map(discNome => (
+                      <View key={discNome} style={{ width: 52, alignItems: 'center' }}>
+                        <Text style={styles.gradeCellText}>{form.notasDisciplinas[discNome] || '—'}</Text>
+                      </View>
+                    ))}
+                  </>
+                )}
+                {/* Nota PAP — sempre visível */}
+                <View style={{ width: 52, alignItems: 'center', backgroundColor: form.notaPAP !== null ? papColor + '22' : 'transparent', borderRadius: 6, paddingVertical: 2 }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: papColor }}>
+                    {form.notaPAP !== null ? form.notaPAP.toFixed(1) : '—'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          }}
+        />
+
+        {/* Bottom bar PAP */}
+        <View style={[styles.bottomBar, { paddingBottom: bottomInset + 8 }]}>
+          {papSaving ? (
+            <ActivityIndicator color={Colors.gold} />
+          ) : (
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: Colors.gold }]} onPress={guardarPAP}>
+              <Ionicons name="save" size={18} color="#fff" />
+              <Text style={styles.saveBtnText}>Guardar Notas PAP</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     );
   }

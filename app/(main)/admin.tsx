@@ -272,6 +272,7 @@ export default function AdminScreen() {
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
   const [showRejeitar, setShowRejeitar] = useState(false);
   const [matriculasTab, setMatriculasTab] = useState<'pendente' | 'aprovado' | 'rejeitado'>('pendente');
+  const [papDiscInput, setPapDiscInput] = useState('');
   const [flashForm, setFlashForm] = useState({
     titulo: config.flashScreen?.titulo || '',
     mensagem: config.flashScreen?.mensagem || '',
@@ -1344,6 +1345,136 @@ export default function AdminScreen() {
                   Quando o prazo expira, os professores vêem a pauta em modo de leitura e podem solicitar reabertura à direcção.
                 </Text>
               </View>
+            </View>
+
+            {/* PAP — 13ª Classe */}
+            <View style={styles.card}>
+              <SectionHeader title="PAP — 13ª Classe / Ensino Técnico-Profissional" icon="ribbon" color={Colors.gold} />
+              <Text style={styles.configSectionDesc}>
+                Configure a Prova de Aptidão Profissional (PAP) para turmas da 13ª Classe. A Nota PAP é calculada automaticamente: (Estágio + Defesa + Média das Disciplinas) ÷ 3. Esta nota consta no certificado do aluno.
+              </Text>
+
+              {/* Toggle PAP habilitado */}
+              <View style={styles.configToggleRow}>
+                <View style={[styles.configToggleIcon, { backgroundColor: config.papHabilitado ? Colors.gold + '22' : Colors.border }]}>
+                  <Ionicons name="ribbon-outline" size={18} color={config.papHabilitado ? Colors.gold : Colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configToggleLabel}>PAP Habilitado</Text>
+                  <Text style={styles.configToggleSub}>
+                    {config.papHabilitado ? 'Activo — professores da 13ª Classe têm acesso ao lançamento PAP' : 'Desactivado — a 13ª Classe segue o regime normal'}
+                  </Text>
+                </View>
+                <Switch
+                  value={config.papHabilitado}
+                  onValueChange={v => updateConfig({ papHabilitado: v })}
+                  trackColor={{ false: Colors.border, true: Colors.gold + '55' }}
+                  thumbColor={config.papHabilitado ? Colors.gold : Colors.textMuted}
+                />
+              </View>
+
+              {config.papHabilitado && (
+                <>
+                  {/* Toggle estágio como disciplina */}
+                  <View style={[styles.configToggleRow, { marginTop: 8 }]}>
+                    <View style={[styles.configToggleIcon, { backgroundColor: config.estagioComoDisciplina ? Colors.info + '22' : Colors.border }]}>
+                      <Ionicons name="school-outline" size={18} color={config.estagioComoDisciplina ? Colors.info : Colors.textMuted} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.configToggleLabel}>Estágio como Disciplina no Plano Curricular</Text>
+                      <Text style={styles.configToggleSub}>
+                        {config.estagioComoDisciplina
+                          ? 'Activo — o estágio aparece como disciplina normal na pauta e não tem campo separado no lançamento PAP'
+                          : 'Desactivado — o estágio tem campo próprio no lançamento PAP (campo "Nota do Estágio")'}
+                      </Text>
+                    </View>
+                    <Switch
+                      value={config.estagioComoDisciplina}
+                      onValueChange={v => updateConfig({ estagioComoDisciplina: v })}
+                      trackColor={{ false: Colors.border, true: Colors.info + '55' }}
+                      thumbColor={config.estagioComoDisciplina ? Colors.info : Colors.textMuted}
+                    />
+                  </View>
+
+                  {/* Disciplinas contribuintes */}
+                  <View style={{ marginTop: 14 }}>
+                    <Text style={styles.configFieldLabel}>Disciplinas Contribuintes para a Nota PAP</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 10, lineHeight: 16 }}>
+                      Defina as disciplinas cuja nota final entra no cálculo da PAP (além do Estágio e Defesa). A média dessas notas é usada como terceiro componente da fórmula.{'\n'}
+                      Deixe vazio se apenas o Estágio e a Defesa contribuem para a PAP.
+                    </Text>
+
+                    {/* Lista de disciplinas actuais */}
+                    <View style={{ gap: 6, marginBottom: 10 }}>
+                      {(config.papDisciplinasContribuintes || []).map((disc, i) => (
+                        <View key={i} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.gold + '12', borderRadius: 10, borderWidth: 1, borderColor: Colors.gold + '33', paddingHorizontal: 12, paddingVertical: 8 }}>
+                          <Ionicons name="book-outline" size={14} color={Colors.gold} style={{ marginRight: 8 }} />
+                          <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text }}>{disc}</Text>
+                          <TouchableOpacity onPress={() => {
+                            const nova = (config.papDisciplinasContribuintes || []).filter((_, j) => j !== i);
+                            updateConfig({ papDisciplinasContribuintes: nova });
+                          }}>
+                            <Ionicons name="close-circle" size={18} color={Colors.danger} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                      {(config.papDisciplinasContribuintes || []).length === 0 && (
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic' }}>
+                          Nenhuma disciplina configurada — apenas Estágio e Defesa entram na fórmula.
+                        </Text>
+                      )}
+                    </View>
+
+                    {/* Input para adicionar disciplina */}
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        value={papDiscInput}
+                        onChangeText={setPapDiscInput}
+                        placeholder="Nome da disciplina (ex: Informática)"
+                        placeholderTextColor={Colors.textMuted}
+                        returnKeyType="done"
+                        onSubmitEditing={() => {
+                          const nome = papDiscInput.trim();
+                          if (!nome) return;
+                          if ((config.papDisciplinasContribuintes || []).includes(nome)) {
+                            Alert.alert('Aviso', 'Esta disciplina já foi adicionada.');
+                            return;
+                          }
+                          updateConfig({ papDisciplinasContribuintes: [...(config.papDisciplinasContribuintes || []), nome] });
+                          setPapDiscInput('');
+                        }}
+                      />
+                      <TouchableOpacity
+                        style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' }}
+                        onPress={() => {
+                          const nome = papDiscInput.trim();
+                          if (!nome) return;
+                          if ((config.papDisciplinasContribuintes || []).includes(nome)) {
+                            Alert.alert('Aviso', 'Esta disciplina já foi adicionada.');
+                            return;
+                          }
+                          updateConfig({ papDisciplinasContribuintes: [...(config.papDisciplinasContribuintes || []), nome] });
+                          setPapDiscInput('');
+                        }}
+                      >
+                        <Ionicons name="add" size={20} color="#fff" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+
+                  {/* Info box */}
+                  <View style={{ marginTop: 12, flexDirection: 'row', gap: 8, backgroundColor: Colors.info + '12', borderRadius: 10, padding: 12, alignItems: 'flex-start' }}>
+                    <Ionicons name="information-circle" size={16} color={Colors.info} />
+                    <Text style={{ fontSize: 11, color: Colors.info, fontFamily: 'Inter_400Regular', flex: 1, lineHeight: 16 }}>
+                      Fórmula da Nota PAP:{'\n'}
+                      • Sem disciplinas: (Estágio + Defesa) ÷ 2{'\n'}
+                      • Com disciplinas: (Estágio + Defesa + Média_Disciplinas) ÷ 3{'\n'}
+                      A nota PAP é calculada automaticamente ao lançar as notas.
+                    </Text>
+                  </View>
+                </>
+              )}
             </View>
 
             {/* Pagamentos Online */}
