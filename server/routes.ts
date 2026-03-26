@@ -4522,31 +4522,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // ── 11ª CLASSE ─────────────────────────────────────────────────────────
       if (classeAtual === '11') {
-        // Para a 11ª classe: calcular situação do ano actual e avisar que o
-        // histórico da 10ª é analisado nas regras de continuidade (R1/R2).
-        const disciplinas = notasRows.map(row => {
-          const media = parseFloat(row.mediaAnual);
-          const info  = catalog.get(row.disciplina);
-          const tipo  = info?.tipo ?? 'continuidade';
+        const notaMinAbsoluta11 = 7;
+
+        // Histórico da 10ª classe para este aluno (médias por disciplina)
+        const historico10Rows = await query<{ disciplina: string; mediaAnual: string }>(`
+          SELECT
+            n.disciplina,
+            ROUND(AVG(n.nf)::numeric, 2)::text AS "mediaAnual"
+          FROM public.notas n
+          JOIN public.turmas t ON t.id = n."turmaId"
+          WHERE n."alunoId" = $1 AND t.classe = '10'
+          GROUP BY n.disciplina
+        `, [alunoId]);
+
+        const historico10 = new Map(historico10Rows.map(r => [r.disciplina, parseFloat(r.mediaAnual)]));
+
+        type Situacao11 =
+          | 'aprovado'
+          | 'reprova_r1'
+          | 'negativa_exame_terminal'
+          | 'negativa_continuidade'
+          | 'reprova_abaixo_minimo';
+
+        const disciplinas11 = notasRows.map(row => {
+          const media      = parseFloat(row.mediaAnual);
+          const info       = catalog.get(row.disciplina);
+          const tipo       = info?.tipo ?? 'continuidade';
+          const classeFim  = info?.classeFim ?? '';
+
+          const isNeg        = media < notaMin;
+          const isAbaixoMin  = media < notaMinAbsoluta11;
+          const isTerminal11 = tipo === 'terminal' && classeFim === '11';
+
+          const media10   = historico10.get(row.disciplina) ?? null;
+          const hadNeg10  = media10 !== null && media10 < notaMin;
+
+          let situacao: Situacao11;
+          let motivo = '';
+
+          if (isAbaixoMin) {
+            situacao = 'reprova_abaixo_minimo';
+            motivo   = `Média de ${media.toFixed(1)} abaixo do mínimo absoluto de ${notaMinAbsoluta11} valores`;
+          } else if (isNeg && !isTerminal11 && hadNeg10) {
+            // R1 — negativa consecutiva (10ª + 11ª) numa disciplina de continuidade
+            situacao = 'reprova_r1';
+            motivo   = `Negativa consecutiva — 10ª: ${media10!.toFixed(1)} + 11ª: ${media.toFixed(1)} — Reprova sem direito a exame (R1)`;
+          } else if (isNeg && isTerminal11) {
+            situacao = 'negativa_exame_terminal';
+            motivo   = `Disciplina terminal na 11ª classe — Exame de Época Normal obrigatório`;
+          } else if (isNeg) {
+            situacao = 'negativa_continuidade';
+            motivo   = `Negativa arrastada para a 12ª classe${media10 !== null ? ` (10ª: ${media10.toFixed(1)})` : ''}`;
+          } else {
+            situacao = 'aprovado';
+          }
+
           return {
-            disciplina: row.disciplina,
+            disciplina:    row.disciplina,
             tipo,
-            mediaAnual: media,
+            classeFim,
+            mediaAnual:    media,
+            media10,
             numTrimestres: parseInt(row.numTrimestres),
-            aprovado: media >= notaMin,
+            situacao,
+            motivo,
           };
         });
 
-        const numNegativas = disciplinas.filter(d => !d.aprovado).length;
+        const reprovadosAbsoluto = disciplinas11.filter(d => d.situacao === 'reprova_abaixo_minimo');
+        const reprovadosR1       = disciplinas11.filter(d => d.situacao === 'reprova_r1');
+        const examesTerminal     = disciplinas11.filter(d => d.situacao === 'negativa_exame_terminal');
+        const negativasCont      = disciplinas11.filter(d => d.situacao === 'negativa_continuidade');
+        const numNegativas       = disciplinas11.filter(d => d.mediaAnual < notaMin).length;
+
+        type SituacaoGeral11 = 'aprovado' | 'aprovado_com_condicoes' | 'reprovado';
+        let situacaoGeral: SituacaoGeral11;
+        let motivoGeral: string;
+
+        if (reprovadosAbsoluto.length > 0 || reprovadosR1.length > 0) {
+          situacaoGeral = 'reprovado';
+          const partes: string[] = [];
+          if (reprovadosAbsoluto.length > 0)
+            partes.push(`Média abaixo de ${notaMinAbsoluta11} em: ${reprovadosAbsoluto.map(d => d.disciplina).join(', ')}`);
+          if (reprovadosR1.length > 0)
+            partes.push(`Negativas consecutivas (R1) em: ${reprovadosR1.map(d => d.disciplina).join(', ')}`);
+          motivoGeral = partes.join(' | ');
+        } else if (examesTerminal.length > 0 || negativasCont.length > 0) {
+          situacaoGeral = 'aprovado_com_condicoes';
+          const partes: string[] = [];
+          if (examesTerminal.length > 0)
+            partes.push(`Exame Época Normal (terminal 11ª): ${examesTerminal.map(d => d.disciplina).join(', ')}`);
+          if (negativasCont.length > 0)
+            partes.push(`Negativa${negativasCont.length > 1 ? 's' : ''} arrastada${negativasCont.length > 1 ? 's' : ''} para 12ª: ${negativasCont.map(d => d.disciplina).join(', ')}`);
+          motivoGeral = partes.join(' | ');
+        } else {
+          situacaoGeral = 'aprovado';
+          motivoGeral   = 'Aprovado — pode avançar para a 12ª classe';
+        }
+
         return json(res, 200, {
           alunoId,
-          nomeAluno: `${aluno.nome} ${aluno.apelido}`,
-          classe: classeAtual,
+          nomeAluno:    `${aluno.nome} ${aluno.apelido}`,
+          classe:       classeAtual,
           anoLetivo,
           notaMin,
+          notaMinAbsoluta: notaMinAbsoluta11,
+          situacaoGeral,
+          motivoGeral,
           numNegativas,
-          disciplinas,
-          info: 'As disciplinas de continuidade com negativa consecutiva (10ª + 11ª) provocam reprova sem direito a exame (R1). Consulte a situação de continuidade para o detalhe completo.',
+          disciplinas:  disciplinas11,
         });
       }
 
