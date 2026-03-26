@@ -100,6 +100,11 @@ export const alunos = pgTable("alunos", {
   bloqueado: boolean("bloqueado").notNull().default(false),
   foto: text("foto"),
 
+  falecido: boolean("falecido").notNull().default(false),
+  dataFalecimento: text("dataFalecimento"),
+  observacoesFalecimento: text("observacoesFalecimento"),
+  registadoFalecimentoPor: text("registadoFalecimentoPor"),
+
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -218,6 +218,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "bloqueado",
         "foto",
         "createdAt",
+        "falecido",
+        "dataFalecimento",
+        "observacoesFalecimento",
+        "registadoFalecimentoPor",
       ] as const;
 
       const setParts: string[] = [];
@@ -253,6 +257,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // Registo de Falecimento — exclusivo para chefe_secretaria, admin, director, ceo, pca
+  app.post("/api/alunos/:id/registar-falecimento", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) {
+        return json(res, 403, { error: 'Sem permissão. Apenas o Chefe de Secretaria ou superiores podem registar falecimentos.' });
+      }
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const registadoPor = (b as any).registadoPor || req.jwtUser?.email || 'Sistema';
+      const dataFalecimento = (b as any).dataFalecimento || null;
+      const observacoes = (b as any).observacoes || null;
+
+      // Verificar se o aluno existe
+      const aluno = await query<JsonObject>(`SELECT id, nome, apelido, falecido FROM public.alunos WHERE id = $1`, [id]);
+      if (!aluno[0]) return json(res, 404, { error: 'Aluno não encontrado.' });
+      if ((aluno[0] as any).falecido) return json(res, 400, { error: 'Este aluno já está registado como falecido.' });
+
+      // Arquivar: falecido=true, bloqueado=true, ativo=false
+      const rows = await query<JsonObject>(
+        `UPDATE public.alunos SET
+          "falecido" = true,
+          "bloqueado" = true,
+          "ativo" = false,
+          "dataFalecimento" = $1,
+          "observacoesFalecimento" = $2,
+          "registadoFalecimentoPor" = $3
+        WHERE id = $4 RETURNING *`,
+        [dataFalecimento, observacoes, registadoPor, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Não foi possível actualizar o registo.' });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
   });
 
   // -----------------------
