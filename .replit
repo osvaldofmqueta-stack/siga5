@@ -37,13 +37,13 @@ outputType = "webview"
 name = "Start Frontend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "CI=1 npx expo start --web --port 8000"
-waitForPort = 8000
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "CI=1 node_modules/.bin/expo start --web --port 8000"
+waitForPort = 8000
 
 [[ports]]
 localPort = 5000
@@ -52,10 +52,6 @@ externalPort = 80
 [[ports]]
 localPort = 8000
 externalPort = 8000
-
-[[ports]]
-localPort = 8001
-externalPort = 3001
 
 [deployment]
 deploymentTarget = "autoscale"
