@@ -3747,6 +3747,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // -----------------------
+  // TRABALHOS FINAIS DE CURSO
+  // -----------------------
+  app.get('/api/trabalhos-finais', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.trabalhos_finais WHERE ativo=true ORDER BY "anoConclusao" DESC, autor ASC`
+      );
+      json(res, 200, rows);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.post('/api/trabalhos-finais', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { titulo, autor, orientador, anoConclusao, curso, imagemCapa, resumo } = b as any;
+      if (!titulo || !autor || !orientador || !anoConclusao || !curso) {
+        return json(res, 400, { error: 'Título, autor, orientador, ano e curso são obrigatórios.' });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.trabalhos_finais (titulo, autor, orientador, "anoConclusao", curso, "imagemCapa", resumo)
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [titulo, autor, orientador, parseInt(String(anoConclusao)), curso, imagemCapa || null, resumo || '']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.put('/api/trabalhos-finais/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const fields: Record<string, unknown> = {};
+      const allowed = ['titulo', 'autor', 'orientador', 'anoConclusao', 'curso', 'imagemCapa', 'resumo'];
+      for (const key of allowed) {
+        if (key in b) fields[key] = key === 'anoConclusao' ? parseInt(String((b as any)[key])) : (b as any)[key];
+      }
+      if (Object.keys(fields).length === 0) return json(res, 400, { error: 'Nenhum campo para actualizar.' });
+      const keys = Object.keys(fields);
+      const values = Object.values(fields);
+      const setParts = keys.map((k, i) => `"${k}"=$${i + 1}`);
+      const rows = await query<JsonObject>(
+        `UPDATE public.trabalhos_finais SET ${setParts.join(',')} WHERE id=$${values.length + 1} RETURNING *`,
+        [...values, id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Trabalho não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.delete('/api/trabalhos-finais/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      await query(`UPDATE public.trabalhos_finais SET ativo=false WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

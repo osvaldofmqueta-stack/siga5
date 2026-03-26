@@ -1,6 +1,18 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Integração MED / SIGE Gov Completa)
+## Recent Changes (Latest Session — Repositório de Trabalhos Finais de Curso)
+- **shared/schema.ts**: Nova tabela `trabalhos_finais` com campos: `titulo`, `autor`, `orientador`, `anoConclusao`, `curso`, `imagemCapa`, `resumo`, `ativo`, `criadoEm`
+- **server/routes.ts**: Novas rotas CRUD `/api/trabalhos-finais` (GET, POST, PUT/:id, DELETE/:id)
+- **app/(main)/trabalhos-finais.tsx** *(new)*: Ecrã completo de repositório de trabalhos finais de curso da 13ª classe:
+  - Listagem em grelha (2 colunas no web, 1 no mobile) com imagem de capa, tema, autor, orientador, ano e curso
+  - Filtros por curso técnico e por ano de conclusão
+  - Pesquisa por tema, autor ou orientador
+  - Modal de detalhe com capa ampliada e informações completas
+  - Modal de criação/edição com upload de imagem e selector de curso por chips
+  - Suporte a 13 cursos técnico-profissionais angolanos com cores distintas
+- **components/DrawerLeft.tsx**: "Trabalhos Finais de Curso" adicionado nas secções Académico de Professor, Secretaria, CEO/PCA e Admin/Director
+
+## Recent Changes (Previous Session — Integração MED / SIGE Gov Completa)
 - **server/index.ts**: Registo de `registerMEDRoutes(app)` — as rotas MED não estavam a ser carregadas no servidor; corrigido.
 - **server/med.ts**: Corrigidos bugs SQL existentes:
   - `p.presente` (boolean inexistente) → `p.status = 'presente'` em frequências e relatório consolidado

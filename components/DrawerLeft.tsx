@@ -154,6 +154,7 @@ export default function DrawerLeft() {
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
         { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
+        { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={20} color="inherit" /> },
         { label: 'Calendário', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],
     },
@@ -233,6 +234,7 @@ export default function DrawerLeft() {
         { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={20} color="inherit" />, permKey: 'disciplinas' },
         { label: 'Gestão de Cursos', route: '/(main)/admin?section=cursos&group=academico', icon: <MaterialCommunityIcons name="book-open-variant" size={20} color="inherit" />, permKey: 'gestao_academica' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
+        { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={20} color="inherit" /> },
       ],
     },
     {
@@ -281,6 +283,7 @@ export default function DrawerLeft() {
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
         { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
+        { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={20} color="inherit" /> },
       ],
     },
     {
@@ -338,6 +341,7 @@ export default function DrawerLeft() {
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
         { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
+        { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={20} color="inherit" /> },
       ],
     },
     {

@@ -1119,6 +1119,28 @@ export const avaliacoesProfessores = pgTable("avaliacoes_professores", {
 });
 
 // -----------------------
+// TRABALHOS FINAIS DE CURSO
+// -----------------------
+export const trabalhosFinals = pgTable("trabalhos_finais", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  titulo: text("titulo").notNull(),
+  autor: text("autor").notNull(),
+  orientador: text("orientador").notNull(),
+  anoConclusao: integer("anoConclusao").notNull(),
+  curso: text("curso").notNull(),
+  imagemCapa: text("imagemCapa"),
+  resumo: text("resumo").default(""),
+  ativo: boolean("ativo").notNull().default(true),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertTrabalhoFinalSchema = createInsertSchema(trabalhosFinals).omit({ id: true, criadoEm: true });
+export type InsertTrabalhoFinal = z.infer<typeof insertTrabalhoFinalSchema>;
+export type TrabalhoFinal = typeof trabalhosFinals.$inferSelect;
+
+// -----------------------
 // AUDIT LOG
 // -----------------------
 export const auditLogs = pgTable("audit_logs", {
