@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Alert,
+  TextInput, Platform, ActivityIndicator, Alert, Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -77,6 +77,8 @@ export default function DocumentosHub() {
   const [mcxLoading, setMcxLoading] = useState(false);
   const [refGerada, setRefGerada] = useState<any>(null);
   const [taxasSelecionadas, setTaxasSelecionadas] = useState<string[]>([]);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewTitle, setPreviewTitle] = useState('Pré-visualização');
 
   const alunosFiltrados = useMemo(() => {
     const q = search.toLowerCase();
@@ -98,34 +100,44 @@ export default function DocumentosHub() {
   const turmaSel = useMemo(() => turmas.find(t => t.id === selectedTurma), [turmas, selectedTurma]);
   const mcxAlunoSel = useMemo(() => alunos.find(a => a.id === mcxAluno), [alunos, mcxAluno]);
 
-  function abrirPDF(url: string) {
+  function abrirPreview(url: string, title: string) {
     if (Platform.OS === 'web') {
-      window.open(url, '_blank');
+      setPreviewTitle(title);
+      setPreviewUrl(url);
+    }
+  }
+
+  function handlePrintPreview() {
+    if (Platform.OS !== 'web') return;
+    const iframe = document.getElementById('doc-hub-preview-iframe') as HTMLIFrameElement | null;
+    if (iframe?.contentWindow) {
+      iframe.contentWindow.print();
     }
   }
 
   function gerarBoletim() {
     if (!selectedAluno) return alertErro('Seleccione um aluno');
     const url = `/api/pdf/boletim/${selectedAluno}?trimestre=${trimestre}&autoprint=false`;
-    abrirPDF(url);
+    abrirPreview(url, 'Boletim de Notas');
   }
 
   function gerarDeclaracao(tipo: 'matricula' | 'frequencia') {
     if (!selectedAluno) return alertErro('Seleccione um aluno');
     const url = `/api/pdf/declaracao/${selectedAluno}?tipo=${tipo}&autoprint=false`;
-    abrirPDF(url);
+    const titulo = tipo === 'matricula' ? 'Declaração de Matrícula' : 'Declaração de Frequência';
+    abrirPreview(url, titulo);
   }
 
   function gerarRelatorio() {
     if (!selectedTurma) return alertErro('Seleccione uma turma');
     const url = `/api/pdf/relatorio-turma/${selectedTurma}?trimestre=${trimestre}&autoprint=false`;
-    abrirPDF(url);
+    abrirPreview(url, 'Relatório de Turma');
   }
 
   function gerarRecibos() {
     if (!selectedAluno) return alertErro('Seleccione um aluno');
     const url = `/api/pdf/recibos-aluno/${selectedAluno}?autoprint=false`;
-    abrirPDF(url);
+    abrirPreview(url, 'Recibos do Aluno');
   }
 
   function handlePDF(id: DocId) {
@@ -167,7 +179,7 @@ export default function DocumentosHub() {
 
   function abrirPDFMulticaixa() {
     if (!refGerada?.rupe?.id) return;
-    abrirPDF(`/api/pdf/multicaixa/${refGerada.rupe.id}?autoprint=false`);
+    abrirPreview(`/api/pdf/multicaixa/${refGerada.rupe.id}?autoprint=false`, 'Guia Multicaixa');
   }
 
   const entidade = config.numeroEntidade || '11333';
@@ -175,6 +187,46 @@ export default function DocumentosHub() {
 
   return (
     <View style={[styles.container, { paddingBottom: insets.bottom }]}>
+
+      {/* ── A4 Preview Modal ─────────────────────────────────────────────── */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={!!previewUrl}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => setPreviewUrl(null)}
+        >
+          <View style={styles.previewModal}>
+            <View style={styles.previewHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.previewHeaderTitle}>{previewTitle}</Text>
+                <Text style={styles.previewHeaderSub}>Formato A4 · Pré-visualização antes de imprimir</Text>
+              </View>
+              <TouchableOpacity style={styles.previewPrintBtn} onPress={handlePrintPreview}>
+                <Ionicons name="print-outline" size={16} color="#fff" />
+                <Text style={styles.previewPrintTxt}>Imprimir / PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.previewCloseBtn}
+                onPress={() => setPreviewUrl(null)}
+              >
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.previewBody}>
+              {previewUrl && (
+                <iframe
+                  id="doc-hub-preview-iframe"
+                  src={previewUrl}
+                  style={{ flex: 1, border: 'none', width: '100%', height: '100%', minHeight: 600, background: '#f0f0f0' } as any}
+                  title={previewTitle}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
       <TopBar title="Documentos & Multicaixa" />
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
 
@@ -530,4 +582,12 @@ const styles = StyleSheet.create({
   instrNumText: { fontSize: 11, fontWeight: '700', color: 'white' },
   instrText: { flex: 1, fontSize: 13, color: Colors.text, lineHeight: 19 },
   emptyText: { padding: 12, color: Colors.textMuted, textAlign: 'center', fontSize: 13 },
+  previewModal: { flex: 1, backgroundColor: '#111827', flexDirection: 'column' },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surface, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  previewHeaderTitle: { fontSize: 14, fontWeight: '700', color: Colors.text },
+  previewHeaderSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  previewPrintBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.info, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
+  previewPrintTxt: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  previewCloseBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.border },
+  previewBody: { flex: 1, backgroundColor: '#f0f0f0' },
 });

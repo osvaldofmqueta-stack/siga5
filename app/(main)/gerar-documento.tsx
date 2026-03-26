@@ -191,6 +191,7 @@ function replaceVars(html: string, vars: Record<string, string>): string {
 
 const BASE_PRINT_CSS = `
   <meta charset="UTF-8">
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -222,6 +223,16 @@ const BASE_PRINT_CSS = `
     .num-doc { text-align: right; font-size: 9pt; color: #666; margin-bottom: 20px; }
     .footer { position: absolute; bottom: 15mm; left: 25mm; right: 25mm;
       border-top: 1px solid #999; padding-top: 8px; font-size: 8.5pt; color: #666; text-align: center; }
+    .verif-section { display:flex; gap:16px; align-items:center; margin:20px 0 14px;
+      padding:10px 14px; border:1px solid #dde0ef; border-radius:8px; background:#f9faff;
+      page-break-inside:avoid; }
+    .verif-qr { text-align:center; flex-shrink:0; }
+    .verif-qr img { border:1px solid #dde; border-radius:4px; display:block; }
+    .verif-bar { flex:1; text-align:center; }
+    .verif-info { flex:1.2; font-size:8.5pt; line-height:1.9; color:#555; }
+    .verif-info strong { color:#1a2b5f; }
+    .verif-sub { font-size:7pt; color:#9ca3af; }
+    .verif-label { font-size:7pt; text-transform:uppercase; color:#888; margin-top:3px; letter-spacing:.5px; }
     @media print {
       body { margin: 0; }
       .no-print { display: none !important; }
@@ -236,8 +247,39 @@ const BASE_PRINT_CSS = `
     .print-btn:hover { background: #253358; }
   </style>`;
 
+function safeBarVal(s: string): string {
+  return (s || 'DOC000').replace(/[^A-Z0-9\-\. ]/gi, '').substring(0, 30) || 'DOC000';
+}
+
+function buildVerifSection(docRef: string, qrPayload: string, barcodeId: string): string {
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=${encodeURIComponent(qrPayload)}&bgcolor=ffffff&color=1a2b5f&margin=4&ecc=M`;
+  const bcVal = safeBarVal(docRef);
+  return `<div class="verif-section">
+    <div class="verif-qr">
+      <img src="${qrUrl}" alt="QR" width="90" height="90" onerror="this.style.display='none'" />
+      <div class="verif-label">QR Verificação</div>
+    </div>
+    <div class="verif-bar">
+      <svg id="bc-${barcodeId}" style="max-width:100%;height:55px"></svg>
+      <div class="verif-label">Código de Barras</div>
+    </div>
+    <div class="verif-info">
+      <strong>Ref.:</strong> ${docRef}<br>
+      <span class="verif-sub">Documento autêntico. Verifique pelo QR code.</span>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('load',function(){
+      try{JsBarcode('#bc-${barcodeId}','${bcVal}',{format:'CODE128',width:1.5,height:40,displayValue:true,fontSize:9,margin:2,background:'transparent',lineColor:'#1a2b5f',fontOptions:'bold'});}
+      catch(e){var el=document.getElementById('bc-${barcodeId}');if(el)el.style.display='none';}
+    });
+  </script>`;
+}
+
 function buildDeclaracaoMatricula(vars: Record<string, string>): string {
   const v = (k: string) => vars[k] || '—';
+  const docRef = `DM-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+  const qrPayload = `SIGA|DM|${v('{{NUMERO_MATRICULA}}')}|${v('{{NOME_COMPLETO}}')}|${v('{{NOME_ESCOLA}}')}|${docRef}`;
   return `<!DOCTYPE html><html><head>${BASE_PRINT_CSS}</head><body>
   <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
   <div class="page">
@@ -245,7 +287,7 @@ function buildDeclaracaoMatricula(vars: Record<string, string>): string {
       <div class="escola-nome">${v('{{NOME_ESCOLA}}')}</div>
       <div class="escola-sub">Secretaria Académica</div>
     </div>
-    <div class="num-doc">N.º Doc: DM-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}</div>
+    <div class="num-doc">N.º Doc: ${docRef}</div>
     <div class="doc-titulo">Declaração de Matrícula</div>
     <div class="body-text">
       Para os devidos efeitos, declaro que <strong>${v('{{NOME_COMPLETO}}')}</strong>,
@@ -268,8 +310,9 @@ function buildDeclaracaoMatricula(vars: Record<string, string>): string {
       <p>${v('{{NOME_DIRECTOR}}')}</p>
       <p>Director Geral</p>
     </div>
+    ${buildVerifSection(docRef, qrPayload, 'dm')}
     <div class="footer">
-      ${v('{{NOME_ESCOLA}')} — Secretaria Académica &nbsp;|&nbsp; Matrícula n.º ${v('{{NUMERO_MATRICULA}}')} &nbsp;|&nbsp; Emitido em ${v('{{DATA_ACTUAL}}')}
+      ${v('{{NOME_ESCOLA}}')} — Secretaria Académica &nbsp;|&nbsp; Matrícula n.º ${v('{{NUMERO_MATRICULA}}')} &nbsp;|&nbsp; Emitido em ${v('{{DATA_ACTUAL}}')}
     </div>
   </div>
   </body></html>`;
