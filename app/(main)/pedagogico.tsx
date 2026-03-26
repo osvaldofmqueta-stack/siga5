@@ -189,6 +189,29 @@ function getResultado(nf: number): { label: string; color: string } {
   return { label: 'Reprovado', color: Colors.danger };
 }
 
+/**
+ * Resultado para disciplinas terminais (10ª → 11ª classe).
+ * Regras do sistema educativo angolano:
+ *  - MFG = (NF_10 + NF_11) / 2
+ *  - MFG >= 10 → Aprovado (a negativa anterior fica "fechada")
+ *  - NF_10 < 10 E NF_11 < 10 → Reprovado directo (2 negativas consecutivas, sem direito a exame)
+ *  - NF_10 < 10 E NF_11 >= 10 E MFG < 10 → Exame de Época Normal (para fechar a média)
+ *  - Um ano negativo + MFG < 10 → Exame de Época Normal
+ */
+function getResultadoTerminal(
+  nfAtual: number,
+  nfAnterior?: number,
+): { label: string; color: string; mfg?: number } {
+  if (nfAnterior !== undefined && nfAnterior > 0) {
+    const mfg = (nfAtual + nfAnterior) / 2;
+    if (mfg >= 10) return { label: 'Aprovado', color: Colors.success, mfg };
+    if (nfAnterior < 10 && nfAtual < 10)
+      return { label: 'Reprovado', color: Colors.danger, mfg };
+    return { label: 'Exame', color: Colors.warning, mfg };
+  }
+  return getResultado(nfAtual);
+}
+
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function PedagogicoScreen() {
   const { alunos, turmas, professores, notas } = useData();
@@ -433,14 +456,69 @@ export default function PedagogicoScreen() {
   // ── Resultados ────────────────────────────────────────────────────────────
   const resultadosPorTurma = useMemo(() => {
     const notasAno = notas.filter((n: any) => n.anoLetivo === anoAtual);
+    // Notes from the previous year – used for terminal subject (10ª → 11ª) cross-year MFG
+    const anoAnteriorStr = String(parseInt(anoAtual) - 1);
+    const notasAnoAnterior = notas.filter((n: any) => n.anoLetivo === anoAnteriorStr);
+
     return turmas.map(turma => {
       const alunosTurma = alunos.filter(a => a.turmaId === turma.id && a.ativo);
+      // 11ª classe is the closing year of terminal subjects (10ª → 11ª)
+      const isClasse11 = turma.classe === '11';
+
       const resultados = alunosTurma.map(aluno => {
         const notasAluno = notasAno.filter((n: any) => n.alunoId === aluno.id && n.turmaId === turma.id);
+
+        // Group current-year notes by discipline to compute per-discipline NF
+        const discMap: Record<string, any[]> = {};
+        for (const n of notasAluno) {
+          const d = n.disciplina as string;
+          if (!discMap[d]) discMap[d] = [];
+          discMap[d].push(n);
+        }
+
+        // Compute per-discipline results applying terminal rules when in 11ª
+        const resultadosPorDisc = Object.entries(discMap).map(([disc, discNotas]) => {
+          const nfsAtual = discNotas.map((n: any) => calcNF(n));
+          const nfAtual = nfsAtual.length
+            ? nfsAtual.reduce((s: number, v: number) => s + v, 0) / nfsAtual.length
+            : 0;
+
+          if (isClasse11 && notasAnoAnterior.length > 0) {
+            // Look up same student + same discipline in the previous year (any turma)
+            const notasDiscAnt = notasAnoAnterior.filter(
+              (n: any) => n.alunoId === aluno.id && n.disciplina === disc,
+            );
+            if (notasDiscAnt.length > 0) {
+              const nfsAnt = notasDiscAnt.map((n: any) => calcNF(n));
+              const nfAnterior =
+                nfsAnt.reduce((s: number, v: number) => s + v, 0) / nfsAnt.length;
+              return { disc, ...getResultadoTerminal(nfAtual, nfAnterior) };
+            }
+          }
+          return { disc, ...getResultadoTerminal(nfAtual) };
+        });
+
+        // Overall student result: most severe per-discipline result wins
+        // Reprovado > Exame > Aprovado
+        let resultado: { label: string; color: string };
+        if (resultadosPorDisc.some(r => r.label === 'Reprovado')) {
+          resultado = { label: 'Reprovado', color: Colors.danger };
+        } else if (resultadosPorDisc.some(r => r.label === 'Exame')) {
+          resultado = { label: 'Exame', color: Colors.warning };
+        } else if (resultadosPorDisc.length > 0) {
+          resultado = { label: 'Aprovado', color: Colors.success };
+        } else {
+          resultado = getResultado(0);
+        }
+
         const nfs = notasAluno.map((n: any) => calcNF(n));
-        const mediaFinal = nfs.length ? Math.round(nfs.reduce((s: number, v: number) => s + v, 0) / nfs.length) : 0;
-        return { aluno, mediaFinal, resultado: getResultado(mediaFinal), disciplinas: notasAluno.length };
+        const mediaFinal = nfs.length
+          ? Math.round(nfs.reduce((s: number, v: number) => s + v, 0) / nfs.length)
+          : 0;
+
+        return { aluno, mediaFinal, resultado, disciplinas: notasAluno.length };
       });
+
       const aprovados  = resultados.filter(r => r.resultado.label === 'Aprovado').length;
       const exame      = resultados.filter(r => r.resultado.label === 'Exame').length;
       const reprovados = resultados.filter(r => r.resultado.label === 'Reprovado').length;
