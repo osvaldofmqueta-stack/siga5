@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, ActivityIndicator, FlatList, Platform, Modal,
@@ -7,6 +7,8 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
+import { useConfig } from '@/context/ConfigContext';
+import { buildExtratoProfinasHtml } from '@/utils/extratoHtml';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface AlunoInfo {
