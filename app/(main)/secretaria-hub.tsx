@@ -429,6 +429,7 @@ export default function SecretariaHubScreen() {
   const [documentos, setDocumentos] = useState<Documento[]>(INITIAL_DOCUMENTOS);
   const [processos, setProcessos] = useState<Processo[]>(INITIAL_PROCESSOS);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
+  const [showEmissaoRapida, setShowEmissaoRapida] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos' | 'pautas'>('visao');
@@ -466,8 +467,8 @@ export default function SecretariaHubScreen() {
   }
 
   const QUICK_ACTIONS = [
-    { label: 'Gerar\nDocumento PDF', icon: 'print', color: Colors.gold, action: () => router.push('/(main)/gerar-documento' as any) },
-    { label: 'Emitir\nDeclaração', icon: 'document-text', color: Colors.info, action: () => setShowEmitirModal(true) },
+    { label: 'Emitir\nDocumentos', icon: 'documents', color: Colors.gold, action: () => setShowEmissaoRapida(true) },
+    { label: 'Gerar\nDocumento PDF', icon: 'print', color: Colors.info, action: () => router.push('/(main)/gerar-documento' as any) },
     { label: 'Abrir\nProcesso', icon: 'folder-open', color: Colors.warning, action: () => setShowProcessoModal(true) },
     { label: 'Gestão\nde Alunos', icon: 'people', color: Colors.success, action: () => router.push('/(main)/alunos' as any) },
     { label: 'Registo\nde Presenças', icon: 'calendar-outline', color: Colors.gold, action: () => router.push('/(main)/presencas' as any) },
@@ -1273,6 +1274,16 @@ export default function SecretariaHubScreen() {
         onClose={() => setShowEmitirModal(false)}
         onEmit={handleEmitir}
         alunos={alunos}
+      />
+      <EmissaoRapidaModal
+        visible={showEmissaoRapida}
+        onClose={() => setShowEmissaoRapida(false)}
+        alunos={alunos}
+        turmas={turmas}
+        notas={notas}
+        config={config}
+        anoAtual={anoSelecionado?.ano || String(new Date().getFullYear())}
+        user={user}
       />
       <NovoProcessoModal
         visible={showProcessoModal}
