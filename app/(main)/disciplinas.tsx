@@ -249,7 +249,7 @@ export default function DisciplinasScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const areas = ['Todas', ...AREAS];
+  const areas = ['Todas', ...AREAS_DEFAULT];
 
   const filtered = disciplinas.filter(d => {
     const matchSearch = d.nome.toLowerCase().includes(search.toLowerCase()) ||
