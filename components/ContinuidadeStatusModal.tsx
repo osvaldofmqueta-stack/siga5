@@ -52,7 +52,7 @@ function getSituacaoConfig(situacao: DiscResult['situacao']) {
       };
     case 'exame_fechamento':
       return {
-        label: 'Exame de Fechamento Obrigatório',
+        label: 'Exame de Época Normal (Pendente — 12ª Classe)',
         color: Colors.warning,
         bg: Colors.warning + '18',
         border: Colors.warning + '60',
@@ -60,7 +60,7 @@ function getSituacaoConfig(situacao: DiscResult['situacao']) {
       };
     case 'fechada_12':
       return {
-        label: 'Exame de Fechamento na 12ª Classe',
+        label: 'Exame de Época Normal — Final da 12ª Classe',
         color: Colors.info,
         bg: Colors.info + '18',
         border: Colors.info + '60',
@@ -106,9 +106,10 @@ function RegrasCard() {
           <Text style={[styles.regraNumText, { color: Colors.warning }]}>R2</Text>
         </View>
         <Text style={styles.regraText}>
-          <Text style={styles.regraBold}>Negativa + positiva</Text> nos anos seguintes
-          {' '}→ Pode avançar para o ano seguinte mas realiza um{' '}
-          <Text style={styles.regraBold}>Exame de Fechamento na 12ª classe</Text> para fechar a negativa anterior.
+          <Text style={styles.regraBold}>Negativa num ano + positiva no ano seguinte</Text>
+          {' '}→ Pode avançar para o ano seguinte. Ao longo dos trimestres aplicam-se apenas médias normais.{' '}
+          No <Text style={styles.regraBold}>final da 12ª classe</Text> (ano de fecho) é aplicado o{' '}
+          <Text style={styles.regraBold}>Exame de Época Normal</Text> para fechar a negativa anterior.
         </Text>
       </View>
       <View style={styles.regraItem}>
@@ -116,8 +117,10 @@ function RegrasCard() {
           <Text style={[styles.regraNumText, { color: Colors.info }]}>R3</Text>
         </View>
         <Text style={styles.regraText}>
-          As disciplinas de continuidade <Text style={styles.regraBold}>fecham na 12ª classe</Text>,
-          {' '}onde se contabiliza o somatório do plano curricular.
+          A disciplina de continuidade <Text style={styles.regraBold}>fecha na 12ª classe</Text>,
+          {' '}onde se contabiliza o somatório do plano curricular. O{' '}
+          <Text style={styles.regraBold}>Exame de Época Normal</Text> é aplicado apenas no final desse ano,
+          {' '}nunca durante os trimestres.
         </Text>
       </View>
     </View>
@@ -192,8 +195,9 @@ function DiscCard({ disc, notaMin }: { disc: DiscResult; notaMin: number }) {
             <View style={styles.examesPendBox}>
               <Ionicons name="document-text-outline" size={14} color={Colors.warning} />
               <Text style={styles.examesPendText}>
-                Exame de Fechamento pendente referente a:{' '}
+                Exame de Época Normal pendente — negativa de:{' '}
                 <Text style={{ fontWeight: '700' }}>{disc.examesPendentes.join(', ')}</Text>
+                {'. '}O exame é aplicado no final da 12ª classe.
               </Text>
             </View>
           )}
@@ -289,7 +293,7 @@ export default function ContinuidadeStatusModal({ visible, onClose, alunoId, alu
                   <Text style={[styles.alertBannerText, { color: numReprova > 0 ? Colors.danger : Colors.warning }]}>
                     {numReprova > 0
                       ? `${numReprova} disciplina${numReprova > 1 ? 's' : ''} com REPROVA sem direito a exame`
-                      : `${numExame} disciplina${numExame > 1 ? 's' : ''} com Exame de Fechamento obrigatório`}
+                      : `${numExame} disciplina${numExame > 1 ? 's' : ''} com Exame de Época Normal obrigatório`}
                   </Text>
                 </View>
               ) : (
@@ -305,7 +309,7 @@ export default function ContinuidadeStatusModal({ visible, onClose, alunoId, alu
               <View style={styles.statsRow}>
                 {[
                   { label: 'Reprova s/ Exame', val: numReprova, color: Colors.danger },
-                  { label: 'Exame Fechamento', val: numExame, color: Colors.warning },
+                  { label: 'Época Normal', val: numExame, color: Colors.warning },
                   { label: 'Em Conformidade', val: numNormal, color: Colors.success },
                 ].map(s => (
                   <View key={s.label} style={styles.statBox}>

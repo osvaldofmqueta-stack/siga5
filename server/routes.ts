@@ -4136,10 +4136,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
    *
    * Regras das disciplinas de continuidade (II Ciclo — 10ª a 12ª classe):
    *  R1 — Duas negativas consecutivas em anos distintos → REPROVA SEM DIREITO A EXAME
-   *  R2 — Negativa num ano + positiva no ano seguinte → pode avançar, mas
-   *        precisa de Exame de Fechamento na 12ª classe para fechar a negativa anterior
+   *  R2 — Negativa num ano + positiva no ano seguinte → pode avançar para o ano
+   *        seguinte; no final da 12ª classe (ano de fecho) realiza o Exame de Época
+   *        Normal para fechar a negativa anterior.
    *  R3 — A disciplina de continuidade fecha (encerra) na 12ª classe, onde se
-   *        contabiliza o somatório do plano curricular
+   *        contabiliza o somatório do plano curricular.
+   *
+   *  NOTA: Ao longo dos trimestres aplicam-se apenas médias normais (MAC, PP, PT).
+   *        O Exame de Época Normal só é aplicado no final do ano de fecho (12ª classe).
    */
   app.get('/api/continuidade/situacao/:alunoId', requireAuth, async (req: Request, res: Response) => {
     try {
@@ -4232,19 +4236,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
 
             if (prevIsNeg && !isNeg) {
-              // R2 — Negativa seguida de positiva → precisa de Exame de Fechamento
+              // R2 — Negativa seguida de positiva → Exame de Época Normal no final da 12ª classe
               examesPendentes.push(prev.anoLetivo);
               if (situacao !== 'reprova_sem_exame') {
                 situacao = 'exame_fechamento';
-                motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) resgatada em ${ano.anoLetivo} (${ano.mediaAnual.toFixed(1)}) — Exame de Fechamento obrigatório na 12ª classe`;
+                motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) resgatada em ${ano.anoLetivo} (${ano.mediaAnual.toFixed(1)}) — Exame de Época Normal obrigatório no final da 12ª classe`;
               }
             }
           }
 
-          // R3 — A disciplina fecha na 12ª classe
+          // R3 — A disciplina fecha na 12ª classe com Exame de Época Normal
           if (ano.classe === '12' && situacao === 'exame_fechamento') {
             situacao = 'fechada_12';
-            motivo += ' | Disciplina encerra na 12ª classe com exame de fechamento';
+            motivo += ' | Disciplina encerra na 12ª classe — Exame de Época Normal a aplicar no final do ano';
           }
         }
 
@@ -4341,7 +4345,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
             if (prevNeg && !curNeg) {
               situacao = 'exame_fechamento';
-              motivo   = `Negativa em ${prev.anoLetivo}, positiva em ${cur.anoLetivo} — Exame de Fechamento na 12ª`;
+              motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}), positiva em ${cur.anoLetivo} (${cur.mediaAnual.toFixed(1)}) — Exame de Época Normal no final da 12ª classe`;
               temExameFechamento = true;
             }
           }
