@@ -431,6 +431,7 @@ export default function SecretariaHubScreen() {
   const [processos, setProcessos] = useState<Processo[]>(INITIAL_PROCESSOS);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showEmissaoRapida, setShowEmissaoRapida] = useState(false);
+  const [showMapaAproveitamento, setShowMapaAproveitamento] = useState(false);
   const [showProcessoModal, setShowProcessoModal] = useState(false);
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos' | 'pautas'>('visao');
@@ -469,6 +470,7 @@ export default function SecretariaHubScreen() {
 
   const QUICK_ACTIONS = [
     { label: 'Emitir\nDocumentos', icon: 'documents', color: Colors.gold, action: () => setShowEmissaoRapida(true) },
+    { label: 'Mapas de\nAproveitamento', icon: 'podium', color: '#1a6b3c', action: () => setShowMapaAproveitamento(true) },
     { label: 'Gerar\nDocumento PDF', icon: 'print', color: Colors.info, action: () => router.push('/(main)/gerar-documento' as any) },
     { label: 'Abrir\nProcesso', icon: 'folder-open', color: Colors.warning, action: () => setShowProcessoModal(true) },
     { label: 'Gestão\nde Alunos', icon: 'people', color: Colors.success, action: () => router.push('/(main)/alunos' as any) },
@@ -1279,6 +1281,16 @@ export default function SecretariaHubScreen() {
       <EmissaoRapidaModal
         visible={showEmissaoRapida}
         onClose={() => setShowEmissaoRapida(false)}
+        alunos={alunos}
+        turmas={turmas}
+        notas={notas}
+        config={config}
+        anoAtual={anoSelecionado?.ano || String(new Date().getFullYear())}
+        user={user}
+      />
+      <MapaAproveitamentoModal
+        visible={showMapaAproveitamento}
+        onClose={() => setShowMapaAproveitamento(false)}
         alunos={alunos}
         turmas={turmas}
         notas={notas}
