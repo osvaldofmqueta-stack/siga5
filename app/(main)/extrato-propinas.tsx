@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, FlatList, Platform, Modal,
+  TextInput, ActivityIndicator, FlatList, Platform, Modal, Switch,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
-import { buildExtratoProfinasHtml } from '@/utils/extratoHtml';
+import { buildExtratoProfinasHtml, ExtratoHtmlConfig } from '@/utils/extratoHtml';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface AlunoInfo {
@@ -102,6 +102,343 @@ const METODO_LABEL: Record<string, string> = {
   dinheiro: 'Dinheiro', transferencia: 'Transferência', multicaixa: 'Multicaixa',
 };
 
+const COR_OPCOES = [
+  { label: 'Azul Escuro', value: '#1a2540' },
+  { label: 'Índigo',      value: '#3730a3' },
+  { label: 'Verde',       value: '#15643a' },
+  { label: 'Vermelho',    value: '#991b1b' },
+  { label: 'Castanho',    value: '#78350f' },
+  { label: 'Cinza',       value: '#374151' },
+];
+
+// ─── Document Editor Component ───────────────────────────────────────────────
+interface DocumentEditorProps {
+  extrato: Extrato;
+  initialConfig: ExtratoHtmlConfig;
+  onClose: () => void;
+}
+
+function DocumentEditor({ extrato, initialConfig, onClose }: DocumentEditorProps) {
+  const [cfg, setCfg] = useState<ExtratoHtmlConfig>(initialConfig);
+  const [activeSection, setActiveSection] = useState<'identificacao' | 'assinaturas' | 'conteudo' | 'visual'>('identificacao');
+  const iframeRef = useRef<any>(null);
+
+  const html = buildExtratoProfinasHtml(extrato, cfg);
+
+  const update = useCallback((patch: Partial<ExtratoHtmlConfig>) => {
+    setCfg(prev => ({ ...prev, ...patch }));
+  }, []);
+
+  const handlePrint = () => {
+    if (Platform.OS === 'web') {
+      const iframe = document.getElementById('editor-preview-iframe') as HTMLIFrameElement;
+      if (iframe?.contentWindow) iframe.contentWindow.print();
+    }
+  };
+
+  const SECTIONS = [
+    { id: 'identificacao', label: 'Identificação', icon: 'document-text-outline' },
+    { id: 'assinaturas',   label: 'Assinaturas',   icon: 'pen-outline' },
+    { id: 'conteudo',      label: 'Conteúdo',       icon: 'list-outline' },
+    { id: 'visual',        label: 'Visual',          icon: 'color-palette-outline' },
+  ] as const;
+
+  return (
+    <View style={edStyles.root}>
+      {/* ── Top Bar ── */}
+      <View style={edStyles.topBar}>
+        <TouchableOpacity style={edStyles.closeBtn} onPress={onClose}>
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={edStyles.topTitle}>Editor de Documento</Text>
+          <Text style={edStyles.topSub}>Extracto de Propinas — {extrato.aluno.nome} {extrato.aluno.apelido}</Text>
+        </View>
+        <TouchableOpacity style={edStyles.printBtn} onPress={handlePrint}>
+          <Ionicons name="print-outline" size={16} color="#fff" />
+          <Text style={edStyles.printBtnText}>Imprimir / PDF</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={edStyles.body}>
+        {/* ── Editor Panel (left) ── */}
+        <View style={edStyles.editorPanel}>
+          {/* Section Tabs */}
+          <View style={edStyles.sectionTabs}>
+            {SECTIONS.map(s => (
+              <TouchableOpacity
+                key={s.id}
+                style={[edStyles.sectionTab, activeSection === s.id && edStyles.sectionTabActive]}
+                onPress={() => setActiveSection(s.id)}
+              >
+                <Ionicons name={s.icon as any} size={14} color={activeSection === s.id ? '#5E6AD2' : '#666'} />
+                <Text style={[edStyles.sectionTabText, activeSection === s.id && edStyles.sectionTabTextActive]}>
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ScrollView style={edStyles.editorScroll} contentContainerStyle={{ padding: 16, gap: 14 }}>
+
+            {/* ── IDENTIFICAÇÃO ── */}
+            {activeSection === 'identificacao' && (
+              <View style={{ gap: 14 }}>
+                <EditorSection title="Cabeçalho do Documento">
+                  <EditorField
+                    label="Título do Documento"
+                    value={cfg.tituloDocumento || ''}
+                    placeholder="Extracto de Propinas"
+                    onChangeText={v => update({ tituloDocumento: v })}
+                  />
+                  <EditorField
+                    label="Subtítulo"
+                    value={cfg.subtituloDocumento || ''}
+                    placeholder="Histórico de Pagamentos e Propinas"
+                    onChangeText={v => update({ subtituloDocumento: v })}
+                  />
+                  <EditorField
+                    label="Nome da Escola / Instituição"
+                    value={cfg.nomeEscola || ''}
+                    placeholder="Escola Secundária"
+                    onChangeText={v => update({ nomeEscola: v })}
+                  />
+                </EditorSection>
+                <EditorSection title="Emissão">
+                  <EditorField
+                    label="Emitido por"
+                    value={cfg.emitidoPor || ''}
+                    placeholder="Secretaria"
+                    onChangeText={v => update({ emitidoPor: v })}
+                  />
+                </EditorSection>
+              </View>
+            )}
+
+            {/* ── ASSINATURAS ── */}
+            {activeSection === 'assinaturas' && (
+              <View style={{ gap: 14 }}>
+                <EditorSection title="1ª Assinatura — Direcção">
+                  <EditorField
+                    label="Cargo / Título"
+                    value={cfg.tituloDirector || ''}
+                    placeholder="O Director Geral"
+                    onChangeText={v => update({ tituloDirector: v })}
+                  />
+                  <EditorField
+                    label="Nome do Director"
+                    value={cfg.directorGeral || ''}
+                    placeholder="(deixe vazio para linha em branco)"
+                    onChangeText={v => update({ directorGeral: v })}
+                  />
+                </EditorSection>
+
+                <EditorSection title="2ª Assinatura — Secretaria">
+                  <EditorField
+                    label="Cargo / Título"
+                    value={cfg.tituloSecretaria || ''}
+                    placeholder="O Chefe de Secretaria"
+                    onChangeText={v => update({ tituloSecretaria: v })}
+                  />
+                  <EditorField
+                    label="Nome do Secretário(a)"
+                    value={cfg.chefeSecretaria || ''}
+                    placeholder="(deixe vazio para linha em branco)"
+                    onChangeText={v => update({ chefeSecretaria: v })}
+                  />
+                </EditorSection>
+
+                <EditorSection title="3ª Assinatura — Encarregado">
+                  <EditorToggle
+                    label="Mostrar campo de assinatura do encarregado"
+                    value={cfg.mostrarAssinaturaEncarregado !== false}
+                    onValueChange={v => update({ mostrarAssinaturaEncarregado: v })}
+                  />
+                </EditorSection>
+              </View>
+            )}
+
+            {/* ── CONTEÚDO ── */}
+            {activeSection === 'conteudo' && (
+              <View style={{ gap: 14 }}>
+                <EditorSection title="Secções do Documento">
+                  <EditorToggle
+                    label="Mostrar cards de resumo (Pago / Pendente / Cancelado)"
+                    value={cfg.mostrarResumoCards !== false}
+                    onValueChange={v => update({ mostrarResumoCards: v })}
+                  />
+                  <View style={{ height: 1, backgroundColor: '#1e3055', marginVertical: 4 }} />
+                  <EditorToggle
+                    label="Mostrar QR Code e Código de Barras"
+                    value={cfg.mostrarQrBarcode !== false}
+                    onValueChange={v => update({ mostrarQrBarcode: v })}
+                  />
+                  <View style={{ height: 1, backgroundColor: '#1e3055', marginVertical: 4 }} />
+                  <EditorToggle
+                    label="Mostrar secção de assinaturas"
+                    value={cfg.mostrarAssinaturas !== false}
+                    onValueChange={v => update({ mostrarAssinaturas: v })}
+                  />
+                  <View style={{ height: 1, backgroundColor: '#1e3055', marginVertical: 4 }} />
+                  <EditorToggle
+                    label="Mostrar nota de rodapé"
+                    value={cfg.mostrarRodape !== false}
+                    onValueChange={v => update({ mostrarRodape: v })}
+                  />
+                </EditorSection>
+
+                <EditorSection title="Observações (campo extra)">
+                  <EditorField
+                    label="Texto de observações"
+                    value={cfg.observacoes || ''}
+                    placeholder="Adicione notas ou informações adicionais aqui…"
+                    onChangeText={v => update({ observacoes: v })}
+                    multiline
+                  />
+                  <Text style={edStyles.fieldHint}>Aparece acima do QR code no documento.</Text>
+                </EditorSection>
+
+                <EditorSection title="Nota de Rodapé Personalizada">
+                  <EditorField
+                    label="Nota adicional no rodapé"
+                    value={cfg.notaRodape || ''}
+                    placeholder="Ex: Documento válido mediante carimbo da secretaria."
+                    onChangeText={v => update({ notaRodape: v })}
+                    multiline
+                  />
+                </EditorSection>
+              </View>
+            )}
+
+            {/* ── VISUAL ── */}
+            {activeSection === 'visual' && (
+              <View style={{ gap: 14 }}>
+                <EditorSection title="Cor Principal do Documento">
+                  <Text style={edStyles.fieldLabel}>Seleccione a cor primária</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                    {COR_OPCOES.map(c => (
+                      <TouchableOpacity
+                        key={c.value}
+                        style={[edStyles.corBtn, { backgroundColor: c.value }, cfg.corPrimaria === c.value && edStyles.corBtnSelected]}
+                        onPress={() => update({ corPrimaria: c.value })}
+                      >
+                        <Text style={edStyles.corBtnLabel}>{c.label}</Text>
+                        {cfg.corPrimaria === c.value && (
+                          <Ionicons name="checkmark" size={12} color="#fff" />
+                        )}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </EditorSection>
+
+                <EditorSection title="Informação do QR Code">
+                  <View style={edStyles.qrInfoBox}>
+                    <Ionicons name="qr-code-outline" size={20} color="#5E6AD2" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={edStyles.qrInfoTitle}>Dados codificados no QR</Text>
+                      <Text style={edStyles.qrInfoText}>
+                        • Referência do documento{'\n'}
+                        • Nome e matrícula do aluno{'\n'}
+                        • Turma e escola{'\n'}
+                        • Total pago e pendente{'\n'}
+                        • Número de transacções{'\n'}
+                        • Data de emissão e período{'\n'}
+                        • Emitido por
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={edStyles.barcodeInfoBox}>
+                    <Ionicons name="barcode-outline" size={20} color="#5E6AD2" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={edStyles.qrInfoTitle}>Código de Barras</Text>
+                      <Text style={edStyles.qrInfoText}>
+                        Formato CODE128 com o número de matrícula do aluno.
+                        Compatível com leitores de código de barras padrão.
+                      </Text>
+                    </View>
+                  </View>
+                </EditorSection>
+              </View>
+            )}
+
+          </ScrollView>
+        </View>
+
+        {/* ── Preview Panel (right) ── */}
+        {Platform.OS === 'web' && (
+          <View style={edStyles.previewPanel}>
+            <View style={edStyles.previewHeader}>
+              <Ionicons name="eye-outline" size={14} color="#5E6AD2" />
+              <Text style={edStyles.previewHeaderText}>Pré-Visualização A4 — actualiza automaticamente</Text>
+            </View>
+            <iframe
+              id="editor-preview-iframe"
+              srcDoc={html}
+              style={{
+                flex: 1,
+                border: 'none',
+                width: '100%',
+                height: '100%',
+                background: '#d0d0d0',
+              } as any}
+              title="Preview do Documento"
+            />
+          </View>
+        )}
+      </View>
+    </View>
+  );
+}
+
+// ─── Editor Sub-components ────────────────────────────────────────────────────
+function EditorSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={edStyles.section}>
+      <Text style={edStyles.sectionTitle}>{title}</Text>
+      <View style={edStyles.sectionBody}>{children}</View>
+    </View>
+  );
+}
+
+function EditorField({
+  label, value, placeholder, onChangeText, multiline,
+}: {
+  label: string;
+  value: string;
+  placeholder?: string;
+  onChangeText: (v: string) => void;
+  multiline?: boolean;
+}) {
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text style={edStyles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[edStyles.fieldInput, multiline && edStyles.fieldInputMulti]}
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#3a4a66"
+        multiline={multiline}
+        numberOfLines={multiline ? 3 : 1}
+      />
+    </View>
+  );
+}
+
+function EditorToggle({ label, value, onValueChange }: { label: string; value: boolean; onValueChange: (v: boolean) => void }) {
+  return (
+    <View style={edStyles.toggleRow}>
+      <Text style={edStyles.toggleLabel}>{label}</Text>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ false: '#1e3055', true: '#5E6AD244' }}
+        thumbColor={value ? '#5E6AD2' : '#3a4a66'}
+      />
+    </View>
+  );
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function ExtratoPropinas() {
   const [alunoSearch, setAlunoSearch] = useState('');
@@ -116,9 +453,7 @@ export default function ExtratoPropinas() {
 
   const [loading, setLoading] = useState(false);
   const [extrato, setExtrato] = useState<Extrato | null>(null);
-
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [showEditor, setShowEditor] = useState(false);
 
   const { addToast } = useToast();
   const { user } = useAuth();
@@ -183,15 +518,21 @@ export default function ExtratoPropinas() {
     setAllAlunos([]);
   };
 
-  const abrirPreviewA4 = () => {
-    if (!extrato) return;
-    const html = buildExtratoProfinasHtml(extrato, {
-      nomeEscola: config.nomeEscola,
-      directorGeral: (config as any).directorGeral,
-      emitidoPor: (user as any)?.nome || user?.email || 'Sistema',
-    });
-    setPreviewHtml(html);
-    setShowPreview(true);
+  const initialEditorConfig: ExtratoHtmlConfig = {
+    nomeEscola:       (config as any)?.nomeEscola || '',
+    directorGeral:    (config as any)?.directorGeral || '',
+    chefeSecretaria:  (config as any)?.chefeSecretaria || '',
+    emitidoPor:       (user as any)?.nome || (user as any)?.email || 'Secretaria',
+    tituloDocumento:  'Extracto de Propinas',
+    subtituloDocumento: 'Histórico de Pagamentos e Propinas',
+    tituloDirector:   'O Director Geral',
+    tituloSecretaria: 'O Chefe de Secretaria',
+    mostrarResumoCards: true,
+    mostrarQrBarcode: true,
+    mostrarAssinaturas: true,
+    mostrarRodape: true,
+    mostrarAssinaturaEncarregado: true,
+    corPrimaria: '#1a2540',
   };
 
   return (
@@ -207,14 +548,10 @@ export default function ExtratoPropinas() {
             <Text style={styles.cardTitle}>Gerar Extracto</Text>
           </View>
 
-          {/* Aluno */}
           <Text style={styles.label}>Aluno / Estudante *</Text>
           <TouchableOpacity
             style={styles.alunoPickerBtn}
-            onPress={() => {
-              fetchAlunos();
-              setShowAlunoDropdown(true);
-            }}
+            onPress={() => { fetchAlunos(); setShowAlunoDropdown(true); }}
           >
             <Ionicons name="person-outline" size={16} color="#888" />
             <Text style={[styles.alunoPickerText, selectedAluno && { color: '#fff' }]} numberOfLines={1}>
@@ -223,7 +560,6 @@ export default function ExtratoPropinas() {
             <Ionicons name="chevron-down" size={16} color="#888" />
           </TouchableOpacity>
 
-          {/* Date range */}
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
               <Text style={styles.label}>Data Início</Text>
@@ -250,7 +586,7 @@ export default function ExtratoPropinas() {
           </View>
 
           <Text style={styles.dateTip}>
-            <Ionicons name="information-circle-outline" size={13} color="#555" /> Deixe as datas em branco para mostrar todos os pagamentos.
+            Deixe as datas em branco para mostrar todos os pagamentos.
           </Text>
 
           <View style={styles.btnRow}>
@@ -274,7 +610,7 @@ export default function ExtratoPropinas() {
         {extrato && (
           <View style={styles.extratoContainer}>
 
-            {/* Cabeçalho tipo extracto bancário */}
+            {/* Cabeçalho */}
             <View style={styles.extratoHeader}>
               <View style={styles.extratoHeaderTop}>
                 <View style={styles.logoBox}>
@@ -293,7 +629,7 @@ export default function ExtratoPropinas() {
                 <InfoRow label="Nº Matrícula" value={extrato.aluno.numeroMatricula} />
                 {extrato.aluno.turmaNome && <InfoRow label="Turma" value={extrato.aluno.turmaNome} />}
                 {extrato.aluno.cursoNome && <InfoRow label="Curso" value={extrato.aluno.cursoNome} />}
-                <InfoRow label="Encarregado" value={extrato.aluno.nomeEncarregado} />
+                {extrato.aluno.nomeEncarregado && <InfoRow label="Encarregado" value={extrato.aluno.nomeEncarregado} />}
                 {extrato.filtros.dataInicio && (
                   <InfoRow label="Período" value={`${fmtDate(extrato.filtros.dataInicio || '')} — ${fmtDate(extrato.filtros.dataFim || 'Presente')}`} />
                 )}
@@ -347,7 +683,11 @@ export default function ExtratoPropinas() {
                     <Text style={[styles.tdCell, { flex: 1.2, color: '#aaa' }]} numberOfLines={1}>
                       {METODO_LABEL[p.metodoPagamento] || p.metodoPagamento}
                     </Text>
-                    <Text style={[styles.tdCell, { flex: 1.4, textAlign: 'right', color: p.status === 'pago' ? '#66BB6A' : p.status === 'pendente' ? '#FFA726' : '#888', fontFamily: 'Inter_600SemiBold' }]}>
+                    <Text style={[styles.tdCell, {
+                      flex: 1.4, textAlign: 'right',
+                      color: p.status === 'pago' ? '#66BB6A' : p.status === 'pendente' ? '#FFA726' : '#888',
+                      fontFamily: 'Inter_600SemiBold',
+                    }]}>
                       {fmtAOA(p.valor)}
                     </Text>
                     <View style={{ flex: 1.1, alignItems: 'center' }}>
@@ -380,16 +720,21 @@ export default function ExtratoPropinas() {
                 </View>
               </View>
               <Text style={styles.footerNote}>
-                Documento gerado em {new Date().toLocaleString('pt-PT')} por {user?.nome || user?.email}{'\n'}
+                Documento gerado em {new Date().toLocaleString('pt-PT')} por {(user as any)?.nome || (user as any)?.email}{'\n'}
                 Este extracto é meramente informativo e não substitui recibo oficial.
               </Text>
             </View>
 
-            {/* Botão pré-visualizar A4 e imprimir (web only) */}
+            {/* Botão Editor de Documento */}
             {Platform.OS === 'web' && (
-              <TouchableOpacity style={styles.btnPrint} onPress={abrirPreviewA4}>
-                <Ionicons name="eye-outline" size={18} color="#fff" />
-                <Text style={styles.btnPrintText}>Pré-Visualizar A4 / Imprimir</Text>
+              <TouchableOpacity style={styles.btnEditorDoc} onPress={() => setShowEditor(true)}>
+                <Ionicons name="create-outline" size={18} color="#fff" />
+                <Text style={styles.btnEditorDocText}>Abrir Editor de Documento</Text>
+                <View style={styles.editorBadge}>
+                  <Ionicons name="qr-code-outline" size={11} color="#fff" />
+                  <Ionicons name="barcode-outline" size={11} color="#fff" />
+                  <Text style={styles.editorBadgeText}>QR + Barras</Text>
+                </View>
               </TouchableOpacity>
             )}
           </View>
@@ -450,38 +795,14 @@ export default function ExtratoPropinas() {
         </TouchableOpacity>
       </Modal>
 
-      {/* ── Modal A4 Preview ── */}
-      {showPreview && Platform.OS === 'web' && (
-        <Modal visible={showPreview} transparent={false} animationType="slide" onRequestClose={() => setShowPreview(false)}>
-          <View style={{ flex: 1, backgroundColor: '#060f1f' }}>
-            {/* Top Bar */}
-            <View style={styles.previewTopBar}>
-              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setShowPreview(false)}>
-                <Ionicons name="close" size={20} color="#fff" />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.previewTitle}>Pré-Visualização A4</Text>
-                <Text style={styles.previewSubtitle}>Extracto de Propinas — Revise antes de imprimir</Text>
-              </View>
-              <TouchableOpacity
-                style={styles.previewPrintBtn}
-                onPress={() => {
-                  const iframe = document.getElementById('extrato-a4-iframe') as HTMLIFrameElement;
-                  if (iframe?.contentWindow) iframe.contentWindow.print();
-                }}
-              >
-                <Ionicons name="print-outline" size={16} color="#fff" />
-                <Text style={styles.previewPrintText}>Imprimir / PDF</Text>
-              </TouchableOpacity>
-            </View>
-            {/* A4 Iframe */}
-            <iframe
-              id="extrato-a4-iframe"
-              srcDoc={previewHtml}
-              style={{ flex: 1, border: 'none', width: '100%', height: '100%', backgroundColor: '#d0d0d0' } as any}
-              title="Extracto de Propinas A4"
-            />
-          </View>
+      {/* ── Modal Editor de Documento ── */}
+      {showEditor && extrato && Platform.OS === 'web' && (
+        <Modal visible={showEditor} transparent={false} animationType="slide" onRequestClose={() => setShowEditor(false)}>
+          <DocumentEditor
+            extrato={extrato}
+            initialConfig={initialEditorConfig}
+            onClose={() => setShowEditor(false)}
+          />
         </Modal>
       )}
     </View>
@@ -576,8 +897,10 @@ const styles = StyleSheet.create({
   footerGrandValue: { color: '#5E6AD2', fontSize: 16, fontFamily: 'Inter_700Bold' },
   footerNote: { color: '#444', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 14, lineHeight: 16, textAlign: 'center' },
 
-  btnPrint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#26A69A', borderRadius: 10, paddingVertical: 13, marginTop: 12 },
-  btnPrintText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+  btnEditorDoc: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#5E6AD2', borderRadius: 10, paddingVertical: 14, marginTop: 12 },
+  btnEditorDocText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold' },
+  editorBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#ffffff22', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+  editorBadgeText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_600SemiBold' },
 
   // Aluno modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
@@ -591,12 +914,75 @@ const styles = StyleSheet.create({
   alunoItemName: { color: '#fff', fontSize: 14, fontFamily: 'Inter_500Medium' },
   alunoItemNum: { color: '#888', fontSize: 12, fontFamily: 'Inter_400Regular' },
   modalCenter: { paddingVertical: 30, alignItems: 'center' },
+});
 
-  // A4 Preview modal
-  previewTopBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#060f1f', borderBottomWidth: 1, borderBottomColor: '#1e3055' },
-  previewCloseBtn: { padding: 8, borderRadius: 8, backgroundColor: '#1a2a4a' },
-  previewTitle: { color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold' },
-  previewSubtitle: { color: '#888', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
-  previewPrintBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#26A69A', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8 },
-  previewPrintText: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+// ─── Editor Styles ────────────────────────────────────────────────────────────
+const edStyles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#060f1f' },
+
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+    backgroundColor: '#060f1f', borderBottomWidth: 1, borderBottomColor: '#1e3055',
+  },
+  closeBtn: { padding: 8, borderRadius: 8, backgroundColor: '#1a2a4a' },
+  topTitle: { color: '#fff', fontSize: 15, fontFamily: 'Inter_700Bold' },
+  topSub: { color: '#888', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
+  printBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#26A69A', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8,
+  },
+  printBtnText: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+
+  body: { flex: 1, flexDirection: 'row' },
+
+  // Editor Panel
+  editorPanel: { width: 340, backgroundColor: '#080f24', borderRightWidth: 1, borderRightColor: '#1e3055' },
+
+  sectionTabs: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#1e3055' },
+  sectionTab: { flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 4, gap: 3 },
+  sectionTabActive: { borderBottomWidth: 2, borderBottomColor: '#5E6AD2' },
+  sectionTabText: { color: '#555', fontSize: 10, fontFamily: 'Inter_500Medium', textAlign: 'center' },
+  sectionTabTextActive: { color: '#5E6AD2' },
+
+  editorScroll: { flex: 1 },
+
+  section: { backgroundColor: '#0e1e3d', borderRadius: 10, borderWidth: 1, borderColor: '#1e3055', overflow: 'hidden', marginBottom: 4 },
+  sectionTitle: {
+    color: '#5E6AD2', fontSize: 10, fontFamily: 'Inter_700Bold',
+    textTransform: 'uppercase', letterSpacing: 1,
+    paddingHorizontal: 14, paddingVertical: 9,
+    backgroundColor: '#0a1830', borderBottomWidth: 1, borderBottomColor: '#1e3055',
+  },
+  sectionBody: { padding: 14 },
+
+  fieldLabel: { color: '#888', fontSize: 11, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 },
+  fieldInput: {
+    backgroundColor: '#1a2a4a', color: '#fff', borderRadius: 8,
+    paddingHorizontal: 12, paddingVertical: 9, fontSize: 13,
+    fontFamily: 'Inter_400Regular', borderWidth: 1, borderColor: '#253a5e',
+  },
+  fieldInputMulti: { height: 72, textAlignVertical: 'top', paddingTop: 9 },
+  fieldHint: { color: '#3a4a66', fontSize: 10, fontFamily: 'Inter_400Regular', marginTop: 4 },
+
+  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 36 },
+  toggleLabel: { color: '#aaa', fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1, lineHeight: 16 },
+
+  corBtn: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, flexDirection: 'row', gap: 5, alignItems: 'center' },
+  corBtnSelected: { borderWidth: 2, borderColor: '#fff' },
+  corBtnLabel: { color: '#fff', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+
+  qrInfoBox: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: '#5E6AD211', borderRadius: 8, padding: 12, marginBottom: 10 },
+  barcodeInfoBox: { flexDirection: 'row', gap: 10, alignItems: 'flex-start', backgroundColor: '#5E6AD211', borderRadius: 8, padding: 12 },
+  qrInfoTitle: { color: '#5E6AD2', fontSize: 11, fontFamily: 'Inter_700Bold', marginBottom: 5 },
+  qrInfoText: { color: '#888', fontSize: 10, fontFamily: 'Inter_400Regular', lineHeight: 16 },
+
+  // Preview Panel
+  previewPanel: { flex: 1, flexDirection: 'column', backgroundColor: '#d0d0d0' },
+  previewHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: '#0e1e3d', borderBottomWidth: 1, borderBottomColor: '#1e3055',
+  },
+  previewHeaderText: { color: '#5E6AD2', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
 });
