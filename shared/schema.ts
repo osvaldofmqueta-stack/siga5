@@ -1132,6 +1132,7 @@ export const trabalhosFinals = pgTable("trabalhos_finais", {
   curso: text("curso").notNull(),
   imagemCapa: text("imagemCapa"),
   resumo: text("resumo").default(""),
+  visitas: integer("visitas").notNull().default(0),
   ativo: boolean("ativo").notNull().default(true),
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });

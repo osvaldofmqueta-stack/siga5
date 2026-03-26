@@ -1,6 +1,15 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Repositório de Trabalhos Finais de Curso)
+## Recent Changes (Latest Session — Contagem de Visitas nos Trabalhos Finais)
+- **shared/schema.ts**: Coluna `visitas` (integer, default 0) adicionada à tabela `trabalhos_finais`
+- **server/routes.ts**: Nova rota `POST /api/trabalhos-finais/:id/visita` — incrementa o contador atomicamente no PostgreSQL e devolve o total actualizado
+- **app/(main)/trabalhos-finais.tsx**: 
+  - Cada abertura do modal de detalhe dispara uma visita (actualização optimista no estado local)
+  - Contador de visitas exibido na capa de cada card (badge semi-transparente, canto superior direito)
+  - Modal de detalhe mostra as visitas totais em destaque a cor laranja
+  - Secção "Mais Visitados" no topo da lista (top 3 com medalhas 🥇🥈🥉), aparece automaticamente assim que há visitas registadas
+
+## Recent Changes (Previous Session — Repositório de Trabalhos Finais de Curso)
 - **shared/schema.ts**: Nova tabela `trabalhos_finais` com campos: `titulo`, `autor`, `orientador`, `anoConclusao`, `curso`, `imagemCapa`, `resumo`, `ativo`, `criadoEm`
 - **server/routes.ts**: Novas rotas CRUD `/api/trabalhos-finais` (GET, POST, PUT/:id, DELETE/:id)
 - **app/(main)/trabalhos-finais.tsx** *(new)*: Ecrã completo de repositório de trabalhos finais de curso da 13ª classe:

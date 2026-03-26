@@ -3813,6 +3813,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/trabalhos-finais/:id/visita', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const rows = await query<JsonObject>(
+        `UPDATE public.trabalhos_finais SET visitas = visitas + 1 WHERE id=$1 AND ativo=true RETURNING visitas`,
+        [id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Trabalho não encontrado.' });
+      json(res, 200, { visitas: rows[0].visitas });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

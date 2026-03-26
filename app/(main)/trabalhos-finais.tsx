@@ -18,6 +18,7 @@ interface TrabalhoFinal {
   curso: string;
   imagemCapa: string | null;
   resumo: string;
+  visitas: number;
   criadoEm: string;
 }
 
@@ -122,6 +123,20 @@ export default function TrabalhosFinals() {
     }
   };
 
+  const handleView = async (item: TrabalhoFinal) => {
+    setSelectedItem(item);
+    try {
+      const result = await req<{ visitas: number }>(`/api/trabalhos-finais/${item.id}/visita`, { method: 'POST' });
+      setTrabalhos(prev =>
+        prev.map(t => t.id === item.id ? { ...t, visitas: result.visitas } : t)
+      );
+      setSelectedItem(prev => prev && prev.id === item.id ? { ...prev, visitas: result.visitas } : prev);
+    } catch {
+    }
+  };
+
+  const topVisitados = [...trabalhos].sort((a, b) => (b.visitas || 0) - (a.visitas || 0)).slice(0, 3).filter(t => (t.visitas || 0) > 0);
+
   return (
     <View style={styles.root}>
       <TopBar
@@ -202,6 +217,33 @@ export default function TrabalhosFinals() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
           contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 120 }}
           columnWrapperStyle={Platform.OS === 'web' ? { gap: 12 } : undefined}
+          ListHeaderComponent={
+            topVisitados.length > 0 ? (
+              <View style={styles.topBox}>
+                <View style={styles.topHeader}>
+                  <Ionicons name="flame" size={16} color="#FFA726" />
+                  <Text style={styles.topTitle}>Mais Visitados</Text>
+                </View>
+                {topVisitados.map((t, idx) => {
+                  const medals = ['🥇', '🥈', '🥉'];
+                  const color = cursoColor(t.curso);
+                  return (
+                    <TouchableOpacity key={t.id} style={styles.topItem} onPress={() => handleView(t)}>
+                      <Text style={styles.topMedal}>{medals[idx]}</Text>
+                      <View style={styles.topInfo}>
+                        <Text style={styles.topItemTitle} numberOfLines={1}>{t.titulo}</Text>
+                        <Text style={styles.topItemAutor} numberOfLines={1}>{t.autor} · {t.curso}</Text>
+                      </View>
+                      <View style={styles.topVisitasBox}>
+                        <Ionicons name="eye" size={13} color="#FFA726" />
+                        <Text style={styles.topVisitasNum}>{t.visitas}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyBox}>
               <MaterialCommunityIcons name="book-education-outline" size={56} color="#444" />
@@ -215,7 +257,7 @@ export default function TrabalhosFinals() {
               canWrite={canWrite}
               onEdit={() => { setEditItem(item); setShowModal(true); }}
               onDelete={() => handleDelete(item.id)}
-              onView={() => setSelectedItem(item)}
+              onView={() => handleView(item)}
             />
           )}
         />
@@ -259,6 +301,12 @@ function TrabalhoCard({ item, canWrite, onEdit, onDelete, onView }: {
         <View style={[styles.cursoBadge, { backgroundColor: color }]}>
           <Text style={styles.cursoBadgeText} numberOfLines={1}>{item.curso}</Text>
         </View>
+        {item.visitas > 0 && (
+          <View style={styles.visitasBadge}>
+            <Ionicons name="eye" size={11} color="#fff" />
+            <Text style={styles.visitasBadgeText}>{item.visitas}</Text>
+          </View>
+        )}
       </View>
       <View style={styles.cardBody}>
         <Text style={styles.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
@@ -319,8 +367,15 @@ function DetailModal({ item, onClose, canWrite, onEdit }: {
               )}
             </View>
 
-            <View style={[dStyles.cursoBadge, { backgroundColor: color + '22', borderColor: color + '55' }]}>
-              <Text style={[dStyles.cursoText, { color }]}>{item.curso} — 13ª Classe</Text>
+            <View style={dStyles.metaRow}>
+              <View style={[dStyles.cursoBadge, { backgroundColor: color + '22', borderColor: color + '55' }]}>
+                <Text style={[dStyles.cursoText, { color }]}>{item.curso} — 13ª Classe</Text>
+              </View>
+              <View style={dStyles.visitasBox}>
+                <Ionicons name="eye" size={15} color="#FFA726" />
+                <Text style={dStyles.visitasNum}>{item.visitas || 0}</Text>
+                <Text style={dStyles.visitasLabel}>visita{(item.visitas || 0) !== 1 ? 's' : ''}</Text>
+              </View>
             </View>
 
             <View style={dStyles.infoGrid}>
@@ -610,6 +665,18 @@ const styles = StyleSheet.create({
   anoText: { color: '#5E6AD2', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   cardActions: { flexDirection: 'row', gap: 6 },
   actionBtn: { width: 30, height: 30, borderRadius: 8, backgroundColor: '#1a2a4a', alignItems: 'center', justifyContent: 'center' },
+  visitasBadge: { position: 'absolute', top: 8, right: 8, flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(0,0,0,0.65)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
+  visitasBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  topBox: { backgroundColor: '#111f3d', borderRadius: 14, borderWidth: 1, borderColor: '#1e3055', padding: 14, marginBottom: 12 },
+  topHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  topTitle: { color: '#FFA726', fontSize: 14, fontFamily: 'Inter_700Bold' },
+  topItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#1a2a4a' },
+  topMedal: { fontSize: 20, width: 28, textAlign: 'center' },
+  topInfo: { flex: 1 },
+  topItemTitle: { color: '#fff', fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  topItemAutor: { color: '#888', fontSize: 12, fontFamily: 'Inter_400Regular' },
+  topVisitasBox: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FFA72622', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  topVisitasNum: { color: '#FFA726', fontSize: 13, fontFamily: 'Inter_700Bold' },
 });
 
 const dStyles = StyleSheet.create({
@@ -628,6 +695,10 @@ const dStyles = StyleSheet.create({
   infoItem: { gap: 3 },
   infoLabel: { color: '#666', fontSize: 12, fontFamily: 'Inter_400Regular', textTransform: 'uppercase', letterSpacing: 0.5 },
   infoValue: { color: '#fff', fontSize: 15, fontFamily: 'Inter_500Medium' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
+  visitasBox: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFA72620', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: '#FFA72633' },
+  visitasNum: { color: '#FFA726', fontSize: 18, fontFamily: 'Inter_700Bold' },
+  visitasLabel: { color: '#FFA726', fontSize: 12, fontFamily: 'Inter_400Regular' },
   resumoBox: { backgroundColor: '#1a2a4a', borderRadius: 10, padding: 14, gap: 6 },
   resumoLabel: { color: '#888', fontSize: 12, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5 },
   resumoText: { color: '#ccc', fontSize: 14, fontFamily: 'Inter_400Regular', lineHeight: 20 },
