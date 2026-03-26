@@ -802,6 +802,13 @@ export const configGeral = pgTable("config_geral", {
 
   // Exame Antecipado — permite que alunos com negativa em disciplinas terminais façam exame sem arrastar para o próximo ano
   exameAntecipadoHabilitado: boolean("exameAntecipadoHabilitado").notNull().default(false),
+
+  // PAP — Prova de Aptidão Profissional (13ª Classe / Ensino Técnico-Profissional)
+  papHabilitado: boolean("papHabilitado").notNull().default(false),
+  // Se true, o estágio é tratado como disciplina no plano curricular (aparece na pauta normal)
+  estagioComoDisciplina: boolean("estagioComoDisciplina").notNull().default(false),
+  // Nomes das disciplinas curriculares que contribuem para a nota PAP (além de estágio e defesa)
+  papDisciplinasContribuintes: jsonb("papDisciplinasContribuintes").notNull().default(sql`'[]'::jsonb`),
 });
 
 // -----------------------
@@ -1211,3 +1218,39 @@ export const auditLogs = pgTable("audit_logs", {
 
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// PAP — PROVA DE APTIDÃO PROFISSIONAL (13ª Classe)
+// -----------------------
+export const papAlunos = pgTable("pap_alunos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id, { onDelete: "cascade" }),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  anoLetivo: text("anoLetivo").notNull(),
+
+  // Nota do Estágio Curricular (atribuída pelo professor orientador)
+  notaEstagio: real("notaEstagio"),
+
+  // Nota da Defesa do PAP / Prova Oral
+  notaDefesa: real("notaDefesa"),
+
+  // Notas das disciplinas que contribuem para o PAP: [{nome: string, nota: number}]
+  notasDisciplinas: jsonb("notasDisciplinas").notNull().default(sql`'[]'::jsonb`),
+
+  // Nota PAP calculada automaticamente: (avg(disciplinas) + notaEstagio + notaDefesa) / 3
+  // Esta é a nota que consta no certificado
+  notaPAP: real("notaPAP"),
+
+  professorId: varchar("professorId").notNull().references(() => professores.id),
+  observacoes: text("observacoes"),
+
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+  criadoEm:  timestamp("criadoEm",  { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertPapAlunoSchema = createInsertSchema(papAlunos).omit({ id: true, criadoEm: true, updatedAt: true });
+export type InsertPapAluno = z.infer<typeof insertPapAlunoSchema>;
+export type PapAluno = typeof papAlunos.$inferSelect;

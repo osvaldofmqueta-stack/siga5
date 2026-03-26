@@ -48,6 +48,10 @@ export interface ConfigGeral {
   irtTabela: IrtEscalao[];
   // Meses do ano académico (números: 9=Set, 10=Out, ...)
   mesesAnoAcademico: number[];
+  // PAP — Prova de Aptidão Profissional (13ª Classe)
+  papHabilitado: boolean;
+  estagioComoDisciplina: boolean;
+  papDisciplinasContribuintes: string[];
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -88,6 +92,9 @@ const DEFAULT_CONFIG: ConfigGeral = {
   inssPatrPerc: 8,
   irtTabela: DEFAULT_IRT,
   mesesAnoAcademico: [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7],
+  papHabilitado: false,
+  estagioComoDisciplina: false,
+  papDisciplinasContribuintes: [],
 };
 
 interface ConfigContextValue {
