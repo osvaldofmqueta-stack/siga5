@@ -797,6 +797,9 @@ export const configGeral = pgTable("config_geral", {
 
   // Meses do ano académico (ordem de exibição no boletim de propinas e painel financeiro)
   mesesAnoAcademico: jsonb("mesesAnoAcademico").notNull().default(sql`'[9,10,11,12,1,2,3,4,5,6,7]'::jsonb`),
+
+  // Exame Antecipado — permite que alunos com negativa em disciplinas terminais façam exame sem arrastar para o próximo ano
+  exameAntecipadoHabilitado: boolean("exameAntecipadoHabilitado").notNull().default(false),
 });
 
 // -----------------------
