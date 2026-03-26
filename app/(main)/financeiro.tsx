@@ -122,6 +122,12 @@ export default function FinanceiroScreen() {
   const [multaPct, setMultaPct]             = useState(multaConfig.percentagem.toString());
   const [multaDias, setMultaDias]           = useState(multaConfig.diasCarencia.toString());
 
+  const [showObituarioModal, setShowObituarioModal] = useState(false);
+  const [obituarioAlunoId, setObituarioAlunoId]     = useState<string | null>(null);
+  const [obituarioData, setObituarioData]           = useState('');
+  const [obituarioObs, setObituarioObs]             = useState('');
+  const [obituarioLoading, setObituarioLoading]     = useState(false);
+
   const [showModalPag,   setShowModalPag]   = useState(false);
   const [showModalTaxa,  setShowModalTaxa]  = useState(false);
   const [editTaxa,       setEditTaxa]       = useState<Taxa | null>(null);
@@ -374,6 +380,35 @@ export default function FinanceiroScreen() {
           await enviarMensagem(alunoId, 'O seu acesso ao sistema foi bloqueado por falta de pagamento. Contacte o departamento financeiro para regularizar a situação.', nomeRemetente, 'bloqueio');
         }},
       ]);
+    }
+  }
+
+  const podeRegistarObito = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca'].includes(user?.role || '');
+
+  async function handleRegistarObito() {
+    if (!obituarioAlunoId) return;
+    setObituarioLoading(true);
+    try {
+      const res = await fetch(`/api/alunos/${obituarioAlunoId}/registar-falecimento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dataFalecimento: obituarioData || null,
+          observacoes: obituarioObs || null,
+          registadoPor: user?.email || user?.nome || 'Chefe de Secretaria',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { alertErro('Erro', data.error || 'Não foi possível registar o óbito.'); return; }
+      alertSucesso('Registo efectuado', 'O estudante foi arquivado como falecido e o acesso bloqueado.');
+      setShowObituarioModal(false);
+      setObituarioAlunoId(null);
+      setObituarioData('');
+      setObituarioObs('');
+    } catch {
+      alertErro('Erro', 'Falha de ligação ao servidor.');
+    } finally {
+      setObituarioLoading(false);
     }
   }
 
@@ -808,6 +843,14 @@ export default function FinanceiroScreen() {
                   <Ionicons name={bloqueado ? 'lock-open' : 'lock-closed'} size={13} color={bloqueado ? Colors.success : Colors.danger} />
                   <Text style={[st.atrasoActionTxt, { color: bloqueado ? Colors.success : Colors.danger }]}>{bloqueado ? 'Desbloquear' : 'Bloquear'}</Text>
                 </TouchableOpacity>
+
+                {podeRegistarObito && (
+                  <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: '#6B21A822', borderColor: '#6B21A855' }]}
+                    onPress={() => { setObituarioAlunoId(aluno.id); setObituarioData(''); setObituarioObs(''); setShowObituarioModal(true); }}>
+                    <Ionicons name="ribbon" size={13} color="#6B21A8" />
+                    <Text style={[st.atrasoActionTxt, { color: '#6B21A8' }]}>Óbito</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           );
@@ -1475,6 +1518,13 @@ export default function FinanceiroScreen() {
                 <Ionicons name="document-text" size={15} color={Colors.success} />
                 <Text style={[st.perfilActionTxt, { color: Colors.success }]}>Caderneta</Text>
               </TouchableOpacity>
+              {podeRegistarObito && (
+                <TouchableOpacity style={[st.perfilActionBtn, { borderColor: '#6B21A844', backgroundColor: '#6B21A811' }]}
+                  onPress={() => { setObituarioAlunoId(alunoPerfilId); setObituarioData(''); setObituarioObs(''); setShowObituarioModal(true); }}>
+                  <Ionicons name="ribbon" size={15} color="#6B21A8" />
+                  <Text style={[st.perfilActionTxt, { color: '#6B21A8' }]}>Registar Óbito</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {rupesAluno.length > 0 && (
@@ -1960,6 +2010,82 @@ export default function FinanceiroScreen() {
                 <Text style={st.saveBtnTxt}>{editTaxa ? 'Guardar Alterações' : 'Criar Rubrica'}</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Registo de Óbito */}
+      <Modal visible={showObituarioModal} transparent animationType="slide" onRequestClose={() => setShowObituarioModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalBox}>
+            <View style={st.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="ribbon" size={18} color="#6B21A8" />
+                <Text style={[st.modalTitle, { color: '#6B21A8' }]}>Registar Óbito</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowObituarioModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {obituarioAlunoId && (() => {
+              const alunoObit = alunos.find(a => a.id === obituarioAlunoId);
+              return alunoObit ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#6B21A811', borderRadius: 10, padding: 10, marginBottom: 14, borderWidth: 1, borderColor: '#6B21A844' }}>
+                  <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#6B21A822', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: '#6B21A8' }}>{alunoObit.nome[0]}{alunoObit.apelido[0]}</Text>
+                  </View>
+                  <View>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{alunoObit.nome} {alunoObit.apelido}</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{alunoObit.numeroMatricula}</Text>
+                  </View>
+                </View>
+              ) : null;
+            })()}
+
+            <View style={[st.rubricaInfoBanner, { borderColor: '#6B21A844', backgroundColor: '#6B21A811' }]}>
+              <Ionicons name="information-circle" size={14} color="#6B21A8" />
+              <Text style={[st.rubricaInfoTxt, { color: '#6B21A8' }]}>
+                Esta acção é irreversível. O estudante será arquivado, o acesso bloqueado e a conta inactivada. Apenas o Chefe de Secretaria ou superiores podem executar este registo.
+              </Text>
+            </View>
+
+            <Text style={st.fieldLabel}>Data de Falecimento</Text>
+            <TextInput
+              style={st.input}
+              placeholder="DD/MM/AAAA (opcional)"
+              placeholderTextColor={Colors.textMuted}
+              value={obituarioData}
+              onChangeText={setObituarioData}
+            />
+
+            <Text style={st.fieldLabel}>Observações / Notas</Text>
+            <TextInput
+              style={[st.input, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Informações adicionais (opcional)"
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              value={obituarioObs}
+              onChangeText={setObituarioObs}
+            />
+
+            <TouchableOpacity
+              style={[st.saveBtn, { backgroundColor: '#6B21A8', marginTop: 8 }, obituarioLoading && { opacity: 0.6 }]}
+              onPress={() => {
+                Alert.alert(
+                  'Confirmar Registo de Óbito',
+                  'Esta acção é permanente e irá bloquear e arquivar a conta do estudante. Confirmar?',
+                  [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Confirmar', style: 'destructive', onPress: handleRegistarObito },
+                  ]
+                );
+              }}
+              disabled={obituarioLoading}
+            >
+              <Ionicons name="ribbon" size={16} color="#fff" />
+              <Text style={st.saveBtnTxt}>{obituarioLoading ? 'A processar...' : 'Confirmar Registo de Óbito'}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
