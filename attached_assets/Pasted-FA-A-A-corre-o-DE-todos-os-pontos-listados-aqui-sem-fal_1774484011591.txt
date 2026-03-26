@@ -1,0 +1,39 @@
+FAÇA A correção DE todos os pontos listados aqui sem falha ABAIXOS:
+
+
+🔴 Alta prioridade — Afeta cálculos e regras de negócio
+
+Taxas INSS e IRT (Processamento Salarial)
+
+Nos ficheiros de payroll, as percentagens estão fixas no código: INSS do empregado = 3%, INSS patronal = 8%, e toda a tabela IRT Angola. Se o governo alterar estas taxas por decreto, é preciso alterar código.
+Meses do ano académico (boletim-propina.tsx)
+
+A sequência de meses (Set, Out, Nov, Dez, Jan, Fev, Mar, Abr, Mai, Jun) está fixada no código. Se a escola tiver um calendário diferente, não se adapta.
+🟡 Média prioridade — Limita personalização
+
+Lista de disciplinas como "fallback" (notas.tsx, presencas.tsx, horario.tsx)
+
+O sistema já vai buscar disciplinas à BD via /api/disciplinas, mas se essa chamada falhar, cai para uma lista fixa no código (Matemática, Português, Física, etc.). Escolas com currículos diferentes ficam limitadas.
+Áreas de conhecimento das disciplinas (disciplinas.tsx)
+
+As áreas como "Ciências Exactas", "Ciências Naturais", "Humanidades" etc. estão fixas no código. Não é possível criar uma nova área pelo painel de administração.
+Áreas dos cursos (admin.tsx)
+
+"Ciências Físicas e Biológicas", "Humanidades", etc. também estão hardcoded.
+Nome da escola no seed inicial (server/routes.ts)
+
+Quando a base de dados está vazia, o sistema cria os utilizadores padrão com a escola "Escola Secundária N.º 1 de Luanda". Depois muda quando o admin configura, mas o valor inicial é sempre aquele.
+🟢 Baixa prioridade — Raramente mudam
+
+Classes, Níveis e Turnos (turmas.tsx)
+
+Classes de Iniciação à 13.ª, níveis (Primário, I Ciclo, II Ciclo) e turnos (Manhã, Tarde, Noite) — no contexto angolano mudam pouco, mas uma escola técnica ou vocacional pode ter outros.
+Tipos de taxa financeira (financeiro.tsx)
+
+Os tipos "propina", "matrícula", "material", "exame", "multa" estão fixos. Não é possível criar novos tipos pelo painel.
+Métodos de pagamento
+
+"Dinheiro", "Transferência", "Multicaixa" são fixos — sem possibilidade de adicionar outro método.
+Tipos de sala (salas.tsx)
+
+"Sala Normal", "Laboratório", "Sala de Informática", "Auditório" fixos no código.
