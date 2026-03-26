@@ -4127,6 +4127,240 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // -----------------------
+  // DISCIPLINAS DE CONTINUIDADE — SITUAÇÃO DO ALUNO
+  // -----------------------
+
+  /**
+   * GET /api/continuidade/situacao/:alunoId
+   *
+   * Regras das disciplinas de continuidade (II Ciclo — 10ª a 12ª classe):
+   *  R1 — Duas negativas consecutivas em anos distintos → REPROVA SEM DIREITO A EXAME
+   *  R2 — Negativa num ano + positiva no ano seguinte → pode avançar, mas
+   *        precisa de Exame de Fechamento na 12ª classe para fechar a negativa anterior
+   *  R3 — A disciplina de continuidade fecha (encerra) na 12ª classe, onde se
+   *        contabiliza o somatório do plano curricular
+   */
+  app.get('/api/continuidade/situacao/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+
+      // Config: nota mínima de aprovação
+      const cfgRows = await query<{ notaMinimaAprovacao: unknown }>(`SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1`);
+      const notaMin = Number(cfgRows[0]?.notaMinimaAprovacao ?? 10);
+
+      // 1. Media anual por disciplina/anoLetivo (avg dos trimestres)
+      const notasRows = await query<{
+        disciplina: string;
+        anoLetivo: string;
+        classe: string;
+        mediaAnual: string;
+        numTrimestres: string;
+      }>(`
+        SELECT
+          n.disciplina,
+          n."anoLetivo",
+          t.classe,
+          ROUND(AVG(n.nf)::numeric, 2)::text      AS "mediaAnual",
+          COUNT(n.trimestre)::text                  AS "numTrimestres"
+        FROM public.notas n
+        JOIN public.turmas t ON t.id = n."turmaId"
+        WHERE n."alunoId" = $1
+        GROUP BY n.disciplina, n."anoLetivo", t.classe
+        ORDER BY n."anoLetivo", n.disciplina
+      `, [alunoId]);
+
+      // 2. Catálogo de disciplinas de continuidade
+      const catRows = await query<{ nome: string; classeInicio: string; classeFim: string }>(`
+        SELECT nome, "classeInicio", "classeFim"
+        FROM public.disciplinas
+        WHERE tipo = 'continuidade' AND ativo = true
+      `);
+      const continuidade_nomes = new Set(catRows.map(d => d.nome));
+
+      // 3. Agrupar por disciplina (só as de continuidade)
+      type AnoEntry = { anoLetivo: string; classe: string; mediaAnual: number; numTrimestres: number };
+      const byDisc: Record<string, AnoEntry[]> = {};
+
+      for (const row of notasRows) {
+        if (!continuidade_nomes.has(row.disciplina)) continue;
+        if (!byDisc[row.disciplina]) byDisc[row.disciplina] = [];
+        byDisc[row.disciplina].push({
+          anoLetivo:    row.anoLetivo,
+          classe:       row.classe,
+          mediaAnual:   parseFloat(row.mediaAnual),
+          numTrimestres: parseInt(row.numTrimestres),
+        });
+      }
+
+      // 4. Aplicar regras
+      type Situacao = 'normal' | 'reprova_sem_exame' | 'exame_fechamento' | 'fechada_12';
+      interface DiscResult {
+        disciplina: string;
+        anos: AnoEntry[];
+        situacao: Situacao;
+        motivo: string;
+        examesPendentes: string[]; // anoLetivo com negativa que precisa de exame
+        mediaAcumulada: number;    // somatório / média acumulada para fechar na 12ª
+      }
+
+      const resultado: DiscResult[] = [];
+
+      for (const [disciplina, anos] of Object.entries(byDisc)) {
+        // Ordenar cronologicamente
+        anos.sort((a, b) => a.anoLetivo.localeCompare(b.anoLetivo));
+
+        let situacao: Situacao = 'normal';
+        let motivo = '';
+        const examesPendentes: string[] = [];
+        let regraAplicada = false;
+
+        for (let i = 0; i < anos.length; i++) {
+          const ano     = anos[i];
+          const isNeg   = ano.mediaAnual < notaMin;
+
+          if (i > 0 && !regraAplicada) {
+            const prev        = anos[i - 1];
+            const prevIsNeg   = prev.mediaAnual < notaMin;
+
+            if (prevIsNeg && isNeg) {
+              // R1 — Duas negativas consecutivas
+              situacao = 'reprova_sem_exame';
+              motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) e ${ano.anoLetivo} (${ano.mediaAnual.toFixed(1)}) — Reprova sem direito a exame`;
+              regraAplicada = true;
+              break;
+            }
+
+            if (prevIsNeg && !isNeg) {
+              // R2 — Negativa seguida de positiva → precisa de Exame de Fechamento
+              examesPendentes.push(prev.anoLetivo);
+              if (situacao !== 'reprova_sem_exame') {
+                situacao = 'exame_fechamento';
+                motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) resgatada em ${ano.anoLetivo} (${ano.mediaAnual.toFixed(1)}) — Exame de Fechamento obrigatório na 12ª classe`;
+              }
+            }
+          }
+
+          // R3 — A disciplina fecha na 12ª classe
+          if (ano.classe === '12' && situacao === 'exame_fechamento') {
+            situacao = 'fechada_12';
+            motivo += ' | Disciplina encerra na 12ª classe com exame de fechamento';
+          }
+        }
+
+        // Média acumulada (somatório normalizado)
+        const mediaAcumulada = anos.length > 0
+          ? parseFloat((anos.reduce((s, a) => s + a.mediaAnual, 0) / anos.length).toFixed(2))
+          : 0;
+
+        resultado.push({ disciplina, anos, situacao, motivo, examesPendentes, mediaAcumulada });
+      }
+
+      json(res, 200, { alunoId, notaMin, resultado });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  /**
+   * GET /api/continuidade/turma/:turmaId
+   * Retorna a situação de continuidade de todos os alunos de uma turma.
+   */
+  app.get('/api/continuidade/turma/:turmaId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId } = req.params;
+
+      const cfgRows = await query<{ notaMinimaAprovacao: unknown }>(`SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1`);
+      const notaMin = Number(cfgRows[0]?.notaMinimaAprovacao ?? 10);
+
+      // Alunos da turma
+      const alunosRows = await query<{ id: string; nome: string; apelido: string }>(`
+        SELECT id, nome, apelido FROM public.alunos WHERE "turmaId" = $1 AND ativo = true ORDER BY apelido, nome
+      `, [turmaId]);
+
+      // Catálogo de continuidade
+      const catRows = await query<{ nome: string }>(`
+        SELECT nome FROM public.disciplinas WHERE tipo = 'continuidade' AND ativo = true
+      `);
+      const continuidade_nomes = new Set(catRows.map(d => d.nome));
+
+      // Notas de todos os alunos da turma (todos os anos)
+      const notasRows = await query<{
+        alunoId: string; disciplina: string; anoLetivo: string;
+        classe: string; mediaAnual: string;
+      }>(`
+        SELECT
+          n."alunoId",
+          n.disciplina,
+          n."anoLetivo",
+          t.classe,
+          ROUND(AVG(n.nf)::numeric, 2)::text AS "mediaAnual"
+        FROM public.notas n
+        JOIN public.turmas t ON t.id = n."turmaId"
+        WHERE n."turmaId" = $1
+        GROUP BY n."alunoId", n.disciplina, n."anoLetivo", t.classe
+        ORDER BY n."alunoId", n."anoLetivo", n.disciplina
+      `, [turmaId]);
+
+      // Agrupar por aluno → disciplina
+      const byAluno: Record<string, Record<string, { anoLetivo: string; classe: string; mediaAnual: number }[]>> = {};
+      for (const row of notasRows) {
+        if (!continuidade_nomes.has(row.disciplina)) continue;
+        if (!byAluno[row.alunoId]) byAluno[row.alunoId] = {};
+        if (!byAluno[row.alunoId][row.disciplina]) byAluno[row.alunoId][row.disciplina] = [];
+        byAluno[row.alunoId][row.disciplina].push({
+          anoLetivo:  row.anoLetivo,
+          classe:     row.classe,
+          mediaAnual: parseFloat(row.mediaAnual),
+        });
+      }
+
+      const resumo = alunosRows.map(aluno => {
+        const discMap = byAluno[aluno.id] ?? {};
+        let temReprovaSemExame = false;
+        let temExameFechamento = false;
+        const detalhes: { disciplina: string; situacao: string; motivo: string }[] = [];
+
+        for (const [disciplina, anos] of Object.entries(discMap)) {
+          anos.sort((a, b) => a.anoLetivo.localeCompare(b.anoLetivo));
+          let situacao = 'normal';
+          let motivo = '';
+          for (let i = 1; i < anos.length; i++) {
+            const prev   = anos[i - 1];
+            const cur    = anos[i];
+            const prevNeg = prev.mediaAnual < notaMin;
+            const curNeg  = cur.mediaAnual  < notaMin;
+            if (prevNeg && curNeg) {
+              situacao = 'reprova_sem_exame';
+              motivo   = `Duas negativas: ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) e ${cur.anoLetivo} (${cur.mediaAnual.toFixed(1)})`;
+              temReprovaSemExame = true;
+              break;
+            }
+            if (prevNeg && !curNeg) {
+              situacao = 'exame_fechamento';
+              motivo   = `Negativa em ${prev.anoLetivo}, positiva em ${cur.anoLetivo} — Exame de Fechamento na 12ª`;
+              temExameFechamento = true;
+            }
+          }
+          if (situacao !== 'normal') {
+            detalhes.push({ disciplina, situacao, motivo });
+          }
+        }
+
+        return {
+          alunoId:   aluno.id,
+          nome:      `${aluno.nome} ${aluno.apelido}`,
+          situacao:  temReprovaSemExame ? 'reprova_sem_exame' : temExameFechamento ? 'exame_fechamento' : 'normal',
+          detalhes,
+        };
+      });
+
+      json(res, 200, { turmaId, notaMin, resumo });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

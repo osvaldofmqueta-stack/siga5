@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
+import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 
 import { useLookup } from '@/hooks/useLookup';
 
@@ -449,6 +450,7 @@ export default function NotasScreen() {
   const [filterTurma, setFilterTurma] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [editNota, setEditNota] = useState<Nota | null>(null);
+  const [continuidade, setContinuidade] = useState<{ alunoId: string; alunoNome: string } | null>(null);
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const isProfessor = user?.role === 'professor';
@@ -562,6 +564,16 @@ export default function NotasScreen() {
         <View style={styles.cardLeft}>
           <View style={styles.cardTopRow}>
             <Text style={styles.alunoNome}>{aluno?.nome} {aluno?.apelido}</Text>
+            <TouchableOpacity
+              style={styles.continuidadeIconBtn}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                if (aluno) setContinuidade({ alunoId: aluno.id, alunoNome: `${aluno.nome} ${aluno.apelido}` });
+              }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="git-branch-outline" size={13} color={Colors.info} />
+            </TouchableOpacity>
             {isParcial ? (
               <View style={styles.parcialBadgeCard}>
                 <Ionicons name="time-outline" size={11} color={Colors.warning} />
@@ -766,6 +778,15 @@ export default function NotasScreen() {
           numAvaliacoes={config.numAvaliacoes ?? 4}
         />
       )}
+
+      {continuidade && (
+        <ContinuidadeStatusModal
+          visible={!!continuidade}
+          onClose={() => setContinuidade(null)}
+          alunoId={continuidade.alunoId}
+          alunoNome={continuidade.alunoNome}
+        />
+      )}
     </View>
   );
 }
@@ -936,7 +957,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   cardLeft: { flex: 1 },
-  cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
+  cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2, gap: 6 },
+  continuidadeIconBtn: { padding: 3, borderRadius: 5, backgroundColor: Colors.info + '15' },
   alunoNome: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 },
   statusDot: { width: 8, height: 8, borderRadius: 4, marginLeft: 6 },
   cardMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 8 },

@@ -17,6 +17,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
+import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 
 const { width } = Dimensions.get('window');
 
@@ -133,6 +134,7 @@ export default function PortalEstudanteScreen() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
+  const [showContinuidade, setShowContinuidade] = useState(false);
   const [diaHorario, setDiaHorario] = useState(0);
   const [horarios, setHorarios] = useState<any[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<any[]>([]);
@@ -916,6 +918,18 @@ export default function PortalEstudanteScreen() {
           </Text>
           {temPautaFechada && <Ionicons name="chevron-forward" size={14} color="#fff" />}
         </TouchableOpacity>
+
+        {aluno && (
+          <TouchableOpacity
+            style={styles.continuidadeBtn}
+            onPress={() => setShowContinuidade(true)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="git-branch-outline" size={16} color={Colors.info} />
+            <Text style={styles.continuidadeBtnText}>Ver Situação das Disciplinas de Continuidade</Text>
+            <Ionicons name="chevron-forward" size={14} color={Colors.info} />
+          </TouchableOpacity>
+        )}
 
         {notasTrimestre.length === 0 ? (
           <View style={styles.emptyState}>
@@ -1844,6 +1858,15 @@ export default function PortalEstudanteScreen() {
       <View style={[styles.content, { paddingBottom: bottomInset }]}>
         {renderTabContent()}
       </View>
+
+      {aluno && (
+        <ContinuidadeStatusModal
+          visible={showContinuidade}
+          onClose={() => setShowContinuidade(false)}
+          alunoId={aluno.id}
+          alunoNome={`${aluno.nome} ${aluno.apelido}`}
+        />
+      )}
     </View>
   );
 }
@@ -1965,6 +1988,8 @@ const styles = StyleSheet.create({
   miniPautaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1a6b3c', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16, marginBottom: 16 },
   miniPautaBtnDisabled: { backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border },
   miniPautaBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff', flex: 1, textAlign: 'center' },
+  continuidadeBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.info + '14', borderRadius: 12, paddingVertical: 11, paddingHorizontal: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.info + '40' },
+  continuidadeBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.info, flex: 1 },
 
   emptyState: { alignItems: 'center', padding: 32, gap: 12 },
   emptyStateText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
