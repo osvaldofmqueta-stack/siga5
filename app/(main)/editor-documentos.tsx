@@ -2023,6 +2023,9 @@ export default function EditorDocumentos() {
   const [emitTrimestre, setEmitTrimestre] = useState<1 | 2 | 3>(1);
   // Document history for selected student in emit mode
   const [emitAlunoHistorico, setEmitAlunoHistorico] = useState<any[]>([]);
+  // Extracto de Propinas — date filter
+  const [emitExtratoDataInicio, setEmitExtratoDataInicio] = useState('');
+  const [emitExtratoDataFim, setEmitExtratoDataFim] = useState('');
 
   const inputRef = useRef<TextInput>(null);
 
@@ -2373,6 +2376,8 @@ export default function EditorDocumentos() {
     setAlunoSearch('');
     setEmitTurmaId('');
     setTurmaSearch('');
+    setEmitExtratoDataInicio('');
+    setEmitExtratoDataFim('');
     setMode('emit');
   }
 
@@ -3306,6 +3311,131 @@ export default function EditorDocumentos() {
       setEmitPreview(buildPreview(emitTemplate, alunoId));
     }
     setAlunoSearch('');
+  }
+
+  // ─── Extracto de Propinas — build HTML from editor template + real API data ─
+
+  function buildExtratoFromEditorTemplate(template: DocTemplate, data: any): string {
+    const { aluno, pagamentos: pags, resumo, filtros } = data;
+
+    function fmtAOA(v: number) {
+      return `${Number(v).toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Kz`;
+    }
+    function fmtDate(d: string) {
+      if (!d) return '—';
+      const parts = d.split('-');
+      if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      return d;
+    }
+
+    const ts = Date.now().toString(36).toUpperCase();
+    const mat = (aluno.numeroMatricula || 'X').replace(/[^A-Z0-9]/gi, '').toUpperCase().slice(0, 6);
+    const docId = `EXTR-${mat}-${ts}`;
+    const now = new Date();
+    const dataEmissao = now.toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+    const hora = now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+
+    const periodoInicio = filtros?.dataInicio ? fmtDate(filtros.dataInicio) : `01/01/${now.getFullYear()}`;
+    const periodoFim = filtros?.dataFim ? fmtDate(filtros.dataFim) : `31/12/${now.getFullYear()}`;
+
+    const turmaObj = turmas.find(t => t.id === aluno.turmaId);
+
+    const varMap: Record<string, string> = {
+      '{{NOME_COMPLETO}}': `${aluno.nome} ${aluno.apelido}`,
+      '{{NOME}}': aluno.nome || '',
+      '{{APELIDO}}': aluno.apelido || '',
+      '{{NUMERO_MATRICULA}}': aluno.numeroMatricula || '',
+      '{{NOME_ENCARREGADO}}': aluno.nomeEncarregado || '',
+      '{{TURMA}}': aluno.turmaNome || turmaObj?.nome || '',
+      '{{CLASSE}}': turmaObj?.classe || '',
+      '{{ANO_LECTIVO}}': turmaObj?.anoLetivo || String(now.getFullYear()),
+      '{{TURNO}}': turmaObj?.turno || '',
+      '{{NIVEL}}': turmaObj?.nivel || '',
+      '{{PROVINCIA}}': aluno.provincia || '',
+      '{{MUNICIPIO}}': aluno.municipio || '',
+      '{{NOME_ESCOLA}}': config.nomeEscola || '',
+      '{{NOME_DIRECTOR}}': directorGeral,
+      '{{CHEFE_SECRETARIA}}': (config as any).chefeSecretaria || '___________________________',
+      '{{DATA_ACTUAL}}': dataEmissao,
+      '{{MES_ACTUAL}}': MESES[now.getMonth()],
+      '{{ANO_ACTUAL}}': String(now.getFullYear()),
+      '{{TOTAL_PAGO}}': fmtAOA(resumo.totalPago),
+      '{{TOTAL_PENDENTE}}': fmtAOA(resumo.totalPendente),
+      '{{TOTAL_CANCELADO}}': fmtAOA(resumo.totalCancelado),
+      '{{TOTAL_TRANSACCOES}}': String(resumo.total),
+      '{{PERIODO_INICIO}}': periodoInicio,
+      '{{PERIODO_FIM}}': periodoFim,
+      '{{DOC_REF}}': docId,
+    };
+
+    let html = template.conteudo;
+    Object.entries(varMap).forEach(([k, v]) => {
+      html = html.split(k).join(v);
+    });
+
+    const METODO_LABEL: Record<string, string> = {
+      dinheiro: 'Dinheiro', transferencia: 'Transferência', multicaixa: 'Multicaixa Express',
+    };
+    const TIPO_LABEL: Record<string, string> = {
+      propina: 'Propina', matricula: 'Matrícula', material: 'Material',
+      exame: 'Exame', multa: 'Multa', outro: 'Outro',
+    };
+    const MESES_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+    const realRows = (pags || []).map((p: any, idx: number) => {
+      const descricao = [
+        p.taxaDescricao || TIPO_LABEL[p.taxaTipo || ''] || p.taxaTipo || '',
+        p.mes ? (MESES_SHORT[(p.mes - 1) % 12] || '') : '',
+        p.ano || '',
+      ].filter(Boolean).join(' · ');
+
+      const statusStyle = p.status === 'pago'
+        ? 'color:#1a6b2a;background:#d4edda;'
+        : p.status === 'pendente'
+          ? 'color:#856404;background:#fff3cd;'
+          : 'color:#6c757d;background:#e2e3e5;';
+
+      const valor = p.status === 'cancelado'
+        ? `<span style="color:#aaa;text-decoration:line-through;">${fmtAOA(Number(p.valor))}</span>`
+        : `<strong style="color:${p.status === 'pago' ? '#1a6b2a' : '#856404'};">${fmtAOA(Number(p.valor))}</strong>`;
+
+      const bg = idx % 2 === 0 ? '#fff' : '#f9f9ff';
+      const ref = [p.referencia ? `Ref: ${p.referencia}` : '', p.observacao || ''].filter(Boolean).join(' · ');
+
+      return `<tr style="background:${bg};">
+        <td style="padding:6px 8px;font-size:10px;color:#555;white-space:nowrap;">${fmtDate(p.data)}</td>
+        <td style="padding:6px 8px;font-size:10px;">
+          <span style="font-weight:600;color:#1a2540;">${descricao}</span>
+          ${ref ? `<br><span style="font-size:9px;color:#888;">${ref}</span>` : ''}
+        </td>
+        <td style="padding:6px 8px;font-size:10px;color:#555;">${METODO_LABEL[p.metodoPagamento] || p.metodoPagamento}</td>
+        <td style="padding:6px 8px;text-align:right;white-space:nowrap;">${valor}</td>
+        <td style="padding:4px 8px;text-align:center;">
+          <span style="font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;${statusStyle}">${p.status.charAt(0).toUpperCase() + p.status.slice(1)}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
+    const tbodyContent = pags?.length === 0
+      ? `<tr><td colspan="5" style="text-align:center;padding:30px;color:#aaa;font-size:12px;border:1px dashed #ddd;border-radius:8px;">Nenhum pagamento encontrado para o período seleccionado.</td></tr>`
+      : realRows;
+
+    html = html.replace(/<tbody>[\s\S]*?<\/tbody>/, `<tbody>${tbodyContent}</tbody>`);
+
+    const qrLines = [
+      `DOC: ${docId}`,
+      `ESCOLA: ${config.nomeEscola || ''}`,
+      `ALUNO: ${aluno.nome} ${aluno.apelido}`,
+      `MATRICULA: ${aluno.numeroMatricula}`,
+      `TOTAL PAGO: ${fmtAOA(resumo.totalPago)}`,
+      `TRANSACCOES: ${resumo.total}`,
+      `EMITIDO: ${dataEmissao} ${hora}`,
+    ].join('\n');
+    const newQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(qrLines)}&bgcolor=ffffff&color=000000&margin=6`;
+
+    html = html.replace(/https:\/\/api\.qrserver\.com\/v1\/create-qr-code\/[^"']*/g, newQrUrl);
+
+    return html;
   }
 
   // ─── Ficha de Matrícula HTML Builder ──────────────────────────────────────
@@ -5873,7 +6003,7 @@ export default function EditorDocumentos() {
     }).catch(() => {});
   }
 
-  function handlePrint() {
+  async function handlePrint() {
     if (Platform.OS !== 'web') return;
     const win = window.open('', '_blank');
     if (!win) return;
@@ -5910,9 +6040,26 @@ export default function EditorDocumentos() {
       return;
     }
 
-    // ── Extracto de Propinas: use server-side PDF route with QR + barcode ────
+    // ── Extracto de Propinas: fetch data and render using editor template ─────
     if (emitTemplate?.tipo === 'extrato_propina' && emitAlunoId) {
-      win.location.href = `/api/pdf/extrato-propinas/${emitAlunoId}`;
+      win.document.write(`<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;background:#0d1b3e;color:#fff;margin:0;"><div style="text-align:center"><p style="font-size:16px;">A gerar extracto de propinas...</p></div></body></html>`);
+      win.document.close();
+      try {
+        const params = new URLSearchParams({ alunoId: emitAlunoId });
+        if (emitExtratoDataInicio) params.append('dataInicio', emitExtratoDataInicio);
+        if (emitExtratoDataFim) params.append('dataFim', emitExtratoDataFim);
+        const resp = await fetch(`/api/extrato-propinas?${params}`);
+        if (!resp.ok) { win.close(); showToast('Erro ao carregar os dados do extracto', 'error'); return; }
+        const extratoData = await resp.json();
+        const html = buildExtratoFromEditorTemplate(emitTemplate, extratoData);
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      } catch {
+        win.close();
+        showToast('Erro ao gerar o extracto de propinas', 'error');
+        return;
+      }
       saveDocumentoEmitido(emitAlunoId, emitTemplate.nome);
       return;
     }
@@ -7120,50 +7267,77 @@ export default function EditorDocumentos() {
               </>
             ) : isExtratoPropina ? (
               <>
-                <Text style={styles.emitSectionTitle}>2. Extracto de Propinas</Text>
+                <Text style={styles.emitSectionTitle}>2. Configurar Extracto</Text>
                 {!selectedAluno ? (
                   <View style={styles.previewEmpty}>
                     <Ionicons name="card-outline" size={48} color={Colors.textMuted} />
-                    <Text style={styles.previewEmptyText}>Seleccione um aluno para gerar o Extracto de Propinas</Text>
+                    <Text style={styles.previewEmptyText}>Seleccione um aluno para configurar o Extracto de Propinas</Text>
                   </View>
                 ) : (
                   <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+                    {/* Student header */}
                     <View style={{ backgroundColor: '#0f1f3d', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#3b82f6' }}>
-                      <Text style={{ color: '#3b82f6', fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>EXTRACTO DE PROPINAS — FORMATO A4</Text>
-                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 4 }}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
+                      <Text style={{ color: '#3b82f6', fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 1, marginBottom: 6 }}>EXTRACTO DE PROPINAS — FORMATO A4</Text>
+                      <Text style={{ color: Colors.text, fontSize: 16, fontFamily: 'Inter_700Bold', marginBottom: 2 }}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
                       <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_400Regular' }}>
                         {selectedTurmaForAluno?.classe || 'Sem turma'} · Nº {selectedAluno.numeroMatricula}
                       </Text>
                     </View>
-                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
-                        <Ionicons name="receipt-outline" size={22} color='#3b82f6' />
-                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>
-                          {selectedAluno.numeroMatricula || '—'}
-                        </Text>
-                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Nº Matrícula</Text>
+
+                    {/* Date filter */}
+                    <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 10 }}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5 }}>PERÍODO DO EXTRACTO (OPCIONAL)</Text>
+                      <View style={{ flexDirection: 'row', gap: 10 }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Data início</Text>
+                          <TextInput
+                            style={{ backgroundColor: Colors.surface, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 13, paddingHorizontal: 10, paddingVertical: 8 }}
+                            value={emitExtratoDataInicio}
+                            onChangeText={setEmitExtratoDataInicio}
+                            placeholder="AAAA-MM-DD"
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Data fim</Text>
+                          <TextInput
+                            style={{ backgroundColor: Colors.surface, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 13, paddingHorizontal: 10, paddingVertical: 8 }}
+                            value={emitExtratoDataFim}
+                            onChangeText={setEmitExtratoDataFim}
+                            placeholder="AAAA-MM-DD"
+                            placeholderTextColor={Colors.textMuted}
+                          />
+                        </View>
                       </View>
-                      <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' }}>
-                        <Ionicons name="person-outline" size={22} color='#3b82f6' />
-                        <Text style={{ color: Colors.text, fontSize: 13, fontFamily: 'Inter_700Bold', marginTop: 4 }}>
-                          {selectedAluno.genero === 'F' ? 'Feminino' : 'Masculino'}
-                        </Text>
-                        <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular' }}>Género</Text>
-                      </View>
+                      <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular' }}>
+                        Sem filtro de período serão incluídos todos os registos do aluno.
+                      </Text>
                     </View>
+
+                    {/* What's included */}
                     <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.border, gap: 6 }}>
-                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>CONTEÚDO DO EXTRACTO</Text>
-                      {['Data e valor de cada transacção', 'Método de pagamento', 'Estado de cada propina', 'Totais pago / pendente / cancelado', 'QR Code de verificação', 'Código de barras (nº de matrícula)', 'Assinaturas de Director e Secretaria'].map(l => (
-                        <View key={l} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Ionicons name="checkmark-circle-outline" size={14} color='#3b82f6' />
-                          <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_400Regular' }}>{l}</Text>
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_600SemiBold', letterSpacing: 0.5, marginBottom: 4 }}>O EXTRACTO INCLUI</Text>
+                      {[
+                        'Data e valor de cada transacção',
+                        'Método de pagamento',
+                        'Estado de cada propina (pago / pendente / cancelado)',
+                        'Totais calculados automaticamente',
+                        'QR Code de verificação',
+                        'Código de barras (nº de matrícula)',
+                        'Assinaturas de Director e Secretaria',
+                      ].map(l => (
+                        <View key={l} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6 }}>
+                          <Ionicons name="checkmark-circle-outline" size={14} color='#3b82f6' style={{ marginTop: 2 }} />
+                          <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_400Regular', flex: 1 }}>{l}</Text>
                         </View>
                       ))}
                     </View>
-                    <View style={{ backgroundColor: '#0f1f3d', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#3b82f6', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      <Ionicons name="print-outline" size={18} color='#3b82f6' />
-                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 }}>
-                        O extracto será gerado em formato A4 com todos os pagamentos registados no sistema, incluindo QR Code e código de barras para verificação.
+
+                    {/* Info note */}
+                    <View style={{ backgroundColor: '#0f1f3d', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#3b82f6', flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                      <Ionicons name="print-outline" size={18} color='#3b82f6' style={{ marginTop: 1 }} />
+                      <Text style={{ color: Colors.textMuted, fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1, lineHeight: 16 }}>
+                        Os dados financeiros são carregados do sistema no momento da geração. O documento usa o modelo definido no editor para possíveis personalização.
                       </Text>
                     </View>
                   </ScrollView>
