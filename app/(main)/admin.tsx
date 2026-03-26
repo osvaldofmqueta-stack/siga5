@@ -18,6 +18,7 @@ import { useRegistro, SolicitacaoRegistro } from '@/context/RegistroContext';
 import { useConfig } from '@/context/ConfigContext';
 import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { useLookup } from '@/hooks/useLookup';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -36,20 +37,20 @@ interface EscolaConfig {
 }
 
 const DEFAULT_ESCOLA: EscolaConfig = {
-  nome: 'Escola Secundária N.º 1 de Luanda',
-  codigoMED: 'MED-LDA-001',
-  morada: 'Rua da Missão, N.º 45',
-  municipio: 'Luanda',
-  provincia: 'Luanda',
-  telefone: '+244 222 000 001',
-  email: 'escola1luanda@med.gov.ao',
-  directorGeral: 'Prof. António Mbemba',
-  subdirectorPedagogico: 'Prof.ª Maria Kiala',
+  nome: '',
+  codigoMED: '',
+  morada: '',
+  municipio: '',
+  provincia: '',
+  telefone: '',
+  email: '',
+  directorGeral: '',
+  subdirectorPedagogico: '',
   maxAlunosTurma: '35',
   horarioFuncionamento: 'Seg-Sex: 07:00-19:00 | Sáb: 07:00-13:00',
 };
 
-const AREAS_FORMACAO = [
+const AREAS_FORMACAO_DEFAULT = [
   'Ciências Físicas e Biológicas',
   'Ciências Económicas e Jurídicas',
   'Humanidades',
@@ -148,6 +149,7 @@ export default function AdminScreen() {
   const { addProfessor } = useData();
   const { solicitacoes, pendentes, aprovadas, rejeitadas, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao } = useRegistro();
   const { config, updateConfig, updateFlashScreen } = useConfig();
+  const { values: areasFormacao } = useLookup('areas_curso', AREAS_FORMACAO_DEFAULT);
 
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
   const [editEscola, setEditEscola] = useState(false);
@@ -158,7 +160,7 @@ export default function AdminScreen() {
   const [showCursoForm, setShowCursoForm] = useState(false);
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
   const [savingCurso, setSavingCurso] = useState(false);
-  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO_DEFAULT[0], descricao: '' });
 
   interface DisciplinaCat { id: string; nome: string; codigo: string; area: string; ativo: boolean; }
   const [gDiscCurso, setGDiscCurso] = useState<Curso | null>(null);

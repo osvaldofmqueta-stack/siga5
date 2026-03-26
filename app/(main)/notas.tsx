@@ -463,14 +463,22 @@ export default function NotasScreen() {
     return turmas.filter(t => professorActual.turmasIds.includes(t.id));
   }, [isProfessor, professorActual, turmas]);
 
-  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>(DISCIPLINAS_FALLBACK);
+  const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
+    'Matemática', 'Português', 'Física', 'Química', 'Biologia',
+    'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
+  ]);
+
+  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>([
+    'Matemática', 'Português', 'Física', 'Química', 'Biologia',
+    'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
+  ]);
   useEffect(() => {
     const turmaParaFetch = filterTurma || (turmasDoProf.length === 1 ? turmasDoProf[0].id : '');
     if (!turmaParaFetch) {
       if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
         setDisciplinasDisponiveis(professorActual.disciplinas);
       } else {
-        setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+        setDisciplinasDisponiveis(disciplinasFallback);
       }
       return;
     }
@@ -482,17 +490,17 @@ export default function NotasScreen() {
         } else if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
           setDisciplinasDisponiveis(professorActual.disciplinas);
         } else {
-          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+          setDisciplinasDisponiveis(disciplinasFallback);
         }
       })
       .catch(() => {
         if (isProfessor && professorActual && professorActual.disciplinas.length > 0) {
           setDisciplinasDisponiveis(professorActual.disciplinas);
         } else {
-          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+          setDisciplinasDisponiveis(disciplinasFallback);
         }
       });
-  }, [filterTurma, turmasDoProf, isProfessor, professorActual]);
+  }, [filterTurma, turmasDoProf, isProfessor, professorActual, disciplinasFallback]);
 
   const alunosDisponiveis = useMemo(() => {
     if (!isProfessor || !professorActual) return alunos.filter(a => a.ativo);

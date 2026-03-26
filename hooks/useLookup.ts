@@ -36,11 +36,13 @@ export function useLookup(categoria: string, fallback: string[] = []) {
   const [items, setItems] = useState<LookupItem[]>(
     cache[categoria] ?? (fallback.length > 0 ? toItems(fallback) : [])
   );
+  const [isLoading, setIsLoading] = useState(!cache[categoria]);
 
   useEffect(() => {
     let cancelled = false;
     if (cache[categoria]) {
       setItems(cache[categoria]);
+      setIsLoading(false);
       return;
     }
     fetchLookup(categoria).then(data => {
@@ -50,6 +52,7 @@ export function useLookup(categoria: string, fallback: string[] = []) {
         } else if (fallback.length > 0) {
           setItems(toItems(fallback));
         }
+        setIsLoading(false);
       }
     });
     return () => { cancelled = true; };
@@ -57,6 +60,7 @@ export function useLookup(categoria: string, fallback: string[] = []) {
 
   return {
     items,
+    isLoading,
     values: items.map(i => i.valor),
     labels: items.map(i => i.label),
     valueToLabel: (val: string) => items.find(i => i.valor === val)?.label ?? val,

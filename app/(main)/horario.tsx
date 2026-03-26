@@ -13,6 +13,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { apiRequest } from '@/lib/query-client';
+import { useLookup } from '@/hooks/useLookup';
 
 const { width } = Dimensions.get('window');
 
@@ -42,11 +43,6 @@ const PERIODOS = [
   { numero: 6, inicio: '11:15', fim: '12:00' },
 ];
 
-const DISCIPLINAS_FALLBACK: Record<string, string[]> = {
-  'Primário': ['Língua Portuguesa', 'Matemática', 'Estudo do Meio', 'Educação Física', 'Educação Artística', 'Educação Moral e Cívica', 'Língua Estrangeira'],
-  'I Ciclo': ['Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Língua Estrangeira I', 'Educação Física', 'Educação Visual e Plástica'],
-  'II Ciclo': ['Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Língua Estrangeira I', 'Filosofia', 'Educação Física'],
-};
 
 const CELL_W = Math.max(64, (width - 52) / 5);
 
@@ -63,6 +59,10 @@ export default function HorarioScreen() {
   const { anoSelecionado } = useAnoAcademico();
   const { addSumario } = useProfessor();
   const { addNotificacao } = useNotificacoes();
+  const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
+    'Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia',
+    'História', 'Geografia', 'Língua Estrangeira I', 'Educação Física', 'Filosofia',
+  ]);
 
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
@@ -95,10 +95,10 @@ export default function HorarioScreen() {
         if (list && list.length > 0) {
           setDisciplinas(list.map(d => d.nome));
         } else {
-          setDisciplinas(DISCIPLINAS_FALLBACK[turmaAtual.nivel] || []);
+          setDisciplinas(disciplinasFallback);
         }
       })
-      .catch(() => setDisciplinas(DISCIPLINAS_FALLBACK[turmaAtual.nivel] || []));
+      .catch(() => setDisciplinas(disciplinasFallback));
   }, [turmaAtual?.id]);
 
   async function loadHorarios() {

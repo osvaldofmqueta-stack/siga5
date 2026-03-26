@@ -10,8 +10,9 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { useLookup } from '@/hooks/useLookup';
 
-const AREAS = [
+const AREAS_DEFAULT = [
   'Ciências Exactas',
   'Ciências Naturais',
   'Ciências Sociais e Humanas',
@@ -44,7 +45,7 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   nome: '',
   codigo: '',
-  area: AREAS[0],
+  area: AREAS_DEFAULT[0],
   descricao: '',
   ativo: true,
 };
@@ -57,6 +58,7 @@ function DisciplinaFormModal({
   onSave: (form: FormState) => Promise<void>;
   disciplina: Disciplina | null;
 }) {
+  const { values: areas } = useLookup('areas_conhecimento', AREAS_DEFAULT);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [showAreaPicker, setShowAreaPicker] = useState(false);
@@ -68,14 +70,14 @@ function DisciplinaFormModal({
       setForm({
         nome: disciplina.nome,
         codigo: disciplina.codigo,
-        area: disciplina.area || AREAS[0],
+        area: disciplina.area || areas[0] || AREAS_DEFAULT[0],
         descricao: disciplina.descricao,
         ativo: disciplina.ativo,
       });
     } else {
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_FORM, area: areas[0] || AREAS_DEFAULT[0] });
     }
-  }, [disciplina, visible]);
+  }, [disciplina, visible, areas]);
 
   const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
 
@@ -185,7 +187,7 @@ function DisciplinaFormModal({
         <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setShowAreaPicker(false)} activeOpacity={1}>
           <View style={mStyles.pickerList}>
             <Text style={mStyles.pickerTitle}>Seleccionar Área</Text>
-            {AREAS.map(a => (
+            {areas.map(a => (
               <TouchableOpacity
                 key={a}
                 style={[mStyles.pickerItem, form.area === a && mStyles.pickerItemActive]}

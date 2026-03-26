@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro, showToast } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
+import { useLookup } from '@/hooks/useLookup';
 
 const { width } = Dimensions.get('window');
 
@@ -88,21 +89,26 @@ function QRScannerModal({ visible, onClose, onScan }: any) {
   );
 }
 
-const DISCIPLINAS_FALLBACK = ['Matemática', 'Português', 'Física', 'Química', 'Biologia', 'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia'];
-
 export default function PresencasScreen() {
   const { alunos, turmas, presencas, addPresenca } = useData();
   const { config } = useConfig();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const [filterTurma, setFilterTurma] = useState(turmas[0]?.id || '');
-  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>(DISCIPLINAS_FALLBACK);
-  const [disciplina, setDisciplina] = useState(DISCIPLINAS_FALLBACK[0]);
+  const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
+    'Matemática', 'Português', 'Física', 'Química', 'Biologia',
+    'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
+  ]);
+  const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>([
+    'Matemática', 'Português', 'Física', 'Química', 'Biologia',
+    'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
+  ]);
+  const [disciplina, setDisciplina] = useState('Matemática');
   const [date] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
     if (!filterTurma) {
-      setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+      setDisciplinasDisponiveis(disciplinasFallback);
       return;
     }
     fetch(`/api/turmas/${filterTurma}/disciplinas`)
@@ -113,11 +119,11 @@ export default function PresencasScreen() {
           setDisciplinasDisponiveis(nomes);
           setDisciplina(prev => nomes.includes(prev) ? prev : nomes[0]);
         } else {
-          setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK);
+          setDisciplinasDisponiveis(disciplinasFallback);
         }
       })
-      .catch(() => setDisciplinasDisponiveis(DISCIPLINAS_FALLBACK));
-  }, [filterTurma]);
+      .catch(() => setDisciplinasDisponiveis(disciplinasFallback));
+  }, [filterTurma, disciplinasFallback]);
 
   const [showScanner, setShowScanner] = useState(false);
   const [pendingAluno, setPendingAluno] = useState<string | null>(null);
