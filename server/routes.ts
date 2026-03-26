@@ -3748,6 +3748,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // EXTRATO DE PROPINAS
+  // -----------------------
+  app.get('/api/extrato-propinas', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowed = ['ceo', 'pca', 'admin', 'director', 'pedagogico', 'chefe_secretaria', 'secretaria', 'financeiro'];
+      if (!allowed.includes(role)) {
+        return json(res, 403, { error: 'Acesso negado.' });
+      }
+
+      const { alunoId, dataInicio, dataFim } = req.query as Record<string, string>;
+
+      if (!alunoId) {
+        return json(res, 400, { error: 'alunoId é obrigatório.' });
+      }
+
+      const [aluno] = await query<JsonObject>(
+        `SELECT a.*, t.nome as "turmaNome", c.nome as "cursoNome"
+         FROM public.alunos a
+         LEFT JOIN public.turmas t ON t.id = a."turmaId"
+         LEFT JOIN public.cursos c ON c.id = a."cursoId"
+         WHERE a.id = $1`,
+        [alunoId]
+      );
+
+      if (!aluno) {
+        return json(res, 404, { error: 'Aluno não encontrado.' });
+      }
+
+      let whereDate = '';
+      const params: unknown[] = [alunoId];
+      if (dataInicio) {
+        params.push(dataInicio);
+        whereDate += ` AND p.data >= $${params.length}`;
+      }
+      if (dataFim) {
+        params.push(dataFim);
+        whereDate += ` AND p.data <= $${params.length}`;
+      }
+
+      const pagamentos = await query<JsonObject>(
+        `SELECT p.*, t.descricao as "taxaDescricao", t.tipo as "taxaTipo", t.frequencia as "taxaFrequencia"
+         FROM public.pagamentos p
+         LEFT JOIN public.taxas t ON t.id = p."taxaId"
+         WHERE p."alunoId" = $1 ${whereDate}
+         ORDER BY p.data ASC, p."createdAt" ASC`,
+        params
+      );
+
+      const totalPago = pagamentos
+        .filter((p: any) => p.status === 'pago')
+        .reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+
+      const totalPendente = pagamentos
+        .filter((p: any) => p.status === 'pendente')
+        .reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+
+      const totalCancelado = pagamentos
+        .filter((p: any) => p.status === 'cancelado')
+        .reduce((s: number, p: any) => s + (Number(p.valor) || 0), 0);
+
+      json(res, 200, {
+        aluno,
+        pagamentos,
+        resumo: { totalPago, totalPendente, totalCancelado, total: pagamentos.length },
+        filtros: { dataInicio: dataInicio || null, dataFim: dataFim || null },
+      });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // -----------------------
   // TRABALHOS FINAIS DE CURSO
   // -----------------------
   app.get('/api/trabalhos-finais', requireAuth, async (req: Request, res: Response) => {

@@ -1,6 +1,18 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Contagem de Visitas nos Trabalhos Finais)
+## Recent Changes (Latest Session — Extracto de Pagamentos de Propinas)
+- **server/routes.ts**: Nova rota `GET /api/extrato-propinas` — filtra pagamentos de um aluno por intervalo de datas; devolve info do aluno (com turma e curso via JOIN), lista de pagamentos com descrição da taxa, e resumo (totalPago, totalPendente, totalCancelado, total). Acessível a: ceo, pca, admin, director, pedagogico, chefe_secretaria, secretaria, financeiro.
+- **app/(main)/extrato-propinas.tsx** *(new)*: Ecrã completo de geração de extracto de pagamentos estilo extrato bancário:
+  - Selector de aluno com modal de pesquisa por nome ou número de matrícula
+  - Campos de data início e data fim (AAAA-MM-DD); vazios = todos os pagamentos
+  - Cabeçalho do extracto com dados do aluno (nome, matrícula, turma, curso, encarregado, período)
+  - Cards de resumo (Total Pago, Pendente, Cancelado)
+  - Tabela de movimentos com data, descrição, método de pagamento, valor e estado
+  - Rodapé com subtotais e total geral destacado
+  - Botão "Imprimir Extracto" em modo web (window.print)
+- **components/DrawerLeft.tsx**: "Extracto de Propinas" adicionado nas secções Análise de CEO/PCA, Admin/Director e Documentos & Análise de Pedagógico
+
+## Recent Changes (Previous Session — Contagem de Visitas nos Trabalhos Finais)
 - **shared/schema.ts**: Coluna `visitas` (integer, default 0) adicionada à tabela `trabalhos_finais`
 - **server/routes.ts**: Nova rota `POST /api/trabalhos-finais/:id/visita` — incrementa o contador atomicamente no PostgreSQL e devolve o total actualizado
 - **app/(main)/trabalhos-finais.tsx**: 
