@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, Platform, Dimensions, Alert,
