@@ -39,17 +39,27 @@ if (Platform.OS !== 'web') {
 
 // On web, expo-font's fontfaceobserver fires internally even without useFonts().
 // Fonts are already loaded via @font-face CSS injected by the Express server.
-// Suppress the unhandled promise rejection so it doesn't appear as a console error.
+// Intercept in capture phase (before Replit's logger) to suppress this non-fatal noise.
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  window.addEventListener('unhandledrejection', (event) => {
-    if (
-      event?.reason?.message &&
-      typeof event.reason.message === 'string' &&
-      event.reason.message.includes('ms timeout exceeded')
-    ) {
-      event.preventDefault();
-    }
-  });
+  const isFontTimeout = (msg: unknown): boolean =>
+    typeof msg === 'string' && msg.includes('ms timeout exceeded');
+
+  window.addEventListener(
+    'unhandledrejection',
+    (e) => { if (isFontTimeout(e?.reason?.message)) e.preventDefault(); },
+    true,
+  );
+
+  window.addEventListener(
+    'error',
+    (e) => {
+      if (isFontTimeout(e?.message) || isFontTimeout((e as any)?.error?.message)) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    },
+    true,
+  );
 }
 
 function RootLayoutNav() {
