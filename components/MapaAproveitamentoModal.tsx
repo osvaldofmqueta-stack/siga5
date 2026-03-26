@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity,
   TextInput, Platform, ActivityIndicator, Alert,
@@ -31,12 +31,60 @@ function fmtDate(d: Date) {
   return `${d.getDate()} de ${MESES[d.getMonth()]} de ${d.getFullYear()}`;
 }
 
-const docNum = () => `MAP-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+// ─── Common CSS ───────────────────────────────────────────────────────────────
 
-// ─── HTML Generator ───────────────────────────────────────────────────────────
+const BASE_CSS = `
+<meta charset="UTF-8"/>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Times New Roman',serif;background:#fff;color:#000;font-size:10px;}
+  .print-btn{display:block;margin:14px auto;padding:9px 28px;font-size:12px;background:#003366;color:#fff;border:none;border-radius:5px;cursor:pointer;font-weight:bold;}
+  .print-btn:hover{background:#00224d;}
+  .page{padding:14mm 16mm;page-break-after:always;}
+  .page:last-child{page-break-after:auto;}
 
-function buildMapaHTML(params: {
-  classes: string[];
+  /* Cabeçalho Oficial */
+  .header{text-align:center;margin-bottom:10px;}
+  .header img{width:60px;height:60px;object-fit:contain;margin-bottom:2px;}
+  .header .rep{font-size:10px;line-height:1.6;text-transform:uppercase;}
+  .header .escola-name{font-size:11px;font-weight:bold;text-decoration:underline;text-transform:uppercase;margin-top:2px;}
+
+  /* Título do Mapa */
+  .mapa-title{font-size:10.5px;font-weight:bold;margin:10px 0 2px;}
+  .mapa-sub{font-size:10px;margin-bottom:2px;}
+  .curso-badge{text-align:right;font-size:9.5px;font-style:italic;font-weight:bold;margin-bottom:6px;}
+
+  /* Tabelas */
+  table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+  th,td{border:1px solid #000;padding:2px 3px;text-align:center;vertical-align:middle;font-size:8.5px;}
+  th{background:#d0d0d0;font-weight:bold;text-align:center;}
+  th.dark{background:#404040;color:#fff;}
+  td.left{text-align:left;padding-left:4px;}
+  td.bold{font-weight:bold;}
+  tr.total-row td{background:#d0d0d0;font-weight:bold;}
+
+  /* Rodapé */
+  .local-date{margin-top:20px;font-size:10px;}
+  .footer{display:flex;justify-content:flex-end;margin-top:28px;}
+  .sig{text-align:center;min-width:220px;}
+  .sig-role{font-size:9.5px;font-weight:bold;text-transform:uppercase;margin-bottom:30px;}
+  .sig-line{border-top:1px solid #000;padding-top:4px;font-size:9.5px;}
+  .sig-name{font-size:9.5px;}
+
+  @media print{
+    .no-print{display:none!important;}
+    body{padding:0;}
+    .page{padding:8mm 10mm;}
+    @page{size:A4 landscape;margin:6mm;}
+  }
+</style>`;
+
+// ─── Mapa por Trimestre (Imagem 1) ────────────────────────────────────────────
+// Colunas: CURSO | CLASSE | Período | Matriculados MF/F | Avaliados MF/F |
+//          Aprovados MF/F | Reprovados MF/F | Desistentes MF/F |
+//          Anuл.Matríc MF/F | Transferidos MF/F | Excluídos MF/F | % Aptos | % N/Aptos
+
+function buildMapaTrimestreHTML(params: {
   trimestre: number;
   turno: string;
   anoLetivo: string;
@@ -47,207 +95,376 @@ function buildMapaHTML(params: {
   notas: any[];
   config: any;
   subdirectorNome: string;
-  secretariaNome: string;
 }): string {
-  const {
-    classes, trimestre, turno, anoLetivo, cursosDisponiveis, cursoId,
-    alunos, turmas, notas, config, subdirectorNome, secretariaNome,
-  } = params;
+  const { trimestre, turno, anoLetivo, cursosDisponiveis, cursoId, alunos, turmas, notas, config, subdirectorNome } = params;
 
   const nomeEscola = config?.nomeEscola || 'Escola';
   const logoUrl = config?.logoUrl || '';
   const nota_min = config?.notaMinimaAprovacao ?? 10;
   const hoje = fmtDate(new Date());
-  const cursoNome = cursosDisponiveis.find(c => c.id === cursoId)?.nome || 'Todos os Cursos';
-  const turnoLabel = turno === 'Todos' ? 'Todos os Regimes' : `Regime ${turno}`;
   const trLabel = `${trimestre}º Trimestre`;
+  const turnoLabel = turno === 'Todos' ? 'Diurno e Nocturno' : turno;
 
-  const BASE_CSS = `
-  <meta charset="UTF-8"/>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:'Times New Roman',serif;background:#fff;color:#000;font-size:11px;}
-    .print-btn{display:block;margin:16px auto;padding:10px 32px;font-size:13px;background:#1a6b3c;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:bold;}
-    .print-btn:hover{background:#145a32;}
-    .page{padding:12px 18px;page-break-after:always;}
-    .page:last-child{page-break-after:auto;}
-    .header{text-align:center;margin-bottom:8px;border-bottom:2px solid #000;padding-bottom:8px;}
-    .header img{width:64px;height:64px;object-fit:contain;margin-bottom:3px;}
-    .header .rep{font-size:11px;line-height:1.5;}
-    .header .titulo{font-size:15px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;margin:4px 0;}
-    .header .escola{font-size:13px;font-weight:bold;text-transform:uppercase;margin:2px 0;}
-    .doc-num{text-align:right;font-size:9px;color:#555;margin-bottom:6px;}
-    .meta{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:10.5px;font-weight:bold;border:1px solid #000;padding:5px 8px;margin-bottom:8px;background:#f5f5f5;}
-    .meta span{white-space:nowrap;}
-    .classe-title{font-size:13px;font-weight:bold;text-transform:uppercase;border-bottom:2px solid #1a6b3c;color:#1a3a1a;padding-bottom:3px;margin:12px 0 6px;letter-spacing:0.5px;}
-    .turma-title{font-size:11px;font-weight:bold;color:#1a5276;margin:8px 0 4px;}
-    table{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:6px;}
-    th,td{border:1px solid #555;padding:2px 3px;}
-    th{background:#1a6b3c;color:#fff;font-weight:bold;text-align:center;white-space:nowrap;font-size:9px;}
-    th.sub{background:#c6efce;color:#000;font-size:8.5px;}
-    td.nc{text-align:center;}
-    td.bold{font-weight:bold;}
-    td.apto{color:#155724;font-weight:bold;}
-    td.rep{color:#721c24;font-weight:bold;}
-    .summary{font-size:10px;color:#333;margin:4px 0 10px;padding:3px 6px;background:#f0fff0;border-left:3px solid #1a6b3c;}
-    .footer{display:flex;justify-content:space-between;align-items:flex-end;margin-top:24px;gap:12px;}
-    .sig{text-align:center;flex:1;}
-    .sig-line{border-top:1px solid #000;margin-top:36px;padding-top:4px;font-size:10px;min-width:160px;}
-    .sig-name{font-weight:bold;font-size:10.5px;}
-    @media print{
-      .no-print{display:none!important;}
-      body{padding:0;}
-      .page{padding:8px 12px;}
-      @page{size:A4 landscape;margin:8mm;}
-    }
-  </style>`;
+  const cursosFiltrados = cursoId
+    ? cursosDisponiveis.filter(c => c.id === cursoId)
+    : cursosDisponiveis;
 
-  const orderedClasses = CLASSES_II_CICLO.filter(c => classes.includes(c));
-
-  const pagesHTML = orderedClasses.map(classe => {
-    const turmasDaClasse = turmas.filter(t => {
-      if (t.classe !== classe) return false;
+  // Agrupa turmas por curso
+  const pagesHTML = cursosFiltrados.map(curso => {
+    const turmasDoCurso = turmas.filter(t => {
+      if (t.cursoId !== curso.id) return false;
       if (anoLetivo && t.anoLetivo !== anoLetivo) return false;
       if (turno !== 'Todos' && t.turno !== turno) return false;
-      if (cursoId && t.cursoId !== cursoId) return false;
       return true;
+    }).sort((a, b) => {
+      const classeDiff = parseInt(a.classe) - parseInt(b.classe);
+      if (classeDiff !== 0) return classeDiff;
+      return (a.nome || '').localeCompare(b.nome || '');
     });
 
-    if (turmasDaClasse.length === 0) {
-      return `<div class="page">
-        <div class="header">
-          ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
-          <div class="rep">REPÚBLICA DE ANGOLA<br/>MINISTÉRIO DA EDUCAÇÃO</div>
-          <div class="titulo">Mapa de Aproveitamento</div>
-          <div class="escola">${nomeEscola}</div>
-        </div>
-        <div class="classe-title">${classe}ª Classe — ${cursoNome}</div>
-        <p style="color:#666;font-style:italic;text-align:center;padding:20px;">Sem turmas correspondentes aos filtros seleccionados.</p>
-      </div>`;
-    }
+    if (turmasDoCurso.length === 0) return '';
 
-    const turmasSections = turmasDaClasse.map(turma => {
-      const alunosDaTurma = alunos
-        .filter(a => a.turmaId === turma.id && a.ativo)
-        .sort((a, b) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`));
+    let totMF = 0, totF = 0;
+    let totAvalMF = 0, totAvalF = 0;
+    let totAproMF = 0, totAproF = 0;
+    let totRepMF = 0, totRepF = 0;
+    let totDesMF = 0, totDesF = 0;
+    let totAnulMF = 0, totAnulF = 0;
+    let totTransMF = 0, totTransF = 0;
+    let totExcMF = 0, totExcF = 0;
 
-      const disciplinas: string[] = [];
-      for (const n of notas) {
-        if (n.turmaId === turma.id && n.trimestre === trimestre && !disciplinas.includes(n.disciplina)) {
-          disciplinas.push(n.disciplina);
-        }
-      }
-      disciplinas.sort();
+    const rows = turmasDoCurso.map(turma => {
+      const alunosDaTurma = alunos.filter(a => a.turmaId === turma.id);
+      const matMF = alunosDaTurma.length;
+      const matF = alunosDaTurma.filter(a => a.genero === 'F').length;
 
-      if (alunosDaTurma.length === 0) {
-        return `<div class="turma-title">Turma ${turma.nome} — ${turma.turno}</div>
-          <p style="color:#666;font-style:italic;padding:6px;">Sem alunos registados nesta turma.</p>`;
-      }
+      const notasDaTurma = notas.filter(n => n.turmaId === turma.id && n.trimestre === trimestre);
+      const alunosComNotas = new Set(notasDaTurma.map((n: any) => n.alunoId));
+      const avalMF = alunosComNotas.size;
+      const avalF = alunosDaTurma.filter(a => alunosComNotas.has(a.id) && a.genero === 'F').length;
 
-      let aprovados = 0;
-      let reprovados = 0;
-      let semNotas = 0;
-
-      const headerDiscs = disciplinas.map(d => `<th class="sub">${d}</th>`).join('');
-      const rows = alunosDaTurma.map((aluno, idx) => {
-        const notasAluno = notas.filter(n =>
-          n.alunoId === aluno.id && n.turmaId === turma.id && n.trimestre === trimestre
-        );
-
-        const notasPorDisc: Record<string, number | null> = {};
-        for (const n of notasAluno) {
-          const val = n.mt1 ?? n.nf ?? null;
-          notasPorDisc[n.disciplina] = typeof val === 'number' && val > 0 ? val : null;
-        }
-
-        const vals = Object.values(notasPorDisc).filter((v): v is number => v !== null && v > 0);
-        const media = vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-        const resultado = media !== null ? (media >= nota_min ? 'Aprovado' : 'Reprovado') : '';
-
-        if (media !== null) {
-          if (media >= nota_min) aprovados++; else reprovados++;
+      // Calcula aprovados/reprovados por média
+      let aproMF = 0, aproF = 0, repMF = 0, repF = 0;
+      alunosDaTurma.forEach(aluno => {
+        if (!alunosComNotas.has(aluno.id)) return;
+        const notasAluno = notasDaTurma.filter((n: any) => n.alunoId === aluno.id);
+        const vals = notasAluno.map((n: any) => n.mt1 ?? n.nf ?? null).filter((v: any): v is number => typeof v === 'number' && v > 0);
+        if (vals.length === 0) return;
+        const media = vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+        if (media >= nota_min) {
+          aproMF++;
+          if (aluno.genero === 'F') aproF++;
         } else {
-          semNotas++;
+          repMF++;
+          if (aluno.genero === 'F') repF++;
         }
+      });
 
-        const fmt = (v: number | null) => v !== null && v > 0 ? v.toFixed(1) : '—';
-        const discCells = disciplinas.map(d => {
-          const v = notasPorDisc[d] ?? null;
-          const ok = v !== null && v >= nota_min;
-          return `<td class="nc${v !== null ? (ok ? ' apto' : ' rep') : ''}">${fmt(v)}</td>`;
-        }).join('');
+      // Desistentes = matriculados não avaliados e não ativos
+      const desMF = alunosDaTurma.filter(a => !a.ativo && !alunosComNotas.has(a.id)).length;
+      const desF = alunosDaTurma.filter(a => !a.ativo && !alunosComNotas.has(a.id) && a.genero === 'F').length;
 
-        const mediaClass = media !== null ? (media >= nota_min ? 'apto' : 'rep') : '';
-        const bg = idx % 2 === 0 ? '#f9fff9' : '#fff';
+      // Totais globais
+      totMF += matMF; totF += matF;
+      totAvalMF += avalMF; totAvalF += avalF;
+      totAproMF += aproMF; totAproF += aproF;
+      totRepMF += repMF; totRepF += repF;
+      totDesMF += desMF; totDesF += desF;
+      totAnulMF += 0; totAnulF += 0;
+      totTransMF += 0; totTransF += 0;
+      totExcMF += 0; totExcF += 0;
 
-        return `<tr style="background:${bg}">
-          <td class="nc" style="font-size:9px;">${String(idx + 1).padStart(2, '0')}</td>
-          <td style="font-size:9.5px;padding-left:3px;">${aluno.nome} ${aluno.apelido}</td>
-          ${discCells}
-          <td class="nc bold ${mediaClass}">${fmt(media)}</td>
-          <td class="nc" style="font-size:9px;">${resultado}</td>
-        </tr>`;
-      }).join('');
+      const pctAptos = avalMF > 0 ? Math.round((aproMF / avalMF) * 100) : 0;
+      const pctNAptos = avalMF > 0 ? Math.round((repMF / avalMF) * 100) : 0;
 
-      const summaryText = `Alunos: ${alunosDaTurma.length} &nbsp;|&nbsp; Aprovados: <strong>${aprovados}</strong> &nbsp;|&nbsp; Reprovados: <strong>${reprovados}</strong>${semNotas > 0 ? ` &nbsp;|&nbsp; Sem notas: ${semNotas}` : ''} &nbsp;|&nbsp; Taxa de aprovação: <strong>${alunosDaTurma.length > 0 ? ((aprovados / alunosDaTurma.length) * 100).toFixed(1) : '0'}%</strong>`;
-
-      return `
-        <div class="turma-title">Turma ${turma.nome} &nbsp;·&nbsp; ${turma.turno} &nbsp;·&nbsp; ${cursoNome}</div>
-        <table>
-          <thead>
-            <tr>
-              <th rowspan="1" style="width:24px;">Nº</th>
-              <th rowspan="1" style="min-width:120px;text-align:left;">Nome do Aluno</th>
-              ${headerDiscs}
-              <th style="width:36px;">Média</th>
-              <th style="width:64px;">Resultado</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="summary">${summaryText}</div>`;
+      return `<tr>
+        <td class="left">${turma.nome}</td>
+        <td>${turma.classe}ª</td>
+        <td>${turma.turno || 'Manhã'}</td>
+        <td>${matMF}</td><td>${matF}</td>
+        <td>${avalMF}</td><td>${avalF}</td>
+        <td>${aproMF}</td><td>${aproF}</td>
+        <td>${repMF}</td><td>${repF}</td>
+        <td>${desMF}</td><td>${desF}</td>
+        <td>0</td><td>0</td>
+        <td>0</td><td>0</td>
+        <td>0</td><td>0</td>
+        <td>${pctAptos}%</td>
+        <td>${pctNAptos}%</td>
+      </tr>`;
     }).join('');
+
+    const totPctAptos = totAvalMF > 0 ? Math.round((totAproMF / totAvalMF) * 100) : 0;
+    const totPctNAptos = totAvalMF > 0 ? Math.round((totRepMF / totAvalMF) * 100) : 0;
 
     return `<div class="page">
       <div class="header">
         ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
-        <div class="rep">REPÚBLICA DE ANGOLA — MINISTÉRIO DA EDUCAÇÃO</div>
-        <div class="titulo">Mapa de Aproveitamento Escolar</div>
-        <div class="escola">${nomeEscola}</div>
+        <div class="rep">REPÚBLICA DE ANGOLA<br/>MINISTÉRIO DA EDUCAÇÃO</div>
+        <div class="escola-name">${nomeEscola}</div>
       </div>
-      <div class="doc-num">N.º Doc: ${docNum()}</div>
-      <div class="meta">
-        <span>CLASSE: <u>${classe}ª</u></span>
-        <span>TRIMESTRE: <u>${trLabel}</u></span>
-        <span>REGIME: <u>${turnoLabel}</u></span>
-        <span>ANO LECTIVO: <u style="color:#c00;">${anoLetivo}</u></span>
-        <span>CURSO: <u>${cursoNome}</u></span>
-        <span>DATA: <u>${hoje}</u></span>
-      </div>
-      <div class="classe-title">${classe}ª Classe — ${trLabel}</div>
-      ${turmasSections}
+
+      <div class="mapa-title">Mapa de Aproveitamento dos alunos ${trLabel} - Regime ${turnoLabel} - Ano Lectivo de ${anoLetivo}</div>
+      <div class="mapa-sub">Nome da Escola: ${nomeEscola}</div>
+      <div class="curso-badge">Curso: ${curso.nome}</div>
+
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2" style="width:90px;">TURMA</th>
+            <th rowspan="2" style="width:36px;">CLASSE</th>
+            <th rowspan="2" style="width:42px;">Período</th>
+            <th colspan="2">Alunos<br/>Matriculados</th>
+            <th colspan="2">Alunos<br/>Avaliados</th>
+            <th colspan="2">Alunos<br/>Aprovados</th>
+            <th colspan="2">Alunos<br/>Reprovados</th>
+            <th colspan="2">Alunos<br/>Desistentes</th>
+            <th colspan="2">Alunos Anuл.<br/>Matrícula</th>
+            <th colspan="2">Alunos<br/>Transferidos</th>
+            <th colspan="2">Alunos<br/>Excluídos</th>
+            <th rowspan="2" style="width:26px;">%<br/>Aptos</th>
+            <th rowspan="2" style="width:30px;">%<br/>N/Aptos</th>
+          </tr>
+          <tr>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+            <th>MF</th><th>F</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="total-row">
+            <td colspan="3" class="left bold">Total</td>
+            <td>${totMF}</td><td>${totF}</td>
+            <td>${totAvalMF}</td><td>${totAvalF}</td>
+            <td>${totAproMF}</td><td>${totAproF}</td>
+            <td>${totRepMF}</td><td>${totRepF}</td>
+            <td>${totDesMF}</td><td>${totDesF}</td>
+            <td>0</td><td>0</td>
+            <td>0</td><td>0</td>
+            <td>0</td><td>0</td>
+            <td>${totPctAptos}%</td>
+            <td>${totPctNAptos}%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="local-date">Malanje, _____ / _______________ / ${new Date().getFullYear()}</div>
       <div class="footer">
         <div class="sig">
+          <div class="sig-role">O Subdirector Pedagógico</div>
           <div class="sig-line">
-            <div class="sig-name">${subdirectorNome || '___________________________'}</div>
-            O(A) SUBDIRECTOR(A) PEDAGÓGICO(A)
-          </div>
-        </div>
-        <div class="sig">
-          <div class="sig-line">
-            <div class="sig-name">${secretariaNome || '___________________________'}</div>
-            SECRETARIA ACADÉMICA
+            <div class="sig-name">${subdirectorNome || '___________________________________'}</div>
           </div>
         </div>
       </div>
     </div>`;
-  }).join('\n');
+  }).filter(Boolean).join('\n');
+
+  const content = pagesHTML || `<div class="page"><p style="text-align:center;padding:40px;color:#666;">Sem dados para os filtros seleccionados.</p></div>`;
 
   return `<!DOCTYPE html><html lang="pt"><head>${BASE_CSS}</head><body>
     <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
-    ${pagesHTML}
+    ${content}
     <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
   </body></html>`;
+}
+
+// ─── Mapa Geral por Classe (Imagem 2) ─────────────────────────────────────────
+// Colunas: Nome do Curso | [por cada classe: Aprovados M/F/Total | Reprovados M/F/Total | D-AM-T-E M/F/Total] | TOTAL GERAL Aptos MF/MF | N/Aptos MF | D-AM-T-E MF/MF
+
+function buildMapaGeralHTML(params: {
+  trimestre: number;
+  turno: string;
+  anoLetivo: string;
+  cursosDisponiveis: Curso[];
+  cursoId: string;
+  alunos: any[];
+  turmas: any[];
+  notas: any[];
+  config: any;
+  subdirectorNome: string;
+}): string {
+  const { trimestre, turno, anoLetivo, cursosDisponiveis, cursoId, alunos, turmas, notas, config, subdirectorNome } = params;
+
+  const nomeEscola = config?.nomeEscola || 'Escola';
+  const logoUrl = config?.logoUrl || '';
+  const nota_min = config?.notaMinimaAprovacao ?? 10;
+  const trLabel = `${trimestre}º Trimestre`;
+  const turnoLabel = turno === 'Todos' ? 'Diurno' : turno;
+
+  const cursosFiltrados = cursoId
+    ? cursosDisponiveis.filter(c => c.id === cursoId)
+    : cursosDisponiveis;
+
+  const classes = CLASSES_II_CICLO;
+
+  // Para cada curso e classe, calcula estatísticas
+  function calcStats(cursoId: string, classe: string) {
+    const turmasFiltradas = turmas.filter(t =>
+      t.cursoId === cursoId &&
+      t.classe === classe &&
+      (!anoLetivo || t.anoLetivo === anoLetivo) &&
+      (turno === 'Todos' || t.turno === turno)
+    );
+
+    let aproM = 0, aproF = 0;
+    let repM = 0, repF = 0;
+    let desM = 0, desF = 0;
+
+    turmasFiltradas.forEach(turma => {
+      const alunosDaTurma = alunos.filter(a => a.turmaId === turma.id);
+      const notasDaTurma = notas.filter((n: any) => n.turmaId === turma.id && n.trimestre === trimestre);
+      const alunosComNotas = new Set(notasDaTurma.map((n: any) => n.alunoId));
+
+      alunosDaTurma.forEach(aluno => {
+        if (!alunosComNotas.has(aluno.id)) {
+          if (!aluno.ativo) {
+            if (aluno.genero === 'F') desF++; else desM++;
+          }
+          return;
+        }
+        const notasAluno = notasDaTurma.filter((n: any) => n.alunoId === aluno.id);
+        const vals = notasAluno.map((n: any) => n.mt1 ?? n.nf ?? null).filter((v: any): v is number => typeof v === 'number' && v > 0);
+        if (vals.length === 0) return;
+        const media = vals.reduce((a: number, b: number) => a + b, 0) / vals.length;
+        const isF = aluno.genero === 'F';
+        if (media >= nota_min) { isF ? aproF++ : aproM++; }
+        else { isF ? repF++ : repM++; }
+      });
+    });
+
+    return {
+      aproM, aproF, aproTotal: aproM + aproF,
+      repM, repF, repTotal: repM + repF,
+      desM, desF, desTotal: desM + desF,
+    };
+  }
+
+  // Cabeçalho com colspan por classe
+  const thClasses = classes.map(c =>
+    `<th colspan="9" class="dark">${c}ª Classe</th>`
+  ).join('');
+
+  const thClassesSub = classes.map(() =>
+    `<th colspan="3">Alunos<br/>Aprovados</th><th colspan="3">Alunos<br/>Reprovados</th><th colspan="3">D-AM-T-E</th>`
+  ).join('');
+
+  const thMFTotal = classes.map(() =>
+    `<th>M</th><th>F</th><th>Total</th><th>M</th><th>F</th><th>Total</th><th>M</th><th>F</th><th>Total</th>`
+  ).join('');
+
+  // Totais por classe para a linha de total
+  const classeGrandTotals: Record<string, { aproM: number; aproF: number; aproTotal: number; repM: number; repF: number; repTotal: number; desM: number; desF: number; desTotal: number }> = {};
+  classes.forEach(c => { classeGrandTotals[c] = { aproM: 0, aproF: 0, aproTotal: 0, repM: 0, repF: 0, repTotal: 0, desM: 0, desF: 0, desTotal: 0 }; });
+
+  let grandAproMF = 0, grandAproF = 0;
+  let grandRepMF = 0, grandRepF = 0;
+  let grandDesMF = 0, grandDesF = 0;
+
+  const cursoRows = cursosFiltrados.map(curso => {
+    let totalAproM = 0, totalAproF = 0;
+    let totalRepM = 0, totalRepF = 0;
+    let totalDesM = 0, totalDesF = 0;
+
+    const classeCells = classes.map(c => {
+      const s = calcStats(curso.id, c);
+      classeGrandTotals[c].aproM += s.aproM;
+      classeGrandTotals[c].aproF += s.aproF;
+      classeGrandTotals[c].aproTotal += s.aproTotal;
+      classeGrandTotals[c].repM += s.repM;
+      classeGrandTotals[c].repF += s.repF;
+      classeGrandTotals[c].repTotal += s.repTotal;
+      classeGrandTotals[c].desM += s.desM;
+      classeGrandTotals[c].desF += s.desF;
+      classeGrandTotals[c].desTotal += s.desTotal;
+      totalAproM += s.aproM; totalAproF += s.aproF;
+      totalRepM += s.repM; totalRepF += s.repF;
+      totalDesM += s.desM; totalDesF += s.desF;
+      return `<td>${s.aproM}</td><td>${s.aproF}</td><td>${s.aproTotal}</td>
+              <td>${s.repM}</td><td>${s.repF}</td><td>${s.repTotal}</td>
+              <td>${s.desM}</td><td>${s.desF}</td><td>${s.desTotal}</td>`;
+    }).join('');
+
+    grandAproMF += totalAproM; grandAproF += totalAproF;
+    grandRepMF += totalRepM; grandRepF += totalRepF;
+    grandDesMF += totalDesM; grandDesF += totalDesF;
+
+    return `<tr>
+      <td class="left">${curso.nome}</td>
+      ${classeCells}
+      <td>${totalAproM + totalRepM}</td><td>${totalAproF + totalRepF}</td>
+      <td>${totalDesM}</td><td>${totalDesF}</td>
+    </tr>`;
+  }).join('');
+
+  // Linha de totais
+  const totalCells = classes.map(c => {
+    const s = classeGrandTotals[c];
+    return `<td>${s.aproM}</td><td>${s.aproF}</td><td>${s.aproTotal}</td>
+            <td>${s.repM}</td><td>${s.repF}</td><td>${s.repTotal}</td>
+            <td>${s.desM}</td><td>${s.desF}</td><td>${s.desTotal}</td>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="pt"><head>${BASE_CSS}</head><body>
+    <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+    <div class="page">
+      <div class="header">
+        ${logoUrl ? `<img src="${logoUrl}" alt="Logo"/>` : ''}
+        <div class="rep">REPÚBLICA DE ANGOLA<br/>MINISTÉRIO DA EDUCAÇÃO</div>
+        <div class="escola-name">${nomeEscola}</div>
+      </div>
+
+      <div class="mapa-title">Mapa de Aproveitamento Escolar dos Alunos Referente ao ${trLabel} do Ano Lectivo ${anoLetivo} (10ª,11ª,12ª,13ªClasses)-Regime ${turnoLabel}</div>
+      <div class="mapa-sub">Nome da Escola: ${nomeEscola}</div>
+
+      <table style="margin-top:8px;">
+        <thead>
+          <tr>
+            <th rowspan="3" style="width:130px;">Nome do Curso</th>
+            ${thClasses}
+            <th colspan="4" class="dark">TOTAL GERAL</th>
+          </tr>
+          <tr>
+            ${thClassesSub}
+            <th colspan="2">Aptos</th>
+            <th colspan="2">N/Aptos</th>
+          </tr>
+          <tr>
+            ${thMFTotal}
+            <th>MF</th><th>MF</th><th>MF</th><th>MF</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${cursoRows}
+          <tr class="total-row">
+            <td class="left bold">Total</td>
+            ${totalCells}
+            <td>${grandAproMF}</td><td>${grandAproF}</td>
+            <td>${grandRepMF}</td><td>${grandRepF}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="local-date">Malanje, _____ / _______________ / ${new Date().getFullYear()}</div>
+      <div class="footer">
+        <div class="sig">
+          <div class="sig-role">O Subdirector Pedagógico</div>
+          <div class="sig-line">
+            <div class="sig-name">${subdirectorNome || '___________________________________'}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  </body></html>`;
+
+  return html;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -258,11 +475,11 @@ export default function MapaAproveitamentoModal({
   const isWeb = Platform.OS === 'web';
 
   const [step, setStep] = useState<'filtros' | 'preview'>('filtros');
+  const [tipoMapa, setTipoMapa] = useState<'trimestre' | 'geral'>('trimestre');
   const [trimestre, setTrimestre] = useState<1 | 2 | 3>(1);
   const [turno, setTurno] = useState<string>('Todos');
   const [anoLetivo, setAnoLetivo] = useState('');
   const [cursoId, setCursoId] = useState('');
-  const [classesSelected, setClassesSelected] = useState<string[]>(['10', '11', '12', '13']);
   const [subdirectorNome, setSubdirectorNome] = useState('');
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
@@ -272,11 +489,11 @@ export default function MapaAproveitamentoModal({
   useEffect(() => {
     if (!visible) return;
     setStep('filtros');
+    setTipoMapa('trimestre');
     setTrimestre(1);
     setTurno('Todos');
     setAnoLetivo(anoAtual);
     setCursoId('');
-    setClassesSelected(['10', '11', '12', '13']);
     setSubdirectorNome(config?.directorPedagogico || '');
     setGeneratedHTML('');
     setLoadingCursos(true);
@@ -289,17 +506,7 @@ export default function MapaAproveitamentoModal({
       .finally(() => setLoadingCursos(false));
   }, [visible]);
 
-  function toggleClasse(c: string) {
-    setClassesSelected(prev =>
-      prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c]
-    );
-  }
-
   function handleGenerate() {
-    if (classesSelected.length === 0) {
-      Alert.alert('Classes obrigatórias', 'Seleccione pelo menos uma classe.');
-      return;
-    }
     if (!anoLetivo.trim()) {
       Alert.alert('Ano Académico obrigatório', 'Indique o ano académico.');
       return;
@@ -307,8 +514,7 @@ export default function MapaAproveitamentoModal({
     setGenerating(true);
     setTimeout(() => {
       try {
-        const html = buildMapaHTML({
-          classes: classesSelected,
+        const baseParams = {
           trimestre,
           turno,
           anoLetivo: anoLetivo.trim(),
@@ -319,8 +525,10 @@ export default function MapaAproveitamentoModal({
           notas,
           config,
           subdirectorNome: subdirectorNome.trim(),
-          secretariaNome: user?.nome || '',
-        });
+        };
+        const html = tipoMapa === 'trimestre'
+          ? buildMapaTrimestreHTML(baseParams)
+          : buildMapaGeralHTML(baseParams);
         setGeneratedHTML(html);
         setStep('preview');
       } finally {
@@ -348,7 +556,25 @@ export default function MapaAproveitamentoModal({
     return (
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         <Text style={st.stepTitle}>Mapa de Aproveitamento</Text>
-        <Text style={st.stepSub}>Configure os filtros para gerar o mapa por classe</Text>
+        <Text style={st.stepSub}>Configure os filtros para gerar o mapa</Text>
+
+        {/* Tipo de Mapa */}
+        <Text style={st.fieldLabel}>Tipo de Mapa</Text>
+        <View style={st.chipRow}>
+          {([
+            { key: 'trimestre', label: 'Por Turma (Trimestre)', icon: 'list' },
+            { key: 'geral', label: 'Geral por Curso/Classe', icon: 'grid' },
+          ] as const).map(({ key, label, icon }) => (
+            <TouchableOpacity
+              key={key}
+              style={[st.typeChip, tipoMapa === key && { backgroundColor: Colors.accent + '20', borderColor: Colors.accent }]}
+              onPress={() => setTipoMapa(key)}
+            >
+              <Ionicons name={icon as any} size={13} color={tipoMapa === key ? Colors.accent : Colors.textMuted} />
+              <Text style={[st.chipTxt, tipoMapa === key && { color: Colors.accent, fontFamily: 'Inter_700Bold' }]}>{label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* Trimestre */}
         <Text style={st.fieldLabel}>Trimestre</Text>
@@ -395,14 +621,14 @@ export default function MapaAproveitamentoModal({
         {loadingCursos ? (
           <ActivityIndicator size="small" color={Colors.gold} style={{ marginBottom: 12 }} />
         ) : (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               <TouchableOpacity
                 style={[st.chip, cursoId === '' && { backgroundColor: Colors.success + '20', borderColor: Colors.success }]}
                 onPress={() => setCursoId('')}
               >
                 <Text style={[st.chipTxt, cursoId === '' && { color: Colors.success, fontFamily: 'Inter_700Bold' }]}>
-                  Todos
+                  Todos os Cursos
                 </Text>
               </TouchableOpacity>
               {cursos.map(c => (
@@ -420,31 +646,6 @@ export default function MapaAproveitamentoModal({
           </ScrollView>
         )}
 
-        {/* Classes */}
-        <Text style={st.fieldLabel}>Classes (II Ciclo)</Text>
-        <View style={st.chipRow}>
-          {CLASSES_II_CICLO.map(c => {
-            const sel = classesSelected.includes(c);
-            return (
-              <TouchableOpacity
-                key={c}
-                style={[st.classeChip, sel && { backgroundColor: Colors.accent + '25', borderColor: Colors.accent }]}
-                onPress={() => toggleClasse(c)}
-              >
-                {sel && <Ionicons name="checkmark-circle" size={14} color={Colors.accent} />}
-                <Text style={[st.classeChipTxt, sel && { color: Colors.accent, fontFamily: 'Inter_700Bold' }]}>
-                  {c}ª Classe
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <Text style={st.hintTxt}>
-          {classesSelected.length === 0
-            ? 'Seleccione pelo menos uma classe'
-            : `${classesSelected.length} classe${classesSelected.length > 1 ? 's' : ''} seleccionada${classesSelected.length > 1 ? 's' : ''}: ${classesSelected.sort().map(c => c + 'ª').join(', ')}`}
-        </Text>
-
         {/* Subdirector Pedagógico */}
         <View style={st.signSection}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
@@ -459,18 +660,12 @@ export default function MapaAproveitamentoModal({
             placeholder="Nome completo do Subdirector(a) Pedagógico(a)"
             placeholderTextColor={Colors.textMuted}
           />
-          <Text style={st.fieldLabel}>Secretaria Académica</Text>
-          <View style={[st.input, { paddingVertical: 11, justifyContent: 'center' }]}>
-            <Text style={{ color: Colors.textSecondary, fontFamily: 'Inter_400Regular', fontSize: 14 }}>
-              {user?.nome || '— preenchido automaticamente —'}
-            </Text>
-          </View>
         </View>
 
         <TouchableOpacity
-          style={[st.generateBtn, (generating || classesSelected.length === 0) && { opacity: 0.6 }]}
+          style={[st.generateBtn, generating && { opacity: 0.6 }]}
           onPress={handleGenerate}
-          disabled={generating || classesSelected.length === 0}
+          disabled={generating}
         >
           {generating
             ? <ActivityIndicator size="small" color="#fff" />
@@ -487,9 +682,11 @@ export default function MapaAproveitamentoModal({
       <View style={{ flex: 1 }}>
         <View style={st.previewBar}>
           <View style={{ flex: 1 }}>
-            <Text style={st.previewTitle}>Mapa de Aproveitamento</Text>
+            <Text style={st.previewTitle}>
+              {tipoMapa === 'trimestre' ? 'Mapa por Turma' : 'Mapa Geral por Curso/Classe'}
+            </Text>
             <Text style={st.previewSub}>
-              {trimestre}º Trimestre · {anoLetivo} · {classesSelected.sort().map(c => c + 'ª').join(', ')} Classe
+              {trimestre}º Trimestre · {anoLetivo} · Regime {turno}
             </Text>
           </View>
           <TouchableOpacity style={st.printBtn} onPress={handlePrint}>
@@ -516,7 +713,7 @@ export default function MapaAproveitamentoModal({
               Mapa gerado com sucesso!
             </Text>
             <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
-              A pré-visualização e impressão estão disponíveis na versão web do sistema.
+              A pré-visualização e impressão estão disponíveis na versão web.
             </Text>
           </View>
         )}
@@ -592,13 +789,10 @@ const st = StyleSheet.create({
 
   chipRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   chip:         { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface },
+  typeChip:     { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 2, borderColor: Colors.border, backgroundColor: Colors.surface },
   chipTxt:      { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
 
-  classeChip:   { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 2, borderColor: Colors.border, backgroundColor: Colors.surface },
-  classeChipTxt:{ fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-
   hintTxt:      { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: -10, marginBottom: 16, fontStyle: 'italic' },
-
   input:        { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, marginBottom: 12, outlineStyle: 'none' as any },
 
   signSection:  { backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: Colors.border },
