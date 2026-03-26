@@ -4368,6 +4368,217 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  /**
+   * GET /api/promocao/situacao/:alunoId
+   *
+   * Calcula a situação de promoção do aluno no ano lectivo actual, aplicando
+   * as regras específicas por classe do II Ciclo do Ensino Secundário:
+   *
+   *  10ª CLASSE (sem histórico anterior):
+   *    — Pode avançar com ATÉ 2 negativas, desde que cada negativa ≥ 7 valores.
+   *    — Qualquer disciplina com média < 7 → REPROVA automaticamente.
+   *    — Mais de 2 negativas → REPROVA.
+   *    — Disciplinas terminais com negativa → Exame de Época Normal na 10ª classe.
+   *    — Disciplinas de continuidade com negativa → arrastam-se (R2 aplica-se na 11ª/12ª).
+   *
+   *  11ª CLASSE (considera histórico da 10ª):
+   *    — O histórico da 10ª classe é analisado via /api/continuidade/situacao.
+   *    — Duas negativas consecutivas (10ª + 11ª) na mesma disciplina de continuidade → REPROVA (R1).
+   *    — A média mínima de promoção normal é 10 (configurável).
+   *
+   *  12ª CLASSE:
+   *    — Ano de fecho das disciplinas de continuidade.
+   *    — Exame de Época Normal aplicado no final do ano.
+   */
+  app.get('/api/promocao/situacao/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const anoLetivoParam = req.query.anoLetivo as string | undefined;
+
+      const cfgRows = await query<{ notaMinimaAprovacao: unknown }>(
+        `SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1`
+      );
+      const notaMin = Number(cfgRows[0]?.notaMinimaAprovacao ?? 10);
+      const notaMinAbsoluta = 7;
+      const maxNegativasPermitidas10 = 2;
+
+      // Aluno + turma actual
+      const alunoRows = await query<{
+        id: string; nome: string; apelido: string; turmaId: string;
+      }>(
+        `SELECT id, nome, apelido, "turmaId" FROM public.alunos WHERE id = $1`,
+        [alunoId]
+      );
+      if (alunoRows.length === 0) return json(res, 404, { error: 'Aluno não encontrado' });
+      const aluno = alunoRows[0];
+
+      const turmaRows = await query<{ classe: string; anoLetivo: string }>(
+        `SELECT classe, "anoLetivo" FROM public.turmas WHERE id = $1`,
+        [aluno.turmaId]
+      );
+      if (turmaRows.length === 0) return json(res, 404, { error: 'Turma não encontrada' });
+      const turma = turmaRows[0];
+
+      const classeAtual = turma.classe;
+      const anoLetivo   = anoLetivoParam || turma.anoLetivo;
+
+      // Médias anuais por disciplina no ano letivo em questão
+      const notasRows = await query<{
+        disciplina: string;
+        mediaAnual: string;
+        numTrimestres: string;
+      }>(`
+        SELECT
+          n.disciplina,
+          ROUND(AVG(n.nf)::numeric, 2)::text   AS "mediaAnual",
+          COUNT(DISTINCT n.trimestre)::text     AS "numTrimestres"
+        FROM public.notas n
+        WHERE n."alunoId" = $1 AND n."anoLetivo" = $2
+        GROUP BY n.disciplina
+        ORDER BY n.disciplina
+      `, [alunoId, anoLetivo]);
+
+      // Catálogo de disciplinas (tipo + classeFim)
+      const catRows = await query<{ nome: string; tipo: string; classeFim: string }>(
+        `SELECT nome, tipo, "classeFim" FROM public.disciplinas WHERE ativo = true`
+      );
+      const catalog = new Map(catRows.map(d => [d.nome, d]));
+
+      // ── 10ª CLASSE ─────────────────────────────────────────────────────────
+      if (classeAtual === '10') {
+        type Situacao10 = 'aprovado' | 'negativa_exame_terminal' | 'negativa_continuidade' | 'reprova_abaixo_minimo';
+
+        const disciplinas = notasRows.map(row => {
+          const media = parseFloat(row.mediaAnual);
+          const info  = catalog.get(row.disciplina);
+          const tipo  = info?.tipo ?? 'continuidade';
+          const classeFim = info?.classeFim ?? '';
+
+          const isNeg        = media < notaMin;
+          const isAbaixoMin  = media < notaMinAbsoluta;
+          const isTerminal10 = tipo === 'terminal' && classeFim === '10';
+
+          let situacao: Situacao10;
+          if (isAbaixoMin) {
+            situacao = 'reprova_abaixo_minimo';
+          } else if (isNeg && isTerminal10) {
+            situacao = 'negativa_exame_terminal';
+          } else if (isNeg) {
+            situacao = 'negativa_continuidade';
+          } else {
+            situacao = 'aprovado';
+          }
+
+          return {
+            disciplina: row.disciplina,
+            tipo,
+            classeFim,
+            mediaAnual: media,
+            numTrimestres: parseInt(row.numTrimestres),
+            situacao,
+          };
+        });
+
+        const reprovadosAbsoluto  = disciplinas.filter(d => d.situacao === 'reprova_abaixo_minimo');
+        const negativas           = disciplinas.filter(d => d.mediaAnual < notaMin);
+        const numNegativas        = negativas.length;
+
+        type SituacaoGeral = 'aprovado' | 'aprovado_com_condicoes' | 'reprovado';
+        let situacaoGeral: SituacaoGeral;
+        let motivoGeral: string;
+
+        if (reprovadosAbsoluto.length > 0) {
+          situacaoGeral = 'reprovado';
+          motivoGeral   = `Média abaixo do mínimo absoluto (${notaMinAbsoluta} valores) em: ${reprovadosAbsoluto.map(d => d.disciplina).join(', ')} — Reprova directamente`;
+        } else if (numNegativas > maxNegativasPermitidas10) {
+          situacaoGeral = 'reprovado';
+          motivoGeral   = `${numNegativas} negativas — máximo permitido na 10ª classe é ${maxNegativasPermitidas10}`;
+        } else if (numNegativas > 0) {
+          situacaoGeral = 'aprovado_com_condicoes';
+          const exames = disciplinas.filter(d => d.situacao === 'negativa_exame_terminal').map(d => d.disciplina);
+          const arrastadas = disciplinas.filter(d => d.situacao === 'negativa_continuidade').map(d => d.disciplina);
+          const partes: string[] = [];
+          if (exames.length)    partes.push(`Exame de Época Normal (terminal): ${exames.join(', ')}`);
+          if (arrastadas.length) partes.push(`Disciplina${arrastadas.length > 1 ? 's' : ''} de continuidade arrastada${arrastadas.length > 1 ? 's' : ''} para 11ª/12ª: ${arrastadas.join(', ')}`);
+          motivoGeral = partes.join(' | ');
+        } else {
+          situacaoGeral = 'aprovado';
+          motivoGeral   = 'Aprovado — sem negativas, pode avançar para a 11ª classe';
+        }
+
+        return json(res, 200, {
+          alunoId,
+          nomeAluno: `${aluno.nome} ${aluno.apelido}`,
+          classe: classeAtual,
+          anoLetivo,
+          notaMin,
+          notaMinAbsoluta,
+          maxNegativasPermitidas: maxNegativasPermitidas10,
+          situacaoGeral,
+          motivoGeral,
+          disciplinas,
+        });
+      }
+
+      // ── 11ª CLASSE ─────────────────────────────────────────────────────────
+      if (classeAtual === '11') {
+        // Para a 11ª classe: calcular situação do ano actual e avisar que o
+        // histórico da 10ª é analisado nas regras de continuidade (R1/R2).
+        const disciplinas = notasRows.map(row => {
+          const media = parseFloat(row.mediaAnual);
+          const info  = catalog.get(row.disciplina);
+          const tipo  = info?.tipo ?? 'continuidade';
+          return {
+            disciplina: row.disciplina,
+            tipo,
+            mediaAnual: media,
+            numTrimestres: parseInt(row.numTrimestres),
+            aprovado: media >= notaMin,
+          };
+        });
+
+        const numNegativas = disciplinas.filter(d => !d.aprovado).length;
+        return json(res, 200, {
+          alunoId,
+          nomeAluno: `${aluno.nome} ${aluno.apelido}`,
+          classe: classeAtual,
+          anoLetivo,
+          notaMin,
+          numNegativas,
+          disciplinas,
+          info: 'As disciplinas de continuidade com negativa consecutiva (10ª + 11ª) provocam reprova sem direito a exame (R1). Consulte a situação de continuidade para o detalhe completo.',
+        });
+      }
+
+      // ── 12ª CLASSE ─────────────────────────────────────────────────────────
+      const disciplinas = notasRows.map(row => {
+        const media = parseFloat(row.mediaAnual);
+        const info  = catalog.get(row.disciplina);
+        const tipo  = info?.tipo ?? 'continuidade';
+        return {
+          disciplina: row.disciplina,
+          tipo,
+          mediaAnual: media,
+          numTrimestres: parseInt(row.numTrimestres),
+          aprovado: media >= notaMin,
+        };
+      });
+
+      return json(res, 200, {
+        alunoId,
+        nomeAluno: `${aluno.nome} ${aluno.apelido}`,
+        classe: classeAtual,
+        anoLetivo,
+        notaMin,
+        disciplinas,
+        info: 'Ano de fecho das disciplinas de continuidade. O Exame de Época Normal é aplicado no final deste ano para fechar o plano curricular.',
+      });
+
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
