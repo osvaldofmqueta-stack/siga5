@@ -1481,6 +1481,189 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
+  // Transferir pagamento → outro serviço ou → saldo
+  app.post("/api/pagamentos/:id/transferir", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const destino = (b as any).destino as string; // 'saldo' | taxaId
+      const criadoPor = (b as any).criadoPor || req.jwtUser?.email || 'Sistema';
+
+      const [pag] = await query<JsonObject>(`SELECT * FROM public.pagamentos WHERE id=$1`, [id]);
+      if (!pag) return json(res, 404, { error: 'Pagamento não encontrado.' });
+
+      const alunoId = (pag as any).alunoId;
+      const valor = (pag as any).valor as number;
+
+      if (destino === 'saldo') {
+        // Cancelar o pagamento original e adicionar ao saldo
+        await query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para saldo' WHERE id=$1`, [id]);
+
+        // Upsert saldo
+        const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+        if (existente) {
+          const novoSaldo = ((existente as any).saldo as number) + valor;
+          await query(`UPDATE public.saldo_alunos SET saldo=$1, "updatedAt"=NOW() WHERE "alunoId"=$2`, [novoSaldo, alunoId]);
+        } else {
+          await query(`INSERT INTO public.saldo_alunos ("alunoId", saldo) VALUES ($1, $2)`, [alunoId, valor]);
+        }
+
+        // Registar movimento
+        await query(
+          `INSERT INTO public.movimentos_saldo ("alunoId", tipo, valor, descricao, "pagamentoId", "criadoPor") VALUES ($1,$2,$3,$4,$5,$6)`,
+          [alunoId, 'credito', valor, `Pagamento transferido para saldo`, id, criadoPor]
+        );
+
+        const [saldoAtualizado] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+        return json(res, 200, { pagamento: pag, saldo: saldoAtualizado });
+      } else {
+        // Transferir para outra taxa
+        const [taxa] = await query<JsonObject>(`SELECT * FROM public.taxas WHERE id=$1`, [destino]);
+        if (!taxa) return json(res, 404, { error: 'Rubrica de destino não encontrada.' });
+
+        await query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para outra rubrica' WHERE id=$1`, [id]);
+
+        const [novoPag] = await query<JsonObject>(
+          `INSERT INTO public.pagamentos ("alunoId","taxaId",valor,data,ano,status,"metodoPagamento",referencia,observacao)
+           VALUES ($1,$2,$3,$4,$5,'pendente',$6,'Transferência','Transferido de outro serviço') RETURNING *`,
+          [alunoId, destino, valor, new Date().toISOString().slice(0, 10), (pag as any).ano, (pag as any).metodoPagamento]
+        );
+        return json(res, 200, { pagamento: pag, novoPagamento: novoPag });
+      }
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // -----------------------
+  // SALDO DE ALUNOS
+  // -----------------------
+  app.get("/api/saldo-alunos", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.saldo_alunos ORDER BY "updatedAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.get("/api/saldo-alunos/:alunoId", requireAuth, async (req: Request, res: Response) => {
+    const [row] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [req.params.alunoId]);
+    json(res, 200, row || { alunoId: req.params.alunoId, saldo: 0 });
+  });
+
+  app.post("/api/saldo-alunos/:alunoId/creditar", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const b = requireBodyObject(req);
+      const valor = parseFloat((b as any).valor) || 0;
+      const descricao = (b as any).descricao || 'Crédito adicionado';
+      const dataProximaCobranca = (b as any).dataProximaCobranca || null;
+      const observacoes = (b as any).observacoes || null;
+      const criadoPor = (b as any).criadoPor || req.jwtUser?.email || 'Sistema';
+
+      if (valor <= 0) return json(res, 400, { error: 'Valor deve ser positivo.' });
+
+      const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+      let saldoAtualizado: JsonObject;
+      if (existente) {
+        const novoSaldo = ((existente as any).saldo as number) + valor;
+        const [r] = await query<JsonObject>(
+          `UPDATE public.saldo_alunos SET saldo=$1,"dataProximaCobranca"=$2,observacoes=$3,"updatedAt"=NOW() WHERE "alunoId"=$4 RETURNING *`,
+          [novoSaldo, dataProximaCobranca, observacoes, alunoId]
+        );
+        saldoAtualizado = r;
+      } else {
+        const [r] = await query<JsonObject>(
+          `INSERT INTO public.saldo_alunos ("alunoId",saldo,"dataProximaCobranca",observacoes) VALUES ($1,$2,$3,$4) RETURNING *`,
+          [alunoId, valor, dataProximaCobranca, observacoes]
+        );
+        saldoAtualizado = r;
+      }
+
+      await query(
+        `INSERT INTO public.movimentos_saldo ("alunoId",tipo,valor,descricao,"criadoPor") VALUES ($1,'credito',$2,$3,$4)`,
+        [alunoId, valor, descricao, criadoPor]
+      );
+
+      json(res, 200, saldoAtualizado);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.post("/api/saldo-alunos/:alunoId/debitar", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const b = requireBodyObject(req);
+      const valor = parseFloat((b as any).valor) || 0;
+      const descricao = (b as any).descricao || 'Débito';
+      const criadoPor = (b as any).criadoPor || req.jwtUser?.email || 'Sistema';
+
+      if (valor <= 0) return json(res, 400, { error: 'Valor deve ser positivo.' });
+
+      const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+      if (!existente || ((existente as any).saldo as number) < valor) {
+        return json(res, 400, { error: 'Saldo insuficiente.' });
+      }
+
+      const novoSaldo = ((existente as any).saldo as number) - valor;
+      const [r] = await query<JsonObject>(
+        `UPDATE public.saldo_alunos SET saldo=$1,"updatedAt"=NOW() WHERE "alunoId"=$2 RETURNING *`,
+        [novoSaldo, alunoId]
+      );
+
+      await query(
+        `INSERT INTO public.movimentos_saldo ("alunoId",tipo,valor,descricao,"criadoPor") VALUES ($1,'debito',$2,$3,$4)`,
+        [alunoId, valor, descricao, criadoPor]
+      );
+
+      json(res, 200, r);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.put("/api/saldo-alunos/:alunoId", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const b = requireBodyObject(req);
+      const dataProximaCobranca = (b as any).dataProximaCobranca !== undefined ? (b as any).dataProximaCobranca : undefined;
+      const observacoes = (b as any).observacoes !== undefined ? (b as any).observacoes : undefined;
+
+      const setParts: string[] = ['"updatedAt"=NOW()'];
+      const values: unknown[] = [];
+
+      if (dataProximaCobranca !== undefined) {
+        values.push(dataProximaCobranca);
+        setParts.push(`"dataProximaCobranca"=$${values.length}`);
+      }
+      if (observacoes !== undefined) {
+        values.push(observacoes);
+        setParts.push(`observacoes=$${values.length}`);
+      }
+
+      values.push(alunoId);
+      const [r] = await query<JsonObject>(
+        `UPDATE public.saldo_alunos SET ${setParts.join(',')} WHERE "alunoId"=$${values.length} RETURNING *`,
+        values
+      );
+      if (!r) return json(res, 404, { error: 'Saldo não encontrado.' });
+      json(res, 200, r);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.get("/api/movimentos-saldo", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.movimentos_saldo ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.get("/api/movimentos-saldo/:alunoId", requireAuth, async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.movimentos_saldo WHERE "alunoId"=$1 ORDER BY "createdAt" DESC`,
+      [req.params.alunoId]
+    );
+    json(res, 200, rows);
+  });
+
   // -----------------------
   // MENSAGENS FINANCEIRAS
   // -----------------------

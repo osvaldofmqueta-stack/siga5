@@ -270,7 +270,7 @@ export default function BoletimPropinaScreen() {
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
 
   const { alunos, turmas } = useData();
-  const { pagamentos, getPagamentosAluno } = useFinanceiro();
+  const { pagamentos, getPagamentosAluno, getSaldoAluno } = useFinanceiro();
   const { config } = useConfig();
   const { anoSelecionado } = useAnoAcademico();
 
@@ -471,6 +471,34 @@ export default function BoletimPropinaScreen() {
               <StatCard value={formatAOA(totalPago)} label="Total Pago" color={Colors.info} icon="cash" />
               <StatCard value={formatAOA(totalPendente)} label="Pendente" color={Colors.warning} icon="time" />
             </View>
+
+            {/* ── Saldo em Conta ── */}
+            {(() => {
+              const saldoInfo = selectedAluno ? getSaldoAluno(selectedAluno.id) : null;
+              if (!saldoInfo || saldoInfo.saldo <= 0) return null;
+              return (
+                <View style={[styles.card, { borderColor: Colors.success + '55', borderWidth: 1.5, backgroundColor: Colors.success + '0d', marginBottom: 12 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="wallet" size={20} color={Colors.success} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted }}>Saldo em Conta</Text>
+                      <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.success }}>{formatAOA(saldoInfo.saldo)}</Text>
+                    </View>
+                    {saldoInfo.dataProximaCobranca ? (
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Próxima cobrança</Text>
+                        <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>{saldoInfo.dataProximaCobranca}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  {saldoInfo.observacoes ? (
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8 }}>{saldoInfo.observacoes}</Text>
+                  ) : null}
+                </View>
+              );
+            })()}
 
             {/* ── Caderneta — Grelha de Meses ── */}
             <View style={styles.card}>

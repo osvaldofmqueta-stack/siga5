@@ -61,6 +61,26 @@ export interface RUPEGerado {
   status: 'ativo' | 'pago' | 'expirado';
 }
 
+export interface SaldoAluno {
+  id: string;
+  alunoId: string;
+  saldo: number;
+  dataProximaCobranca?: string;
+  observacoes?: string;
+  updatedAt: string;
+}
+
+export interface MovimentoSaldo {
+  id: string;
+  alunoId: string;
+  tipo: 'credito' | 'debito' | 'transferencia_in' | 'transferencia_out' | 'pagamento_excesso';
+  valor: number;
+  descricao: string;
+  pagamentoId?: string;
+  criadoPor?: string;
+  createdAt: string;
+}
+
 interface FinanceiroContextValue {
   taxas: Taxa[];
   pagamentos: Pagamento[];
@@ -68,6 +88,8 @@ interface FinanceiroContextValue {
   mensagens: MensagemFinanceira[];
   rupes: RUPEGerado[];
   bloqueados: string[];
+  saldos: SaldoAluno[];
+  movimentosSaldo: MovimentoSaldo[];
   isLoading: boolean;
   addTaxa: (t: Omit<Taxa, 'id'>) => Promise<void>;
   updateTaxa: (id: string, t: Partial<Taxa>) => Promise<void>;
@@ -75,6 +97,7 @@ interface FinanceiroContextValue {
   addPagamento: (p: Omit<Pagamento, 'id' | 'createdAt'>) => Promise<void>;
   updatePagamento: (id: string, p: Partial<Pagamento>) => Promise<void>;
   deletePagamento: (id: string) => Promise<void>;
+  transferirPagamento: (pagamentoId: string, destino: 'saldo' | string, criadoPor?: string) => Promise<void>;
   getTotalRecebido: (anoAcademico?: string) => number;
   getTotalPendente: (anoAcademico?: string) => number;
   getPagamentosAluno: (alunoId: string) => Pagamento[];
@@ -91,6 +114,10 @@ interface FinanceiroContextValue {
   getMesesEmAtraso: (alunoId: string, anoAtual: string) => number;
   calcularMulta: (valorPropina: number, mesesAtraso: number) => number;
   getUnreadMensagensAluno: (alunoId: string) => number;
+  getSaldoAluno: (alunoId: string) => SaldoAluno | null;
+  getMovimentosAluno: (alunoId: string) => MovimentoSaldo[];
+  creditarSaldo: (alunoId: string, valor: number, descricao: string, dataProximaCobranca?: string, observacoes?: string, criadoPor?: string) => Promise<SaldoAluno>;
+  debitarSaldo: (alunoId: string, valor: number, descricao: string, criadoPor?: string) => Promise<SaldoAluno>;
 }
 
 const FinanceiroContext = createContext<FinanceiroContextValue | null>(null);
@@ -112,25 +139,31 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [mensagens, setMensagens] = useState<MensagemFinanceira[]>([]);
   const [rupes, setRupes] = useState<RUPEGerado[]>([]);
   const [bloqueados, setBloqueados] = useState<string[]>([]);
+  const [saldos, setSaldos] = useState<SaldoAluno[]>([]);
+  const [movimentosSaldo, setMovimentosSaldo] = useState<MovimentoSaldo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
     try {
-      const [t, p, msg, r, alunos, cfg] = await Promise.all([
+      const [t, p, msg, r, alunos, cfg, s, mv] = await Promise.all([
         api.get<Taxa[]>('/api/taxas'),
         api.get<Pagamento[]>('/api/pagamentos'),
         api.get<MensagemFinanceira[]>('/api/mensagens-financeiras'),
         api.get<RUPEGerado[]>('/api/rupes'),
         api.get<Array<{ id: string; bloqueado: boolean }>>('/api/alunos'),
         api.get<Record<string, unknown>>('/api/config'),
+        api.get<SaldoAluno[]>('/api/saldo-alunos').catch(() => [] as SaldoAluno[]),
+        api.get<MovimentoSaldo[]>('/api/movimentos-saldo').catch(() => [] as MovimentoSaldo[]),
       ]);
       setTaxas(t);
       setPagamentos(p);
       setMensagens(msg);
       setRupes(r);
       setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
+      setSaldos(s);
+      setMovimentosSaldo(mv);
       if (cfg.multaConfig) {
         setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
       }
@@ -283,17 +316,66 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
     return Math.round(valorPropina * (multaConfig.percentagem / 100) * mesesAtraso);
   }
 
+  function getSaldoAluno(alunoId: string): SaldoAluno | null {
+    return saldos.find(s => s.alunoId === alunoId) || null;
+  }
+
+  function getMovimentosAluno(alunoId: string): MovimentoSaldo[] {
+    return movimentosSaldo.filter(m => m.alunoId === alunoId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async function creditarSaldo(alunoId: string, valor: number, descricao: string, dataProximaCobranca?: string, observacoes?: string, criadoPor?: string): Promise<SaldoAluno> {
+    const result = await api.post<SaldoAluno>(`/api/saldo-alunos/${alunoId}/creditar`, { valor, descricao, dataProximaCobranca, observacoes, criadoPor });
+    setSaldos(prev => {
+      const idx = prev.findIndex(s => s.alunoId === alunoId);
+      if (idx >= 0) return prev.map((s, i) => i === idx ? result : s);
+      return [result, ...prev];
+    });
+    const novoMov: MovimentoSaldo = { id: Date.now().toString(), alunoId, tipo: 'credito', valor, descricao, criadoPor, createdAt: new Date().toISOString() };
+    setMovimentosSaldo(prev => [novoMov, ...prev]);
+    return result;
+  }
+
+  async function debitarSaldo(alunoId: string, valor: number, descricao: string, criadoPor?: string): Promise<SaldoAluno> {
+    const result = await api.post<SaldoAluno>(`/api/saldo-alunos/${alunoId}/debitar`, { valor, descricao, criadoPor });
+    setSaldos(prev => prev.map(s => s.alunoId === alunoId ? result : s));
+    const novoMov: MovimentoSaldo = { id: Date.now().toString(), alunoId, tipo: 'debito', valor, descricao, criadoPor, createdAt: new Date().toISOString() };
+    setMovimentosSaldo(prev => [novoMov, ...prev]);
+    return result;
+  }
+
+  async function transferirPagamento(pagamentoId: string, destino: 'saldo' | string, criadoPor?: string): Promise<void> {
+    const result = await api.post<{ pagamento: Pagamento; saldo?: SaldoAluno; novoPagamento?: Pagamento }>(
+      `/api/pagamentos/${pagamentoId}/transferir`, { destino, criadoPor }
+    );
+    setPagamentos(prev => prev.map(p => p.id === pagamentoId ? { ...p, status: 'cancelado' } : p));
+    if (result.saldo) {
+      setSaldos(prev => {
+        const idx = prev.findIndex(s => s.alunoId === result.saldo!.alunoId);
+        if (idx >= 0) return prev.map((s, i) => i === idx ? result.saldo! : s);
+        return [result.saldo!, ...prev];
+      });
+      const alunoId = result.pagamento.alunoId;
+      const novoMov: MovimentoSaldo = { id: Date.now().toString(), alunoId, tipo: 'credito', valor: result.pagamento.valor, descricao: 'Pagamento transferido para saldo', pagamentoId, criadoPor, createdAt: new Date().toISOString() };
+      setMovimentosSaldo(prev => [novoMov, ...prev]);
+    }
+    if (result.novoPagamento) {
+      setPagamentos(prev => [result.novoPagamento!, ...prev]);
+    }
+  }
+
   const value = useMemo<FinanceiroContextValue>(() => ({
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
-    addPagamento, updatePagamento, deletePagamento,
+    addPagamento, updatePagamento, deletePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente, getPagamentosAluno, getTaxasByNivel,
     updateMultaConfig,
     bloquearAluno, desbloquearAluno, isAlunoBloqueado,
     enviarMensagem, getMensagensAluno, marcarMensagemLida, getUnreadMensagensAluno,
     gerarRUPE, getRUPEsAluno,
     getMesesEmAtraso, calcularMulta,
-  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, isLoading]);
+    getSaldoAluno, getMovimentosAluno, creditarSaldo, debitarSaldo,
+  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isLoading]);
 
   return <FinanceiroContext.Provider value={value}>{children}</FinanceiroContext.Provider>;
 }

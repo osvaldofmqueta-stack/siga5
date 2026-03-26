@@ -557,6 +557,36 @@ export const rupes = pgTable("rupes", {
 });
 
 // -----------------------
+// SALDO DE ALUNOS (Crédito / Saldo em Conta)
+// -----------------------
+export const saldoAlunos = pgTable("saldo_alunos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  alunoId: varchar("alunoId").notNull().unique().references(() => alunos.id),
+  saldo: real("saldo").notNull().default(0),
+  dataProximaCobranca: text("dataProximaCobranca"),
+  observacoes: text("observacoes"),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
+// MOVIMENTOS DE SALDO
+// -----------------------
+export const movimentosSaldo = pgTable("movimentos_saldo", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id),
+  tipo: text("tipo").notNull(), // 'credito' | 'debito' | 'transferencia_in' | 'transferencia_out' | 'pagamento_excesso'
+  valor: real("valor").notNull(),
+  descricao: text("descricao").notNull(),
+  pagamentoId: varchar("pagamentoId"),
+  criadoPor: text("criadoPor"),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
 // PUSH SUBSCRIPTIONS (Web Push / VAPID)
 // -----------------------
 export const pushSubscriptions = pgTable("push_subscriptions", {

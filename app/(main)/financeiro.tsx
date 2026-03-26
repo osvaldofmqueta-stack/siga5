@@ -11,7 +11,7 @@ import TopBar from '@/components/TopBar';
 import {
   useFinanceiro, formatAOA,
   Taxa, Pagamento, TipoTaxa, FrequenciaTaxa, MetodoPagamento, StatusPagamento,
-  MensagemFinanceira,
+  MensagemFinanceira, SaldoAluno, MovimentoSaldo,
 } from '@/context/FinanceiroContext';
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
@@ -66,15 +66,16 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 export default function FinanceiroScreen() {
   const {
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
-    addPagamento, updatePagamento,
+    addPagamento, updatePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente,
     updateMultaConfig,
     bloquearAluno, desbloquearAluno, isAlunoBloqueado,
     enviarMensagem, getMensagensAluno, marcarMensagemLida,
     gerarRUPE, getRUPEsAluno,
     getMesesEmAtraso, calcularMulta,
+    getSaldoAluno, getMovimentosAluno, creditarSaldo,
   } = useFinanceiro();
   const { alunos, turmas } = useData();
   const { anoSelecionado } = useAnoAcademico();
@@ -127,6 +128,20 @@ export default function FinanceiroScreen() {
   const [obituarioData, setObituarioData]           = useState('');
   const [obituarioObs, setObituarioObs]             = useState('');
   const [obituarioLoading, setObituarioLoading]     = useState(false);
+
+  const [showSaldoModal, setShowSaldoModal]         = useState(false);
+  const [saldoAlunoId, setSaldoAlunoId]             = useState<string | null>(null);
+  const [saldoValor, setSaldoValor]                 = useState('');
+  const [saldoDataCobranca, setSaldoDataCobranca]   = useState('');
+  const [saldoDescricao, setSaldoDescricao]         = useState('');
+  const [saldoObs, setSaldoObs]                     = useState('');
+  const [saldoLoading, setSaldoLoading]             = useState(false);
+  const [showSaldoMovimentos, setShowSaldoMovimentos] = useState(false);
+
+  const [showTransferModal, setShowTransferModal]   = useState(false);
+  const [transferPagId, setTransferPagId]           = useState<string | null>(null);
+  const [transferDestino, setTransferDestino]       = useState<string>('saldo');
+  const [transferLoading, setTransferLoading]       = useState(false);
 
   const [showModalPag,   setShowModalPag]   = useState(false);
   const [showModalTaxa,  setShowModalTaxa]  = useState(false);
@@ -380,6 +395,45 @@ export default function FinanceiroScreen() {
           await enviarMensagem(alunoId, 'O seu acesso ao sistema foi bloqueado por falta de pagamento. Contacte o departamento financeiro para regularizar a situação.', nomeRemetente, 'bloqueio');
         }},
       ]);
+    }
+  }
+
+  async function handleAdicionarSaldo() {
+    if (!saldoAlunoId) return;
+    const valor = parseFloat(saldoValor);
+    if (!valor || valor <= 0) { Alert.alert('Erro', 'Introduza um valor válido.'); return; }
+    setSaldoLoading(true);
+    try {
+      await creditarSaldo(
+        saldoAlunoId, valor,
+        saldoDescricao || 'Crédito adicionado manualmente',
+        saldoDataCobranca || undefined,
+        saldoObs || undefined,
+        user?.email || user?.nome,
+      );
+      alertSucesso('Saldo adicionado', `${formatAOA(valor)} adicionados ao saldo do estudante.`);
+      setShowSaldoModal(false);
+      setSaldoValor(''); setSaldoDataCobranca(''); setSaldoDescricao(''); setSaldoObs('');
+    } catch (e: any) {
+      alertErro('Erro', e?.message || 'Não foi possível adicionar saldo.');
+    } finally {
+      setSaldoLoading(false);
+    }
+  }
+
+  async function handleTransferirPagamento() {
+    if (!transferPagId || !transferDestino) return;
+    setTransferLoading(true);
+    try {
+      await transferirPagamento(transferPagId, transferDestino, user?.email || user?.nome);
+      alertSucesso('Transferência efectuada', transferDestino === 'saldo' ? 'Valor transferido para o saldo do estudante.' : 'Pagamento transferido para a nova rubrica.');
+      setShowTransferModal(false);
+      setTransferPagId(null);
+      setTransferDestino('saldo');
+    } catch (e: any) {
+      alertErro('Erro', e?.message || 'Não foi possível efectuar a transferência.');
+    } finally {
+      setTransferLoading(false);
     }
   }
 
@@ -1518,6 +1572,11 @@ export default function FinanceiroScreen() {
                 <Ionicons name="document-text" size={15} color={Colors.success} />
                 <Text style={[st.perfilActionTxt, { color: Colors.success }]}>Caderneta</Text>
               </TouchableOpacity>
+              <TouchableOpacity style={[st.perfilActionBtn, { borderColor: Colors.success + '55', backgroundColor: Colors.success + '11' }]}
+                onPress={() => { setSaldoAlunoId(alunoPerfilId); setSaldoValor(''); setSaldoDataCobranca(''); setSaldoDescricao(''); setSaldoObs(''); setShowSaldoMovimentos(false); setShowSaldoModal(true); }}>
+                <Ionicons name="wallet" size={15} color={Colors.success} />
+                <Text style={[st.perfilActionTxt, { color: Colors.success }]}>Saldo</Text>
+              </TouchableOpacity>
               {podeRegistarObito && (
                 <TouchableOpacity style={[st.perfilActionBtn, { borderColor: '#6B21A844', backgroundColor: '#6B21A811' }]}
                   onPress={() => { setObituarioAlunoId(alunoPerfilId); setObituarioData(''); setObituarioObs(''); setShowObituarioModal(true); }}>
@@ -1526,6 +1585,49 @@ export default function FinanceiroScreen() {
                 </TouchableOpacity>
               )}
             </View>
+
+            {(() => {
+              const saldoInfo = getSaldoAluno(alunoPerfilId);
+              if (!saldoInfo || saldoInfo.saldo <= 0) return null;
+              const movs = getMovimentosAluno(alunoPerfilId).slice(0, 3);
+              return (
+                <View style={st.saldoCard}>
+                  <View style={st.saldoCardHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Ionicons name="wallet" size={18} color={Colors.success} />
+                      <Text style={st.saldoCardTitle}>Saldo em Conta</Text>
+                    </View>
+                    <Text style={st.saldoValor}>{formatAOA(saldoInfo.saldo)}</Text>
+                  </View>
+                  {saldoInfo.dataProximaCobranca ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                      <Ionicons name="calendar" size={13} color={Colors.info} />
+                      <Text style={st.saldoDataTxt}>Próxima cobrança: <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.info }}>{saldoInfo.dataProximaCobranca}</Text></Text>
+                    </View>
+                  ) : null}
+                  {saldoInfo.observacoes ? (
+                    <Text style={[st.saldoDataTxt, { marginTop: 4, color: Colors.textMuted }]}>{saldoInfo.observacoes}</Text>
+                  ) : null}
+                  {movs.length > 0 && (
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={[st.secLabel, { marginBottom: 6, marginTop: 0 }]}>ÚLTIMOS MOVIMENTOS</Text>
+                      {movs.map(m => (
+                        <View key={m.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: Colors.border + '44' }}>
+                          <Ionicons name={m.tipo === 'credito' ? 'arrow-up-circle' : 'arrow-down-circle'} size={15} color={m.tipo === 'credito' ? Colors.success : Colors.danger} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.text }}>{m.descricao}</Text>
+                            <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{new Date(m.createdAt).toLocaleDateString('pt-PT')}</Text>
+                          </View>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: m.tipo === 'credito' ? Colors.success : Colors.danger }}>
+                            {m.tipo === 'credito' ? '+' : '-'}{formatAOA(m.valor)}
+                          </Text>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })()}
 
             {rupesAluno.length > 0 && (
               <>
@@ -1583,6 +1685,15 @@ export default function FinanceiroScreen() {
                           <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(p.id, { status: 'pago' })}>
                             <Ionicons name="checkmark" size={11} color="#fff" />
                             <Text style={st.confirmarTxt}>Confirmar</Text>
+                          </TouchableOpacity>
+                        )}
+                        {(p.status === 'pago' || p.status === 'pendente') && (
+                          <TouchableOpacity
+                            style={[st.confirmarBtn, { backgroundColor: Colors.info + '99' }]}
+                            onPress={() => { setTransferPagId(p.id); setTransferDestino('saldo'); setShowTransferModal(true); }}
+                          >
+                            <Ionicons name="swap-horizontal" size={11} color="#fff" />
+                            <Text style={st.confirmarTxt}>Transferir</Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -2089,6 +2200,162 @@ export default function FinanceiroScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* ── Modal: Adicionar Saldo ───────────────────────────────────────── */}
+      <Modal visible={showSaldoModal} transparent animationType="slide" onRequestClose={() => setShowSaldoModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalBox}>
+            <View style={st.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="wallet" size={18} color={Colors.success} />
+                <Text style={[st.modalTitle, { color: Colors.success }]}>Gestão de Saldo</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowSaldoModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {saldoAlunoId && (() => {
+              const alunoSaldo = alunos.find(a => a.id === saldoAlunoId);
+              const saldoInfo = getSaldoAluno(saldoAlunoId);
+              return (
+                <>
+                  {alunoSaldo && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.success + '11', borderRadius: 10, padding: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.success + '33' }}>
+                      <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.success }}>{alunoSaldo.nome[0]}{alunoSaldo.apelido[0]}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{alunoSaldo.nome} {alunoSaldo.apelido}</Text>
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{alunoSaldo.numeroMatricula}</Text>
+                      </View>
+                      {saldoInfo && saldoInfo.saldo > 0 && (
+                        <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Saldo actual</Text>
+                          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.success }}>{formatAOA(saldoInfo.saldo)}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                  <Text style={st.fieldLabel}>Valor a Creditiar (AOA) *</Text>
+                  <TextInput
+                    style={st.input}
+                    placeholder="Ex: 50000"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                    value={saldoValor}
+                    onChangeText={setSaldoValor}
+                  />
+                  <Text style={st.fieldLabel}>Descrição</Text>
+                  <TextInput
+                    style={st.input}
+                    placeholder="Ex: Excesso de pagamento propina Fevereiro"
+                    placeholderTextColor={Colors.textMuted}
+                    value={saldoDescricao}
+                    onChangeText={setSaldoDescricao}
+                  />
+                  <Text style={st.fieldLabel}>Data da Próxima Cobrança</Text>
+                  <TextInput
+                    style={st.input}
+                    placeholder="DD/MM/AAAA (opcional)"
+                    placeholderTextColor={Colors.textMuted}
+                    value={saldoDataCobranca}
+                    onChangeText={setSaldoDataCobranca}
+                  />
+                  <Text style={st.fieldLabel}>Observações</Text>
+                  <TextInput
+                    style={[st.input, { height: 70, textAlignVertical: 'top' }]}
+                    placeholder="Notas adicionais (opcional)"
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                    value={saldoObs}
+                    onChangeText={setSaldoObs}
+                  />
+                </>
+              );
+            })()}
+
+            <TouchableOpacity
+              style={[st.saveBtn, { backgroundColor: Colors.success, marginTop: 8 }, saldoLoading && { opacity: 0.6 }]}
+              onPress={handleAdicionarSaldo}
+              disabled={saldoLoading}
+            >
+              <Ionicons name="wallet" size={16} color="#fff" />
+              <Text style={st.saveBtnTxt}>{saldoLoading ? 'A processar...' : 'Adicionar Saldo'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Transferir Pagamento ──────────────────────────────────── */}
+      <Modal visible={showTransferModal} transparent animationType="slide" onRequestClose={() => setShowTransferModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalBox}>
+            <View style={st.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Ionicons name="swap-horizontal" size={18} color={Colors.info} />
+                <Text style={[st.modalTitle, { color: Colors.info }]}>Transferir Pagamento</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowTransferModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {transferPagId && (() => {
+              const pag = pagamentos.find(p => p.id === transferPagId);
+              if (!pag) return null;
+              return (
+                <>
+                  <View style={[st.rubricaInfoBanner, { borderColor: Colors.info + '44', backgroundColor: Colors.info + '11', marginBottom: 16 }]}>
+                    <Ionicons name="information-circle" size={14} color={Colors.info} />
+                    <Text style={[st.rubricaInfoTxt, { color: Colors.info }]}>
+                      Pagamento de <Text style={{ fontFamily: 'Inter_700Bold' }}>{formatAOA(pag.valor)}</Text> referente a «{getNomeTaxa(pag.taxaId)}» será transferido para o destino seleccionado.
+                    </Text>
+                  </View>
+
+                  <Text style={st.fieldLabel}>Destino da Transferência</Text>
+                  <View style={{ gap: 8, marginBottom: 16 }}>
+                    <TouchableOpacity
+                      style={[st.rubrSelectBtn, transferDestino === 'saldo' && st.rubrSelectBtnActive]}
+                      onPress={() => setTransferDestino('saldo')}
+                    >
+                      <Ionicons name="wallet" size={16} color={transferDestino === 'saldo' ? Colors.gold : Colors.textMuted} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[st.rubrSelectTxt, transferDestino === 'saldo' && { color: Colors.text }]}>Saldo do Estudante</Text>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>O valor será creditado no saldo da conta do estudante</Text>
+                      </View>
+                      {transferDestino === 'saldo' && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
+                    </TouchableOpacity>
+                    {taxas.filter(t => t.id !== pag.taxaId && t.ativo).slice(0, 6).map(taxa => (
+                      <TouchableOpacity
+                        key={taxa.id}
+                        style={[st.rubrSelectBtn, transferDestino === taxa.id && st.rubrSelectBtnActive]}
+                        onPress={() => setTransferDestino(taxa.id)}
+                      >
+                        <Ionicons name="receipt" size={16} color={transferDestino === taxa.id ? Colors.gold : Colors.textMuted} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[st.rubrSelectTxt, transferDestino === taxa.id && { color: Colors.text }]}>{taxa.nome}</Text>
+                          <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{formatAOA(taxa.valor)} · {taxa.tipo}</Text>
+                        </View>
+                        {transferDestino === taxa.id && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              );
+            })()}
+
+            <TouchableOpacity
+              style={[st.saveBtn, { backgroundColor: Colors.info, marginTop: 4 }, transferLoading && { opacity: 0.6 }]}
+              onPress={handleTransferirPagamento}
+              disabled={transferLoading}
+            >
+              <Ionicons name="swap-horizontal" size={16} color="#fff" />
+              <Text style={st.saveBtnTxt}>{transferLoading ? 'A transferir...' : 'Confirmar Transferência'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2251,4 +2518,12 @@ const st = StyleSheet.create({
   relTablePct: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, width: 36, textAlign: 'right' },
   relTableHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 4 },
   relTableHeaderTxt: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase' },
+  saldoCard: { backgroundColor: Colors.success + '0d', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.success + '44', marginBottom: 14 },
+  saldoCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  saldoCardTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.success },
+  saldoValor: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.success },
+  saldoDataTxt: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  rubrSelectBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  rubrSelectBtnActive: { borderColor: Colors.gold, backgroundColor: Colors.gold + '11' },
+  rubrSelectTxt: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
 });
