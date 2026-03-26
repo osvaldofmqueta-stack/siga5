@@ -135,10 +135,9 @@ export default function ProfessorPautaScreen() {
     const defesa = parseFloat(form.notaDefesa.replace(',', '.'));
     if (isNaN(defesa)) return null;
     let soma = Math.min(20, Math.max(0, defesa));
-    if (showEstagioField) {
-      const e = parseFloat(form.notaEstagio.replace(',', '.'));
-      if (!isNaN(e)) soma += Math.min(20, Math.max(0, e));
-    }
+    // Always include estágio if present (manually entered or auto-loaded from curriculum)
+    const e = parseFloat(form.notaEstagio.replace(',', '.'));
+    if (!isNaN(e)) soma += Math.min(20, Math.max(0, e));
     const discVals = papDiscContribuintes.map(nome => {
       const v = parseFloat((form.notasDisciplinas[nome] || '').replace(',', '.'));
       return isNaN(v) ? null : Math.min(20, Math.max(0, v));
@@ -182,9 +181,25 @@ export default function ProfessorPautaScreen() {
         const found = ex?.notasDisciplinas?.find((d: { nome: string; nota: number }) => d.nome === nome);
         notasDisciplinas[nome] = found ? String(found.nota) : '';
       });
+
+      // When estágio is treated as a curriculum discipline, auto-load its NF from regular notas
+      let notaEstagioValue = ex?.notaEstagio != null ? String(ex.notaEstagio) : '';
+      if (config.estagioComoDisciplina) {
+        const estagioNota = notas
+          .filter(n =>
+            n.alunoId === aluno.id &&
+            n.turmaId === turmaId &&
+            (n.disciplina.toLowerCase().includes('estágio') || n.disciplina.toLowerCase().includes('estagio'))
+          )
+          .sort((a, b) => ((b.nf ?? 0) - (a.nf ?? 0)))[0];
+        if (estagioNota && (estagioNota.nf ?? 0) > 0) {
+          notaEstagioValue = String(estagioNota.nf);
+        }
+      }
+
       const form: PapForm = {
         alunoId: aluno.id,
-        notaEstagio: ex?.notaEstagio != null ? String(ex.notaEstagio) : '',
+        notaEstagio: notaEstagioValue,
         notaDefesa: ex?.notaDefesa != null ? String(ex.notaDefesa) : '',
         notasDisciplinas,
         notaPAP: null,
@@ -788,19 +803,38 @@ export default function ProfessorPautaScreen() {
         {/* Header PAP */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: Colors.gold + '18', borderBottomWidth: 1, borderBottomColor: Colors.gold + '33' }}>
           <Ionicons name="ribbon" size={18} color={Colors.gold} />
-          <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>
-            Nota PAP = (Estágio + Defesa{papDiscContribuintes.length > 0 ? ' + Média Disciplinas' : ''}) ÷ 3
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold }}>
+              Nota PAP = (Estágio + Defesa{papDiscContribuintes.length > 0 ? ' + Média Disciplinas' : ''}) ÷ 3
+            </Text>
+            {config.estagioComoDisciplina && (
+              <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.gold + 'BB', marginTop: 2 }}>
+                Estágio carregado automaticamente da pauta curricular
+              </Text>
+            )}
+          </View>
           <TouchableOpacity onPress={() => setStep('selecao')} style={{ padding: 6 }}>
             <Ionicons name="arrow-back" size={20} color={Colors.textSecondary} />
           </TouchableOpacity>
         </View>
 
+        {/* Banner: estágio como disciplina */}
+        {config.estagioComoDisciplina && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.info + '15', borderBottomWidth: 1, borderBottomColor: Colors.info + '33' }}>
+            <Ionicons name="school-outline" size={15} color={Colors.info} />
+            <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.info, lineHeight: 15 }}>
+              Estágio como disciplina curricular — nota carregada automaticamente da pauta regular. Apenas a Defesa precisa de ser lançada.
+            </Text>
+          </View>
+        )}
+
         {/* Legenda */}
         <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
           <Text style={{ width: 44, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Nº</Text>
           <Text style={{ flex: 1, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted }}>Aluno</Text>
-          {showEstagioField && <Text style={{ width: 52, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Estágio</Text>}
+          <Text style={{ width: 52, fontSize: 9, fontFamily: 'Inter_700Bold', color: config.estagioComoDisciplina ? Colors.info : Colors.textMuted, textAlign: 'center' }}>
+            {config.estagioComoDisciplina ? 'Est.(Auto)' : 'Estágio'}
+          </Text>
           <Text style={{ width: 52, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Defesa</Text>
           {papDiscContribuintes.map(d => (
             <Text key={d} style={{ width: 52, fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }} numberOfLines={2}>{d}</Text>
@@ -834,7 +868,15 @@ export default function ProfessorPautaScreen() {
                 </View>
                 {isEditing ? (
                   <>
-                    {showEstagioField && (
+                    {/* Estágio: read-only if auto-loaded from curriculum, editable otherwise */}
+                    {config.estagioComoDisciplina ? (
+                      <View style={{ width: 52, alignItems: 'center', backgroundColor: Colors.info + '22', borderRadius: 6, paddingVertical: 4 }}>
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.info }}>
+                          {form.notaEstagio || '—'}
+                        </Text>
+                        <Text style={{ fontSize: 8, fontFamily: 'Inter_400Regular', color: Colors.info + 'AA' }}>Auto</Text>
+                      </View>
+                    ) : (
                       <TextInput
                         style={[styles.gradeInput, { width: 52 }]}
                         value={form.notaEstagio}
@@ -866,11 +908,12 @@ export default function ProfessorPautaScreen() {
                   </>
                 ) : (
                   <>
-                    {showEstagioField && (
-                      <View style={{ width: 52, alignItems: 'center' }}>
-                        <Text style={styles.gradeCellText}>{form.notaEstagio || '—'}</Text>
-                      </View>
-                    )}
+                    {/* Estágio display — always shown */}
+                    <View style={{ width: 52, alignItems: 'center' }}>
+                      <Text style={[styles.gradeCellText, config.estagioComoDisciplina && form.notaEstagio ? { color: Colors.info } : {}]}>
+                        {form.notaEstagio || '—'}
+                      </Text>
+                    </View>
                     <View style={{ width: 52, alignItems: 'center' }}>
                       <Text style={styles.gradeCellText}>{form.notaDefesa || '—'}</Text>
                     </View>

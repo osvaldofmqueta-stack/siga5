@@ -11,8 +11,21 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useLicense, diasAte, addDays, PLANO_LABEL, PLANO_DIAS } from '@/context/LicenseContext';
+import { useConfig } from '@/context/ConfigContext';
+import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso } from '@/utils/toast';
+
+interface PapRecord {
+  alunoId: string;
+  turmaId: string;
+  nome?: string;
+  apelido?: string;
+  notaEstagio?: number | null;
+  notaDefesa?: number | null;
+  notasDisciplinas?: { nome: string; nota: number }[];
+  notaPAP?: number | null;
+}
 
 function getEscolaStatusColor(dias: number, maxDias: number): string {
   if (dias <= 0) return '#FF3B30';
@@ -126,6 +139,8 @@ export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
   const { alunos, professores, turmas, notas, presencas } = useData();
   const { codigosGerados } = useLicense();
+  const { config } = useConfig();
+  const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -135,6 +150,37 @@ export default function PerfilScreen() {
   const [biometricEnabled, setBiometricState] = useState(user?.biometricEnabled || false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // PAP data for professor with 13ª Classe turmas
+  const [papData, setPapData] = useState<Record<string, PapRecord[]>>({});
+
+  useEffect(() => {
+    if (!user || user.role !== 'professor' || !config.papHabilitado) return;
+    const prof = professores.find(p => p.email === user.email);
+    if (!prof) return;
+    const turmas13 = turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo &&
+      (t.classe === '13ª Classe' || t.classe === '13'));
+    if (turmas13.length === 0) return;
+    const anoLetivo = anoSelecionado?.ano || new Date().getFullYear().toString();
+    const fetchAll = async () => {
+      const results: Record<string, PapRecord[]> = {};
+      await Promise.all(turmas13.map(async (t) => {
+        try {
+          const resp = await fetch(`/api/pap-alunos?turmaId=${t.id}&anoLetivo=${anoLetivo}`);
+          if (resp.ok) {
+            const data: PapRecord[] = await resp.json();
+            results[t.id] = data;
+          } else {
+            results[t.id] = [];
+          }
+        } catch {
+          results[t.id] = [];
+        }
+      }));
+      setPapData(results);
+    };
+    fetchAll();
+  }, [user, professores, turmas, config.papHabilitado, anoSelecionado]);
 
   if (!user) return null;
 
@@ -344,32 +390,122 @@ export default function PerfilScreen() {
       const prof = professores.find(p => p.email === user.email);
       const minhasTurmas = prof ? turmas.filter(t => prof.turmasIds.includes(t.id)) : [];
       const meusAlunos = prof ? alunos.filter(a => minhasTurmas.some(t => t.id === a.turmaId)).length : 0;
+      const turmas13 = minhasTurmas.filter(t => t.ativo && (t.classe === '13ª Classe' || t.classe === '13'));
+      const hasPap = config.papHabilitado && turmas13.length > 0;
+
       return (
-        <View style={styles.card}>
-          <SectionHeader title="Dados do Professor" icon="school" />
-          {prof && (
-            <>
-              <View style={styles.statsGrid}>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.info }]}>{minhasTurmas.length}</Text>
-                  <Text style={styles.statLbl}>Turmas</Text>
+        <>
+          <View style={styles.card}>
+            <SectionHeader title="Dados do Professor" icon="school" />
+            {prof && (
+              <>
+                <View style={styles.statsGrid}>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statNum, { color: Colors.info }]}>{minhasTurmas.length}</Text>
+                    <Text style={styles.statLbl}>Turmas</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statNum, { color: Colors.gold }]}>{meusAlunos}</Text>
+                    <Text style={styles.statLbl}>Alunos</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={[styles.statNum, { color: Colors.success }]}>{prof.disciplinas.length}</Text>
+                    <Text style={styles.statLbl}>Disciplinas</Text>
+                  </View>
                 </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.gold }]}>{meusAlunos}</Text>
-                  <Text style={styles.statLbl}>Alunos</Text>
-                </View>
-                <View style={styles.statItem}>
-                  <Text style={[styles.statNum, { color: Colors.success }]}>{prof.disciplinas.length}</Text>
-                  <Text style={styles.statLbl}>Disciplinas</Text>
-                </View>
+                <InfoRow label="N.º Professor" value={prof.numeroProfessor} />
+                <InfoRow label="Habilitações" value={prof.habilitacoes} />
+                <InfoRow label="Disciplinas" value={prof.disciplinas.join(', ')} />
+                <InfoRow label="Turmas" value={minhasTurmas.map(t => t.nome).join(', ')} />
+              </>
+            )}
+          </View>
+
+          {/* PAP — Prova de Aptidão Profissional (13ª Classe) */}
+          {hasPap && (
+            <View style={styles.card}>
+              <SectionHeader title="PAP — Prova de Aptidão Profissional" icon="ribbon" />
+              <View style={{ flexDirection: 'row', gap: 8, backgroundColor: Colors.gold + '15', borderRadius: 10, padding: 10, marginBottom: 12, alignItems: 'flex-start' }}>
+                <Ionicons name="information-circle-outline" size={15} color={Colors.gold} />
+                <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.gold + 'DD', lineHeight: 16 }}>
+                  Nota PAP = (Estágio + Defesa{config.papDisciplinasContribuintes?.length ? ' + Média Disciplinas' : ''}) ÷ 3 — esta nota consta no certificado do aluno.
+                </Text>
               </View>
-              <InfoRow label="N.º Professor" value={prof.numeroProfessor} />
-              <InfoRow label="Habilitações" value={prof.habilitacoes} />
-              <InfoRow label="Disciplinas" value={prof.disciplinas.join(', ')} />
-              <InfoRow label="Turmas" value={minhasTurmas.map(t => t.nome).join(', ')} />
-            </>
+
+              {turmas13.map(turma => {
+                const papTurma = papData[turma.id] || [];
+                const alunosTurma = alunos.filter(a => a.turmaId === turma.id && a.ativo);
+                const totalComPAP = papTurma.filter(p => p.notaPAP != null).length;
+                const totalSemPAP = alunosTurma.length - totalComPAP;
+
+                return (
+                  <View key={turma.id} style={{ marginBottom: 14 }}>
+                    {/* Turma header */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <Ionicons name="people-outline" size={14} color={Colors.gold} />
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 }}>{turma.nome}</Text>
+                      <View style={{ backgroundColor: totalComPAP === alunosTurma.length ? Colors.success + '22' : Colors.warning + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: totalComPAP === alunosTurma.length ? Colors.success : Colors.warning }}>
+                          {totalComPAP}/{alunosTurma.length} lançados
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Column headers */}
+                    <View style={{ flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 6, backgroundColor: Colors.primaryDark, borderRadius: 8, marginBottom: 4 }}>
+                      <Text style={{ flex: 1, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted }}>Aluno</Text>
+                      <Text style={{ width: 50, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Estágio</Text>
+                      <Text style={{ width: 50, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' }}>Defesa</Text>
+                      <Text style={{ width: 50, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold, textAlign: 'center' }}>PAP</Text>
+                    </View>
+
+                    {/* Students with PAP launched */}
+                    {alunosTurma.map((aluno, idx) => {
+                      const pap = papTurma.find(p => p.alunoId === aluno.id);
+                      const papColor = pap?.notaPAP != null
+                        ? (pap.notaPAP >= (config.notaMinimaAprovacao ?? 10) ? Colors.success : Colors.danger)
+                        : Colors.textMuted;
+                      const isEven = idx % 2 === 0;
+                      return (
+                        <View key={aluno.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 7, backgroundColor: isEven ? Colors.backgroundCard : Colors.surface, borderRadius: 6, marginBottom: 2 }}>
+                          <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }} numberOfLines={1}>
+                            {aluno.nome} {aluno.apelido}
+                          </Text>
+                          <Text style={{ width: 50, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center' }}>
+                            {pap?.notaEstagio != null ? pap.notaEstagio.toFixed(1) : '—'}
+                          </Text>
+                          <Text style={{ width: 50, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center' }}>
+                            {pap?.notaDefesa != null ? pap.notaDefesa.toFixed(1) : '—'}
+                          </Text>
+                          <View style={{ width: 50, alignItems: 'center' }}>
+                            {pap?.notaPAP != null ? (
+                              <View style={{ backgroundColor: papColor + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                                <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: papColor }}>
+                                  {pap.notaPAP.toFixed(1)}
+                                </Text>
+                              </View>
+                            ) : (
+                              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>—</Text>
+                            )}
+                          </View>
+                        </View>
+                      );
+                    })}
+
+                    {totalSemPAP > 0 && (
+                      <View style={{ flexDirection: 'row', gap: 6, marginTop: 6, alignItems: 'center', backgroundColor: Colors.warning + '12', borderRadius: 8, padding: 8 }}>
+                        <Ionicons name="alert-circle-outline" size={14} color={Colors.warning} />
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning }}>
+                          {totalSemPAP} aluno{totalSemPAP > 1 ? 's' : ''} sem PAP lançado
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
           )}
-        </View>
+        </>
       );
     }
 
