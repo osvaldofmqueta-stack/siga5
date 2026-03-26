@@ -71,7 +71,7 @@
     "react-native-screens": "^4.24.0",
     "react-native-svg": "^15.15.4",
     "react-native-web": "^0.21.2",
-    "react-native-worklets": "^0.5.1",
+    "react-native-worklets": "^0.5.2",
     "tsx": "^4.21.0",
     "uuid": "^13.0.0",
     "web-push": "^3.6.7",
