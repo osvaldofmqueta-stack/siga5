@@ -16,7 +16,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'recibo_salario' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'recibo_salario' | 'extrato_propina' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -169,6 +169,21 @@ const VARIABLE_GROUPS = [
       { tag: '{{STATUS_FOLHA}}', desc: 'Estado da folha de salário', exemplo: 'Aprovada' },
     ],
   },
+  {
+    grupo: 'Extracto de Propinas',
+    icon: 'cash',
+    cor: '#0d9488',
+    vars: [
+      { tag: '{{TOTAL_PAGO}}', desc: 'Total pago pelo aluno (Kz)', exemplo: '75.000,00 Kz' },
+      { tag: '{{TOTAL_PENDENTE}}', desc: 'Total de propinas em atraso (Kz)', exemplo: '15.000,00 Kz' },
+      { tag: '{{TOTAL_CANCELADO}}', desc: 'Total de pagamentos cancelados (Kz)', exemplo: '0,00 Kz' },
+      { tag: '{{TOTAL_TRANSACCOES}}', desc: 'Número total de transacções', exemplo: '9' },
+      { tag: '{{PERIODO_INICIO}}', desc: 'Data de início do período do extracto', exemplo: '01/01/2025' },
+      { tag: '{{PERIODO_FIM}}', desc: 'Data de fim do período do extracto', exemplo: '31/12/2025' },
+      { tag: '{{DOC_REF}}', desc: 'Referência única do documento', exemplo: 'EXTR-2025001-ABC123' },
+      { tag: '{{CHEFE_SECRETARIA}}', desc: 'Nome do Chefe de Secretaria', exemplo: 'Maria da Silva' },
+    ],
+  },
 ];
 
 const TIPO_LABELS: Record<DocTipo, string> = {
@@ -185,6 +200,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   certificado_primario: 'Certificado Primário',
   ficha_inscricao: 'Boletim de Inscrição',
   recibo_salario: 'Recibo de Vencimento',
+  extrato_propina: 'Extracto de Propinas',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -201,6 +217,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   certificado_primario: '#7c3aed',
   ficha_inscricao: '#CC1A1A',
   recibo_salario: '#10b981',
+  extrato_propina: '#0d9488',
   outro: Colors.textMuted,
 };
 
@@ -1667,6 +1684,215 @@ Dados preenchidos automaticamente:
 O documento é emitido em formato A4 pronto para impressão e inclui declaração sob compromisso de honra com campos de assinatura.`,
 };
 
+// ─── Seed: Extracto de Propinas do Estudante ─────────────────────────────────
+
+const SEED_EXTRATO_PROPINA_ID = 'tpl_seed_extrato_propina_v1';
+const SEED_EXTRATO_PROPINA: DocTemplate = {
+  id: SEED_EXTRATO_PROPINA_ID,
+  nome: 'Extracto de Propinas do Estudante',
+  tipo: 'extrato_propina',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;font-size:11px;color:#111;background:#fff}
+.page{max-width:210mm;margin:0 auto;padding:18mm 18mm 14mm;min-height:297mm;position:relative}
+.print-btn{display:block;margin:10px auto 16px;padding:10px 40px;background:#1a2540;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer;font-weight:bold}
+.doc-header{display:flex;align-items:center;gap:14px;border-bottom:3px solid #1a2540;padding-bottom:12px;margin-bottom:14px}
+.doc-header-logo{width:56px;height:56px;object-fit:contain}
+.doc-header-text{flex:1}
+.rep{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;color:#555;font-weight:600}
+.escola-nome{font-size:14px;font-weight:800;color:#1a2540;text-transform:uppercase;letter-spacing:.5px}
+.doc-header-title{text-align:right}
+.titulo{font-size:13px;font-weight:800;color:#1a2540;text-transform:uppercase;letter-spacing:1px}
+.docnum{font-size:9.5px;color:#888;margin-top:4px;font-family:monospace}
+.periodo-badge{display:inline-block;margin-top:4px;background:#1a2540;color:#fff;padding:2px 8px;border-radius:10px;font-size:9px;letter-spacing:.5px}
+.aluno-box{background:#f0f4ff;border:1px solid #c5d0ee;border-radius:8px;padding:10px 14px;margin-bottom:14px}
+.aluno-name{font-size:15px;font-weight:800;color:#1a2540}
+.aluno-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 14px;margin-top:8px}
+.field label{font-size:8.5px;text-transform:uppercase;color:#888;font-weight:600;letter-spacing:.5px;display:block}
+.field span{font-size:10.5px;font-weight:600;color:#1a2540}
+.resumo-row{display:grid;grid-template-columns:repeat(3,1fr) 1fr;gap:8px;margin-bottom:14px}
+.resumo-card{border-radius:8px;padding:8px 10px;text-align:center}
+.val{font-size:13px;font-weight:800;display:block}
+.lbl{font-size:8.5px;text-transform:uppercase;letter-spacing:.5px;display:block;margin-top:2px}
+.card-pago{background:#d4edda;color:#155724}
+.card-pend{background:#fff3cd;color:#856404}
+.card-canc{background:#e2e3e5;color:#495057}
+.card-total{background:#1a2540;color:#fff}
+.section-title{font-size:9px;text-transform:uppercase;letter-spacing:1.5px;font-weight:800;color:#1a2540;margin-bottom:6px;padding-bottom:4px;border-bottom:1.5px solid #1a2540}
+table{width:100%;border-collapse:collapse}
+thead th{background:#1a2540;color:#fff;padding:7px 8px;font-size:9.5px;text-transform:uppercase;letter-spacing:.5px;text-align:left}
+.qr-bar-row{display:flex;gap:24px;align-items:center;margin:14px 0 10px;padding:12px;border:1px solid #dde0ef;border-radius:8px;background:#f9faff}
+.qr-box{text-align:center}
+.qr-box img{width:110px;height:110px;border:1px solid #dde;border-radius:4px}
+.qr-lbl{font-size:8px;text-transform:uppercase;color:#888;margin-top:4px;letter-spacing:.5px}
+.bar-box{flex:1;text-align:center}
+.bar-box svg{max-width:100%;height:60px}
+.bar-lbl{font-size:8px;text-transform:uppercase;color:#888;margin-top:2px;letter-spacing:.5px}
+.doc-info{flex:1.2;font-size:9.5px;line-height:1.7;color:#555}
+.doc-info strong{color:#1a2540}
+.sig-section{display:flex;gap:20px;margin-top:20px;justify-content:space-between}
+.sig-block{text-align:center;flex:1}
+.sig-label{font-size:9px;font-weight:700;color:#333;text-transform:uppercase;margin-bottom:24px}
+.sig-line{border-top:1px solid #333;margin:0 auto 4px;width:150px}
+.sig-name{font-size:9px;font-weight:700;color:#1a2540}
+.footer-note{margin-top:18px;border-top:1px dashed #ccc;padding-top:8px;font-size:8.5px;color:#aaa;text-align:center;line-height:1.7}
+@media print{
+  @page{size:A4 portrait;margin:12mm 14mm}
+  body{margin:0}
+  .page{padding:0;max-width:100%}
+  .print-btn{display:none!important}
+}
+</style>
+</head>
+<body>
+<button class="print-btn" onclick="window.print()">🖨 Imprimir / Guardar como PDF</button>
+<div class="page">
+
+  <!-- CABEÇALHO -->
+  <div class="doc-header">
+    <img class="doc-header-logo" src="/icons/icon-192.png" alt="Logo" onerror="this.style.display='none'"/>
+    <div class="doc-header-text">
+      <div class="rep">República de Angola</div>
+      <div class="escola-nome">{{NOME_ESCOLA}}</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Sistema Integrado de Gestão Académica</div>
+    </div>
+    <div class="doc-header-title">
+      <div class="titulo">Extracto de Propinas</div>
+      <div class="docnum">{{DOC_REF}}</div>
+      <div class="periodo-badge">Período: {{PERIODO_INICIO}} a {{PERIODO_FIM}}</div>
+    </div>
+  </div>
+
+  <!-- DADOS DO ALUNO -->
+  <div class="aluno-box">
+    <div class="aluno-name">{{NOME_COMPLETO}}</div>
+    <div class="aluno-grid">
+      <div class="field"><label>Nº de Matrícula</label><span>{{NUMERO_MATRICULA}}</span></div>
+      <div class="field"><label>Turma</label><span>{{TURMA}}</span></div>
+      <div class="field"><label>Encarregado</label><span>{{NOME_ENCARREGADO}}</span></div>
+      <div class="field"><label>Data de Emissão</label><span>{{DATA_ACTUAL}}</span></div>
+    </div>
+  </div>
+
+  <!-- RESUMO FINANCEIRO -->
+  <div class="resumo-row">
+    <div class="resumo-card card-pago">
+      <span class="val">{{TOTAL_PAGO}}</span>
+      <span class="lbl">✓ Total Pago</span>
+    </div>
+    <div class="resumo-card card-pend">
+      <span class="val">{{TOTAL_PENDENTE}}</span>
+      <span class="lbl">⏳ Pendente</span>
+    </div>
+    <div class="resumo-card card-canc">
+      <span class="val">{{TOTAL_CANCELADO}}</span>
+      <span class="lbl">✗ Cancelado</span>
+    </div>
+    <div class="resumo-card card-total">
+      <span class="val">{{TOTAL_TRANSACCOES}}</span>
+      <span class="lbl">Transacções</span>
+    </div>
+  </div>
+
+  <!-- TABELA DE MOVIMENTOS (gerada automaticamente ao emitir) -->
+  <div class="section-title">Movimentos no Período</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:80px;">Data</th>
+        <th>Descrição</th>
+        <th style="width:100px;">Método</th>
+        <th style="width:110px;text-align:right;">Valor</th>
+        <th style="width:70px;text-align:center;">Estado</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;">
+        <td style="padding:6px 8px;font-size:10px;color:#555;">01/01/2025</td>
+        <td style="padding:6px 8px;font-size:10px;"><span style="font-weight:600;color:#1a2540;">Propina · Jan · 2025</span></td>
+        <td style="padding:6px 8px;font-size:10px;color:#555;">Dinheiro</td>
+        <td style="padding:6px 8px;text-align:right;"><strong style="color:#1a6b2a;">15.000,00 Kz</strong></td>
+        <td style="padding:4px 8px;text-align:center;"><span style="font-size:9px;font-weight:bold;padding:2px 6px;border-radius:4px;color:#1a6b2a;background:#d4edda;">Pago</span></td>
+      </tr>
+      <tr style="background:#f9f9ff;">
+        <td style="padding:6px 8px;font-size:10px;color:#555;font-style:italic;" colspan="5">[ As restantes linhas são geradas automaticamente a partir dos dados do sistema ]</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- QR CODE + CÓDIGO DE BARRAS -->
+  <div class="qr-bar-row">
+    <div class="qr-box">
+      <img src="https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=DOC%3A{{DOC_REF}}%0AALUNO%3A{{NOME_COMPLETO}}%0AMATRICULA%3A{{NUMERO_MATRICULA}}%0ATOTAL%3A{{TOTAL_PAGO}}&bgcolor=ffffff&color=000000&margin=6" alt="QR Code"/>
+      <div class="qr-lbl">QR Verificação</div>
+    </div>
+    <div class="bar-box">
+      <svg id="barcode-extrato"></svg>
+      <div class="bar-lbl">Código de Barras — Nº Matrícula</div>
+    </div>
+    <div class="doc-info">
+      <strong>Documento:</strong> {{DOC_REF}}<br>
+      <strong>Aluno:</strong> {{NOME_COMPLETO}}<br>
+      <strong>Matrícula:</strong> {{NUMERO_MATRICULA}}<br>
+      <strong>Data:</strong> {{DATA_ACTUAL}}<br>
+      <strong>Total Pago:</strong> {{TOTAL_PAGO}}<br>
+      <strong>Transacções:</strong> {{TOTAL_TRANSACCOES}}
+    </div>
+  </div>
+
+  <!-- ASSINATURAS -->
+  <div class="sig-section">
+    <div class="sig-block">
+      <div class="sig-label">O Director Geral</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">{{NOME_DIRECTOR}}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O Chefe de Secretaria</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">{{CHEFE_SECRETARIA}}</div>
+    </div>
+    <div class="sig-block">
+      <div class="sig-label">O(A) Encarregado(a)</div>
+      <div class="sig-line"></div>
+      <div class="sig-name">____________________________</div>
+    </div>
+  </div>
+
+  <!-- RODAPÉ -->
+  <div class="footer-note">
+    Documento emitido em {{DATA_ACTUAL}} por {{NOME_ESCOLA}}<br>
+    Este extracto é meramente informativo e não substitui recibo oficial de pagamento.
+    Os dados apresentados reflectem o estado dos registos no sistema à data de emissão.<br>
+    Ref. {{DOC_REF}}
+  </div>
+</div>
+
+<script>
+window.addEventListener('load', function() {
+  try {
+    JsBarcode('#barcode-extrato', '{{NUMERO_MATRICULA}}', {
+      format: 'CODE128', width: 2, height: 50, displayValue: true,
+      fontSize: 11, margin: 4, background: 'transparent',
+      lineColor: '#1a2540', fontOptions: 'bold',
+    });
+  } catch(e) {
+    var el = document.getElementById('barcode-extrato');
+    if (el) el.style.display = 'none';
+  }
+});
+</script>
+</body>
+</html>`,
+};
+
 // ─── Main Screen ────────────────────────────────────────────────────────────
 
 export default function EditorDocumentos() {
@@ -1869,7 +2095,7 @@ export default function EditorDocumentos() {
         let list: DocTemplate[] = fetched ?? [];
 
         // Inject seed templates if not yet present in the database
-        const seeds = [SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const seeds = [SEED_EXTRATO_PROPINA, SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
         const existingIds = new Set(list.map(t => t.id));
         const toInsert = seeds.filter(s => !existingIds.has(s.id));
         for (const seed of toInsert) {
@@ -6097,11 +6323,14 @@ export default function EditorDocumentos() {
     const preview = template.conteudo.slice(0, 120).replace(/\n/g, ' ');
     const bloqueado = !!template.bloqueado;
     const isBoletimInscricao = template.id === SEED_BOLETIM_INSCRICAO_ID;
+    const isExtratoPropina = template.tipo === 'extrato_propina';
 
     function handleEmitir() {
       if (bloqueado) return;
       if (isBoletimInscricao) {
         router.push('/boletim-inscricao' as any);
+      } else if (isExtratoPropina) {
+        router.push('/extrato-propinas' as any);
       } else {
         openEmit(template);
       }

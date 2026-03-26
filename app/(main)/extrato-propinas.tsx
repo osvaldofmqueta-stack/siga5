@@ -118,9 +118,11 @@ export default function ExtratoPropinas() {
   const [extrato, setExtrato] = useState<Extrato | null>(null);
 
   const [showPreview, setShowPreview] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState('');
 
   const { addToast } = useToast();
   const { user } = useAuth();
+  const { config } = useConfig();
 
   const fetchAlunos = async () => {
     if (alunosFetched) return;
@@ -179,6 +181,17 @@ export default function ExtratoPropinas() {
     setExtrato(null);
     setAlunosFetched(false);
     setAllAlunos([]);
+  };
+
+  const abrirPreviewA4 = () => {
+    if (!extrato) return;
+    const html = buildExtratoProfinasHtml(extrato, {
+      nomeEscola: config.nomeEscola,
+      directorGeral: (config as any).directorGeral,
+      emitidoPor: (user as any)?.nome || user?.email || 'Sistema',
+    });
+    setPreviewHtml(html);
+    setShowPreview(true);
   };
 
   return (
@@ -372,11 +385,11 @@ export default function ExtratoPropinas() {
               </Text>
             </View>
 
-            {/* Botão imprimir (web only) */}
+            {/* Botão pré-visualizar A4 e imprimir (web only) */}
             {Platform.OS === 'web' && (
-              <TouchableOpacity style={styles.btnPrint} onPress={() => window.print()}>
-                <Ionicons name="print-outline" size={18} color="#fff" />
-                <Text style={styles.btnPrintText}>Imprimir Extracto</Text>
+              <TouchableOpacity style={styles.btnPrint} onPress={abrirPreviewA4}>
+                <Ionicons name="eye-outline" size={18} color="#fff" />
+                <Text style={styles.btnPrintText}>Pré-Visualizar A4 / Imprimir</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -436,6 +449,41 @@ export default function ExtratoPropinas() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ── Modal A4 Preview ── */}
+      {showPreview && Platform.OS === 'web' && (
+        <Modal visible={showPreview} transparent={false} animationType="slide" onRequestClose={() => setShowPreview(false)}>
+          <View style={{ flex: 1, backgroundColor: '#060f1f' }}>
+            {/* Top Bar */}
+            <View style={styles.previewTopBar}>
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setShowPreview(false)}>
+                <Ionicons name="close" size={20} color="#fff" />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.previewTitle}>Pré-Visualização A4</Text>
+                <Text style={styles.previewSubtitle}>Extracto de Propinas — Revise antes de imprimir</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.previewPrintBtn}
+                onPress={() => {
+                  const iframe = document.getElementById('extrato-a4-iframe') as HTMLIFrameElement;
+                  if (iframe?.contentWindow) iframe.contentWindow.print();
+                }}
+              >
+                <Ionicons name="print-outline" size={16} color="#fff" />
+                <Text style={styles.previewPrintText}>Imprimir / PDF</Text>
+              </TouchableOpacity>
+            </View>
+            {/* A4 Iframe */}
+            <iframe
+              id="extrato-a4-iframe"
+              srcDoc={previewHtml}
+              style={{ flex: 1, border: 'none', width: '100%', height: '100%', backgroundColor: '#d0d0d0' } as any}
+              title="Extracto de Propinas A4"
+            />
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -543,4 +591,12 @@ const styles = StyleSheet.create({
   alunoItemName: { color: '#fff', fontSize: 14, fontFamily: 'Inter_500Medium' },
   alunoItemNum: { color: '#888', fontSize: 12, fontFamily: 'Inter_400Regular' },
   modalCenter: { paddingVertical: 30, alignItems: 'center' },
+
+  // A4 Preview modal
+  previewTopBar: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#060f1f', borderBottomWidth: 1, borderBottomColor: '#1e3055' },
+  previewCloseBtn: { padding: 8, borderRadius: 8, backgroundColor: '#1a2a4a' },
+  previewTitle: { color: '#fff', fontSize: 14, fontFamily: 'Inter_700Bold' },
+  previewSubtitle: { color: '#888', fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
+  previewPrintBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#26A69A', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 8 },
+  previewPrintText: { color: '#fff', fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 });
