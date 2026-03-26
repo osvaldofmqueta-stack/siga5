@@ -4,6 +4,69 @@ import { requireAuth } from './auth';
 
 const MESES = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+const JSBARCODE_CDN = `<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>`;
+
+function buildQRUrl(data: string, size = 120): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=ffffff&color=1a2b5f&margin=4&ecc=M`;
+}
+
+function safeBarcode(val: string): string {
+  return (val || 'REF000').replace(/[^A-Z0-9\-\.\ \$\/\+\%]/gi, '').substring(0, 30) || 'REF000';
+}
+
+function buildVerificationSection(opts: {
+  barcodeId: string;
+  barcodeValue: string;
+  qrData: string;
+  docRef: string;
+  emitidoEm: string;
+  emitidoPor?: string;
+}): string {
+  const qrUrl = buildQRUrl(opts.qrData, 110);
+  const bc = safeBarcode(opts.barcodeValue);
+  return `
+<div class="verif-section" id="vs-${opts.barcodeId}">
+  <div class="verif-qr">
+    <img src="${qrUrl}" alt="QR Verificação" onerror="this.style.display='none'" />
+    <div class="verif-qr-lbl">QR Verificação</div>
+  </div>
+  <div class="verif-bar">
+    <svg id="bc-${opts.barcodeId}" class="verif-svg"></svg>
+    <div class="verif-bar-lbl">Código de Barras</div>
+  </div>
+  <div class="verif-info">
+    <strong>Ref.:</strong> ${opts.docRef}<br>
+    <strong>Emitido:</strong> ${opts.emitidoEm}<br>
+    ${opts.emitidoPor ? `<strong>Por:</strong> ${opts.emitidoPor}<br>` : ''}
+    <span style="font-size:7.5pt;color:#9ca3af">Documento autêntico verificável pelo QR</span>
+  </div>
+</div>
+<script>
+window.addEventListener('load', function() {
+  try {
+    JsBarcode('#bc-${opts.barcodeId}', '${bc}', {
+      format: 'CODE128', width: 1.8, height: 45, displayValue: true,
+      fontSize: 10, margin: 3, background: 'transparent',
+      lineColor: '#1a2b5f', fontOptions: 'bold',
+    });
+  } catch(e) { var el = document.getElementById('bc-${opts.barcodeId}'); if(el) el.style.display='none'; }
+});
+</script>`;
+}
+
+const VERIF_CSS = `
+.verif-section{display:flex;gap:16px;align-items:center;margin:14px 0 8px;padding:10px 12px;border:1px solid #dde0ef;border-radius:8px;background:#f9faff}
+.verif-qr{text-align:center;flex-shrink:0}
+.verif-qr img{width:100px;height:100px;border:1px solid #dde;border-radius:4px}
+.verif-qr-lbl{font-size:7.5pt;text-transform:uppercase;color:#888;margin-top:3px;letter-spacing:.5px}
+.verif-bar{flex:1;text-align:center}
+.verif-svg{max-width:100%;height:60px}
+.verif-bar-lbl{font-size:7.5pt;text-transform:uppercase;color:#888;margin-top:2px;letter-spacing:.5px}
+.verif-info{flex:1.2;font-size:9pt;line-height:1.8;color:#555}
+.verif-info strong{color:#1a2b5f}
+@media print{.verif-section{break-inside:avoid}}
+`;
+
 const METODO_LABEL: Record<string, string> = {
   dinheiro: 'Dinheiro',
   transferencia: 'Transferência / RUPE',
@@ -41,6 +104,23 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
   const statusColor = statusOk ? '#16a34a' : p.status === 'pendente' ? '#d97706' : '#6b7280';
   const statusLabel = statusOk ? '✓ PAGO' : p.status === 'pendente' ? '⏳ PENDENTE' : 'CANCELADO';
   const dataPagto = p.data || p.dataPagamento || p.createdAt;
+  const dataEmissaoRec = fmtDate(new Date().toISOString());
+  const verifHtml = buildVerificationSection({
+    barcodeId: `rec-${idx}-${numRef}`,
+    barcodeValue: numRef,
+    qrData: [
+      `REF: ${numRef}`,
+      `ALUNO: ${aluno?.nomeCompleto || aluno?.nome || 'N/D'}`,
+      `MATRICULA: ${aluno?.numeroMatricula || 'N/D'}`,
+      `DESCRICAO: ${tipoLabel}`,
+      `VALOR: ${fmtMoney(p.valor)} AOA`,
+      `ESTADO: ${statusLabel}`,
+      `DATA: ${fmtDate(dataPagto)}`,
+      `EMITIDO: ${dataEmissaoRec}`,
+    ].join('\n'),
+    docRef: numRef,
+    emitidoEm: dataEmissaoRec,
+  });
 
   return `<div class="recibo${idx > 0 ? ' page-break' : ''}">
   <div class="header">
@@ -77,6 +157,7 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
     <div class="info-row"><span class="info-label">Estado</span><span class="info-value" style="color:${statusColor};font-weight:700;font-size:10pt">${statusLabel}</span></div>
     ${p.observacao ? `<div class="info-row"><span class="info-label">Observação</span><span class="info-value">${p.observacao}</span></div>` : ''}
   </div>
+  ${verifHtml}
   <div class="footer">
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Responsável Financeiro</div></div>
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Encarregado de Educação</div></div>
@@ -127,7 +208,9 @@ body{font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;color:#111}
 .emitido{text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:8px;border-top:1px dashed #e5e7eb;padding-top:6px}
 .print-btn{position:fixed;top:10px;right:10px;background:#1a2b5f;color:white;border:none;padding:10px 18px;border-radius:8px;font-size:12pt;cursor:pointer;z-index:999;font-family:Arial}
 .print-btn:hover{background:#243c7a}
+${VERIF_CSS}
 </style>
+${JSBARCODE_CDN}
 </head>
 <body>
 <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
@@ -207,6 +290,25 @@ function buildBoletimHTML(aluno: any, turma: any, notas: any[], config: any, tri
     </div>`;
   }
 
+  const dataEmissaoBoletim = fmtDate(new Date().toISOString());
+  const matriculaBoletim = aluno?.numeroMatricula || 'MAT000';
+  const boletimVerif = buildVerificationSection({
+    barcodeId: `boletim-${matriculaBoletim}`,
+    barcodeValue: matriculaBoletim,
+    qrData: [
+      `DOC: BOLETIM DE NOTAS`,
+      `ESCOLA: ${escolaNome}`,
+      `ALUNO: ${nomeCompleto}`,
+      `MATRICULA: ${matriculaBoletim}`,
+      `TURMA: ${turma?.nome || 'N/D'} · ${turma?.classe || 'N/D'}`,
+      `ANO: ${anoLetivo}`,
+      `TRIMESTRE: ${trimestre ? trimestre + 'º' : 'Todos'}`,
+      `EMITIDO: ${dataEmissaoBoletim}`,
+    ].join('\n'),
+    docRef: `BOL-${matriculaBoletim}-${anoLetivo}`,
+    emitidoEm: dataEmissaoBoletim,
+  });
+
   return `<!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -253,7 +355,9 @@ tr:nth-child(even) td{background:#fafafa}
 .assinatura-label{font-size:7pt;color:#6b7280}
 .rodape{text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:6px}
 .print-btn{position:fixed;top:10px;right:10px;background:#1a2b5f;color:white;border:none;padding:10px 18px;border-radius:8px;font-size:11pt;cursor:pointer;z-index:999}
+${VERIF_CSS}
 </style>
+${JSBARCODE_CDN}
 </head>
 <body>
 <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
@@ -281,6 +385,7 @@ tr:nth-child(even) td{background:#fafafa}
 
   ${tabelasHTML || '<p style="color:#9ca3af;text-align:center;padding:20px">Sem notas registadas</p>'}
 
+  ${boletimVerif}
   <div class="footer">
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Director(a) Pedagógico(a)</div></div>
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Director(a) Geral${dirGeral ? ' – ' + dirGeral : ''}</div></div>
@@ -320,6 +425,25 @@ function buildDeclaracaoHTML(aluno: any, turma: any, config: any, tipo: string, 
   const titulo = titulos[tipo] || titulos.matricula;
   const texto = textos[tipo] || textos.matricula;
 
+  const docRefDecl = `DECL-${(aluno?.id || '').replace(/-/g,'').substring(0,8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+  const declaracaoVerif = buildVerificationSection({
+    barcodeId: `decl-${docRefDecl}`,
+    barcodeValue: docRefDecl,
+    qrData: [
+      `DOC: ${titulo}`,
+      `ESCOLA: ${escolaNome}`,
+      `ALUNO: ${nomeCompleto}`,
+      `MATRICULA: ${aluno?.numeroMatricula || 'N/D'}`,
+      `TURMA: ${turma?.nome || 'N/D'} · ${turma?.classe || 'N/D'}`,
+      `ANO: ${anoLetivo}`,
+      `VALIDADE: 90 DIAS`,
+      `EMITIDO: ${hoje}`,
+      `REF: ${docRefDecl}`,
+    ].join('\n'),
+    docRef: docRefDecl,
+    emitidoEm: hoje,
+  });
+
   return `<!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -351,7 +475,9 @@ body{font-family:'Times New Roman',Times,serif;background:#f0f0f0;color:#111;fon
 .assinatura-nome{font-size:9pt;font-weight:700;margin-top:2px}
 .rodape{text-align:center;font-size:7pt;color:#9ca3af;margin-top:30px;border-top:1px dashed #e5e7eb;padding-top:8px}
 .print-btn{position:fixed;top:10px;right:10px;background:#1a2b5f;color:white;border:none;padding:10px 18px;border-radius:8px;font-size:11pt;cursor:pointer;z-index:999;font-family:Arial}
+${VERIF_CSS}
 </style>
+${JSBARCODE_CDN}
 </head>
 <body>
 <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
@@ -372,6 +498,8 @@ body{font-family:'Times New Roman',Times,serif;background:#f0f0f0;color:#111;fon
   <p class="validade">Válida por 90 dias a partir da data de emissão</p>
 
   <div class="local-data">Luanda, ${hoje}</div>
+
+  ${declaracaoVerif}
 
   <div class="assinatura-section">
     <div class="assinatura-block">
@@ -429,6 +557,27 @@ function buildRelatorioTurmaHTML(turma: any, alunos: any[], notas: any[], config
 
   const discHeaders = disciplinas.map(d => `<th class="center" style="white-space:nowrap;font-size:7pt">${d}</th>`).join('');
 
+  const dataEmissaoRel = fmtDate(new Date().toISOString());
+  const turmaRefRel = `REL-${(turma?.id || '').replace(/-/g,'').substring(0,8).toUpperCase()}-T${trimestre}`;
+  const relatorioVerif = buildVerificationSection({
+    barcodeId: `rel-${turmaRefRel}`,
+    barcodeValue: turmaRefRel,
+    qrData: [
+      `DOC: RELATORIO DE TURMA`,
+      `ESCOLA: ${escolaNome}`,
+      `TURMA: ${turma?.nome || 'N/D'} · ${turma?.classe || 'N/D'}`,
+      `TURNO: ${turma?.turno || 'N/D'}`,
+      `ANO: ${anoLetivo}`,
+      `TRIMESTRE: ${trimestre}`,
+      `TOTAL ALUNOS: ${alunos.length}`,
+      `APROVADOS: ${aprovados}`,
+      `EMITIDO: ${dataEmissaoRel}`,
+      `REF: ${turmaRefRel}`,
+    ].join('\n'),
+    docRef: turmaRefRel,
+    emitidoEm: dataEmissaoRel,
+  });
+
   return `<!DOCTYPE html>
 <html lang="pt">
 <head>
@@ -473,7 +622,9 @@ tr:nth-child(even) td{background:#f8fafc}
 .nota-neutro{color:#9ca3af}
 .rodape{text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:6px}
 .print-btn{position:fixed;top:10px;right:10px;background:#1a2b5f;color:white;border:none;padding:10px 18px;border-radius:8px;font-size:11pt;cursor:pointer;z-index:999}
+${VERIF_CSS}
 </style>
+${JSBARCODE_CDN}
 </head>
 <body>
 <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
