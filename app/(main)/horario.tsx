@@ -259,6 +259,25 @@ export default function HorarioScreen() {
     );
   }
 
+  if (turmasAtivas.length === 0) {
+    return (
+      <View style={styles.container}>
+        <TopBar title="Horário" subtitle="Sem turmas disponíveis" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Ionicons name="calendar-outline" size={56} color={Colors.textMuted} />
+          <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 16, textAlign: 'center' }}>
+            Sem turmas atribuídas
+          </Text>
+          <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+            {isProf
+              ? 'Ainda não tem turmas atribuídas. Contacte a direcção para que lhe sejam atribuídas turmas.'
+              : 'Não existem turmas activas no sistema. Crie turmas na secção de Gestão Académica.'}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TopBar title="Horário" subtitle={turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : 'Selecione uma turma'} />

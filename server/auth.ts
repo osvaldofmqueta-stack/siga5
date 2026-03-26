@@ -74,7 +74,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "financeiro","mensagens","horario","documentos","disciplinas","admissao",
                      "notificacoes"],
   professor:        ["hub_professor","turmas","pautas","sumarios","horario","mensagens",
-                     "materiais","notificacoes"],
+                     "materiais","notificacoes","biblioteca"],
   financeiro:       ["financeiro","notificacoes"],
   rh:               ["rh_hub","rh_controle","notificacoes"],
   aluno:            ["portal_estudante","historico","horario","notificacoes"],

@@ -409,7 +409,7 @@ export default function ProfessorPlanoAulaScreen() {
   });
 
   const loadPlanos = useCallback(async () => {
-    if (!prof) return;
+    if (!prof) { setLoading(false); return; }
     setLoading(true);
     try {
       const data = await api.get<PlanoAula[]>(`/api/planos-aula/professor/${prof.id}`);
@@ -531,6 +531,20 @@ export default function ProfessorPlanoAulaScreen() {
       return (
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <ActivityIndicator size="large" color={Colors.gold} />
+        </View>
+      );
+    }
+
+    if (!prof) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+          <Ionicons name="person-outline" size={56} color={Colors.textMuted} />
+          <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 16, textAlign: 'center' }}>
+            Perfil de professor não encontrado
+          </Text>
+          <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, textAlign: 'center', lineHeight: 20 }}>
+            O seu perfil de professor ainda não foi configurado. Contacte o administrador da escola para que o seu perfil seja criado.
+          </Text>
         </View>
       );
     }
