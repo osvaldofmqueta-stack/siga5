@@ -4284,8 +4284,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       const continuidade_nomes = new Set(catRows.map(d => d.nome));
 
-      // Notas de todos os alunos da turma (todos os anos)
-      const notasRows = await query<{
+      // Notas históricas de todos os alunos da turma (todos os anos letivos)
+      // Filtra por alunoId (não por turmaId) para capturar negativas de anos anteriores
+      // e assim detectar correctamente duas negativas consecutivas (R1).
+      const alunoIds = alunosRows.map(a => a.id);
+      const notasRows = alunoIds.length === 0 ? [] : await query<{
         alunoId: string; disciplina: string; anoLetivo: string;
         classe: string; mediaAnual: string;
       }>(`
@@ -4297,10 +4300,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ROUND(AVG(n.nf)::numeric, 2)::text AS "mediaAnual"
         FROM public.notas n
         JOIN public.turmas t ON t.id = n."turmaId"
-        WHERE n."turmaId" = $1
+        WHERE n."alunoId" = ANY($1::uuid[])
         GROUP BY n."alunoId", n.disciplina, n."anoLetivo", t.classe
         ORDER BY n."alunoId", n."anoLetivo", n.disciplina
-      `, [turmaId]);
+      `, [alunoIds]);
 
       // Agrupar por aluno → disciplina
       const byAluno: Record<string, Record<string, { anoLetivo: string; classe: string; mediaAnual: number }[]>> = {};
