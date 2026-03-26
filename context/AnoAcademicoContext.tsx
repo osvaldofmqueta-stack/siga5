@@ -10,6 +10,18 @@ export interface Trimestre {
   ativo: boolean;
 }
 
+export interface EpocaExameItem {
+  dataInicio?: string;
+  dataFim?: string;
+  observacoes?: string;
+}
+
+export interface EpocasExame {
+  normal?: EpocaExameItem;
+  recurso?: EpocaExameItem;
+  especial?: EpocaExameItem;
+}
+
 export interface AnoAcademico {
   id: string;
   ano: string;
@@ -17,6 +29,7 @@ export interface AnoAcademico {
   dataFim: string;
   ativo: boolean;
   trimestres: Trimestre[];
+  epocasExame?: EpocasExame;
 }
 
 interface AnoAcademicoContextValue {

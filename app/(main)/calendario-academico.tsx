@@ -6,7 +6,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
-import { useAnoAcademico, Trimestre, AnoAcademico } from '@/context/AnoAcademicoContext';
+import { useAnoAcademico, Trimestre, AnoAcademico, EpocasExame, EpocaExameItem } from '@/context/AnoAcademicoContext';
 import { useData, Evento } from '@/context/DataContext';
 import { useProfessor, CalendarioProva } from '@/context/ProfessorContext';
 import { useAuth } from '@/context/AuthContext';
@@ -313,6 +313,104 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
 }
 
 // ─────────────────────────────────────────────────────────────
+// ÉPOCAS DE EXAME MODAL
+// ─────────────────────────────────────────────────────────────
+const EPOCAS_CFG = [
+  { key: 'normal',   label: 'Época Normal',   color: '#E74C3C', icon: 'school'           as const },
+  { key: 'recurso',  label: 'Época de Recurso', color: '#E67E22', icon: 'refresh-circle' as const },
+  { key: 'especial', label: 'Época Especial', color: '#9B59B6', icon: 'star'              as const },
+] as const;
+
+type EpocaKey = 'normal' | 'recurso' | 'especial';
+
+function EpocasExameModal({ visible, epocas, anoLabel, onClose, onSave }: {
+  visible: boolean;
+  epocas: EpocasExame;
+  anoLabel: string;
+  onClose: () => void;
+  onSave: (e: EpocasExame) => void;
+}) {
+  const [form, setForm] = useState<EpocasExame>(epocas ?? {});
+
+  useEffect(() => {
+    if (visible) setForm(epocas ?? {});
+  }, [epocas, visible]);
+
+  function setEpoca(key: EpocaKey, field: keyof EpocaExameItem, val: string) {
+    setForm(f => ({
+      ...f,
+      [key]: { ...(f[key] ?? {}), [field]: val },
+    }));
+  }
+
+  function handleSave() {
+    for (const ep of EPOCAS_CFG) {
+      const e = form[ep.key as EpocaKey];
+      if (e?.dataInicio && e?.dataFim && e.dataFim < e.dataInicio) {
+        Alert.alert('Datas inválidas', `Em "${ep.label}", a data de fim deve ser posterior à data de início.`);
+        return;
+      }
+    }
+    onSave(form);
+  }
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={mS.overlay}>
+        <View style={mS.container}>
+          <View style={[mS.header, { borderLeftColor: '#E74C3C', borderLeftWidth: 4 }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={mS.title}>Épocas de Exame</Text>
+              <Text style={{ fontSize: 12, color: Colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>
+                {anoLabel}
+              </Text>
+            </View>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={22} color={Colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            {EPOCAS_CFG.map(ep => {
+              const epKey = ep.key as EpocaKey;
+              const val = form[epKey] ?? {};
+              return (
+                <View key={ep.key} style={[mS.epocaBlock, { borderLeftColor: ep.color }]}>
+                  <View style={mS.epocaBlockHeader}>
+                    <Ionicons name={ep.icon} size={16} color={ep.color} />
+                    <Text style={[mS.epocaBlockTitle, { color: ep.color }]}>{ep.label}</Text>
+                  </View>
+                  {[
+                    { label: 'Data de Início', field: 'dataInicio' as keyof EpocaExameItem, ph: 'AAAA-MM-DD' },
+                    { label: 'Data de Fim',    field: 'dataFim'    as keyof EpocaExameItem, ph: 'AAAA-MM-DD' },
+                    { label: 'Observações (opcional)', field: 'observacoes' as keyof EpocaExameItem, ph: 'Ex: Turmas do 2.º ciclo...' },
+                  ].map(f => (
+                    <View key={f.field} style={mS.field}>
+                      <Text style={mS.fieldLabel}>{f.label}</Text>
+                      <TextInput
+                        style={[mS.input, f.field === 'observacoes' && { minHeight: 52, textAlignVertical: 'top' }]}
+                        value={(val[f.field] as string) ?? ''}
+                        onChangeText={v => setEpoca(epKey, f.field, v)}
+                        placeholder={f.ph}
+                        placeholderTextColor={Colors.textMuted}
+                        multiline={f.field === 'observacoes'}
+                      />
+                    </View>
+                  ))}
+                </View>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: '#E74C3C' }]} onPress={handleSave}>
+            <Ionicons name="checkmark" size={18} color="#fff" />
+            <Text style={mS.saveBtnText}>Guardar Épocas</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────────────────────
 type Tab = 'trimestres' | 'feriados' | 'provas' | 'anual';
@@ -338,6 +436,9 @@ export default function CalendarioAcademicoScreen() {
   // Prova
   const [editProva, setEditProva] = useState<CalendarioProva | null>(null);
   const [showProvaModal, setShowProvaModal] = useState(false);
+
+  // Épocas de Exame
+  const [showEpocasModal, setShowEpocasModal] = useState(false);
 
   const ano = anoSelecionado ?? anoAtivo;
   const isAdmin = user?.role === 'admin' || user?.role === 'director' || user?.role === 'chefe_secretaria';

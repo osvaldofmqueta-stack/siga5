@@ -68,6 +68,8 @@ export const anosAcademicos = pgTable("anos_academicos", {
   dataFim: text("dataFim").notNull(),
   ativo: boolean("ativo").notNull().default(false),
   trimestres: jsonb("trimestres").notNull().default(sql`'[]'::jsonb`),
+  // Épocas de exame: normal, recurso, especial — cada uma com dataInicio, dataFim e observacoes
+  epocasExame: jsonb("epocasExame").default(sql`'{}'::jsonb`),
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 
