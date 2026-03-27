@@ -1054,6 +1054,43 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Exclusão por Dupla Reprovação */}
+            <View style={styles.card}>
+              <SectionHeader title="Exclusão por Dupla Reprovação" icon="close-circle" />
+              <Text style={styles.configSectionDesc}>
+                Quando activo, alunos que reprovem na mesma classe duas vezes ficam automaticamente sujeitos a exclusão (anulação de matrícula).
+              </Text>
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.exclusaoDuasReprovacoes ? Colors.danger + '22' : Colors.border }]}>
+                    <MaterialCommunityIcons name="account-cancel" size={18} color={config.exclusaoDuasReprovacoes ? Colors.danger : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Dupla Reprovação → Exclusão</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.exclusaoDuasReprovacoes
+                        ? 'Activo — dupla reprovação gera exclusão automática'
+                        : 'Inactivo — dupla reprovação não gera exclusão'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.exclusaoDuasReprovacoes}
+                  onValueChange={v => {
+                    updateConfig({ exclusaoDuasReprovacoes: v });
+                    Alert.alert(
+                      v ? 'Exclusão por Dupla Reprovação Activada' : 'Exclusão por Dupla Reprovação Desactivada',
+                      v
+                        ? 'Alunos que reprovem duas vezes na mesma classe serão sujeitos a exclusão automática.'
+                        : 'A regra de exclusão por dupla reprovação foi desactivada.',
+                    );
+                  }}
+                  thumbColor={config.exclusaoDuasReprovacoes ? Colors.danger : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: Colors.danger + '55' }}
+                />
+              </View>
+            </View>
+
             {/* Provas do Trimestre */}
             <View style={styles.card}>
               <SectionHeader title="Provas do Trimestre" icon="document-text" />

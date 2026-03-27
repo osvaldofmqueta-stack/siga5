@@ -544,6 +544,30 @@ export default function GestaoAcademicaScreen() {
             locked
             onPress={() => nav('/(main)/historico')}
           />
+
+          {/* Exclusões & Faltas */}
+          <ModuloCard
+            icon={<MaterialCommunityIcons name="account-cancel" size={24} color={Colors.danger} />}
+            title="Exclusões & Faltas"
+            subtitle="Levantamento mensal de faltas, exclusões e anulações de matrícula"
+            color={Colors.danger}
+            stats={[
+              { label: 'Turmas', value: stats.totalTurmas, color: Colors.danger },
+            ]}
+            onPress={() => nav('/(main)/exclusoes-faltas')}
+          />
+
+          {/* Quadro de Honra */}
+          <ModuloCard
+            icon={<MaterialCommunityIcons name="trophy" size={24} color="#FFD700" />}
+            title="Quadro de Honra"
+            subtitle="Melhores alunos por turma e geral, melhor da escola"
+            color="#FFD700"
+            stats={[
+              { label: 'Alunos Activos', value: stats.totalAlunos, color: '#FFD700' },
+            ]}
+            onPress={() => nav('/(main)/quadro-honra')}
+          />
         </View>
 
         {/* ── Alertas e Pendências ───────────────────────────────────────── */}

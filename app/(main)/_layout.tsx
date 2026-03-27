@@ -101,6 +101,8 @@ export default function MainLayout() {
           <Stack.Screen name="med-integracao" />
           <Stack.Screen name="pagamentos-hub" />
           <Stack.Screen name="documentos-hub" />
+          <Stack.Screen name="exclusoes-faltas" />
+          <Stack.Screen name="quadro-honra" />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>

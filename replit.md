@@ -1,6 +1,20 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Extracto de Pagamentos de Propinas)
+## Recent Changes (Latest Session — Exclusões & Faltas / Quadro de Honra)
+- **app/(main)/_layout.tsx**: Adicionados `Stack.Screen` para `exclusoes-faltas` e `quadro-honra` — sem estes registos as rotas não eram reconhecidas pelo navegador Expo Router.
+- **app/(main)/gestao-academica.tsx**: Adicionados dois novos `ModuloCard` na grelha de módulos:
+  - "Exclusões & Faltas" (ícone `account-cancel`, cor danger) → navega para `/(main)/exclusoes-faltas`
+  - "Quadro de Honra" (ícone `trophy`, cor dourada `#FFD700`) → navega para `/(main)/quadro-honra`
+- **app/(main)/admin.tsx**: Adicionado toggle "Exclusão por Dupla Reprovação" na secção de configurações, que activa/desactiva a coluna `exclusaoDuasReprovacoes` da tabela `config_geral`. Quando activo, alunos que reprovem na mesma classe duas vezes ficam sujeitos a exclusão automática.
+
+### Ecrãs já existentes e funcionais (sem alterações de código)
+- **app/(main)/exclusoes-faltas.tsx**: Ecrã completo com 5 tabs — Configurações de Falta (por disciplina/director de turma), Levantamento Mensal (com filtros mês/trimestre), Exclusões por Falta, Prova Justificada e Anulação de Matrícula. Inclui todos os modais de criação e resposta.
+- **app/(main)/quadro-honra.tsx**: Ecrã completo com vista geral e por classe, card "Melhor Aluno da Escola", geração automática a partir das notas, filtros por trimestre e publicação.
+- **components/DrawerLeft.tsx**: Já incluía links para "Exclusões & Faltas" e "Quadro de Honra" nas secções pedagógicas.
+- **server/routes.ts**: Todas as rotas backend já existiam: `/api/configuracoes-falta`, `/api/registos-falta-mensal`, `/api/exclusoes-falta`, `/api/solicitacoes-prova-justificada`, `/api/anulacoes-matricula`, `/api/quadro-honra` (GET/POST/PUT/DELETE/gerar).
+- **shared/schema.ts**: Tabelas `configuracoesFalta`, `registosFaltaMensal`, `exclusoesFalta`, `solicitacoesProvaJustificada`, `anulacoesMatricula`, `quadroHonra` já definidas. `config_geral` já inclui coluna `exclusaoDuasReprovacoes boolean default false`.
+
+## Recent Changes (Previous Session — Extracto de Pagamentos de Propinas)
 - **server/routes.ts**: Nova rota `GET /api/extrato-propinas` — filtra pagamentos de um aluno por intervalo de datas; devolve info do aluno (com turma e curso via JOIN), lista de pagamentos com descrição da taxa, e resumo (totalPago, totalPendente, totalCancelado, total). Acessível a: ceo, pca, admin, director, pedagogico, chefe_secretaria, secretaria, financeiro.
 - **app/(main)/extrato-propinas.tsx** *(new)*: Ecrã completo de geração de extracto de pagamentos estilo extrato bancário:
   - Selector de aluno com modal de pesquisa por nome ou número de matrícula
