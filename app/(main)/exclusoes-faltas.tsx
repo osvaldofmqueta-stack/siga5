@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
   Modal, Alert, ActivityIndicator, RefreshControl, FlatList, Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -691,6 +692,30 @@ function AnulacaoMatriculaTab({ anulacoes, turmas, alunos, anoLetivo, userName, 
   );
 }
 
+// ─── Responsive Modal Shell ───────────────────────────────────────────────────
+
+function ModalShell({ title, onClose, children }: {
+  title: string; onClose: () => void; children: React.ReactNode;
+}) {
+  const { width } = useWindowDimensions();
+  const isWide = width >= 640;
+  return (
+    <Modal visible animationType={isWide ? 'fade' : 'slide'} transparent onRequestClose={onClose}>
+      <View style={[styles.overlay, isWide && styles.overlayWide]}>
+        <View style={[styles.modal, isWide && styles.modalWide]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={onClose}>
+              <Ionicons name="close" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+          {children}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Helper Components ────────────────────────────────────────────────────────
 
 function EmptyState({ icon, text }: { icon: string; text: string }) {
@@ -746,36 +771,28 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
   };
 
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Definir Limite de Faltas</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView>
-            <Text style={styles.label}>Turma *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmas.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => setTurmaId(t.id)}>
-                  <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <Text style={styles.label}>Disciplina * (use * para todas)</Text>
-            <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-              placeholder="Ex: Matemática ou *" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.label}>Máx. faltas por mês *</Text>
-            <TextInput style={styles.input} value={maxFaltas} onChangeText={setMaxFaltas}
-              keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
+    <ModalShell title="Definir Limite de Faltas" onClose={onClose}>
+      <ScrollView>
+        <Text style={styles.label}>Turma *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          {turmas.map(t => (
+            <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
+              onPress={() => setTurmaId(t.id)}>
+              <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+          ))}
+        </ScrollView>
+        <Text style={styles.label}>Disciplina * (use * para todas)</Text>
+        <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
+          placeholder="Ex: Matemática ou *" placeholderTextColor={Colors.textMuted} />
+        <Text style={styles.label}>Máx. faltas por mês *</Text>
+        <TextInput style={styles.input} value={maxFaltas} onChangeText={setMaxFaltas}
+          keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
+        <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
+        </TouchableOpacity>
+      </ScrollView>
+    </ModalShell>
   );
 }
 
