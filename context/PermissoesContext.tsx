@@ -14,7 +14,10 @@ export type PermKey =
   | 'gestao_acessos'
   | 'admissao' | 'disciplinas' | 'pedagogico' | 'desempenho'
   | 'visao_geral' | 'rh_hub' | 'controlo_supervisao' | 'portal_encarregado'
-  | 'biblioteca' | 'transferencias' | 'avaliacao_professores' | 'chat_interno';
+  | 'biblioteca' | 'transferencias' | 'avaliacao_professores' | 'chat_interno'
+  | 'auditoria' | 'bolsas' | 'calendario_academico' | 'pagamentos_hub'
+  | 'extrato_propinas' | 'quadro_honra' | 'rh_payroll' | 'trabalhos_finais'
+  | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios';
 
 export interface FeatureDef {
   key: PermKey;
@@ -131,12 +134,48 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     ],
   },
   {
+    categoria: 'Financeiro Avançado',
+    icon: 'cash-outline',
+    features: [
+      { key: 'financeiro_relatorios', label: 'Relatórios Financeiros', desc: 'Relatórios financeiros mensais, trimestrais e anuais com gráficos', roles: ['financeiro', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'extrato_propinas', label: 'Extrato de Propinas', desc: 'Consulta e emissão de extratos de propinas por aluno', roles: ['secretaria', 'admin', 'director', 'financeiro', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'bolsas', label: 'Bolsas e Subsídios', desc: 'Gestão de bolsas de estudo e subsídios a alunos', roles: ['admin', 'director', 'financeiro', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'pagamentos_hub', label: 'Hub de Pagamentos', desc: 'Portal de auto-serviço para alunos e encarregados efetuarem pagamentos de rubricas', roles: ['aluno', 'encarregado', 'ceo', 'pca'] },
+    ],
+  },
+  {
+    categoria: 'Planeamento Pedagógico',
+    icon: 'book-outline',
+    features: [
+      { key: 'plano_aula', label: 'Plano de Aula', desc: 'Criação e gestão de planos de aula pelos professores', roles: ['professor', 'admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'trabalhos_finais', label: 'Trabalhos Finais / PAP', desc: 'Gestão de trabalhos finais e Provas de Aptidão Profissional', roles: ['admin', 'director', 'pedagogico', 'professor', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'quadro_honra', label: 'Quadro de Honra', desc: 'Publicação e visualização do quadro de honra escolar', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'professor', 'aluno', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'exclusoes_faltas', label: 'Exclusões de Faltas', desc: 'Gestão de exclusões por excesso de faltas', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+    ],
+  },
+  {
+    categoria: 'Calendário & Documentação',
+    icon: 'calendar-outline',
+    features: [
+      { key: 'calendario_academico', label: 'Calendário Académico', desc: 'Gestão do calendário oficial do ano lectivo', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'documentos_hub', label: 'Hub de Documentos', desc: 'Centro centralizado de consulta e emissão de documentos escolares', roles: ['admin', 'director', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
+    ],
+  },
+  {
+    categoria: 'Recursos Humanos Avançado',
+    icon: 'people-outline',
+    features: [
+      { key: 'rh_payroll', label: 'Processamento de Salários', desc: 'Cálculo e emissão de folhas de vencimentos e processamento salarial', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+    ],
+  },
+  {
     categoria: 'Administração',
     icon: 'shield-checkmark',
     features: [
       { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['chefe_secretaria', 'ceo', 'pca'] },
       { key: 'controlo_supervisao', label: 'Controlo & Supervisão', desc: 'Painel de supervisão geral: utilizadores, secretaria, académico e financeiro', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'auditoria', label: 'Auditoria do Sistema', desc: 'Registo detalhado de todas as acções realizadas no sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
 ];
@@ -156,6 +195,9 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'secretaria_hub', 'editor_documentos', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
     'biblioteca', 'avaliacao_professores', 'chat_interno',
+    'auditoria', 'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
+    'rh_payroll', 'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
+    'plano_aula',
   ],
   director: [
     'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
@@ -164,28 +206,40 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'gestao_academica', 'gestao_acessos',
     'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
     'biblioteca', 'avaliacao_professores', 'chat_interno',
+    'auditoria', 'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
+    'rh_payroll', 'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
+    'plano_aula',
   ],
   secretaria: [
     'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',
     'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios',
     'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
     'admissao', 'disciplinas', 'desempenho', 'biblioteca', 'chat_interno',
+    'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
+    'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
   ],
   professor: [
     'professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario',
     'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais', 'biblioteca',
-    'chat_interno',
+    'chat_interno', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
   ],
-  aluno: ['portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos', 'biblioteca'],
-  financeiro: ['financeiro', 'notificacoes', 'boletim_propina', 'chat_interno'],
-  encarregado: ['portal_encarregado', 'notificacoes'],
-  rh: ['rh_hub', 'rh_controle', 'notificacoes', 'chat_interno'],
+  aluno: [
+    'portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos', 'biblioteca',
+    'pagamentos_hub', 'quadro_honra',
+  ],
+  financeiro: [
+    'financeiro', 'notificacoes', 'boletim_propina', 'chat_interno',
+    'financeiro_relatorios', 'extrato_propinas', 'bolsas',
+  ],
+  encarregado: ['portal_encarregado', 'notificacoes', 'pagamentos_hub'],
+  rh: ['rh_hub', 'rh_controle', 'notificacoes', 'chat_interno', 'rh_payroll'],
   pedagogico: [
     'dashboard', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
     'horario', 'historico', 'grelha', 'relatorios', 'pedagogico', 'desempenho',
     'visao_geral', 'disciplinas', 'eventos', 'notificacoes', 'editor_documentos',
     'boletim_matricula', 'gestao_academica', 'avaliacao_professores', 'biblioteca',
-    'chat_interno',
+    'chat_interno', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
+    'calendario_academico', 'plano_aula', 'documentos_hub',
   ],
 };
 

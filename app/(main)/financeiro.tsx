@@ -1794,9 +1794,19 @@ export default function FinanceiroScreen() {
     ['rubricas', 'pricetag', 'Rubricas'],
     ['por_aluno', 'person', 'Por Aluno'],
   ] as const;
-  const tabsConfig = propinaHabilitada
-    ? tabsConfigAll
-    : tabsConfigAll.filter(([k]) => k !== 'em_atraso');
+
+  const isFinanceiroRole = user?.role === 'financeiro';
+  const FINANCEIRO_TABS: TabKey[] = ['painel', 'pagamentos', 'relatorios'];
+
+  const tabsConfig = (() => {
+    const base = propinaHabilitada
+      ? tabsConfigAll
+      : tabsConfigAll.filter(([k]) => k !== 'em_atraso');
+    if (isFinanceiroRole) {
+      return base.filter(([k]) => FINANCEIRO_TABS.includes(k as TabKey));
+    }
+    return base;
+  })();
 
   return (
     <View style={st.container}>
