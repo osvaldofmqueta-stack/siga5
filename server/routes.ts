@@ -4753,6 +4753,536 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // =============================================================================
+  // CONFIGURAÇÕES DE FALTA (Director de Turma)
+  // =============================================================================
+
+  // GET /api/configuracoes-falta?turmaId=&anoLetivo=
+  app.get("/api/configuracoes-falta", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, anoLetivo } = req.query as Record<string, string>;
+      let sql = `SELECT cf.*, t.nome as "turmaNome" FROM public.configuracoes_falta cf
+        LEFT JOIN public.turmas t ON t.id = cf."turmaId" WHERE 1=1`;
+      const params: unknown[] = [];
+      if (turmaId) { params.push(turmaId); sql += ` AND cf."turmaId"=$${params.length}`; }
+      if (anoLetivo) { params.push(anoLetivo); sql += ` AND cf."anoLetivo"=$${params.length}`; }
+      sql += ' ORDER BY cf."createdAt" DESC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/configuracoes-falta
+  app.post("/api/configuracoes-falta", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { turmaId, disciplina, anoLetivo, maxFaltasMensais, definidoPor, definidoPorId } = b as Record<string, unknown>;
+      if (!turmaId || !disciplina || !anoLetivo) return json(res, 400, { error: "turmaId, disciplina e anoLetivo são obrigatórios" });
+      const max = typeof maxFaltasMensais === 'number' ? maxFaltasMensais : 3;
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.configuracoes_falta WHERE "turmaId"=$1 AND disciplina=$2 AND "anoLetivo"=$3 LIMIT 1`,
+        [turmaId, disciplina, anoLetivo]
+      );
+      let row: JsonObject;
+      if (existing.length > 0) {
+        const rows = await query<JsonObject>(
+          `UPDATE public.configuracoes_falta SET "maxFaltasMensais"=$1, "definidoPor"=$2, "definidoPorId"=$3, "updatedAt"=NOW()
+           WHERE "turmaId"=$4 AND disciplina=$5 AND "anoLetivo"=$6 RETURNING *`,
+          [max, definidoPor || '', definidoPorId || null, turmaId, disciplina, anoLetivo]
+        );
+        row = rows[0];
+      } else {
+        const rows = await query<JsonObject>(
+          `INSERT INTO public.configuracoes_falta ("turmaId",disciplina,"anoLetivo","maxFaltasMensais","definidoPor","definidoPorId")
+           VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+          [turmaId, disciplina, anoLetivo, max, definidoPor || '', definidoPorId || null]
+        );
+        row = rows[0];
+      }
+      json(res, 200, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/configuracoes-falta/:id
+  app.put("/api/configuracoes-falta/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { maxFaltasMensais, ativo } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.configuracoes_falta SET "maxFaltasMensais"=$1, ativo=$2, "updatedAt"=NOW() WHERE id=$3 RETURNING *`,
+        [maxFaltasMensais ?? 3, ativo !== false, id]
+      );
+      if (!rows.length) return json(res, 404, { error: "Não encontrado" });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // REGISTOS MENSAIS DE FALTAS
+  // =============================================================================
+
+  // GET /api/registos-falta-mensal?turmaId=&alunoId=&mes=&ano=&disciplina=
+  app.get("/api/registos-falta-mensal", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, alunoId, mes, ano, disciplina, trimestre, anoLetivo } = req.query as Record<string, string>;
+      let sql = `SELECT r.*, a.nome || ' ' || a.apelido as "alunoNomeCompleto", t.nome as "turmaNome"
+        FROM public.registos_falta_mensal r
+        LEFT JOIN public.alunos a ON a.id = r."alunoId"
+        LEFT JOIN public.turmas t ON t.id = r."turmaId"
+        WHERE 1=1`;
+      const params: unknown[] = [];
+      if (turmaId) { params.push(turmaId); sql += ` AND r."turmaId"=$${params.length}`; }
+      if (alunoId) { params.push(alunoId); sql += ` AND r."alunoId"=$${params.length}`; }
+      if (mes) { params.push(parseInt(mes)); sql += ` AND r.mes=$${params.length}`; }
+      if (ano) { params.push(parseInt(ano)); sql += ` AND r.ano=$${params.length}`; }
+      if (disciplina) { params.push(disciplina); sql += ` AND r.disciplina=$${params.length}`; }
+      if (trimestre) { params.push(parseInt(trimestre)); sql += ` AND r.trimestre=$${params.length}`; }
+      sql += ' ORDER BY r.ano DESC, r.mes DESC, r."createdAt" DESC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/registos-falta-mensal — cria ou actualiza registo mensal
+  app.post("/api/registos-falta-mensal", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, turmaId, disciplina, mes, ano, trimestre, totalFaltas, faltasJustificadas,
+        faltasInjustificadas, status, observacao, registadoPor, registadoPorId, dataRegisto } = b as Record<string, unknown>;
+      if (!alunoId || !turmaId || !disciplina || !mes || !ano) {
+        return json(res, 400, { error: "alunoId, turmaId, disciplina, mes e ano são obrigatórios" });
+      }
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.registos_falta_mensal WHERE "alunoId"=$1 AND "turmaId"=$2 AND disciplina=$3 AND mes=$4 AND ano=$5 LIMIT 1`,
+        [alunoId, turmaId, disciplina, mes, ano]
+      );
+      let row: JsonObject;
+      if (existing.length > 0) {
+        const rows = await query<JsonObject>(
+          `UPDATE public.registos_falta_mensal
+           SET trimestre=$1, "totalFaltas"=$2, "faltasJustificadas"=$3, "faltasInjustificadas"=$4,
+               status=$5, observacao=$6, "registadoPor"=$7, "registadoPorId"=$8, "dataRegisto"=$9
+           WHERE "alunoId"=$10 AND "turmaId"=$11 AND disciplina=$12 AND mes=$13 AND ano=$14 RETURNING *`,
+          [trimestre || 1, totalFaltas || 0, faltasJustificadas || 0, faltasInjustificadas || 0,
+           status || 'normal', observacao || '', registadoPor || '', registadoPorId || null,
+           dataRegisto || new Date().toISOString().slice(0, 10),
+           alunoId, turmaId, disciplina, mes, ano]
+        );
+        row = rows[0];
+      } else {
+        const rows = await query<JsonObject>(
+          `INSERT INTO public.registos_falta_mensal
+           ("alunoId","turmaId",disciplina,mes,ano,trimestre,"totalFaltas","faltasJustificadas","faltasInjustificadas",status,observacao,"registadoPor","registadoPorId","dataRegisto")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+          [alunoId, turmaId, disciplina, mes, ano, trimestre || 1, totalFaltas || 0, faltasJustificadas || 0,
+           faltasInjustificadas || 0, status || 'normal', observacao || '', registadoPor || '',
+           registadoPorId || null, dataRegisto || new Date().toISOString().slice(0, 10)]
+        );
+        row = rows[0];
+      }
+      json(res, 200, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET /api/registos-falta-mensal/resumo-trimestral?turmaId=&trimestre=&anoLetivo=
+  // Agrega registos mensais de um trimestre para relatório trimestral
+  app.get("/api/registos-falta-mensal/resumo-trimestral", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, trimestre, anoLetivo } = req.query as Record<string, string>;
+      if (!turmaId || !trimestre) return json(res, 400, { error: "turmaId e trimestre são obrigatórios" });
+      const rows = await query<JsonObject>(
+        `SELECT r."alunoId", a.nome || ' ' || a.apelido as "alunoNome", r.disciplina,
+           SUM(r."totalFaltas") as "totalFaltas",
+           SUM(r."faltasJustificadas") as "faltasJustificadas",
+           SUM(r."faltasInjustificadas") as "faltasInjustificadas",
+           MAX(r.status) as "piorStatus"
+         FROM public.registos_falta_mensal r
+         LEFT JOIN public.alunos a ON a.id = r."alunoId"
+         WHERE r."turmaId"=$1 AND r.trimestre=$2
+         GROUP BY r."alunoId", a.nome, a.apelido, r.disciplina
+         ORDER BY a.nome, r.disciplina`,
+        [turmaId, parseInt(trimestre)]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // EXCLUSÕES POR FALTA
+  // =============================================================================
+
+  // GET /api/exclusoes-falta?turmaId=&anoLetivo=&alunoId=
+  app.get("/api/exclusoes-falta", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, anoLetivo, alunoId, tipoExclusao } = req.query as Record<string, string>;
+      let sql = `SELECT e.*, a.nome || ' ' || a.apelido as "alunoNomeCompleto", a."numeroMatricula",
+          t.nome as "turmaNome"
+         FROM public.exclusoes_falta e
+         LEFT JOIN public.alunos a ON a.id = e."alunoId"
+         LEFT JOIN public.turmas t ON t.id = e."turmaId"
+         WHERE 1=1`;
+      const params: unknown[] = [];
+      if (turmaId) { params.push(turmaId); sql += ` AND e."turmaId"=$${params.length}`; }
+      if (anoLetivo) { params.push(anoLetivo); sql += ` AND e."anoLetivo"=$${params.length}`; }
+      if (alunoId) { params.push(alunoId); sql += ` AND e."alunoId"=$${params.length}`; }
+      if (tipoExclusao) { params.push(tipoExclusao); sql += ` AND e."tipoExclusao"=$${params.length}`; }
+      sql += ' ORDER BY e."createdAt" DESC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/exclusoes-falta
+  app.post("/api/exclusoes-falta", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, turmaId, disciplina, anoLetivo, trimestre, mes, ano,
+        totalFaltasAcumuladas, limiteFaltas, tipoExclusao, motivo, observacao,
+        registadoPor, registadoPorId, dataExclusao } = b as Record<string, unknown>;
+      if (!alunoId || !turmaId || !disciplina || !anoLetivo) {
+        return json(res, 400, { error: "alunoId, turmaId, disciplina e anoLetivo são obrigatórios" });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.exclusoes_falta
+         ("alunoId","turmaId",disciplina,"anoLetivo",trimestre,mes,ano,"totalFaltasAcumuladas","limiteFaltas",
+          "tipoExclusao",motivo,observacao,"registadoPor","registadoPorId","dataExclusao")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
+        [alunoId, turmaId, disciplina, anoLetivo, trimestre || 1, mes || new Date().getMonth() + 1,
+         ano || new Date().getFullYear(), totalFaltasAcumuladas || 0, limiteFaltas || 3,
+         tipoExclusao || 'exclusao_disciplina', motivo || '', observacao || '',
+         registadoPor || '', registadoPorId || null,
+         dataExclusao || new Date().toISOString().slice(0, 10)]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/exclusoes-falta/:id — anular/actualizar exclusão
+  app.put("/api/exclusoes-falta/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { status, observacao } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.exclusoes_falta SET status=$1, observacao=$2 WHERE id=$3 RETURNING *`,
+        [status || 'ativo', observacao || '', id]
+      );
+      if (!rows.length) return json(res, 404, { error: "Não encontrado" });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // SOLICITAÇÕES DE PROVA JUSTIFICADA
+  // =============================================================================
+
+  // GET /api/solicitacoes-prova-justificada?turmaId=&status=&alunoId=
+  app.get("/api/solicitacoes-prova-justificada", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId, status, alunoId, anoLetivo, trimestre } = req.query as Record<string, string>;
+      let sql = `SELECT s.*, a.nome || ' ' || a.apelido as "alunoNomeCompleto", a."numeroMatricula",
+           t.nome as "turmaNome"
+         FROM public.solicitacoes_prova_justificada s
+         LEFT JOIN public.alunos a ON a.id = s."alunoId"
+         LEFT JOIN public.turmas t ON t.id = s."turmaId"
+         WHERE 1=1`;
+      const params: unknown[] = [];
+      if (turmaId) { params.push(turmaId); sql += ` AND s."turmaId"=$${params.length}`; }
+      if (alunoId) { params.push(alunoId); sql += ` AND s."alunoId"=$${params.length}`; }
+      if (status) { params.push(status); sql += ` AND s.status=$${params.length}`; }
+      if (anoLetivo) { params.push(anoLetivo); sql += ` AND s."anoLetivo"=$${params.length}`; }
+      if (trimestre) { params.push(parseInt(trimestre)); sql += ` AND s.trimestre=$${params.length}`; }
+      sql += ' ORDER BY s."createdAt" DESC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/solicitacoes-prova-justificada
+  app.post("/api/solicitacoes-prova-justificada", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, turmaId, disciplina, anoLetivo, trimestre, tipoProva,
+        dataProvaOriginal, dataProvaJustificada, motivo, documentoJustificacao,
+        solicitadoPor, solicitadoPorId } = b as Record<string, unknown>;
+      if (!alunoId || !turmaId || !disciplina || !anoLetivo || !trimestre || !dataProvaOriginal || !motivo) {
+        return json(res, 400, { error: "Campos obrigatórios em falta" });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.solicitacoes_prova_justificada
+         ("alunoId","turmaId",disciplina,"anoLetivo",trimestre,"tipoProva","dataProvaOriginal",
+          "dataProvaJustificada",motivo,"documentoJustificacao","solicitadoPor","solicitadoPorId")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [alunoId, turmaId, disciplina, anoLetivo, trimestre, tipoProva || 'teste',
+         dataProvaOriginal, dataProvaJustificada || null, motivo,
+         documentoJustificacao || null, solicitadoPor || '', solicitadoPorId || null]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/solicitacoes-prova-justificada/:id — responder/actualizar
+  app.put("/api/solicitacoes-prova-justificada/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { status, resposta, respondidoPor, respondidoEm, dataProvaJustificada } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.solicitacoes_prova_justificada
+         SET status=$1, resposta=$2, "respondidoPor"=$3, "respondidoEm"=$4,
+             "dataProvaJustificada"=$5, "updatedAt"=NOW()
+         WHERE id=$6 RETURNING *`,
+        [status || 'pendente', resposta || '', respondidoPor || '',
+         respondidoEm || new Date().toISOString().slice(0, 10),
+         dataProvaJustificada || null, id]
+      );
+      if (!rows.length) return json(res, 404, { error: "Não encontrado" });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // ANULAÇÕES DE MATRÍCULA
+  // =============================================================================
+
+  // GET /api/anulacoes-matricula?anoLetivo=&alunoId=
+  app.get("/api/anulacoes-matricula", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { anoLetivo, alunoId, status } = req.query as Record<string, string>;
+      let sql = `SELECT am.*, t.nome as "turmaNome"
+         FROM public.anulacoes_matricula am
+         LEFT JOIN public.turmas t ON t.id = am."turmaId"
+         WHERE 1=1`;
+      const params: unknown[] = [];
+      if (anoLetivo) { params.push(anoLetivo); sql += ` AND am."anoLetivo"=$${params.length}`; }
+      if (alunoId) { params.push(alunoId); sql += ` AND am."alunoId"=$${params.length}`; }
+      if (status) { params.push(status); sql += ` AND am.status=$${params.length}`; }
+      sql += ' ORDER BY am."createdAt" DESC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/anulacoes-matricula
+  app.post("/api/anulacoes-matricula", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { alunoId, alunoNome, turmaId, turmaNome, anoLetivo, motivo, descricao,
+        dataAnulacao, registadoPor, registadoPorId, reAdmissaoPermitida, observacoes } = b as Record<string, unknown>;
+      if (!alunoId || !alunoNome || !anoLetivo || !motivo || !dataAnulacao) {
+        return json(res, 400, { error: "Campos obrigatórios em falta" });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.anulacoes_matricula
+         ("alunoId","alunoNome","turmaId","turmaNome","anoLetivo",motivo,descricao,
+          "dataAnulacao","registadoPor","registadoPorId","reAdmissaoPermitida",observacoes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        [alunoId, alunoNome, turmaId || null, turmaNome || '', anoLetivo, motivo, descricao || '',
+         dataAnulacao, registadoPor || '', registadoPorId || null,
+         reAdmissaoPermitida !== false, observacoes || '']
+      );
+      // Marcar aluno como inactivo
+      await query(`UPDATE public.alunos SET ativo=false WHERE id=$1`, [alunoId]);
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/anulacoes-matricula/:id
+  app.put("/api/anulacoes-matricula/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { status, observacoes, reAdmissaoPermitida } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.anulacoes_matricula SET status=$1, observacoes=$2, "reAdmissaoPermitida"=$3 WHERE id=$4 RETURNING *`,
+        [status || 'ativa', observacoes || '', reAdmissaoPermitida !== false, id]
+      );
+      if (!rows.length) return json(res, 404, { error: "Não encontrado" });
+      // Se revertida, reactivar o aluno
+      if (status === 'revertida') {
+        const r = rows[0] as JsonObject;
+        await query(`UPDATE public.alunos SET ativo=true WHERE id=$1`, [r.alunoId]);
+      }
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // QUADRO DE HONRA
+  // =============================================================================
+
+  // GET /api/quadro-honra?anoLetivo=&trimestre=&turmaId=
+  app.get("/api/quadro-honra", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { anoLetivo, trimestre, turmaId } = req.query as Record<string, string>;
+      let sql = `SELECT qh.*, a.nome || ' ' || a.apelido as "alunoNomeCompleto",
+           a."numeroMatricula", a.foto, t.nome as "turmaNome", t.classe
+         FROM public.quadro_honra qh
+         LEFT JOIN public.alunos a ON a.id = qh."alunoId"
+         LEFT JOIN public.turmas t ON t.id = qh."turmaId"
+         WHERE 1=1`;
+      const params: unknown[] = [];
+      if (anoLetivo) { params.push(anoLetivo); sql += ` AND qh."anoLetivo"=$${params.length}`; }
+      if (trimestre) { params.push(parseInt(trimestre)); sql += ` AND qh.trimestre=$${params.length}`; }
+      if (turmaId) { params.push(turmaId); sql += ` AND qh."turmaId"=$${params.length}`; }
+      sql += ' ORDER BY qh."posicaoGeral" ASC NULLS LAST, qh."posicaoClasse" ASC';
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/quadro-honra/gerar — calcula e persiste o quadro de honra a partir das notas
+  app.post("/api/quadro-honra/gerar", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { anoLetivo, trimestre, geradoPor } = b as Record<string, unknown>;
+      if (!anoLetivo) return json(res, 400, { error: "anoLetivo é obrigatório" });
+
+      // Agregar médias por aluno (considerando apenas alunos activos com notas lançadas)
+      let mediasQuery = `
+        SELECT n."alunoId", n."turmaId", n."anoLetivo",
+          AVG(n.nf) as "mediaGeral",
+          COUNT(DISTINCT n.disciplina) as "numDisciplinas"
+        FROM public.notas n
+        WHERE n."anoLetivo"=$1 AND n.nf > 0`;
+      const params: unknown[] = [anoLetivo];
+      if (trimestre) { params.push(trimestre); mediasQuery += ` AND n.trimestre=$${params.length}`; }
+      mediasQuery += ` GROUP BY n."alunoId", n."turmaId", n."anoLetivo"
+        HAVING COUNT(DISTINCT n.disciplina) >= 1
+        ORDER BY AVG(n.nf) DESC`;
+
+      const medias = await query<JsonObject>(mediasQuery, params);
+      if (!medias.length) return json(res, 200, { gerados: 0, msg: "Sem dados suficientes" });
+
+      // Calcular posição por turma
+      const porTurma: Record<string, JsonObject[]> = {};
+      for (const m of medias) {
+        const tid = String(m.turmaId);
+        if (!porTurma[tid]) porTurma[tid] = [];
+        porTurma[tid].push(m);
+      }
+
+      // Limpar entradas anteriores do mesmo período
+      await query(
+        `DELETE FROM public.quadro_honra WHERE "anoLetivo"=$1 AND ($2::int IS NULL OR trimestre=$2::int)`,
+        [anoLetivo, trimestre ? parseInt(String(trimestre)) : null]
+      );
+
+      // Obter nomes de turmas
+      const turmaRows = await query<JsonObject>(`SELECT id, nome FROM public.turmas`);
+      const turmaNomeMap: Record<string, string> = {};
+      for (const t of turmaRows) turmaNomeMap[String(t.id)] = String(t.nome);
+
+      // Obter nomes de alunos
+      const alunoRows = await query<JsonObject>(`SELECT id, nome, apelido FROM public.alunos`);
+      const alunoNomeMap: Record<string, string> = {};
+      for (const a of alunoRows) alunoNomeMap[String(a.id)] = `${a.nome} ${a.apelido}`;
+
+      let posicaoGeral = 0;
+      const insertedIds: string[] = [];
+
+      for (const [turmaId, alunos] of Object.entries(porTurma)) {
+        // Ordenar por média (já estão ordenados, mas garantir por turma)
+        alunos.sort((a, b) => Number(b.mediaGeral) - Number(a.mediaGeral));
+
+        for (let i = 0; i < alunos.length; i++) {
+          posicaoGeral++;
+          const m = alunos[i];
+          const media = Number(m.mediaGeral);
+
+          let mencao = '';
+          if (media >= 18) mencao = 'excelencia';
+          else if (media >= 15) mencao = 'louvor';
+          else if (media >= 14) mencao = 'honra';
+
+          const isMelhorEscola = posicaoGeral === 1;
+
+          const rows = await query<JsonObject>(
+            `INSERT INTO public.quadro_honra
+             ("alunoId","alunoNome","turmaId","turmaNome","anoLetivo",trimestre,"mediaGeral",
+              "posicaoClasse","posicaoGeral","melhorEscola",mencionado,publicado,"geradoPor")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12) RETURNING id`,
+            [m.alunoId, alunoNomeMap[String(m.alunoId)] || '', turmaId,
+             turmaNomeMap[turmaId] || '', anoLetivo,
+             trimestre ? parseInt(String(trimestre)) : null,
+             Math.round(media * 100) / 100, i + 1, posicaoGeral,
+             isMelhorEscola, mencao, geradoPor || 'Sistema']
+          );
+          insertedIds.push(String(rows[0].id));
+        }
+      }
+
+      json(res, 201, { gerados: insertedIds.length, ids: insertedIds });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/quadro-honra/:id — publicar/despublicar
+  app.put("/api/quadro-honra/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { publicado } = b as Record<string, unknown>;
+      const rows = await query<JsonObject>(
+        `UPDATE public.quadro_honra SET publicado=$1 WHERE id=$2 RETURNING *`,
+        [publicado !== false, id]
+      );
+      if (!rows.length) return json(res, 404, { error: "Não encontrado" });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // DELETE /api/quadro-honra?anoLetivo=&trimestre=
+  app.delete("/api/quadro-honra", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { anoLetivo, trimestre } = req.query as Record<string, string>;
+      if (!anoLetivo) return json(res, 400, { error: "anoLetivo é obrigatório" });
+      await query(
+        `DELETE FROM public.quadro_honra WHERE "anoLetivo"=$1 AND ($2::int IS NULL OR trimestre=$2::int)`,
+        [anoLetivo, trimestre ? parseInt(trimestre) : null]
+      );
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // =============================================================================
+  // VERIFICAÇÃO DE DUPLA REPROVAÇÃO (para uso pelo sistema de exclusão automática)
+  // =============================================================================
+
+  // GET /api/dupla-reprovacao/verificar?alunoId=&classe=
+  app.get("/api/dupla-reprovacao/verificar", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId, classe } = req.query as Record<string, string>;
+      if (!alunoId) return json(res, 400, { error: "alunoId é obrigatório" });
+
+      // Verificar configuração global de exclusão por dupla reprovação
+      const config = await query<JsonObject>(`SELECT "exclusaoDuasReprovacoes" FROM public.config_geral LIMIT 1`);
+      const habilitado = config.length > 0 && config[0].exclusaoDuasReprovacoes === true;
+
+      if (!habilitado) return json(res, 200, { habilitado: false, reprovacoes: [], risco: false });
+
+      // Contar reprovações (nf < 10) por classe a partir das notas históricas
+      // Uma reprovação = todos os trimestres do ano com nf < 10 em pelo menos 3 disciplinas
+      let sql = `
+        SELECT n."anoLetivo", n."turmaId", t.classe,
+          COUNT(DISTINCT CASE WHEN n.nf < 10 THEN n.disciplina END) as "disciplinasReprovadas",
+          COUNT(DISTINCT n.disciplina) as "totalDisciplinas"
+        FROM public.notas n
+        LEFT JOIN public.turmas t ON t.id = n."turmaId"
+        WHERE n."alunoId"=$1`;
+      const params: unknown[] = [alunoId];
+      if (classe) { params.push(classe); sql += ` AND t.classe=$${params.length}`; }
+      sql += ` GROUP BY n."anoLetivo", n."turmaId", t.classe
+               HAVING COUNT(DISTINCT CASE WHEN n.nf < 10 THEN n.disciplina END) >= 3
+               ORDER BY n."anoLetivo"`;
+
+      const reprovacoes = await query<JsonObject>(sql, params);
+      const risco = habilitado && reprovacoes.length >= 2;
+
+      json(res, 200, { habilitado, reprovacoes, risco, numReprovacoes: reprovacoes.length });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

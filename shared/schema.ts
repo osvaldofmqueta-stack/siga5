@@ -803,6 +803,9 @@ export const configGeral = pgTable("config_geral", {
   // Exame Antecipado — permite que alunos com negativa em disciplinas terminais façam exame sem arrastar para o próximo ano
   exameAntecipadoHabilitado: boolean("exameAntecipadoHabilitado").notNull().default(false),
 
+  // Exclusão por duas reprovações na mesma classe (activável/desactivável)
+  exclusaoDuasReprovacoes: boolean("exclusaoDuasReprovacoes").notNull().default(false),
+
   // PAP — Prova de Aptidão Profissional (13ª Classe / Ensino Técnico-Profissional)
   papHabilitado: boolean("papHabilitado").notNull().default(false),
   // Se true, o estágio é tratado como disciplina no plano curricular (aparece na pauta normal)
@@ -1254,3 +1257,213 @@ export const papAlunos = pgTable("pap_alunos", {
 export const insertPapAlunoSchema = createInsertSchema(papAlunos).omit({ id: true, criadoEm: true, updatedAt: true });
 export type InsertPapAluno = z.infer<typeof insertPapAlunoSchema>;
 export type PapAluno = typeof papAlunos.$inferSelect;
+
+// -----------------------
+// CONFIGURAÇÕES DE FALTA (por turma/disciplina — definido pelo Director de Turma)
+// -----------------------
+export const configuracoesFalta = pgTable("configuracoes_falta", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id, { onDelete: "cascade" }),
+  disciplina: text("disciplina").notNull(), // nome da disciplina ou '*' para todas
+  anoLetivo: text("anoLetivo").notNull(),
+
+  // Número máximo de faltas mensais antes de exclusão
+  maxFaltasMensais: integer("maxFaltasMensais").notNull().default(3),
+
+  // Activar controlo de faltas para esta turma/disciplina
+  ativo: boolean("ativo").notNull().default(true),
+
+  definidoPor: text("definidoPor").notNull().default(''), // nome do director de turma
+  definidoPorId: varchar("definidoPorId"),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ConfiguracaoFalta = typeof configuracoesFalta.$inferSelect;
+
+// -----------------------
+// REGISTOS MENSAIS DE FALTAS (controlo mensal por aluno/disciplina)
+// -----------------------
+export const registosFaltaMensal = pgTable("registos_falta_mensal", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id, { onDelete: "cascade" }),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id, { onDelete: "cascade" }),
+  disciplina: text("disciplina").notNull(),
+  mes: integer("mes").notNull(),   // 1-12
+  ano: integer("ano").notNull(),
+  trimestre: integer("trimestre").notNull().default(1), // 1|2|3
+
+  totalFaltas: integer("totalFaltas").notNull().default(0),
+  faltasJustificadas: integer("faltasJustificadas").notNull().default(0),
+  faltasInjustificadas: integer("faltasInjustificadas").notNull().default(0),
+
+  // 'normal' | 'em_risco' | 'excluido'
+  status: text("status").notNull().default('normal'),
+
+  // Registado/revisado pelo director de turma
+  observacao: text("observacao").notNull().default(''),
+  registadoPor: text("registadoPor").notNull().default(''),
+  registadoPorId: varchar("registadoPorId"),
+
+  // Data em que foi registado o levantamento mensal
+  dataRegisto: text("dataRegisto").notNull(),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RegistoFaltaMensal = typeof registosFaltaMensal.$inferSelect;
+
+// -----------------------
+// EXCLUSÕES POR FALTA (registo formal de exclusão por disciplina)
+// -----------------------
+export const exclusoesFalta = pgTable("exclusoes_falta", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id, { onDelete: "cascade" }),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  disciplina: text("disciplina").notNull(),
+  anoLetivo: text("anoLetivo").notNull(),
+  trimestre: integer("trimestre").notNull(),
+  mes: integer("mes").notNull(),
+  ano: integer("ano").notNull(),
+
+  totalFaltasAcumuladas: integer("totalFaltasAcumuladas").notNull().default(0),
+  limiteFaltas: integer("limiteFaltas").notNull().default(3),
+
+  // 'exclusao_disciplina' | 'anulacao_matricula' | 'dupla_reprovacao'
+  tipoExclusao: text("tipoExclusao").notNull().default('exclusao_disciplina'),
+
+  motivo: text("motivo").notNull().default(''),
+  observacao: text("observacao").notNull().default(''),
+
+  registadoPor: text("registadoPor").notNull(),
+  registadoPorId: varchar("registadoPorId"),
+
+  // Status: 'ativo' | 'anulado' (se a exclusão foi revertida por decisão superior)
+  status: text("status").notNull().default('ativo'),
+
+  dataExclusao: text("dataExclusao").notNull(),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ExclusaoFalta = typeof exclusoesFalta.$inferSelect;
+
+// -----------------------
+// SOLICITAÇÕES DE PROVA JUSTIFICADA
+// -----------------------
+export const solicitacoesProvaJustificada = pgTable("solicitacoes_prova_justificada", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id, { onDelete: "cascade" }),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  disciplina: text("disciplina").notNull(),
+  anoLetivo: text("anoLetivo").notNull(),
+  trimestre: integer("trimestre").notNull(),
+
+  // Tipo de prova perdida
+  tipoProva: text("tipoProva").notNull().default('teste'), // 'teste' | 'exame' | 'mini_teste' | 'trabalho'
+
+  // Data original da prova perdida
+  dataProvaOriginal: text("dataProvaOriginal").notNull(),
+
+  // Data proposta para a prova justificada (pode ser definida pela escola)
+  dataProvaJustificada: text("dataProvaJustificada"),
+
+  motivo: text("motivo").notNull(),
+  documentoJustificacao: text("documentoJustificacao"), // nome/referência do documento
+
+  // 'pendente' | 'aprovada' | 'rejeitada' | 'realizada'
+  status: text("status").notNull().default('pendente'),
+
+  resposta: text("resposta").notNull().default(''),
+  respondidoPor: text("respondidoPor").notNull().default(''),
+  respondidoEm: text("respondidoEm"),
+
+  solicitadoPor: text("solicitadoPor").notNull(), // nome do encarregado/aluno
+  solicitadoPorId: varchar("solicitadoPorId"),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type SolicitacaoProvaJustificada = typeof solicitacoesProvaJustificada.$inferSelect;
+
+// -----------------------
+// ANULAÇÕES DE MATRÍCULA
+// -----------------------
+export const anulacoesMatricula = pgTable("anulacoes_matricula", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id),
+  alunoNome: text("alunoNome").notNull(),
+  turmaId: varchar("turmaId"),
+  turmaNome: text("turmaNome").notNull().default(''),
+  anoLetivo: text("anoLetivo").notNull(),
+
+  // 'voluntaria' | 'disciplinar' | 'financeira' | 'faltas' | 'dupla_reprovacao' | 'outro'
+  motivo: text("motivo").notNull(),
+  descricao: text("descricao").notNull().default(''),
+
+  dataAnulacao: text("dataAnulacao").notNull(),
+
+  registadoPor: text("registadoPor").notNull(),
+  registadoPorId: varchar("registadoPorId"),
+
+  // Documentos associados ao processo
+  documentos: jsonb("documentos").notNull().default(sql`'[]'::jsonb`),
+
+  // Se o aluno pode ser re-admitido
+  reAdmissaoPermitida: boolean("reAdmissaoPermitida").notNull().default(false),
+  observacoes: text("observacoes").notNull().default(''),
+
+  // Status: 'ativa' | 'revertida'
+  status: text("status").notNull().default('ativa'),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type AnulacaoMatricula = typeof anulacoesMatricula.$inferSelect;
+
+// -----------------------
+// QUADRO DE HONRA
+// -----------------------
+export const quadroHonra = pgTable("quadro_honra", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  alunoId: varchar("alunoId").notNull().references(() => alunos.id, { onDelete: "cascade" }),
+  alunoNome: text("alunoNome").notNull(),
+  turmaId: varchar("turmaId").notNull().references(() => turmas.id),
+  turmaNome: text("turmaNome").notNull(),
+  anoLetivo: text("anoLetivo").notNull(),
+  trimestre: integer("trimestre"), // null = anual
+
+  mediaGeral: real("mediaGeral").notNull().default(0),
+  posicaoClasse: integer("posicaoClasse").notNull().default(1),
+  posicaoGeral: integer("posicaoGeral"),
+
+  // Melhor da escola no ano académico
+  melhorEscola: boolean("melhorEscola").notNull().default(false),
+
+  mencionado: text("mencionado").notNull().default(''), // 'louvor' | 'honra' | 'excelencia'
+  publicado: boolean("publicado").notNull().default(false),
+
+  geradoPor: text("geradoPor").notNull().default('Sistema'),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type QuadroHonraEntry = typeof quadroHonra.$inferSelect;
