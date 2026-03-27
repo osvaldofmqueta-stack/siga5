@@ -313,107 +313,141 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
 }
 
 // ─────────────────────────────────────────────────────────────
-// ÉPOCAS DE EXAME MODAL
+// ÉPOCA CONFIGS
 // ─────────────────────────────────────────────────────────────
 const EPOCAS_CFG = [
-  { key: 'normal',   label: 'Época Normal',   color: '#E74C3C', icon: 'school'           as const },
-  { key: 'recurso',  label: 'Época de Recurso', color: '#E67E22', icon: 'refresh-circle' as const },
-  { key: 'especial', label: 'Época Especial', color: '#9B59B6', icon: 'star'              as const },
+  { key: 'normal',   label: 'Época Normal',     color: '#E74C3C', icon: 'school'          as const },
+  { key: 'recurso',  label: 'Época de Recurso',  color: '#E67E22', icon: 'refresh-circle' as const },
+  { key: 'especial', label: 'Época Especial',    color: '#9B59B6', icon: 'star'            as const },
 ] as const;
 
 type EpocaKey = 'normal' | 'recurso' | 'especial';
 
-function EpocasExameModal({ visible, epocas, anoLabel, onClose, onSave }: {
-  visible: boolean;
-  epocas: EpocasExame;
-  anoLabel: string;
-  onClose: () => void;
-  onSave: (e: EpocasExame) => void;
+// ─────────────────────────────────────────────────────────────
+// CALENDAR RANGE PICKER (visual, tap to select)
+// ─────────────────────────────────────────────────────────────
+function CalRangePicker({ start, end, color, onChange }: {
+  start: string; end: string; color: string;
+  onChange: (s: string, e: string) => void;
 }) {
-  const [form, setForm] = useState<EpocasExame>(epocas ?? {});
+  const today = todayStr();
+  const getInitialYm = () => (start ? start.slice(0, 7) : today.slice(0, 7));
+  const [ym, setYm] = useState(getInitialYm);
 
-  useEffect(() => {
-    if (visible) setForm(epocas ?? {});
-  }, [epocas, visible]);
+  useEffect(() => { if (start) setYm(start.slice(0, 7)); }, [start]);
 
-  function setEpoca(key: EpocaKey, field: keyof EpocaExameItem, val: string) {
-    setForm(f => ({
-      ...f,
-      [key]: { ...(f[key] ?? {}), [field]: val },
-    }));
-  }
+  const [y, m0] = ym.split('-').map(Number);
+  const m = m0 - 1;
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const firstDow = new Date(y, m, 1).getDay();
 
-  function handleSave() {
-    for (const ep of EPOCAS_CFG) {
-      const e = form[ep.key as EpocaKey];
-      if (e?.dataInicio && e?.dataFim && e.dataFim < e.dataInicio) {
-        Alert.alert('Datas inválidas', `Em "${ep.label}", a data de fim deve ser posterior à data de início.`);
-        return;
-      }
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const toDate = (day: number) => `${y}-${pad(m + 1)}-${pad(day)}`;
+
+  function prevMon() { const d = new Date(y, m - 1, 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); }
+  function nextMon() { const d = new Date(y, m + 1, 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); }
+
+  function handleDay(day: number) {
+    const d = toDate(day);
+    if (!start || (start && end)) {
+      onChange(d, '');
+    } else {
+      if (d === start) { onChange('', ''); }
+      else if (d < start) { onChange(d, start); }
+      else { onChange(start, d); }
     }
-    onSave(form);
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={mS.overlay}>
-        <View style={mS.container}>
-          <View style={[mS.header, { borderLeftColor: '#E74C3C', borderLeftWidth: 4 }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={mS.title}>Épocas de Exame</Text>
-              <Text style={{ fontSize: 12, color: Colors.textMuted, fontFamily: 'Inter_400Regular', marginTop: 2 }}>
-                {anoLabel}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={22} color={Colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            {EPOCAS_CFG.map(ep => {
-              const epKey = ep.key as EpocaKey;
-              const val = form[epKey] ?? {};
-              return (
-                <View key={ep.key} style={[mS.epocaBlock, { borderLeftColor: ep.color }]}>
-                  <View style={mS.epocaBlockHeader}>
-                    <Ionicons name={ep.icon} size={16} color={ep.color} />
-                    <Text style={[mS.epocaBlockTitle, { color: ep.color }]}>{ep.label}</Text>
-                  </View>
-                  {[
-                    { label: 'Data de Início', field: 'dataInicio' as keyof EpocaExameItem, ph: 'AAAA-MM-DD' },
-                    { label: 'Data de Fim',    field: 'dataFim'    as keyof EpocaExameItem, ph: 'AAAA-MM-DD' },
-                    { label: 'Observações (opcional)', field: 'observacoes' as keyof EpocaExameItem, ph: 'Ex: Turmas do 2.º ciclo...' },
-                  ].map(f => (
-                    <View key={f.field} style={mS.field}>
-                      <Text style={mS.fieldLabel}>{f.label}</Text>
-                      <TextInput
-                        style={[mS.input, f.field === 'observacoes' && { minHeight: 52, textAlignVertical: 'top' }]}
-                        value={(val[f.field] as string) ?? ''}
-                        onChangeText={v => setEpoca(epKey, f.field, v)}
-                        placeholder={f.ph}
-                        placeholderTextColor={Colors.textMuted}
-                        multiline={f.field === 'observacoes'}
-                      />
-                    </View>
-                  ))}
-                </View>
-              );
-            })}
-          </ScrollView>
-          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: '#E74C3C' }]} onPress={handleSave}>
-            <Ionicons name="checkmark" size={18} color="#fff" />
-            <Text style={mS.saveBtnText}>Guardar Épocas</Text>
-          </TouchableOpacity>
-        </View>
+    <View style={crS.wrap}>
+      <View style={crS.nav}>
+        <TouchableOpacity style={crS.navBtn} onPress={prevMon}>
+          <Ionicons name="chevron-back" size={18} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={crS.navLabel}>{MESES_FULL[m]} {y}</Text>
+        <TouchableOpacity style={crS.navBtn} onPress={nextMon}>
+          <Ionicons name="chevron-forward" size={18} color={Colors.text} />
+        </TouchableOpacity>
       </View>
-    </Modal>
+
+      <View style={crS.grid}>
+        {['D','S','T','Q','Q','S','S'].map((lbl, i) => (
+          <Text key={i} style={crS.dow}>{lbl}</Text>
+        ))}
+        {Array.from({ length: firstDow }, (_, i) => <View key={`e${i}`} style={crS.cell} />)}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const day = i + 1;
+          const d = toDate(day);
+          const isStart = d === start;
+          const isEnd = d === end;
+          const inRange = !!(start && end && d > start && d < end);
+          const isToday = d === today;
+          return (
+            <TouchableOpacity
+              key={day}
+              style={[
+                crS.cell,
+                inRange && { backgroundColor: `${color}28` },
+                (isStart || isEnd) && { backgroundColor: color, borderRadius: 8 },
+                isToday && !isStart && !isEnd && { borderWidth: 1.5, borderColor: color, borderRadius: 8 },
+              ]}
+              onPress={() => handleDay(day)}
+              activeOpacity={0.7}
+            >
+              <Text style={[
+                crS.cellNum,
+                (isStart || isEnd) && { color: '#fff', fontFamily: 'Inter_700Bold' },
+                isToday && !isStart && !isEnd && { color },
+                !isStart && !isEnd && !inRange && !isToday && { color: Colors.textMuted },
+              ]}>{day}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <View style={crS.summary}>
+        <View style={crS.summaryItem}>
+          <Text style={crS.summaryLabel}>INÍCIO</Text>
+          <Text style={[crS.summaryVal, { color: start ? color : Colors.textMuted }]}>{start ? formatDate(start) : '—'}</Text>
+        </View>
+        <Ionicons name="arrow-forward" size={14} color={Colors.border} />
+        <View style={crS.summaryItem}>
+          <Text style={crS.summaryLabel}>FIM</Text>
+          <Text style={[crS.summaryVal, { color: end ? color : Colors.textMuted }]}>{end ? formatDate(end) : '—'}</Text>
+        </View>
+        {start && end && (
+          <>
+            <Ionicons name="arrow-forward" size={14} color={Colors.border} />
+            <View style={crS.summaryItem}>
+              <Text style={crS.summaryLabel}>DURAÇÃO</Text>
+              <Text style={[crS.summaryVal, { color }]}>{diffDays(start, end) + 1} dias</Text>
+            </View>
+          </>
+        )}
+      </View>
+    </View>
   );
 }
+
+const crS = StyleSheet.create({
+  wrap:         { backgroundColor: Colors.surface, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  nav:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  navBtn:       { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 8, backgroundColor: Colors.backgroundCard },
+  navLabel:     { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  grid:         { flexDirection: 'row', flexWrap: 'wrap', padding: 8, gap: 2 },
+  dow:          { width: '14.28%', textAlign: 'center', fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted, paddingBottom: 6, textTransform: 'uppercase' },
+  cell:         { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
+  cellNum:      { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text },
+  summary:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.backgroundCard },
+  summaryItem:  { alignItems: 'center', gap: 2 },
+  summaryLabel: { fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted, letterSpacing: 0.5 },
+  summaryVal:   { fontSize: 13, fontFamily: 'Inter_700Bold' },
+});
 
 // ─────────────────────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────────────────────
-type Tab = 'trimestres' | 'feriados' | 'provas' | 'anual';
+type Tab = 'trimestres' | 'epocas' | 'feriados' | 'provas' | 'anual';
 
 export default function CalendarioAcademicoScreen() {
   const insets = useSafeAreaInsets();
@@ -437,13 +471,18 @@ export default function CalendarioAcademicoScreen() {
   const [editProva, setEditProva] = useState<CalendarioProva | null>(null);
   const [showProvaModal, setShowProvaModal] = useState(false);
 
-  // Épocas de Exame
-  const [showEpocasModal, setShowEpocasModal] = useState(false);
-  const [savingEpocas, setSavingEpocas] = useState(false);
+  // Épocas de Exame – draft state
+  const [epocasDraft, setEpocasDraft] = useState<EpocasExame>({});
+  const [savingEpoca, setSavingEpoca] = useState<string | null>(null);
 
   const ano = anoSelecionado ?? anoAtivo;
   const isAdmin = user?.role === 'admin' || user?.role === 'director' || user?.role === 'chefe_secretaria';
   const today = todayStr();
+
+  // Sync épocas draft whenever the active year changes
+  useEffect(() => {
+    setEpocasDraft(ano?.epocasExame ?? {});
+  }, [ano?.id]);
 
   const feriados = useMemo(() =>
     eventos.filter(e => e.tipo === 'Feriado').sort((a, b) => a.data.localeCompare(b.data)),
@@ -454,6 +493,27 @@ export default function CalendarioAcademicoScreen() {
     [...calendarioProvas].sort((a, b) => a.data.localeCompare(b.data)),
     [calendarioProvas]
   );
+
+  // ── Save época de exame ───────────────────────────────────
+  async function handleSaveEpoca(key: EpocaKey) {
+    if (!ano) return;
+    const epItem = epocasDraft[key] ?? {};
+    if (epItem.dataInicio && epItem.dataFim && epItem.dataFim < epItem.dataInicio) {
+      Alert.alert('Datas inválidas', 'A data de fim deve ser posterior à data de início.');
+      return;
+    }
+    setSavingEpoca(key);
+    try {
+      const merged: EpocasExame = { ...(ano.epocasExame ?? {}), [key]: epItem };
+      await updateAno(ano.id, { epocasExame: merged });
+      const label = EPOCAS_CFG.find(e => e.key === key)?.label ?? key;
+      alertSucesso('Época guardada', `"${label}" actualizada com sucesso.`);
+    } catch {
+      alertErro('Erro', 'Não foi possível guardar a época de exame.');
+    } finally {
+      setSavingEpoca(null);
+    }
+  }
 
   // ── Save trimestre ────────────────────────────────────────
   async function handleSaveTrimestre(updated: Trimestre) {
@@ -710,6 +770,178 @@ export default function CalendarioAcademicoScreen() {
   }
 
   // ─────────────────────────────────────────────────────────
+  // RENDER: ÉPOCAS DE EXAME TAB
+  // ─────────────────────────────────────────────────────────
+  function renderEpocas() {
+    if (!ano) {
+      return (
+        <View style={styles.emptyState}>
+          <MaterialCommunityIcons name="calendar-blank" size={44} color={Colors.textMuted} />
+          <Text style={styles.emptyText}>Nenhum ano académico configurado.</Text>
+          <Text style={styles.emptySubText}>Configure um ano académico primeiro.</Text>
+        </View>
+      );
+    }
+
+    const getStatus = (ep: EpocaExameItem | undefined): { label: string; color: string } => {
+      if (!ep?.dataInicio || !ep?.dataFim) return { label: 'Por definir', color: Colors.textMuted };
+      if (today < ep.dataInicio) {
+        const days = diffDays(today, ep.dataInicio);
+        return { label: `Em ${days} dia${days !== 1 ? 's' : ''}`, color: Colors.info };
+      }
+      if (today > ep.dataFim) return { label: 'Concluída', color: Colors.textMuted };
+      const days = diffDays(today, ep.dataFim);
+      return { label: `Em curso · ${days} dia${days !== 1 ? 's' : ''} restante${days !== 1 ? 's' : ''}`, color: Colors.success };
+    };
+
+    return (
+      <ScrollView contentContainerStyle={[styles.tabContent, { paddingBottom: 120 }]} showsVerticalScrollIndicator={false}>
+
+        {/* Header info */}
+        <View style={epS.infoCard}>
+          <Ionicons name="information-circle-outline" size={18} color={Colors.info} />
+          <Text style={epS.infoText}>
+            Defina os períodos de exame a nível do sistema. Toque num dia para seleccionar o início e depois o fim do período.
+          </Text>
+        </View>
+
+        {EPOCAS_CFG.map(cfg => {
+          const key = cfg.key as EpocaKey;
+          const draft = epocasDraft[key] ?? {};
+          const saved = ano.epocasExame?.[key] ?? {};
+          const status = getStatus(saved);
+          const isSaving = savingEpoca === key;
+          const isNormal = key === 'normal';
+
+          const isDirty =
+            (draft.dataInicio ?? '') !== (saved.dataInicio ?? '') ||
+            (draft.dataFim    ?? '') !== (saved.dataFim    ?? '') ||
+            (draft.observacoes ?? '') !== (saved.observacoes ?? '');
+
+          return (
+            <View key={key} style={[epS.epochCard, isNormal && epS.epochCardNormal, { borderLeftColor: cfg.color, borderLeftWidth: 4 }]}>
+              {/* Card header */}
+              <View style={epS.epochHeader}>
+                <View style={[epS.epochIconWrap, { backgroundColor: `${cfg.color}20` }]}>
+                  <Ionicons name={cfg.icon} size={18} color={cfg.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <View style={epS.epochTitleRow}>
+                    <Text style={[epS.epochTitle, { color: cfg.color }]}>{cfg.label}</Text>
+                    {isNormal && (
+                      <View style={epS.systemBadge}>
+                        <Ionicons name="globe-outline" size={10} color={Colors.info} />
+                        <Text style={epS.systemBadgeText}>Sistema</Text>
+                      </View>
+                    )}
+                  </View>
+                  <View style={epS.epochStatusRow}>
+                    <View style={[epS.statusDot, { backgroundColor: status.color }]} />
+                    <Text style={[epS.statusLabel, { color: status.color }]}>{status.label}</Text>
+                  </View>
+                </View>
+                {saved.dataInicio && saved.dataFim && (
+                  <View style={epS.epochDatesMini}>
+                    <Text style={epS.epochDatesMiniText}>{formatDate(saved.dataInicio)}</Text>
+                    <Text style={[epS.epochDatesMiniText, { color: Colors.textMuted }]}>→</Text>
+                    <Text style={epS.epochDatesMiniText}>{formatDate(saved.dataFim)}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* Calendar picker – only for admins */}
+              {isAdmin ? (
+                <>
+                  <Text style={epS.pickerHint}>
+                    {!draft.dataInicio
+                      ? 'Toque numa data para definir o início'
+                      : !draft.dataFim
+                      ? 'Agora toque na data de fim'
+                      : 'Período seleccionado · toque numa data para redefinir'}
+                  </Text>
+                  <CalRangePicker
+                    start={draft.dataInicio ?? ''}
+                    end={draft.dataFim ?? ''}
+                    color={cfg.color}
+                    onChange={(s, e) =>
+                      setEpocasDraft(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), dataInicio: s, dataFim: e } }))
+                    }
+                  />
+
+                  {/* Observações */}
+                  <View style={{ marginTop: 12 }}>
+                    <Text style={epS.obsLabel}>OBSERVAÇÕES (opcional)</Text>
+                    <TextInput
+                      style={epS.obsInput}
+                      value={draft.observacoes ?? ''}
+                      onChangeText={v => setEpocasDraft(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), observacoes: v } }))}
+                      placeholder="Ex: Aplica-se a todas as turmas do ensino secundário..."
+                      placeholderTextColor={Colors.textMuted}
+                      multiline
+                    />
+                  </View>
+
+                  {/* Save button */}
+                  <TouchableOpacity
+                    style={[epS.saveBtn, { backgroundColor: cfg.color }, (!isDirty || isSaving) && epS.saveBtnDisabled]}
+                    onPress={() => handleSaveEpoca(key)}
+                    disabled={!isDirty || isSaving}
+                  >
+                    {isSaving
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name={isDirty ? 'save-outline' : 'checkmark-circle'} size={16} color="#fff" />
+                    }
+                    <Text style={epS.saveBtnText}>
+                      {isSaving ? 'A guardar...' : isDirty ? 'Guardar' : 'Guardado'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                /* Read-only view for non-admins */
+                saved.dataInicio && saved.dataFim ? (
+                  <View style={epS.readOnlyRow}>
+                    <Ionicons name="calendar-outline" size={15} color={cfg.color} />
+                    <Text style={epS.readOnlyText}>
+                      {formatDate(saved.dataInicio)} → {formatDate(saved.dataFim)}
+                      {' · '}{diffDays(saved.dataInicio, saved.dataFim) + 1} dias
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={epS.readOnlyNone}>Período ainda não definido</Text>
+                )
+              )}
+
+              {saved.observacoes ? (
+                <Text style={epS.obsDisplay}>{saved.observacoes}</Text>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {/* Year selector */}
+        {anos.length > 1 && (
+          <View style={styles.yearSelector}>
+            <Text style={styles.yearSelectorLabel}>Outros anos:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {anos.map(a => (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={[styles.yearBtn, a.id === ano?.id && styles.yearBtnActive]}
+                    onPress={() => setAnoSelecionado(a)}
+                  >
+                    <Text style={[styles.yearBtnText, a.id === ano?.id && styles.yearBtnTextActive]}>{a.ano}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────
   // RENDER: FERIADOS TAB
   // ─────────────────────────────────────────────────────────
   function renderFeriados() {
@@ -898,12 +1130,19 @@ export default function CalendarioAcademicoScreen() {
     const feriadosDatas = new Set(feriados.map(f => f.data));
     const provasDatas = new Set(provasOrdenadas.map(p => p.data));
 
+    const epocaNormal = ano.epocasExame?.normal;
+    const epocaRecurso = ano.epocasExame?.recurso;
+    const epocaEspecial = ano.epocasExame?.especial;
+
     function getDayInfo(year: number, month: number, day: number): {
       trimColor: string | null;
       isExam: boolean;
       isFeriado: boolean;
       isProva: boolean;
       isToday: boolean;
+      isEpocaNormal: boolean;
+      isEpocaRecurso: boolean;
+      isEpocaEspecial: boolean;
     } {
       const d = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       let trimColor: string | null = null;
@@ -919,12 +1158,17 @@ export default function CalendarioAcademicoScreen() {
           }
         }
       }
+      const inEpoca = (ep: EpocaExameItem | undefined) =>
+        !!(ep?.dataInicio && ep?.dataFim && d >= ep.dataInicio && d <= ep.dataFim);
       return {
         trimColor,
         isExam,
         isFeriado: feriadosDatas.has(d),
         isProva: provasDatas.has(d),
         isToday: d === today,
+        isEpocaNormal:   inEpoca(epocaNormal),
+        isEpocaRecurso:  inEpoca(epocaRecurso),
+        isEpocaEspecial: inEpoca(epocaEspecial),
       };
     }
 
@@ -942,12 +1186,30 @@ export default function CalendarioAcademicoScreen() {
             <View style={[styles.legendDot, { backgroundColor: Colors.danger, opacity: 0.7 }]} />
             <Text style={styles.legendText}>Exames</Text>
           </View>
+          {epocaNormal?.dataInicio && epocaNormal?.dataFim && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#E74C3C' }]} />
+              <Text style={styles.legendText}>Ép. Normal</Text>
+            </View>
+          )}
+          {epocaRecurso?.dataInicio && epocaRecurso?.dataFim && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#E67E22' }]} />
+              <Text style={styles.legendText}>Recurso</Text>
+            </View>
+          )}
+          {epocaEspecial?.dataInicio && epocaEspecial?.dataFim && (
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: '#9B59B6' }]} />
+              <Text style={styles.legendText}>Especial</Text>
+            </View>
+          )}
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: Colors.warning }]} />
             <Text style={styles.legendText}>Feriado</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#9B59B6' }]} />
+            <View style={[styles.legendDot, { backgroundColor: '#7F8C8D' }]} />
             <Text style={styles.legendText}>Prova</Text>
           </View>
         </View>
@@ -978,10 +1240,14 @@ export default function CalendarioAcademicoScreen() {
                   const info = getDayInfo(year, month, d + 1);
                   const bgColor = info.isToday ? Colors.gold
                     : info.isFeriado ? Colors.warning
-                    : info.isProva ? '#9B59B6'
+                    : info.isProva ? '#7F8C8D'
+                    : info.isEpocaNormal ? '#E74C3C'
+                    : info.isEpocaRecurso ? '#E67E22'
+                    : info.isEpocaEspecial ? '#9B59B6'
                     : info.isExam ? `${info.trimColor}99`
                     : info.trimColor ? `${info.trimColor}35`
                     : 'transparent';
+                  const isEpoca = info.isEpocaNormal || info.isEpocaRecurso || info.isEpocaEspecial;
                   return (
                     <View key={d} style={[styles.dayCell, { backgroundColor: bgColor }]}>
                       <Text style={[
@@ -989,7 +1255,8 @@ export default function CalendarioAcademicoScreen() {
                         info.isToday && { color: '#0D1B3E', fontFamily: 'Inter_700Bold' },
                         info.isFeriado && { color: '#fff' },
                         info.isProva && { color: '#fff' },
-                        !info.trimColor && !info.isToday && { color: Colors.textMuted, opacity: 0.4 },
+                        isEpoca && { color: '#fff', fontFamily: 'Inter_600SemiBold' },
+                        !info.trimColor && !info.isToday && !isEpoca && { color: Colors.textMuted, opacity: 0.4 },
                       ]}>{d + 1}</Text>
                     </View>
                   );
@@ -1006,10 +1273,11 @@ export default function CalendarioAcademicoScreen() {
   // MAIN RENDER
   // ─────────────────────────────────────────────────────────
   const TABS: { key: Tab; label: string; icon: string }[] = [
-    { key: 'trimestres', label: 'Trimestres', icon: 'calendar' },
-    { key: 'feriados',   label: 'Feriados',   icon: 'flag' },
-    { key: 'provas',     label: 'Provas',      icon: 'document-text' },
-    { key: 'anual',      label: 'Vista Anual', icon: 'grid' },
+    { key: 'trimestres', label: 'Trimestres',  icon: 'calendar' },
+    { key: 'epocas',     label: 'Épocas',       icon: 'school' },
+    { key: 'feriados',   label: 'Feriados',     icon: 'flag' },
+    { key: 'provas',     label: 'Provas',        icon: 'document-text' },
+    { key: 'anual',      label: 'Vista Anual',  icon: 'grid' },
   ];
 
   const FAB_VISIBLE = tab === 'feriados' || tab === 'provas';
@@ -1045,6 +1313,7 @@ export default function CalendarioAcademicoScreen() {
 
       {/* Tab content */}
       {tab === 'trimestres' && renderTrimestres()}
+      {tab === 'epocas'     && renderEpocas()}
       {tab === 'feriados'   && renderFeriados()}
       {tab === 'provas'     && renderProvas()}
       {tab === 'anual'      && renderAnual()}
@@ -1241,4 +1510,44 @@ const styles = StyleSheet.create({
 
   // FAB
   fab:            { position: 'absolute', right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.gold, alignItems: 'center', justifyContent: 'center', elevation: 8, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+});
+
+// ─────────────────────────────────────────────────────────────
+// ÉPOCAS TAB STYLES
+// ─────────────────────────────────────────────────────────────
+const epS = StyleSheet.create({
+  infoCard:        { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: `${Colors.info}12`, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: `${Colors.info}30` },
+  infoText:        { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18 },
+
+  epochCard:       { backgroundColor: Colors.backgroundCard, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: Colors.border, gap: 14 },
+  epochCardNormal: { borderWidth: 1.5, shadowColor: '#E74C3C', shadowOpacity: 0.08, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 3 },
+
+  epochHeader:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  epochIconWrap:   { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  epochTitleRow:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
+  epochTitle:      { fontSize: 16, fontFamily: 'Inter_700Bold' },
+
+  systemBadge:     { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: `${Colors.info}15`, borderWidth: 1, borderColor: `${Colors.info}30` },
+  systemBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.info, textTransform: 'uppercase', letterSpacing: 0.3 },
+
+  epochStatusRow:  { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  statusDot:       { width: 7, height: 7, borderRadius: 4 },
+  statusLabel:     { fontSize: 12, fontFamily: 'Inter_500Medium' },
+
+  epochDatesMini:  { alignItems: 'flex-end', gap: 2 },
+  epochDatesMiniText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+
+  pickerHint:      { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', fontStyle: 'italic' },
+
+  obsLabel:        { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6 },
+  obsInput:        { backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, minHeight: 56, textAlignVertical: 'top' },
+  obsDisplay:      { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic', paddingTop: 4, borderTopWidth: 1, borderTopColor: Colors.border },
+
+  saveBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, paddingVertical: 14 },
+  saveBtnDisabled: { opacity: 0.45 },
+  saveBtnText:     { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  readOnlyRow:     { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, backgroundColor: Colors.surface, borderRadius: 10 },
+  readOnlyText:    { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary, flex: 1 },
+  readOnlyNone:    { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', paddingVertical: 8 },
 });
