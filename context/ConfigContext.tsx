@@ -48,6 +48,8 @@ export interface ConfigGeral {
   irtTabela: IrtEscalao[];
   // Meses do ano académico (números: 9=Set, 10=Out, ...)
   mesesAnoAcademico: number[];
+  // Exame Antecipado — alunos com negativa em disciplina terminal podem fazer exame sem arrastar para o próximo ano
+  exameAntecipadoHabilitado: boolean;
   // PAP — Prova de Aptidão Profissional (13ª Classe)
   papHabilitado: boolean;
   estagioComoDisciplina: boolean;
@@ -92,6 +94,7 @@ const DEFAULT_CONFIG: ConfigGeral = {
   inssPatrPerc: 8,
   irtTabela: DEFAULT_IRT,
   mesesAnoAcademico: [9, 10, 11, 12, 1, 2, 3, 4, 5, 6, 7],
+  exameAntecipadoHabilitado: false,
   papHabilitado: false,
   estagioComoDisciplina: false,
   papDisciplinasContribuintes: [],
@@ -144,6 +147,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           mesesAnoAcademico: Array.isArray(raw.mesesAnoAcademico) && (raw.mesesAnoAcademico as any[]).length > 0
             ? (raw.mesesAnoAcademico as number[])
             : DEFAULT_CONFIG.mesesAnoAcademico,
+          exameAntecipadoHabilitado: raw.exameAntecipadoHabilitado !== undefined ? Boolean(raw.exameAntecipadoHabilitado) : DEFAULT_CONFIG.exameAntecipadoHabilitado,
           papHabilitado: raw.papHabilitado !== undefined ? Boolean(raw.papHabilitado) : DEFAULT_CONFIG.papHabilitado,
           estagioComoDisciplina: raw.estagioComoDisciplina !== undefined ? Boolean(raw.estagioComoDisciplina) : DEFAULT_CONFIG.estagioComoDisciplina,
           papDisciplinasContribuintes: Array.isArray(raw.papDisciplinasContribuintes)

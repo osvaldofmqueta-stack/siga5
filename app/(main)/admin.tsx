@@ -1373,29 +1373,29 @@ export default function AdminScreen() {
                 />
               </View>
 
+              {/* Toggle estágio como disciplina — sempre visível */}
+              <View style={[styles.configToggleRow, { marginTop: 8 }]}>
+                <View style={[styles.configToggleIcon, { backgroundColor: config.estagioComoDisciplina ? Colors.info + '22' : Colors.border }]}>
+                  <Ionicons name="school-outline" size={18} color={config.estagioComoDisciplina ? Colors.info : Colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configToggleLabel}>Estágio como Disciplina no Plano Curricular</Text>
+                  <Text style={styles.configToggleSub}>
+                    {config.estagioComoDisciplina
+                      ? 'Activo — o estágio aparece como disciplina normal na pauta e no plano curricular'
+                      : 'Desactivado — o estágio tem campo próprio no lançamento PAP (campo "Nota do Estágio")'}
+                  </Text>
+                </View>
+                <Switch
+                  value={config.estagioComoDisciplina}
+                  onValueChange={v => updateConfig({ estagioComoDisciplina: v })}
+                  trackColor={{ false: Colors.border, true: Colors.info + '55' }}
+                  thumbColor={config.estagioComoDisciplina ? Colors.info : Colors.textMuted}
+                />
+              </View>
+
               {config.papHabilitado && (
                 <>
-                  {/* Toggle estágio como disciplina */}
-                  <View style={[styles.configToggleRow, { marginTop: 8 }]}>
-                    <View style={[styles.configToggleIcon, { backgroundColor: config.estagioComoDisciplina ? Colors.info + '22' : Colors.border }]}>
-                      <Ionicons name="school-outline" size={18} color={config.estagioComoDisciplina ? Colors.info : Colors.textMuted} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.configToggleLabel}>Estágio como Disciplina no Plano Curricular</Text>
-                      <Text style={styles.configToggleSub}>
-                        {config.estagioComoDisciplina
-                          ? 'Activo — o estágio aparece como disciplina normal na pauta e não tem campo separado no lançamento PAP'
-                          : 'Desactivado — o estágio tem campo próprio no lançamento PAP (campo "Nota do Estágio")'}
-                      </Text>
-                    </View>
-                    <Switch
-                      value={config.estagioComoDisciplina}
-                      onValueChange={v => updateConfig({ estagioComoDisciplina: v })}
-                      trackColor={{ false: Colors.border, true: Colors.info + '55' }}
-                      thumbColor={config.estagioComoDisciplina ? Colors.info : Colors.textMuted}
-                    />
-                  </View>
-
                   {/* Disciplinas contribuintes */}
                   <View style={{ marginTop: 14 }}>
                     <Text style={styles.configFieldLabel}>Disciplinas Contribuintes para a Nota PAP</Text>
@@ -1475,6 +1475,49 @@ export default function AdminScreen() {
                   </View>
                 </>
               )}
+            </View>
+
+            {/* Exame Antecipado */}
+            <View style={styles.card}>
+              <SectionHeader title="Exame Antecipado" icon="time" color={Colors.warning} />
+              <Text style={styles.configSectionDesc}>
+                Permite que alunos com negativa numa disciplina terminal façam exame antecipado no mesmo ano lectivo, evitando arrastar a reprovação para o ano subsequente. Funcionalidade prevista na política educacional — pode ser activada ou desactivada conforme as directrizes do MED.
+              </Text>
+
+              <View style={styles.configToggleRow}>
+                <View style={[styles.configToggleIcon, { backgroundColor: config.exameAntecipadoHabilitado ? Colors.warning + '22' : Colors.border }]}>
+                  <Ionicons name="time-outline" size={18} color={config.exameAntecipadoHabilitado ? Colors.warning : Colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configToggleLabel}>Exame Antecipado Habilitado</Text>
+                  <Text style={styles.configToggleSub}>
+                    {config.exameAntecipadoHabilitado
+                      ? 'Activo — alunos com negativa em disciplinas terminais podem solicitar exame antecipado no mesmo ano'
+                      : 'Desactivado — alunos transitam com negativa para o ano subsequente (regime normal)'}
+                  </Text>
+                </View>
+                <Switch
+                  value={config.exameAntecipadoHabilitado}
+                  onValueChange={v => {
+                    updateConfig({ exameAntecipadoHabilitado: v });
+                    Alert.alert(
+                      v ? 'Exame Antecipado Activado' : 'Exame Antecipado Desactivado',
+                      v
+                        ? 'Os alunos com negativa em disciplinas terminais poderão solicitar exame antecipado para não arrastar a negativa.'
+                        : 'O regime de exame antecipado foi desactivado. Os alunos seguem o regime normal.',
+                    );
+                  }}
+                  trackColor={{ false: Colors.border, true: Colors.warning + '55' }}
+                  thumbColor={config.exameAntecipadoHabilitado ? Colors.warning : Colors.textMuted}
+                />
+              </View>
+
+              <View style={{ marginTop: 12, flexDirection: 'row', gap: 8, backgroundColor: Colors.warning + '12', borderRadius: 10, padding: 12, alignItems: 'flex-start' }}>
+                <Ionicons name="information-circle" size={16} color={Colors.warning} />
+                <Text style={{ fontSize: 11, color: Colors.warning, fontFamily: 'Inter_400Regular', flex: 1, lineHeight: 16 }}>
+                  Aplica-se a disciplinas terminais (ex: 10ª ou 11ª Classe). Quando activo, o aluno com nota final negativa nessas disciplinas não vai para o próximo ano com negativa — solicita exame antecipado para resolver a situação no corrente ano lectivo.
+                </Text>
+              </View>
             </View>
 
             {/* Pagamentos Online */}
