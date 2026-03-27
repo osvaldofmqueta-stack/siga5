@@ -9,6 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
+import { getApiUrl } from '@/lib/query-client';
 
 export const PROVISORIO_KEY = '@sgaa_provisorio';
 
@@ -29,7 +30,7 @@ export default function LoginProvisorioScreen() {
     }
     setIsLoading(true);
     try {
-      const res = await fetch('/api/login-provisorio', {
+      const res = await fetch(new URL('/api/login-provisorio', getApiUrl()).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: email.trim().toLowerCase(), senha: senha.trim() }),

@@ -14,6 +14,7 @@ import { useAuth, saveAuthToken } from '@/context/AuthContext';
 import type { AuthUser } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { getApiUrl } from '@/lib/query-client';
 
 const { width, height } = Dimensions.get('window');
 
@@ -285,7 +286,7 @@ export default function LoginScreen() {
     const emailTrimmed = email.toLowerCase().trim();
     const savedAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
     try {
-      const res = await fetch('/api/login', {
+      const res = await fetch(new URL('/api/login', getApiUrl()).toString(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: emailTrimmed, senha }),

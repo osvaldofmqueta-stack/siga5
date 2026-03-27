@@ -12,6 +12,18 @@ function shouldQueue(method: string, route: string): boolean {
 
 export function getApiUrl(): string {
   if (typeof window !== "undefined" && typeof document !== "undefined") {
+    const { protocol, hostname, port, origin } = window.location;
+    const configuredApiUrl = process.env.EXPO_PUBLIC_API_URL;
+
+    if (configuredApiUrl) {
+      return configuredApiUrl;
+    }
+
+    // Local web dev usually serves UI on :8000 and API on :5000.
+    if ((hostname === "localhost" || hostname === "127.0.0.1") && port === "8000") {
+      return `${protocol}//${hostname}:5000`;
+    }
+
     return window.location.origin;
   }
 
