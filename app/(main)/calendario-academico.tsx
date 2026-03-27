@@ -439,6 +439,7 @@ export default function CalendarioAcademicoScreen() {
 
   // Épocas de Exame
   const [showEpocasModal, setShowEpocasModal] = useState(false);
+  const [savingEpocas, setSavingEpocas] = useState(false);
 
   const ano = anoSelecionado ?? anoAtivo;
   const isAdmin = user?.role === 'admin' || user?.role === 'director' || user?.role === 'chefe_secretaria';
