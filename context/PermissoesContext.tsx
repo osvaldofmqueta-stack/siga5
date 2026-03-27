@@ -39,7 +39,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     icon: 'grid',
     features: [
       { key: 'dashboard', label: 'Dashboard Principal', desc: 'Visão geral da escola com estatísticas', roles: ['admin', 'director', 'pedagogico', 'ceo', 'pca'] },
-      { key: 'ceo_dashboard', label: 'Dashboard CEO', desc: 'Painel executivo de alto nível', roles: ['ceo', 'pca'] },
+      { key: 'ceo_dashboard', label: 'Dashboard CEO', desc: 'Painel executivo de alto nível — acesso exclusivo à direcção executiva', roles: ['ceo', 'pca'] },
       { key: 'secretaria_hub', label: 'Painel da Secretaria', desc: 'Hub central da secretaria escolar', roles: ['secretaria', 'ceo', 'pca'] },
       { key: 'professor_hub', label: 'Painel do Professor', desc: 'Hub pessoal do professor', roles: ['professor', 'ceo', 'pca'] },
       { key: 'portal_estudante', label: 'Portal do Estudante', desc: 'Área pessoal do aluno', roles: ['aluno', 'ceo', 'pca'] },
@@ -81,8 +81,8 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Financeiro',
     icon: 'cash',
     features: [
-      { key: 'financeiro', label: 'Gestão Financeira', desc: 'Propinas, pagamentos e rubricas', roles: ['admin', 'director', 'secretaria', 'financeiro', 'ceo', 'pca'] },
-      { key: 'boletim_propina', label: 'Boletim de Propina', desc: 'Geração de recibos de propina', roles: ['secretaria', 'admin', 'director', 'financeiro', 'ceo', 'pca'] },
+      { key: 'financeiro', label: 'Gestão Financeira', desc: 'Propinas, pagamentos e rubricas — gestão operacional do departamento financeiro', roles: ['financeiro', 'admin', 'director', 'ceo', 'pca'] },
+      { key: 'boletim_propina', label: 'Boletim de Propina', desc: 'Geração de recibos de propina — emitido pelo financeiro e disponível à secretaria para entrega ao aluno', roles: ['financeiro', 'secretaria', 'admin', 'director', 'ceo', 'pca'] },
     ],
   },
   {
@@ -98,7 +98,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     icon: 'bar-chart',
     features: [
       { key: 'relatorios', label: 'Relatórios & Análise', desc: 'Gráficos e exportação de dados', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'ceo', 'pca'] },
-      { key: 'rh_controle', label: 'Controlo de RH', desc: 'Gestão de recursos humanos', roles: ['admin', 'director', 'secretaria', 'ceo', 'pca'] },
+      { key: 'rh_controle', label: 'Controlo de RH', desc: 'Gestão de recursos humanos — responsabilidade do departamento de RH e direcção', roles: ['rh', 'admin', 'director', 'ceo', 'pca'] },
       { key: 'desempenho', label: 'Análise de Desempenho', desc: 'Análise detalhada de notas e desempenho por turma e aluno', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'visao_geral', label: 'Visão Geral Multi-Ano', desc: 'Comparação de indicadores académicos e financeiros entre anos lectivos', roles: ['admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'rh_hub', label: 'Hub de Recursos Humanos', desc: 'Centro de gestão de RH: professores, contratos, avaliações e presenças', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
@@ -172,7 +172,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Administração',
     icon: 'shield-checkmark',
     features: [
-      { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'admin', label: 'Super Administração', desc: 'Configurações avançadas do sistema — exclusivo ao administrador técnico do sistema', roles: ['admin', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['chefe_secretaria', 'ceo', 'pca'] },
       { key: 'controlo_supervisao', label: 'Controlo & Supervisão', desc: 'Painel de supervisão geral: utilizadores, secretaria, académico e financeiro', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'auditoria', label: 'Auditoria do Sistema', desc: 'Registo detalhado de todas as acções realizadas no sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
@@ -195,9 +195,11 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
 
   // ── Director: direcção estratégica e supervisão institucional ────
   // Visão global de todos os departamentos, aprovações e decisões.
+  // Supervisiona mas NÃO opera: não configura o sistema (admin), não gere
+  // acessos (chefe_secretaria/admin), não acede ao hub operacional da secretaria.
   // Não faz operações financeiras nem de RH directamente.
   director: [
-    'dashboard', 'ceo_dashboard', 'eventos', 'notificacoes', 'chat_interno',
+    'dashboard', 'eventos', 'notificacoes', 'chat_interno',
     'calendario_academico', 'controlo_supervisao', 'auditoria',
     // Académico (supervisão)
     'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
@@ -210,9 +212,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'financeiro_relatorios', 'extrato_propinas',
     // RH (supervisão)
     'rh_hub', 'rh_controle',
-    // Admin
-    'admin', 'gestao_acessos', 'secretaria_hub', 'editor_documentos',
-    'boletim_matricula', 'boletim_propina', 'documentos_hub',
+    // Documentos (director assina e revê documentos oficiais)
+    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
   ],
 
   // ── Admin: configuração do sistema e gestão de utilizadores ──────
@@ -259,10 +260,12 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   // ── RH: recursos humanos e processamento salarial ────────────────
   // Gestão de pessoal docente, contratos, avaliações, folhas de salário.
   // NÃO faz gestão académica de alunos nem financeiro de propinas.
+  // NÃO acede a sumários de aula (professor_sumario) — esses são registos
+  // lectivos do professor, não documentos de RH.
   rh: [
     'rh_hub', 'rh_controle', 'rh_payroll', 'notificacoes', 'chat_interno',
-    // Acesso ao pessoal docente (necessário para RH)
-    'professores', 'horario', 'professor_sumario', 'calendario_academico',
+    // Acesso ao registo do pessoal docente (necessário para contratos e avaliações)
+    'professores', 'horario', 'calendario_academico',
   ],
 
   // ── Pedagógico: qualidade académica e currículo ──────────────────
