@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.card, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 10, paddingVertical: 8,
   },
-  searchInput: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, outline: 'none' as any },
+  searchInput: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, outlineWidth: 0 } as any,
 
   pagRow: {
     flexDirection: 'row', backgroundColor: Colors.card,

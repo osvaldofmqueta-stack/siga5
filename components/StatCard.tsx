@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Animated, TouchableOpacity, Platform } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 interface StatCardProps {
@@ -19,8 +19,8 @@ export default function StatCard({ label, value, icon, color, subtitle, onPress,
   useEffect(() => {
     setTimeout(() => {
       Animated.parallel([
-        Animated.spring(scale, { toValue: 1, useNativeDriver: true, damping: 15 }),
-        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, useNativeDriver: Platform.OS !== 'web', damping: 15 }),
+        Animated.timing(opacity, { toValue: 1, duration: 300, useNativeDriver: Platform.OS !== 'web' }),
       ]).start();
     }, delay);
   }, []);

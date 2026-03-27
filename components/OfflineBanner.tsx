@@ -10,18 +10,19 @@ export default function OfflineBanner() {
   const [syncedVisible, setSyncedVisible] = React.useState(false);
 
   useEffect(() => {
+    const nd = Platform.OS !== 'web';
     if (!isOnline) {
       wasOffline.current = true;
       Animated.spring(translateY, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: nd,
         tension: 80,
         friction: 10,
       }).start();
     } else {
       Animated.spring(translateY, {
         toValue: -60,
-        useNativeDriver: true,
+        useNativeDriver: nd,
         tension: 80,
         friction: 10,
       }).start();

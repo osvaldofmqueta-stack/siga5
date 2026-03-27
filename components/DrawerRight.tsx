@@ -43,17 +43,18 @@ export default function DrawerRight() {
   const confirmAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    const nd = Platform.OS !== 'web';
     Animated.parallel([
       Animated.spring(translateX, {
         toValue: rightOpen ? 0 : DRAWER_WIDTH,
-        useNativeDriver: true,
+        useNativeDriver: nd,
         damping: 20,
         stiffness: 200,
       }),
       Animated.timing(opacity, {
         toValue: rightOpen ? 1 : 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: nd,
       }),
     ]).start();
 
@@ -63,9 +64,10 @@ export default function DrawerRight() {
   }, [rightOpen]);
 
   useEffect(() => {
+    const nd = Platform.OS !== 'web';
     Animated.spring(confirmAnim, {
       toValue: confirmLogout ? 1 : 0,
-      useNativeDriver: true,
+      useNativeDriver: nd,
       damping: 18,
       stiffness: 200,
     }).start();
@@ -99,7 +101,7 @@ export default function DrawerRight() {
   const roleColor = roleColors[user?.role ?? ''] ?? Colors.success;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={rightOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: rightOpen ? 'auto' : 'none' } as any]}>
       <Animated.View style={[styles.overlay, { opacity }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeRight} activeOpacity={1} />
       </Animated.View>

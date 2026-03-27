@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 export type TipoTaxa = 'propina' | 'matricula' | 'material' | 'exame' | 'multa' | 'outro';
 export type FrequenciaTaxa = 'mensal' | 'trimestral' | 'anual' | 'unica';
@@ -133,6 +134,7 @@ export function formatAOA(valor: number): string {
 }
 
 export function FinanceiroProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [taxas, setTaxas] = useState<Taxa[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [multaConfig, setMultaConfig] = useState<MultaConfig>(DEFAULT_MULTA_CONFIG);
@@ -143,7 +145,10 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [movimentosSaldo, setMovimentosSaldo] = useState<MovimentoSaldo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => {
+    if (isAuthenticated) loadData();
+    else setIsLoading(false);
+  }, [isAuthenticated]);
 
   async function loadData() {
     try {

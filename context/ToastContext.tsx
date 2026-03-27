@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <View style={styles.container} pointerEvents="none">
+      <View style={[styles.container, { pointerEvents: 'none' } as any]}>
         {toasts.map(toast => (
           <View key={toast.id} style={[styles.toast, styles[toast.type]]}>
             <Text style={styles.text}>{toast.message}</Text>

@@ -2039,9 +2039,9 @@ export default function EditorDocumentos() {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToastMsg(message);
     setToastType(type);
-    Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+    Animated.timing(toastAnim, { toValue: 1, duration: 250, useNativeDriver: Platform.OS !== 'web' }).start();
     toastTimer.current = setTimeout(() => {
-      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: true }).start();
+      Animated.timing(toastAnim, { toValue: 0, duration: 300, useNativeDriver: Platform.OS !== 'web' }).start();
     }, 3000);
   }
 
@@ -6220,11 +6220,10 @@ export default function EditorDocumentos() {
 
       {/* ── Toast notification overlay ── */}
       <Animated.View
-        pointerEvents="none"
         style={[
           styles.toastContainer,
-          { opacity: toastAnim, transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] },
-        ]}
+          { pointerEvents: 'none', opacity: toastAnim, transform: [{ translateY: toastAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] },
+        ] as any}
       >
         <View style={[styles.toastInner, { backgroundColor: tc.bg, borderColor: tc.border }]}>
           <Ionicons name={tc.icon} size={18} color={tc.iconColor} />
@@ -7401,11 +7400,11 @@ export default function EditorDocumentos() {
                 ) : (
                   <View style={styles.previewOuter}>
                     {emitTemplate?.marcaAguaBase64 ? (
-                      <View style={styles.watermarkContainer} pointerEvents="none">
+                      <View style={[styles.watermarkContainer, { pointerEvents: 'none' } as any]}>
                         <Image source={{ uri: emitTemplate.marcaAguaBase64 }} style={styles.watermarkImage} resizeMode="contain" />
                       </View>
                     ) : (
-                      <View style={styles.watermarkContainer} pointerEvents="none">
+                      <View style={[styles.watermarkContainer, { pointerEvents: 'none' } as any]}>
                         <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
                       </View>
                     )}

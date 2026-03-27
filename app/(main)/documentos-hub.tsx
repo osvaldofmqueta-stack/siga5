@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
   cardLabel: { fontSize: 12, color: Colors.textMuted, fontWeight: '600', marginBottom: 8, textTransform: 'uppercase', letterSpacing: .5 },
   searchRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.background, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: Colors.text, outline: 'none' } as any,
+  searchInput: { flex: 1, fontSize: 14, color: Colors.text, outlineWidth: 0 } as any,
   dropdown: { backgroundColor: Colors.surface, borderRadius: 8, marginTop: 6, borderWidth: 1, borderColor: Colors.border, maxHeight: 200 },
   dropItem: { padding: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   dropItemActive: { backgroundColor: Colors.info + '10' },

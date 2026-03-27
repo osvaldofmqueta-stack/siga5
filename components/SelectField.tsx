@@ -37,7 +37,7 @@ export default function SelectField({
           {required && <Text style={styles.required}>*</Text>}
         </View>
         <div style={{ position: 'relative', display: 'block' }}>
-          <View style={styles.inputWrap} pointerEvents="none">
+          <View style={[styles.inputWrap, { pointerEvents: 'none' } as any]}>
             <Text style={[styles.displayText, !value && styles.placeholder]}>
               {value || placeholder}
             </Text>

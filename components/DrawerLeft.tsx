@@ -50,17 +50,18 @@ export default function DrawerLeft() {
 
   useEffect(() => {
     if (isDesktop) return;
+    const nd = Platform.OS !== 'web';
     Animated.parallel([
       Animated.spring(translateX, {
         toValue: leftOpen ? 0 : -DRAWER_WIDTH,
-        useNativeDriver: true,
+        useNativeDriver: nd,
         damping: 20,
         stiffness: 200,
       }),
       Animated.timing(opacity, {
         toValue: leftOpen ? 1 : 0,
         duration: 250,
-        useNativeDriver: true,
+        useNativeDriver: nd,
       }),
     ]).start();
   }, [leftOpen, isDesktop]);
@@ -930,7 +931,7 @@ export default function DrawerLeft() {
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents={leftOpen ? 'auto' : 'none'}>
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: leftOpen ? 'auto' : 'none' } as any]}>
       <Animated.View style={[styles.overlay, { opacity }]}>
         <TouchableOpacity style={StyleSheet.absoluteFill} onPress={closeLeft} activeOpacity={1} />
       </Animated.View>

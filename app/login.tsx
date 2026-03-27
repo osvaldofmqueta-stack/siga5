@@ -622,7 +622,7 @@ export default function LoginScreen() {
   );
 
   const bgDecorations = (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' } as any]}>
       <View style={styles.circle1} />
       <View style={styles.circle2} />
       <View style={styles.circle3} />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { api } from '../lib/api';
-import { UserRole } from './AuthContext';
+import { UserRole, useAuth } from './AuthContext';
 
 export interface StoredUser {
   id: string;
@@ -27,10 +27,14 @@ interface UsersContextValue {
 const UsersContext = createContext<UsersContextValue | null>(null);
 
 export function UsersProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [users, setUsers] = useState<StoredUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (isAuthenticated) load();
+    else setIsLoading(false);
+  }, [isAuthenticated]);
 
   async function load() {
     try {

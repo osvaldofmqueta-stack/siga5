@@ -24,9 +24,9 @@ function ToastItem({ toast, onDone }: { toast: Toast; onDone: (id: number) => vo
 
   useEffect(() => {
     Animated.sequence([
-      Animated.spring(anim, { toValue: 1, useNativeDriver: true, damping: 14, stiffness: 160 }),
+      Animated.spring(anim, { toValue: 1, useNativeDriver: Platform.OS !== 'web', damping: 14, stiffness: 160 }),
       Animated.delay(toast.duration - 400),
-      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: Platform.OS !== 'web' }),
     ]).start(() => onDone(toast.id));
   }, []);
 
@@ -64,7 +64,7 @@ export default function ToastManager() {
   if (toasts.length === 0) return null;
 
   return (
-    <View style={styles.container} pointerEvents="none">
+    <View style={styles.container}>
       {toasts.map(t => (
         <ToastItem key={t.id} toast={t} onDone={remove} />
       ))}

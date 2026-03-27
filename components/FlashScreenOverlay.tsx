@@ -43,9 +43,10 @@ export default function FlashScreenOverlay() {
     setCountdown(flash.duracao);
     setVisible(true);
 
+    const nd = Platform.OS !== 'web';
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      Animated.spring(scale, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 400, useNativeDriver: nd }),
+      Animated.spring(scale, { toValue: 1, damping: 18, stiffness: 100, useNativeDriver: nd }),
     ]).start();
 
     let remaining = flash.duracao;
@@ -65,9 +66,10 @@ export default function FlashScreenOverlay() {
   function dismiss() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (autoCloseRef.current) clearTimeout(autoCloseRef.current);
+    const nd = Platform.OS !== 'web';
     Animated.parallel([
-      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-      Animated.timing(scale, { toValue: 0.92, duration: 300, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: nd }),
+      Animated.timing(scale, { toValue: 0.92, duration: 300, useNativeDriver: nd }),
     ]).start(() => setVisible(false));
   }
 

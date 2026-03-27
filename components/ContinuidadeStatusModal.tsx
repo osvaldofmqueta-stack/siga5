@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
   },
   anosContainer: {
     borderRadius: 8, overflow: 'hidden',
-    borderWidth: 1, borderColor: Colors.border + '50',
+    borderWidth: 1, borderColor: Colors.border,
   },
   anoRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
