@@ -184,63 +184,122 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
 const ALL_KEYS: PermKey[] = FEATURE_CATEGORIES.flatMap(c => c.features.map(f => f.key));
 
 export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
+  // ── Executivos: acesso total ──────────────────────────────────────
   ceo: [...ALL_KEYS],
   pca: [...ALL_KEYS],
-  // Chefe de Secretaria: parametriza tudo excepto dashboard CEO
+
+  // ── Chefe de Secretaria: supervisão e coordenação de toda a secretaria ──
+  // Pode visualizar e supervisionar todos os módulos, mas as operações
+  // diárias pertencem aos respectivos departamentos.
   chefe_secretaria: ALL_KEYS.filter(k => k !== 'ceo_dashboard'),
-  admin: [
-    'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
-    'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios',
-    'rh_controle', 'admin', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
-    'secretaria_hub', 'editor_documentos', 'gestao_acessos',
-    'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca', 'avaliacao_professores', 'chat_interno',
-    'auditoria', 'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
-    'rh_payroll', 'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
-    'plano_aula',
-  ],
+
+  // ── Director: direcção estratégica e supervisão institucional ────
+  // Visão global de todos os departamentos, aprovações e decisões.
+  // Não faz operações financeiras nem de RH directamente.
   director: [
-    'dashboard', 'eventos', 'notificacoes', 'alunos', 'professores', 'turmas', 'salas',
-    'notas', 'presencas', 'horario', 'historico', 'grelha', 'financeiro', 'relatorios',
-    'rh_controle', 'admin', 'boletim_matricula', 'secretaria_hub', 'editor_documentos',
-    'gestao_academica', 'gestao_acessos',
-    'admissao', 'disciplinas', 'pedagogico', 'desempenho', 'visao_geral', 'rh_hub', 'controlo_supervisao',
-    'biblioteca', 'avaliacao_professores', 'chat_interno',
-    'auditoria', 'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
-    'rh_payroll', 'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
-    'plano_aula',
+    'dashboard', 'ceo_dashboard', 'eventos', 'notificacoes', 'chat_interno',
+    'calendario_academico', 'controlo_supervisao', 'auditoria',
+    // Académico (supervisão)
+    'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
+    'horario', 'historico', 'grelha', 'gestao_academica', 'admissao',
+    'disciplinas', 'transferencias', 'biblioteca',
+    // Pedagógico (supervisão)
+    'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
+    'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
+    // Financeiro (supervisão — ver relatórios, não operar)
+    'financeiro_relatorios', 'extrato_propinas',
+    // RH (supervisão)
+    'rh_hub', 'rh_controle',
+    // Admin
+    'admin', 'gestao_acessos', 'secretaria_hub', 'editor_documentos',
+    'boletim_matricula', 'boletim_propina', 'documentos_hub',
   ],
+
+  // ── Admin: configuração do sistema e gestão de utilizadores ──────
+  // Responsabilidade técnica: configurar o sistema, gerir utilizadores
+  // e controlar acessos. Não faz operações financeiras ou de RH.
+  admin: [
+    'dashboard', 'notificacoes', 'chat_interno', 'eventos', 'calendario_academico',
+    // Sistema
+    'admin', 'gestao_acessos', 'controlo_supervisao', 'auditoria',
+    // Gestão de utilizadores (precisa ver alunos/professores para criar contas)
+    'alunos', 'professores', 'turmas', 'salas',
+    'notas', 'presencas', 'horario', 'historico', 'admissao',
+    'disciplinas', 'grelha', 'transferencias', 'gestao_academica',
+    'boletim_matricula', 'editor_documentos', 'secretaria_hub',
+    'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
+    'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
+    'biblioteca', 'documentos_hub',
+  ],
+
+  // ── Secretaria: operações administrativas académicas ─────────────
+  // Matrícula, documentos, transferências, correspondência escolar.
+  // NÃO faz gestão financeira (é do financeiro) nem RH (é do rh).
   secretaria: [
-    'secretaria_hub', 'editor_documentos', 'notificacoes', 'alunos', 'professores', 'turmas',
-    'salas', 'presencas', 'notas', 'horario', 'historico', 'eventos', 'grelha', 'relatorios',
-    'rh_controle', 'financeiro', 'boletim_matricula', 'boletim_propina', 'gestao_academica',
-    'admissao', 'disciplinas', 'desempenho', 'biblioteca', 'chat_interno',
-    'bolsas', 'calendario_academico', 'extrato_propinas', 'quadro_honra',
-    'trabalhos_finais', 'documentos_hub', 'exclusoes_faltas', 'financeiro_relatorios',
+    'secretaria_hub', 'notificacoes', 'chat_interno', 'eventos', 'calendario_academico',
+    // Operações académicas (core da secretaria)
+    'alunos', 'turmas', 'presencas', 'notas', 'horario', 'historico',
+    'admissao', 'transferencias', 'gestao_academica',
+    // Documentos (responsabilidade da secretaria)
+    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
+    // Planeamento
+    'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
   ],
-  professor: [
-    'professor_hub', 'notificacoes', 'professor_turmas', 'professor_pauta', 'horario',
-    'professor_sumario', 'eventos', 'professor_mensagens', 'professor_materiais', 'biblioteca',
-    'chat_interno', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
-  ],
-  aluno: [
-    'portal_estudante', 'notificacoes', 'horario', 'historico', 'eventos', 'biblioteca',
-    'pagamentos_hub', 'quadro_honra',
-  ],
+
+  // ── Financeiro: gestão financeira completa ───────────────────────
+  // Rubricas, pagamentos, bolsas, comprovativos, relatórios financeiros.
+  // NÃO faz gestão académica nem de RH.
   financeiro: [
-    'financeiro', 'notificacoes', 'boletim_propina', 'chat_interno',
-    'financeiro_relatorios', 'extrato_propinas', 'bolsas',
+    'financeiro', 'notificacoes', 'chat_interno',
+    // Operações financeiras (core do financeiro)
+    'boletim_propina', 'extrato_propinas', 'bolsas',
+    'pagamentos_hub', 'documentos_hub', 'financeiro_relatorios',
   ],
-  encarregado: ['portal_encarregado', 'notificacoes', 'pagamentos_hub'],
-  rh: ['rh_hub', 'rh_controle', 'notificacoes', 'chat_interno', 'rh_payroll'],
+
+  // ── RH: recursos humanos e processamento salarial ────────────────
+  // Gestão de pessoal docente, contratos, avaliações, folhas de salário.
+  // NÃO faz gestão académica de alunos nem financeiro de propinas.
+  rh: [
+    'rh_hub', 'rh_controle', 'rh_payroll', 'notificacoes', 'chat_interno',
+    // Acesso ao pessoal docente (necessário para RH)
+    'professores', 'horario', 'professor_sumario', 'calendario_academico',
+  ],
+
+  // ── Pedagógico: qualidade académica e currículo ──────────────────
+  // Currículo, avaliação de professores, análise académica, pedagógica.
+  // NÃO faz gestão financeira nem operações de secretaria.
   pedagogico: [
-    'dashboard', 'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
-    'horario', 'historico', 'grelha', 'relatorios', 'pedagogico', 'desempenho',
-    'visao_geral', 'disciplinas', 'eventos', 'notificacoes', 'editor_documentos',
-    'boletim_matricula', 'gestao_academica', 'avaliacao_professores', 'biblioteca',
-    'chat_interno', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
-    'calendario_academico', 'plano_aula', 'documentos_hub',
+    'dashboard', 'notificacoes', 'chat_interno', 'eventos', 'calendario_academico',
+    // Académico (análise e qualidade)
+    'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
+    'horario', 'historico', 'disciplinas', 'grelha', 'biblioteca',
+    // Pedagógico (core do pedagógico)
+    'pedagogico', 'avaliacao_professores', 'gestao_academica',
+    'desempenho', 'visao_geral', 'relatorios',
+    // Qualidade académica
+    'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas', 'plano_aula',
   ],
+
+  // ── Professor: docência e actividade lectiva ──────────────────────
+  // Lançamento de notas, sumários, materiais, comunicação com alunos.
+  // NÃO tem acesso a funções de gestão pedagógica ou de avaliação de outros professores.
+  professor: [
+    'professor_hub', 'notificacoes', 'chat_interno', 'eventos',
+    // Actividade lectiva (core do professor)
+    'professor_turmas', 'professor_pauta', 'horario',
+    'professor_sumario', 'professor_mensagens', 'professor_materiais',
+    // Recursos
+    'biblioteca', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
+  ],
+
+  // ── Aluno: portal do estudante ────────────────────────────────────
+  aluno: [
+    'portal_estudante', 'notificacoes', 'horario', 'historico',
+    'eventos', 'biblioteca', 'pagamentos_hub', 'quadro_honra',
+  ],
+
+  // ── Encarregado: portal do encarregado de educação ───────────────
+  encarregado: ['portal_encarregado', 'notificacoes', 'pagamentos_hub'],
 };
 
 // ─── Context ──────────────────────────────────────────────────────────────────
