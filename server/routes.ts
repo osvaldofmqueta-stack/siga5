@@ -1986,13 +1986,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "id", "nomeCompleto","dataNascimento","genero","provincia","municipio",
           "telefone","email","endereco","bairro","numeroBi","numeroCedula",
           "nivel","classe","cursoId","nomeEncarregado","telefoneEncarregado","observacoes",
-          "status","senhaProvisoria"
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
+          "status","senhaProvisoria","tipoInscricao"
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
         [
           id, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
           b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
           b.nivel, b.classe, b.cursoId || null, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
-          b.status??'pendente', senha
+          b.status??'pendente', senha, b.tipoInscricao??'novo'
         ],
       );
       console.log("Inscrição criada:", rows[0]);
@@ -2010,7 +2010,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const allowed = [
         "status","avaliadoEm","avaliadoPor","motivoRejeicao",
         "dataProva","notaAdmissao","resultadoAdmissao","matriculaCompleta",
-        "rupeInscricao","rupeMatricula"
+        "rupeInscricao","rupeMatricula","tipoInscricao",
+        "pagamentoMatriculaConfirmado","pagamentoMatriculaConfirmadoEm","pagamentoMatriculaConfirmadoPor"
       ] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
@@ -2043,6 +2044,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const b = requireBodyObject(req);
       const nota = Number(b.notaAdmissao);
       if (isNaN(nota) || nota < 0 || nota > 20) return json(res, 400, { error: "Nota inválida (0–20)." });
+
+      // Fetch the registro to check tipo de inscrição
+      const regRows = await query<JsonObject>(`SELECT * FROM public.registros WHERE id=$1`, [req.params.id]);
+      if (!regRows[0]) return json(res, 404, { error: "Inscrição não encontrada." });
+      const reg = regRows[0] as any;
+
+      // For NEW students (tipo='novo'), verify if vagas are available
+      if ((reg.tipoInscricao ?? 'novo') === 'novo' && nota >= 10) {
+        // Get capacity from turma or config
+        const configRows = await query<JsonObject>(`SELECT "maxAlunosTurma" FROM public.config_geral LIMIT 1`, []);
+        const capacidade = (configRows[0] as any)?.maxAlunosTurma ?? 35;
+
+        // Count reconfirmações already admitidas/matriculadas for this class
+        const reconfRows = await query<JsonObject>(
+          `SELECT COUNT(*) as total FROM public.registros WHERE classe=$1 AND "tipoInscricao"='reconfirmacao' AND status IN ('admitido','matriculado')`,
+          [reg.classe]
+        );
+        const reconfCount = parseInt(String((reconfRows[0] as any)?.total ?? 0));
+
+        // Count new students already admitidos/matriculados for this class
+        const novosRows = await query<JsonObject>(
+          `SELECT COUNT(*) as total FROM public.registros WHERE classe=$1 AND ("tipoInscricao"='novo' OR "tipoInscricao" IS NULL) AND status IN ('admitido','matriculado')`,
+          [reg.classe]
+        );
+        const novosCount = parseInt(String((novosRows[0] as any)?.total ?? 0));
+
+        const vagasOcupadas = reconfCount + novosCount;
+        if (vagasOcupadas >= capacidade) {
+          return json(res, 400, { error: `Não há vagas disponíveis para novos alunos na ${reg.classe}. Capacidade (${capacidade}) atingida — ${reconfCount} reconfirmações + ${novosCount} novos alunos admitidos.` });
+        }
+      }
+
       const resultado = nota >= 10 ? 'aprovado' : 'reprovado';
       const novoStatus = nota >= 10 ? 'admitido' : 'reprovado_admissao';
       const rows = await query<JsonObject>(
@@ -2070,12 +2103,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
+  app.put("/api/registros/:id/confirmar-pagamento-matricula", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const confirnadoPor = String(b.confirmadoPor || 'Admin');
+      const rows = await query<JsonObject>(
+        `UPDATE public.registros SET "pagamentoMatriculaConfirmado"=true, "pagamentoMatriculaConfirmadoEm"=$1, "pagamentoMatriculaConfirmadoPor"=$2 WHERE id=$3 AND status='admitido' RETURNING *`,
+        [new Date().toISOString().split('T')[0], confirnadoPor, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Inscrição não encontrada ou não está no estado 'admitido'." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.get("/api/vagas/:classe", async (req: Request, res: Response) => {
+    try {
+      const { classe } = req.params;
+      const configRows = await query<JsonObject>(`SELECT "maxAlunosTurma" FROM public.config_geral LIMIT 1`, []);
+      const capacidade = (configRows[0] as any)?.maxAlunosTurma ?? 35;
+
+      const reconfRows = await query<JsonObject>(
+        `SELECT COUNT(*) as total FROM public.registros WHERE classe=$1 AND "tipoInscricao"='reconfirmacao' AND status IN ('admitido','matriculado')`,
+        [classe]
+      );
+      const reconfCount = parseInt(String((reconfRows[0] as any)?.total ?? 0));
+
+      const novosRows = await query<JsonObject>(
+        `SELECT COUNT(*) as total FROM public.registros WHERE classe=$1 AND ("tipoInscricao"='novo' OR "tipoInscricao" IS NULL) AND status IN ('admitido','matriculado')`,
+        [classe]
+      );
+      const novosCount = parseInt(String((novosRows[0] as any)?.total ?? 0));
+
+      const vagasOcupadas = reconfCount + novosCount;
+      const vagasDisponiveis = Math.max(0, capacidade - vagasOcupadas);
+      json(res, 200, { classe, capacidade, reconfirmacoes: reconfCount, novosAdmitidos: novosCount, vagasOcupadas, vagasDisponiveis });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   app.post("/api/registros/:id/completar-matricula", async (req: Request, res: Response) => {
     try {
       const regRows = await query<JsonObject>(`SELECT * FROM public.registros WHERE id=$1`, [req.params.id]);
       if (!regRows[0]) return json(res, 404, { error: "Inscrição não encontrada." });
       const reg = regRows[0] as any;
       if (reg.status !== 'admitido') return json(res, 400, { error: "Apenas estudantes admitidos podem completar a matrícula." });
+      if (!reg.pagamentoMatriculaConfirmado) return json(res, 400, { error: "O pagamento da taxa de matrícula ainda não foi confirmado pela secretaria. Dirija-se à secretaria com o comprovativo de pagamento." });
 
       // Find matching turma
       const turmas = await query<JsonObject>(

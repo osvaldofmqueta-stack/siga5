@@ -31,6 +31,11 @@ interface Registro {
   resultadoAdmissao?: string;
   matriculaCompleta?: boolean;
   rupeInscricao?: string;
+  rupeMatricula?: string;
+  tipoInscricao?: string;
+  pagamentoMatriculaConfirmado?: boolean;
+  pagamentoMatriculaConfirmadoEm?: string;
+  pagamentoMatriculaConfirmadoPor?: string;
   criadoEm: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
@@ -159,6 +164,33 @@ export default function AdmissaoScreen() {
     finally { setIsActing(false); }
   }
 
+  async function confirmarPagamentoMatricula(reg: Registro) {
+    Alert.alert(
+      'Confirmar Pagamento',
+      `Confirmar que ${reg.nomeCompleto} efectuou o pagamento da taxa de matrícula (RUPE: ${reg.rupeMatricula || 'não gerado'})?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Confirmar Pagamento', onPress: async () => {
+            setIsActing(true);
+            try {
+              const res = await fetch(`/api/registros/${reg.id}/confirmar-pagamento-matricula`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ confirmadoPor: user?.nome || 'Admin' }),
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error);
+              await load();
+              alertSucesso('Pagamento confirmado', `O pagamento de ${reg.nomeCompleto} foi confirmado. O estudante já pode concluir a matrícula.`);
+            } catch (e: any) { alertErro('Erro', e.message || 'Não foi possível confirmar o pagamento.'); }
+            finally { setIsActing(false); }
+          }
+        },
+      ]
+    );
+  }
+
   async function lancarNota() {
     const reg = modalNota.reg;
     if (!reg || nota.trim() === '') { Alert.alert('Nota obrigatória', 'Introduza a nota do exame.'); return; }
@@ -198,7 +230,14 @@ export default function AdmissaoScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.regNome}>{reg.nomeCompleto}</Text>
-            <Text style={styles.regSub}>{reg.nivel} · {reg.classe}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+              <Text style={styles.regSub}>{reg.nivel} · {reg.classe}</Text>
+              <View style={[badge.wrap, { backgroundColor: reg.tipoInscricao === 'reconfirmacao' ? 'rgba(52,152,219,0.15)' : 'rgba(155,89,182,0.15)' }]}>
+                <Text style={[badge.text, { color: reg.tipoInscricao === 'reconfirmacao' ? '#3498DB' : '#9B59B6' }]}>
+                  {reg.tipoInscricao === 'reconfirmacao' ? 'Reconfirmação' : 'Novo'}
+                </Text>
+              </View>
+            </View>
             {reg.email ? <Text style={styles.regEmail}>{reg.email}</Text> : null}
           </View>
           <StatusBadge status={reg.status} />
@@ -257,6 +296,21 @@ export default function AdmissaoScreen() {
               <Text style={[styles.regActionText, { color: Colors.success }]}>Lançar Nota</Text>
             </TouchableOpacity>
           </>}
+
+          {/* Admitido actions — confirmar pagamento */}
+          {reg.status === 'admitido' && (
+            reg.pagamentoMatriculaConfirmado ? (
+              <View style={[styles.regActionBtn, { borderColor: Colors.success + '50', backgroundColor: 'rgba(39,174,96,0.08)' }]}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                <Text style={[styles.regActionText, { color: Colors.success }]}>Pagamento Confirmado</Text>
+              </View>
+            ) : (
+              <TouchableOpacity style={[styles.regActionBtn, { borderColor: Colors.gold + '70', backgroundColor: 'rgba(240,165,0,0.1)' }]} onPress={() => confirmarPagamentoMatricula(reg)} disabled={isActing}>
+                <Ionicons name="cash-outline" size={14} color={Colors.gold} />
+                <Text style={[styles.regActionText, { color: Colors.gold }]}>Confirmar Pagamento</Text>
+              </TouchableOpacity>
+            )
+          )}
         </View>
       </View>
     );
@@ -414,6 +468,7 @@ export default function AdmissaoScreen() {
                   ['Nome', modalDetalhes.reg.nomeCompleto],
                   ['Data Nascimento', modalDetalhes.reg.dataNascimento],
                   ['Género', modalDetalhes.reg.genero === 'M' ? 'Masculino' : 'Feminino'],
+                  ['Tipo de Inscrição', modalDetalhes.reg.tipoInscricao === 'reconfirmacao' ? 'Reconfirmação (Reprovado ano anterior)' : 'Novo Aluno'],
                   ['Nível / Classe', `${modalDetalhes.reg.nivel} — ${modalDetalhes.reg.classe}`],
                   ['Província / Município', `${modalDetalhes.reg.provincia} / ${modalDetalhes.reg.municipio}`],
                   ['Telefone', modalDetalhes.reg.telefone],
@@ -424,6 +479,7 @@ export default function AdmissaoScreen() {
                   ['Status', STATUS_LABEL[modalDetalhes.reg.status]?.label ?? modalDetalhes.reg.status],
                   ['Data Exame', modalDetalhes.reg.dataProva || 'Não publicada'],
                   ['Nota Admissão', modalDetalhes.reg.notaAdmissao !== undefined ? `${modalDetalhes.reg.notaAdmissao}/20` : '—'],
+                  ['Pagamento Matrícula', modalDetalhes.reg.pagamentoMatriculaConfirmado ? `✓ Confirmado em ${modalDetalhes.reg.pagamentoMatriculaConfirmadoEm || '—'} por ${modalDetalhes.reg.pagamentoMatriculaConfirmadoPor || '—'}` : '⏳ Aguardando confirmação'],
                 ].map(([label, value]) => (
                   <View key={label} style={mStyles.detailRow}>
                     <Text style={mStyles.detailLabel}>{label}</Text>

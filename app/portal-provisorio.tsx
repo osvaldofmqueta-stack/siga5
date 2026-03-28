@@ -30,6 +30,9 @@ interface Registro {
   matriculaCompleta?: boolean;
   rupeInscricao?: string;
   rupeMatricula?: string;
+  tipoInscricao?: string;
+  pagamentoMatriculaConfirmado?: boolean;
+  pagamentoMatriculaConfirmadoEm?: string;
   nomeEncarregado: string;
   criadoEm: string;
 }
@@ -322,16 +325,36 @@ export default function PortalProvisorioScreen() {
               )}
             </View>
 
+            {/* Pagamento não confirmado — aviso */}
+            {!registro.pagamentoMatriculaConfirmado && (
+              <View style={styles.pagamentoAvisoBox}>
+                <Ionicons name="time-outline" size={18} color={Colors.warning} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pagamentoAvisoTitle}>Aguardando confirmação de pagamento</Text>
+                  <Text style={styles.pagamentoAvisoDesc}>
+                    Dirija-se à secretaria com o comprovativo de pagamento do RUPE de matrícula. O botão ficará disponível após a secretaria confirmar o seu pagamento.
+                  </Text>
+                </View>
+              </View>
+            )}
+
             <TouchableOpacity
-              style={[styles.completarBtn, isActing && { opacity: 0.6 }]}
+              style={[styles.completarBtn, (isActing || !registro.pagamentoMatriculaConfirmado) && { opacity: 0.4 }]}
               onPress={handleCompletarMatricula}
-              disabled={isActing}
+              disabled={isActing || !registro.pagamentoMatriculaConfirmado}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={[Colors.success, '#27AE60']} style={styles.completarBtnGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+              <LinearGradient
+                colors={registro.pagamentoMatriculaConfirmado ? [Colors.success, '#27AE60'] : ['#555', '#444']}
+                style={styles.completarBtnGrad}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+              >
                 {isActing ? <ActivityIndicator color="#fff" size="small" /> : <>
-                  <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
-                  <Text style={styles.completarBtnText}>Completar Matrícula</Text>
+                  <Ionicons name={registro.pagamentoMatriculaConfirmado ? "checkmark-circle-outline" : "lock-closed-outline"} size={20} color="#fff" />
+                  <Text style={styles.completarBtnText}>
+                    {registro.pagamentoMatriculaConfirmado ? 'Completar Matrícula' : 'Pagamento Pendente'}
+                  </Text>
                 </>}
               </LinearGradient>
             </TouchableOpacity>
@@ -488,6 +511,9 @@ const styles = StyleSheet.create({
   completarBtn: { borderRadius: 14, overflow: 'hidden' },
   completarBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 10 },
   completarBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#fff' },
+  pagamentoAvisoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: 'rgba(240,165,0,0.08)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(240,165,0,0.25)', padding: 14 },
+  pagamentoAvisoTitle: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.warning, marginBottom: 3 },
+  pagamentoAvisoDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 17 },
 
   infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   infoRowIcon: { marginTop: 2 },

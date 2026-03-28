@@ -672,6 +672,14 @@ export const registros = pgTable("registros", {
   avaliadoPor: text("avaliadoPor"),
   motivoRejeicao: text("motivoRejeicao"),
 
+  // Tipo de inscrição: 'novo' (primeiro ingresso) | 'reconfirmacao' (reprovado do ano anterior)
+  tipoInscricao: text("tipoInscricao").notNull().default('novo'),
+
+  // Pagamento da taxa de matrícula confirmado pelo admin
+  pagamentoMatriculaConfirmado: boolean("pagamentoMatriculaConfirmado").notNull().default(false),
+  pagamentoMatriculaConfirmadoEm: text("pagamentoMatriculaConfirmadoEm"),
+  pagamentoMatriculaConfirmadoPor: text("pagamentoMatriculaConfirmadoPor"),
+
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -41,6 +41,7 @@ interface FormData {
   nomeEncarregado: string;
   telefoneEncarregado: string;
   observacoes: string;
+  tipoInscricao: 'novo' | 'reconfirmacao';
 }
 
 function InputField({
@@ -189,6 +190,7 @@ export default function RegistroScreen() {
     nomeEncarregado: '',
     telefoneEncarregado: '',
     observacoes: '',
+    tipoInscricao: 'novo',
   });
 
   const set = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
@@ -274,6 +276,7 @@ export default function RegistroScreen() {
           nomeEncarregado: form.nomeEncarregado.trim(),
           telefoneEncarregado: form.telefoneEncarregado.trim(),
           observacoes: form.observacoes.trim(),
+          tipoInscricao: form.tipoInscricao,
           status: 'pendente',
         }),
       });
@@ -416,6 +419,42 @@ export default function RegistroScreen() {
                   <Ionicons name="school-outline" size={16} color={Colors.gold} />
                 </View>
                 <Text style={styles.stepCardTitle}>Escolaridade & Encarregado</Text>
+              </View>
+
+              {/* Tipo de inscrição */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.fieldLabelRow}>
+                  <Text style={styles.fieldLabel}>Tipo de Matrícula</Text>
+                  <Text style={styles.fieldRequired}>*</Text>
+                </View>
+                <Text style={styles.fieldHint}>Seleccione se é um novo aluno ou uma reconfirmação (reprovado do ano anterior)</Text>
+                <View style={styles.chipsWrap}>
+                  {([
+                    { value: 'novo', label: 'Novo Aluno', icon: 'person-add-outline' },
+                    { value: 'reconfirmacao', label: 'Reconfirmação', icon: 'refresh-outline' },
+                  ] as const).map(opt => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.chip, form.tipoInscricao === opt.value && styles.chipActive, { paddingHorizontal: 12, paddingVertical: 8 }]}
+                      onPress={() => set('tipoInscricao', opt.value)}
+                      activeOpacity={0.75}
+                    >
+                      {form.tipoInscricao === opt.value && (
+                        <Ionicons name="checkmark" size={11} color={Colors.accent} style={{ marginRight: 3 }} />
+                      )}
+                      <Ionicons name={opt.icon} size={12} color={form.tipoInscricao === opt.value ? Colors.accent : Colors.textMuted} style={{ marginRight: 4 }} />
+                      <Text style={[styles.chipText, form.tipoInscricao === opt.value && styles.chipTextActive]}>{opt.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {form.tipoInscricao === 'reconfirmacao' && (
+                  <View style={[styles.emailAlertBox, { marginTop: 8 }]}>
+                    <Ionicons name="information-circle-outline" size={14} color="#3498DB" style={{ marginTop: 1 }} />
+                    <Text style={[styles.emailAlertText, { color: '#3498DB' }]}>
+                      Reconfirmação: aplica-se a alunos que reprovaram e pretendem continuar na mesma classe. As vagas para novos alunos são calculadas após as reconfirmações serem processadas.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <ChipSelector
