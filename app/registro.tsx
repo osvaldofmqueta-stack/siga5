@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Platform, KeyboardAvoidingView, Modal,
+  TextInput, Platform, KeyboardAvoidingView, Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -166,6 +166,7 @@ export default function RegistroScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
+  const [errorMsg, setErrorMsg] = useState('');
   const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string } | null>(null);
   const [cursosDisponiveis, setCursosDisponiveis] = useState<CursoOption[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
@@ -208,33 +209,39 @@ export default function RegistroScreen() {
     }
   }, [form.nivel, form.classe]);
 
+  function showError(msg: string) {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(''), 5000);
+  }
+
   function validateStep1() {
-    if (!form.nomeCompleto.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome completo.'); return false; }
-    if (!form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) { Alert.alert('Data inválida', 'Use o formato AAAA-MM-DD.\nEx: 2010-05-15'); return false; }
-    if (!form.provincia) { Alert.alert('Campo obrigatório', 'Seleccione a província.'); return false; }
-    if (!form.municipio) { Alert.alert('Campo obrigatório', 'Seleccione o município.'); return false; }
+    if (!form.nomeCompleto.trim()) { showError('Introduza o nome completo.'); return false; }
+    if (!form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) { showError('Data de nascimento inválida. Use o formato AAAA-MM-DD (ex: 2010-05-15).'); return false; }
+    if (!form.provincia) { showError('Seleccione a província.'); return false; }
+    if (!form.municipio) { showError('Seleccione o município.'); return false; }
     return true;
   }
 
   function validateStep2() {
-    if (!form.telefone.trim()) { Alert.alert('Campo obrigatório', 'Introduza o número de telefone.'); return false; }
-    if (!form.email.trim()) { Alert.alert('Campo obrigatório', 'Introduza o email de contacto.'); return false; }
-    if (!form.email.includes('@')) { Alert.alert('Email inválido', 'Introduza um email válido.'); return false; }
+    if (!form.telefone.trim()) { showError('Introduza o número de telefone.'); return false; }
+    if (!form.email.trim()) { showError('Introduza o email de contacto.'); return false; }
+    if (!form.email.includes('@')) { showError('Introduza um email válido.'); return false; }
     return true;
   }
 
   function validateStep3() {
-    if (!form.nivel) { Alert.alert('Campo obrigatório', 'Seleccione o nível de ensino.'); return false; }
-    if (!form.classe) { Alert.alert('Campo obrigatório', 'Seleccione a classe.'); return false; }
+    if (!form.nivel) { showError('Seleccione o nível de ensino.'); return false; }
+    if (!form.classe) { showError('Seleccione a classe.'); return false; }
     if (form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
-      Alert.alert('Curso obrigatório', 'Seleccione o curso para a 10ª Classe.'); return false;
+      showError('Seleccione o curso para a 10ª Classe.'); return false;
     }
-    if (!form.nomeEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do encarregado.'); return false; }
-    if (!form.telefoneEncarregado.trim()) { Alert.alert('Campo obrigatório', 'Introduza o contacto do encarregado.'); return false; }
+    if (!form.nomeEncarregado.trim()) { showError('Introduza o nome do encarregado de educação.'); return false; }
+    if (!form.telefoneEncarregado.trim()) { showError('Introduza o contacto do encarregado de educação.'); return false; }
     return true;
   }
 
   function handleNext() {
+    setErrorMsg('');
     if (step === 1 && validateStep1()) setStep(2);
     else if (step === 2 && validateStep2()) setStep(3);
     else if (step === 3) handleSubmit();
@@ -243,6 +250,7 @@ export default function RegistroScreen() {
   async function handleSubmit() {
     if (!validateStep3()) return;
     setIsLoading(true);
+    setErrorMsg('');
     try {
       if (Platform.OS !== 'web') await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       const res = await fetch('/api/registros', {
@@ -278,7 +286,7 @@ export default function RegistroScreen() {
         senha: data.senhaProvisoria || '',
       });
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível enviar. Tente novamente.');
+      showError(e.message || 'Não foi possível enviar. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -510,6 +518,13 @@ export default function RegistroScreen() {
           )}
         </ScrollView>
 
+        {!!errorMsg && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle-outline" size={16} color="#fff" />
+            <Text style={styles.errorBannerText}>{errorMsg}</Text>
+          </View>
+        )}
+
         <View style={[styles.footer, { paddingBottom: bottomPad + 16 }]}>
           <View style={styles.footerActions}>
             {step > 1 && (
@@ -641,6 +656,8 @@ const styles = StyleSheet.create({
   cursoEmptyBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 14 },
   cursoEmptyText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1 },
 
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#C0392B', paddingHorizontal: 16, paddingVertical: 12, marginHorizontal: 16, marginBottom: 8, borderRadius: 10 },
+  errorBannerText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: '#fff' },
   footer: { backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border, padding: 16, paddingTop: 12, alignItems: 'center' },
   footerActions: { flexDirection: 'row', gap: 12, maxWidth: 480, width: '100%' },
   prevBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 18, paddingVertical: 15, borderRadius: 13, borderWidth: 1, borderColor: Colors.border, backgroundColor: 'rgba(255,255,255,0.05)' },
