@@ -1,5 +1,5 @@
-const CACHE_NAME = 'siga-v4';
-const API_CACHE_NAME = 'siga-api-v4';
+const CACHE_NAME = 'siga-v5';
+const API_CACHE_NAME = 'siga-api-v5';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -83,9 +83,23 @@ self.addEventListener('fetch', (event) => {
 
   if (
     url.pathname.startsWith('/_expo/static/') ||
-    url.pathname.startsWith('/icons/') ||
     url.pathname.endsWith('.js') ||
-    url.pathname.endsWith('.css') ||
+    url.pathname.endsWith('.css')
+  ) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          return response;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  if (
+    url.pathname.startsWith('/icons/') ||
     url.pathname.endsWith('.png') ||
     url.pathname.endsWith('.jpg') ||
     url.pathname.endsWith('.svg') ||
