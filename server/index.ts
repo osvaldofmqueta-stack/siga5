@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import express from "express";
 import type { Request, Response, NextFunction } from "express";
 import { createProxyMiddleware, responseInterceptor } from "http-proxy-middleware";
@@ -6,6 +7,8 @@ import { registerMEDRoutes } from "./med";
 import { registerPDFRoutes } from "./pdf";
 import * as fs from "fs";
 import * as path from "path";
+
+dotenv.config();
 
 const app = express();
 const log = console.log;
