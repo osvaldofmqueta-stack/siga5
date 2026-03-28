@@ -1970,10 +1970,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [email.trim(), senha.trim()]
       );
       if (!rows[0]) return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha provisória." });
-      const reg = rows[0] as any;
-      if (reg.status === 'pendente') return json(res, 403, { error: "A sua inscrição ainda está em análise pela secretaria." });
-      if (reg.status === 'rejeitado') return json(res, 403, { error: "A sua inscrição foi rejeitada." });
-      if (reg.status === 'reprovado_admissao') return json(res, 403, { error: "Não foi admitido(a) neste processo. A conta provisória foi encerrada." });
       json(res, 200, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });

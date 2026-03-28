@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
-  Platform, KeyboardAvoidingView, ScrollView, Alert, ActivityIndicator,
+  Platform, KeyboardAvoidingView, ScrollView, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,13 +22,20 @@ export default function LoginProvisorioScreen() {
   const [showSenha, setShowSenha] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'senha' | null>(null);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  function showError(msg: string) {
+    setErrorMsg(msg);
+    setTimeout(() => setErrorMsg(''), 6000);
+  }
 
   async function handleLogin() {
     if (!email.trim() || !senha.trim()) {
-      Alert.alert('Campos obrigatórios', 'Introduza o email e a senha provisória.');
+      showError('Introduza o email e a senha provisória.');
       return;
     }
     setIsLoading(true);
+    setErrorMsg('');
     try {
       const res = await fetch(new URL('/api/login-provisorio', getApiUrl()).toString(), {
         method: 'POST',
@@ -37,13 +44,13 @@ export default function LoginProvisorioScreen() {
       });
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Acesso Negado', data.error || 'Credenciais inválidas.');
+        showError(data.error || 'Credenciais inválidas.');
         return;
       }
       await AsyncStorage.setItem(PROVISORIO_KEY, JSON.stringify(data));
       router.replace('/portal-provisorio' as any);
     } catch {
-      Alert.alert('Erro de ligação', 'Não foi possível ligar ao servidor. Tente novamente.');
+      showError('Não foi possível ligar ao servidor. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -127,6 +134,13 @@ export default function LoginProvisorioScreen() {
               </Text>
             </View>
 
+            {!!errorMsg && (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={15} color="#fff" />
+                <Text style={styles.errorBannerText}>{errorMsg}</Text>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[styles.loginBtn, isLoading && { opacity: 0.7 }]}
               onPress={handleLogin}
@@ -175,6 +189,8 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15, fontFamily: 'Inter_400Regular', color: Colors.text },
   senhaHint: { flexDirection: 'row', gap: 8, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 12 },
   senhaHintText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1, lineHeight: 18 },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#C0392B', borderRadius: 10, padding: 12 },
+  errorBannerText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: '#fff' },
   loginBtn: { borderRadius: 13, overflow: 'hidden' },
   loginBtnGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, gap: 8 },
   loginBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
