@@ -6,10 +6,19 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:sige@escola.ao";
 
-if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+// Temporarily disable VAPID to allow server startup
+// TODO: Fix VAPID key generation
+console.log("[push] VAPID notifications temporarily disabled for Neon setup");
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_PUBLIC_KEY.length > 50) {
+  try {
+    webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
+    console.log("[push] VAPID configured successfully");
+  } catch (error) {
+    console.warn("[push] VAPID configuration failed, disabling push notifications:", error.message);
+  }
 } else {
-  console.warn("[push] VAPID keys not configured. Push notifications disabled.");
+  console.warn("[push] VAPID keys not properly configured. Push notifications disabled.");
 }
 
 export type NotificacaoTipo = "nota" | "falta" | "propina" | "mensagem" | "geral";
