@@ -438,6 +438,8 @@ export default function AdmissaoScreen() {
               placeholder="Ex: 14.5"
               placeholderTextColor={Colors.textMuted}
               keyboardType="decimal-pad"
+              returnKeyType="done"
+              onSubmitEditing={lancarNota}
             />
             <Text style={mStyles.hint}>Nota ≥ 10: Admitido · Nota {'<'} 10: Reprovado</Text>
             <View style={mStyles.actions}>

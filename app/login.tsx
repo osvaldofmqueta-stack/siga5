@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
   Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
@@ -85,6 +85,7 @@ export default function LoginScreen() {
   const footerOpacity = useRef(new Animated.Value(isWeb ? 1 : 0)).current;
   const biometricPulse = useRef(new Animated.Value(1)).current;
   const biometricGlow = useRef(new Animated.Value(0)).current;
+  const senhaRef = useRef<TextInput>(null);
 
   useEffect(() => {
     initLogin();
@@ -457,6 +458,8 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            returnKeyType="next"
+            onSubmitEditing={() => senhaRef.current?.focus()}
             onFocus={() => setFocusedField('email')}
             onBlur={() => setFocusedField(null)}
           />
@@ -478,6 +481,7 @@ export default function LoginScreen() {
             style={styles.inputIcon}
           />
           <TextInput
+            ref={senhaRef}
             style={styles.inputText}
             value={senha}
             onChangeText={setSenha}
@@ -485,6 +489,8 @@ export default function LoginScreen() {
             placeholderTextColor={Colors.textMuted}
             secureTextEntry={!showSenha}
             autoCapitalize="none"
+            returnKeyType="go"
+            onSubmitEditing={handleLogin}
             onFocus={() => setFocusedField('senha')}
             onBlur={() => setFocusedField(null)}
           />

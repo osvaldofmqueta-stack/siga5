@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   Platform, KeyboardAvoidingView, ScrollView, ActivityIndicator,
@@ -23,6 +23,7 @@ export default function LoginProvisorioScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'senha' | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
+  const senhaRef = useRef<any>(null);
 
   function showError(msg: string) {
     setErrorMsg(msg);
@@ -98,6 +99,8 @@ export default function LoginProvisorioScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="next"
+                  onSubmitEditing={() => senhaRef.current?.focus()}
                   onFocus={() => setFocusedField('email')}
                   onBlur={() => setFocusedField(null)}
                 />
@@ -109,6 +112,7 @@ export default function LoginProvisorioScreen() {
               <View style={[styles.inputWrap, focusedField === 'senha' && styles.inputWrapFocused]}>
                 <Ionicons name="lock-closed-outline" size={17} color={focusedField === 'senha' ? Colors.gold : Colors.textMuted} />
                 <TextInput
+                  ref={senhaRef}
                   style={[styles.input, { flex: 1 }]}
                   value={senha}
                   onChangeText={setSenha}
@@ -117,6 +121,8 @@ export default function LoginProvisorioScreen() {
                   secureTextEntry={!showSenha}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  returnKeyType="go"
+                  onSubmitEditing={handleLogin}
                   onFocus={() => setFocusedField('senha')}
                   onBlur={() => setFocusedField(null)}
                 />

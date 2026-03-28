@@ -26,6 +26,7 @@ export default function RedefinirSenhaScreen() {
   const [focusedField, setFocusedField] = useState<'nova' | 'confirmar' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [erro, setErro] = useState('');
+  const confirmarRef = useRef<any>(null);
 
   useEffect(() => {
     if (!token) {
@@ -230,6 +231,8 @@ export default function RedefinirSenhaScreen() {
               placeholderTextColor={Colors.textMuted}
               secureTextEntry={!showNova}
               autoCapitalize="none"
+              returnKeyType="next"
+              onSubmitEditing={() => confirmarRef.current?.focus()}
               onFocus={() => setFocusedField('nova')}
               onBlur={() => setFocusedField(null)}
             />
@@ -258,6 +261,7 @@ export default function RedefinirSenhaScreen() {
               style={styles.inputIcon}
             />
             <TextInput
+              ref={confirmarRef}
               style={styles.inputText}
               value={confirmarSenha}
               onChangeText={t => { setConfirmarSenha(t); setErro(''); }}
