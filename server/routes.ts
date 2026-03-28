@@ -1950,12 +1950,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   app.get("/api/registros", async (_req: Request, res: Response) => {
-    const rows = await query<JsonObject>(`SELECT * FROM public.registros ORDER BY "criadoEm" DESC`, []);
+    const rows = await query<JsonObject>(
+      `SELECT r.*, c.nome AS "cursoNome" FROM public.registros r LEFT JOIN public.cursos c ON c.id = r."cursoId" ORDER BY r."criadoEm" DESC`,
+      []
+    );
+    json(res, 200, rows);
+  });
+
+  app.get("/api/registros/lista-aprovados", async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(
+      `SELECT r.*, c.nome AS "cursoNome" FROM public.registros r
+       LEFT JOIN public.cursos c ON c.id = r."cursoId"
+       WHERE r.status IN ('admitido','matriculado')
+       ORDER BY r.classe ASC, c.nome ASC NULLS LAST, r."nomeCompleto" ASC`,
+      []
+    );
     json(res, 200, rows);
   });
 
   app.get("/api/registros/:id", async (req: Request, res: Response) => {
-    const rows = await query<JsonObject>(`SELECT * FROM public.registros WHERE id=$1`, [req.params.id]);
+    const rows = await query<JsonObject>(
+      `SELECT r.*, c.nome AS "cursoNome" FROM public.registros r LEFT JOIN public.cursos c ON c.id = r."cursoId" WHERE r.id=$1`,
+      [req.params.id]
+    );
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
   });
@@ -2148,12 +2165,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (reg.status !== 'admitido') return json(res, 400, { error: "Apenas estudantes admitidos podem completar a matrícula." });
       if (!reg.pagamentoMatriculaConfirmado) return json(res, 400, { error: "O pagamento da taxa de matrícula ainda não foi confirmado pela secretaria. Dirija-se à secretaria com o comprovativo de pagamento." });
 
-      // Find matching turma
+      // Find matching turma (optional — if not found, turmaId stays null and secretaria assigns later)
       const turmas = await query<JsonObject>(
         `SELECT id FROM public.turmas WHERE nome ILIKE $1 LIMIT 1`,
         [`%${reg.classe}%`]
       );
-      const turmaId = (turmas[0] as any)?.id || '';
+      const turmaId = (turmas[0] as any)?.id ?? null;
 
       // Parse name
       const partes = String(reg.nomeCompleto || '').trim().split(/\s+/);

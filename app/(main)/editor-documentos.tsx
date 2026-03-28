@@ -1932,6 +1932,9 @@ export default function EditorDocumentos() {
   const [planosAulaLoading, setPlanosAulaLoading] = useState(false);
   const [previewPlanoDoc, setPreviewPlanoDoc] = useState<any | null>(null);
 
+  // ─── Lista de Aprovados state ─────────────────────────────────────────────
+  const [listaAprovadosLoading, setListaAprovadosLoading] = useState(false);
+
   useEffect(() => {
     (async () => {
       setPlanosAulaLoading(true);

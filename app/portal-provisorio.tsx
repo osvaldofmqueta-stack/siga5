@@ -11,6 +11,170 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { PROVISORIO_KEY } from './login-provisorio';
 
+const MATRICULA_NUM_KEY = 'siga_matricula_numero';
+
+function buildQrImageUrl(data: string, size = 100): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;
+}
+
+function hoje(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+function anoAtual(): string { return String(new Date().getFullYear()); }
+
+function formatDate(val: string | undefined): string {
+  if (!val) return '___/___/______';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return val;
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  } catch { return val; }
+}
+
+function generateBoletimMatriculaHTML(reg: Registro, numeroMatricula: string, nomeEscola: string): string {
+  const codigo = `MAT-${anoAtual()}-${reg.id.slice(0, 6).toUpperCase()}`;
+  const generoLabel = reg.genero === 'M' ? 'Masculino' : reg.genero === 'F' ? 'Feminino' : reg.genero;
+  const qrData = JSON.stringify({ tipo: 'BOLETIM_MATRICULA', numeroMatricula, nome: reg.nomeCompleto, classe: reg.classe, nivel: reg.nivel });
+  const qrUrl = buildQrImageUrl(qrData, 110);
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<title>Boletim de Matrícula — ${reg.nomeCompleto}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4 portrait; margin: 14mm 16mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+  .page { width: 100%; }
+  .header-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+  .header-text { flex: 1; text-align: center; }
+  .header-text p { font-size: 9.5pt; line-height: 1.55; }
+  .header-text .bold { font-weight: bold; }
+  .header-text .title { font-size: 13pt; font-weight: bold; margin-top: 6px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 2px solid #000; display: inline-block; padding-bottom: 2px; }
+  .header-text .codigo { font-size: 9pt; margin-top: 4px; color: #333; }
+  .qr-box { width: 90px; height: 90px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 3px; background: #fff; }
+  .qr-box img { width: 100%; height: 100%; object-fit: contain; }
+  .qr-label { font-size: 6pt; text-align: center; margin-top: 3px; color: #444; font-weight: bold; }
+  .alerta { background: #1A2B5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
+  .status-box { border: 1.5px solid #1A2B5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
+  .status-box .status-label { font-size: 9pt; color: #444; }
+  .status-box .status-value { font-size: 11pt; font-weight: bold; color: #1A2B5F; }
+  .status-box .mat-num { font-size: 12pt; font-weight: bold; color: #0a5e14; letter-spacing: 1px; }
+  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1A2B5F; text-transform: uppercase; letter-spacing: 0.3px; }
+  .separator { border-top: 1px solid #ccc; margin: 8px 0; }
+  .field-line { display: flex; align-items: baseline; gap: 4px; margin-bottom: 5px; font-size: 9.5pt; flex-wrap: wrap; }
+  .field-line .label { white-space: nowrap; color: #444; }
+  .field-line .value { border-bottom: 1px solid #555; flex: 1; min-width: 60px; padding-bottom: 1px; font-weight: 600; }
+  .multi-field { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 5px; font-size: 9.5pt; }
+  .multi-field .item { display: flex; align-items: baseline; gap: 4px; }
+  .multi-field .item .label { color: #444; white-space: nowrap; }
+  .multi-field .item .value { border-bottom: 1px solid #555; min-width: 60px; padding-bottom: 1px; font-weight: 600; }
+  .declaracao { margin-top: 14px; border-top: 2px solid #000; padding-top: 10px; }
+  .declaracao-title { font-weight: bold; text-align: center; font-size: 11pt; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .decl-text { font-size: 9.5pt; line-height: 1.65; margin-bottom: 6px; text-align: justify; }
+  .local-data { text-align: center; margin: 12px 0 6px; font-size: 9.5pt; }
+  .signature-area { display: flex; justify-content: space-between; margin-top: 16px; }
+  .sig-block { text-align: center; font-size: 9pt; }
+  .sig-line { border-top: 1px solid #000; width: 160px; margin: 28px auto 4px; }
+  .footer { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #555; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .no-print { display: none !important; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header-row">
+    <div style="width:50px;flex-shrink:0;"></div>
+    <div class="header-text">
+      <p>REPÚBLICA DE ANGOLA</p>
+      <p>MINISTÉRIO DA EDUCAÇÃO</p>
+      <p class="bold">${nomeEscola}</p>
+      <p class="title">Boletim de Matrícula</p>
+      <p class="codigo">Nº de Matrícula: <strong>${numeroMatricula}</strong> &nbsp;|&nbsp; Data: <strong>${hoje()}</strong> &nbsp;|&nbsp; Ano Lectivo: <strong>${anoAtual()}</strong></p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+      <div class="qr-box"><img src="${qrUrl}" alt="QR" /></div>
+      <div class="qr-label">${numeroMatricula}</div>
+    </div>
+  </div>
+
+  <div class="alerta">Boletim de Matrícula — Ano Lectivo ${anoAtual()}</div>
+
+  <div class="status-box">
+    <div>
+      <div class="status-label">Estado</div>
+      <div class="status-value">Matriculado(a)</div>
+    </div>
+    <div>
+      <div class="status-label">Número de Matrícula</div>
+      <div class="mat-num">${numeroMatricula}</div>
+    </div>
+    <div>
+      <div class="status-label">Classe</div>
+      <div class="status-value">${reg.classe}</div>
+    </div>
+    <div>
+      <div class="status-label">Nível</div>
+      <div class="status-value">${reg.nivel}</div>
+    </div>
+  </div>
+
+  <div class="section-title">A — Dados Pessoais do Aluno</div>
+  <div class="field-line"><span class="label">Nome Completo:</span><span class="value">${reg.nomeCompleto}</span></div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Data de Nascimento:</span><span class="value">${formatDate(reg.dataNascimento)}</span></div>
+    <div class="item"><span class="label">Sexo:</span><span class="value">${generoLabel}</span></div>
+  </div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Província:</span><span class="value">${reg.provincia}</span></div>
+    <div class="item"><span class="label">Município:</span><span class="value">${reg.municipio}</span></div>
+  </div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Telefone:</span><span class="value">${reg.telefone}</span></div>
+    <div class="item"><span class="label">Email:</span><span class="value">${reg.email}</span></div>
+  </div>
+
+  <div class="section-title">B — Dados do Encarregado de Educação</div>
+  <div class="field-line"><span class="label">Nome Completo do Encarregado:</span><span class="value">${reg.nomeEncarregado}</span></div>
+  <div class="field-line"><span class="label">Telefone:</span><span class="value">${reg.telefoneEncarregado}</span></div>
+
+  <div class="declaracao">
+    <div class="declaracao-title">Declaração sob Compromisso de Honra</div>
+    <div class="decl-text">
+      Eu, <span style="border-bottom:1px solid #000;display:inline-block;min-width:220px;font-weight:600;">${reg.nomeCompleto}</span>,
+      do sexo <span style="border-bottom:1px solid #000;display:inline-block;min-width:80px;">${generoLabel}</span>,
+      de nacionalidade <span style="border-bottom:1px solid #000;display:inline-block;min-width:90px;">Angolana</span>,
+      nascido(a) a <span style="border-bottom:1px solid #000;display:inline-block;min-width:110px;">${formatDate(reg.dataNascimento)}</span>,
+      residente no Município de <span style="border-bottom:1px solid #000;display:inline-block;min-width:100px;">${reg.municipio}</span>,
+      Província de <span style="border-bottom:1px solid #000;display:inline-block;min-width:100px;">${reg.provincia}</span>,
+      declaro, sob compromisso de honra, que todos os dados fornecidos são verídicos e aceito as condições de matrícula estabelecidas pela instituição.
+    </div>
+    <div class="decl-text">
+      Comprometo-me a cumprir o Regulamento Interno da Escola, a frequentar regularmente as aulas e a respeitar os prazos e obrigações académicas e financeiras.
+    </div>
+    <div class="decl-text">
+      O Encarregado de Educação, <span style="border-bottom:1px solid #000;display:inline-block;min-width:200px;font-weight:600;">${reg.nomeEncarregado}</span>,
+      compromete-se a acompanhar o processo educativo do seu educando e a cumprir todas as obrigações estabelecidas.
+    </div>
+    <div class="local-data">
+      Luanda,&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:30px;">&nbsp;</span>
+      &nbsp;de&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:100px;">&nbsp;</span>
+      &nbsp;de&nbsp;<strong>${anoAtual()}</strong>
+    </div>
+    <div class="signature-area">
+      <div class="sig-block"><div class="sig-line"></div><div>Assinatura do(a) Aluno(a) / Encarregado</div></div>
+      <div class="sig-block"><div class="sig-line"></div><div>O Funcionário da Secretaria</div></div>
+      <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
+    </div>
+  </div>
+  <div class="footer"><span>${nomeEscola} — Sistema SIGA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido em: ${hoje()}</span></div>
+</div>
+</body>
+</html>`;
+}
+
 interface Registro {
   id: string;
   nomeCompleto: string;
@@ -82,6 +246,7 @@ export default function PortalProvisorioScreen() {
   const [modalCompletar, setModalCompletar] = useState(false);
   const [modalSucesso, setModalSucesso] = useState<{ visible: boolean; numeroMatricula: string }>({ visible: false, numeroMatricula: '' });
   const [errorModal, setErrorModal] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
+  const [matriculaNumero, setMatriculaNumero] = useState('');
 
   const topPad = Platform.OS === 'web' ? 56 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
@@ -102,6 +267,8 @@ export default function PortalProvisorioScreen() {
     } finally {
       setIsLoading(false);
     }
+    const matNum = await AsyncStorage.getItem(MATRICULA_NUM_KEY).catch(() => null);
+    if (matNum) setMatriculaNumero(matNum);
   }, []);
 
   useEffect(() => { loadRegistro(); }, []);
@@ -145,12 +312,31 @@ export default function PortalProvisorioScreen() {
       const res = await fetch(`/api/registros/${registro.id}/completar-matricula`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      if (data.numeroMatricula) {
+        await AsyncStorage.setItem(MATRICULA_NUM_KEY, data.numeroMatricula);
+        setMatriculaNumero(data.numeroMatricula);
+      }
       await loadRegistro();
       setModalSucesso({ visible: true, numeroMatricula: data.numeroMatricula || '' });
     } catch (e: any) {
       setErrorModal({ visible: true, message: e.message || 'Não foi possível completar a matrícula.' });
     } finally {
       setIsActing(false);
+    }
+  }
+
+  async function handleImprimirBoletimMatricula(numMatricula?: string) {
+    if (!registro || Platform.OS !== 'web') return;
+    const matNum = numMatricula || matriculaNumero || 'SEM-NUMERO';
+    const schoolRes = await fetch('/api/config').catch(() => null);
+    const school = schoolRes?.ok ? (await schoolRes.json()) : {};
+    const nomeEscola = school.nomeEscola || 'ESCOLA — SIGA';
+    const html = generateBoletimMatriculaHTML(registro, matNum, nomeEscola);
+    const win = window.open('', '_blank');
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      setTimeout(() => { win.print(); }, 600);
     }
   }
 
@@ -389,9 +575,26 @@ export default function PortalProvisorioScreen() {
                 <Ionicons name="ribbon-outline" size={22} color={Colors.gold} />
                 <Text style={[styles.cardTitle, { color: Colors.gold }]}>Matrícula Concluída!</Text>
               </View>
+              {!!matriculaNumero && (
+                <View style={{ backgroundColor: 'rgba(39,174,96,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(39,174,96,0.3)', padding: 12, alignItems: 'center', gap: 2 }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Número de Matrícula</Text>
+                  <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.success, letterSpacing: 1 }}>{matriculaNumero}</Text>
+                </View>
+              )}
               <Text style={styles.cardDesc}>
                 A sua matrícula foi concluída com sucesso. A sua conta de estudante foi activada e pode aceder ao portal oficial com as mesmas credenciais.
               </Text>
+              {Platform.OS === 'web' && (
+                <TouchableOpacity
+                  style={styles.boletimBtn}
+                  onPress={() => handleImprimirBoletimMatricula()}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="print-outline" size={16} color={Colors.gold} />
+                  <Text style={styles.boletimBtnText}>Imprimir Boletim de Matrícula</Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                </TouchableOpacity>
+              )}
             </View>
 
             <TouchableOpacity
@@ -510,6 +713,15 @@ export default function PortalProvisorioScreen() {
             <Text style={[modalStyles.info, { textAlign: 'center' }]}>
               A sua conta oficial foi activada. Pode agora aceder com as mesmas credenciais no login principal.
             </Text>
+            {Platform.OS === 'web' && !!modalSucesso.numeroMatricula && (
+              <TouchableOpacity
+                style={[modalStyles.btn, { backgroundColor: 'rgba(240,165,0,0.15)', borderWidth: 1, borderColor: 'rgba(240,165,0,0.4)', flexDirection: 'row', gap: 8, justifyContent: 'center' }]}
+                onPress={() => handleImprimirBoletimMatricula(modalSucesso.numeroMatricula)}
+              >
+                <Ionicons name="print-outline" size={16} color={Colors.gold} />
+                <Text style={[modalStyles.btnText, { color: Colors.gold }]}>Imprimir Boletim de Matrícula</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={[modalStyles.btn, { backgroundColor: Colors.success }]} onPress={() => { setModalSucesso({ visible: false, numeroMatricula: '' }); handleSair(); }}>
               <Text style={modalStyles.btnText}>Aceder à Conta Oficial</Text>
             </TouchableOpacity>

@@ -13,6 +13,140 @@ import { useAuth } from '@/context/AuthContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import DatePickerField from '@/components/DatePickerField';
 
+function buildQrImageUrl(data: string, size = 100): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;
+}
+function hoje(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+function anoAtual(): string { return String(new Date().getFullYear()); }
+function formatDate(val: string | undefined): string {
+  if (!val) return '___/___/______';
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return val;
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  } catch { return val; }
+}
+
+async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
+  if (Platform.OS !== 'web') return;
+  const schoolRes = await fetch('/api/config').catch(() => null);
+  const school = schoolRes?.ok ? await schoolRes.json() : {};
+  const nomeEscola = school.nomeEscola || 'ESCOLA — SIGA';
+
+  const partes = String(reg.nomeCompleto || '').trim().split(/\s+/);
+  const generoLabel = reg.genero === 'M' ? 'Masculino' : 'Feminino';
+  const numeroMatricula = `MAT-${anoAtual()}-${reg.id.slice(0, 6).toUpperCase()}`;
+  const qrData = JSON.stringify({ tipo: 'BOLETIM_MATRICULA', id: reg.id, nome: reg.nomeCompleto, classe: reg.classe });
+  const qrUrl = buildQrImageUrl(qrData, 110);
+
+  const html = `<!DOCTYPE html>
+<html lang="pt">
+<head><meta charset="UTF-8"><title>Boletim de Matrícula — ${reg.nomeCompleto}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  @page { size: A4 portrait; margin: 14mm 16mm; }
+  body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+  .page { width: 100%; }
+  .header-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 6px; }
+  .header-text { flex: 1; text-align: center; }
+  .header-text p { font-size: 9.5pt; line-height: 1.55; }
+  .header-text .bold { font-weight: bold; }
+  .header-text .title { font-size: 13pt; font-weight: bold; margin-top: 6px; letter-spacing: 0.5px; text-transform: uppercase; border-bottom: 2px solid #000; display: inline-block; padding-bottom: 2px; }
+  .header-text .codigo { font-size: 9pt; margin-top: 4px; color: #333; }
+  .qr-box { width: 90px; height: 90px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 3px; }
+  .qr-box img { width: 100%; height: 100%; object-fit: contain; }
+  .qr-label { font-size: 6pt; text-align: center; margin-top: 3px; color: #444; font-weight: bold; }
+  .alerta { background: #1A2B5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
+  .status-box { border: 1.5px solid #1A2B5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
+  .status-label { font-size: 9pt; color: #444; }
+  .status-value { font-size: 11pt; font-weight: bold; color: #1A2B5F; }
+  .mat-num { font-size: 12pt; font-weight: bold; color: #0a5e14; letter-spacing: 1px; }
+  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1A2B5F; text-transform: uppercase; }
+  .field-line { display: flex; align-items: baseline; gap: 4px; margin-bottom: 5px; font-size: 9.5pt; flex-wrap: wrap; }
+  .field-line .label { white-space: nowrap; color: #444; }
+  .field-line .value { border-bottom: 1px solid #555; flex: 1; min-width: 60px; padding-bottom: 1px; font-weight: 600; }
+  .multi-field { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 5px; font-size: 9.5pt; }
+  .multi-field .item { display: flex; align-items: baseline; gap: 4px; }
+  .multi-field .item .label { color: #444; white-space: nowrap; }
+  .multi-field .item .value { border-bottom: 1px solid #555; min-width: 60px; padding-bottom: 1px; font-weight: 600; }
+  .declaracao { margin-top: 14px; border-top: 2px solid #000; padding-top: 10px; }
+  .declaracao-title { font-weight: bold; text-align: center; font-size: 11pt; margin-bottom: 8px; text-transform: uppercase; }
+  .decl-text { font-size: 9.5pt; line-height: 1.65; margin-bottom: 6px; text-align: justify; }
+  .local-data { text-align: center; margin: 12px 0 6px; font-size: 9.5pt; }
+  .signature-area { display: flex; justify-content: space-between; margin-top: 16px; }
+  .sig-block { text-align: center; font-size: 9pt; }
+  .sig-line { border-top: 1px solid #000; width: 160px; margin: 28px auto 4px; }
+  .footer { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 6px; display: flex; justify-content: space-between; font-size: 7.5pt; color: #555; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header-row">
+    <div style="width:50px;flex-shrink:0;"></div>
+    <div class="header-text">
+      <p>REPÚBLICA DE ANGOLA</p><p>MINISTÉRIO DA EDUCAÇÃO</p>
+      <p class="bold">${nomeEscola}</p>
+      <p class="title">Boletim de Matrícula</p>
+      <p class="codigo">Nº Matrícula: <strong>${numeroMatricula}</strong> &nbsp;|&nbsp; Data: <strong>${hoje()}</strong> &nbsp;|&nbsp; Ano Lectivo: <strong>${anoAtual()}</strong></p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;">
+      <div class="qr-box"><img src="${qrUrl}" alt="QR" /></div>
+      <div class="qr-label">${numeroMatricula}</div>
+    </div>
+  </div>
+  <div class="alerta">Boletim de Matrícula — Secretaria</div>
+  <div class="status-box">
+    <div><div class="status-label">Estado</div><div class="status-value">Matriculado(a)</div></div>
+    <div><div class="status-label">Nº de Matrícula</div><div class="mat-num">${numeroMatricula}</div></div>
+    <div><div class="status-label">Classe</div><div class="status-value">${reg.classe}</div></div>
+    <div><div class="status-label">Nível</div><div class="status-value">${reg.nivel}</div></div>
+  </div>
+  <div class="section-title">A — Dados Pessoais do Aluno</div>
+  <div class="field-line"><span class="label">Nome Completo:</span><span class="value">${reg.nomeCompleto}</span></div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Data de Nascimento:</span><span class="value">${formatDate(reg.dataNascimento)}</span></div>
+    <div class="item"><span class="label">Sexo:</span><span class="value">${generoLabel}</span></div>
+  </div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Província:</span><span class="value">${reg.provincia}</span></div>
+    <div class="item"><span class="label">Município:</span><span class="value">${reg.municipio}</span></div>
+  </div>
+  <div class="multi-field">
+    <div class="item"><span class="label">Telefone:</span><span class="value">${reg.telefone}</span></div>
+    <div class="item"><span class="label">Email:</span><span class="value">${reg.email}</span></div>
+  </div>
+  <div class="section-title">B — Dados do Encarregado de Educação</div>
+  <div class="field-line"><span class="label">Nome Completo:</span><span class="value">${reg.nomeEncarregado}</span></div>
+  <div class="field-line"><span class="label">Telefone:</span><span class="value">${reg.telefoneEncarregado}</span></div>
+  <div class="declaracao">
+    <div class="declaracao-title">Declaração sob Compromisso de Honra</div>
+    <div class="decl-text">
+      Eu, <span style="border-bottom:1px solid #000;display:inline-block;min-width:220px;font-weight:600;">${reg.nomeCompleto}</span>,
+      do sexo ${generoLabel}, de nacionalidade Angolana, declaro que todos os dados fornecidos são verídicos e aceito as condições de matrícula.
+    </div>
+    <div class="local-data">Luanda,&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:30px;">&nbsp;</span>&nbsp;de&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:100px;">&nbsp;</span>&nbsp;de&nbsp;<strong>${anoAtual()}</strong></div>
+    <div class="signature-area">
+      <div class="sig-block"><div class="sig-line"></div><div>Assinatura do(a) Aluno(a) / Encarregado</div></div>
+      <div class="sig-block"><div class="sig-line"></div><div>O Funcionário da Secretaria</div></div>
+      <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
+    </div>
+  </div>
+  <div class="footer"><span>${nomeEscola} — Sistema SIGA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido: ${hoje()}</span></div>
+</div>
+</body></html>`;
+
+  const win = window.open('', '_blank');
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => { win.print(); }, 600);
+  }
+}
+
 interface Registro {
   id: string;
   nomeCompleto: string;
@@ -310,6 +444,17 @@ export default function AdmissaoScreen() {
                 <Text style={[styles.regActionText, { color: Colors.gold }]}>Confirmar Pagamento</Text>
               </TouchableOpacity>
             )
+          )}
+
+          {/* Matriculado — imprimir boletim de matrícula */}
+          {reg.status === 'matriculado' && (
+            <TouchableOpacity
+              style={[styles.regActionBtn, { borderColor: 'rgba(39,174,96,0.4)', backgroundColor: 'rgba(39,174,96,0.08)' }]}
+              onPress={() => imprimirBoletimMatriculaAdmissao(reg)}
+            >
+              <Ionicons name="print-outline" size={14} color={Colors.success} />
+              <Text style={[styles.regActionText, { color: Colors.success }]}>Boletim Matrícula</Text>
+            </TouchableOpacity>
           )}
         </View>
       </View>
