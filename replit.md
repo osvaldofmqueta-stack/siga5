@@ -1,6 +1,30 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Exclusões & Faltas / Quadro de Honra)
+## Recent Changes (Latest Session — Boletim de Matrícula & Lista de Admitidos)
+- **app/boletim-matricula.tsx** *(new)*: Página para emissão do Boletim de Matrícula oficial.
+  - Lista todos os candidatos com status `admitido` ou `matriculado` (picker com pesquisa por nome, código, curso ou telefone)
+  - Gera PDF com HTML completo: QR code, dados pessoais, dados escolares (incluindo curso/área para 10ª classe), encarregado, declaração sob compromisso de honra e 3 blocos de assinatura
+  - Código de matrícula gerado: `MAT-{ano}-{id6}`
+- **app/lista-admitidos.tsx** *(new)*: Página para geração e impressão da Lista de Estudantes Admitidos.
+  - Filtros por estado (Admitidos | Matriculados | Ambos) e por classe
+  - Dashboard de resumo com totais (geral, masculino, feminino, por estado)
+  - Para a 10ª Classe com cursos definidos, a lista é automaticamente agrupada por curso/área de formação
+  - Gera HTML com tabelas, totais por grupo e assinaturas para impressão em A4
+- **app/(main)/editor-documentos.tsx**: Dois novos tipos e seeds adicionados:
+  - `DocTipo` agora inclui `'boletim_matricula'` e `'lista_admitidos'`
+  - `TIPO_LABELS`: `boletim_matricula → 'Boletim de Matrícula'`, `lista_admitidos → 'Lista de Admitidos'`
+  - `TIPO_COLORS`: verde escuro `#0a5e14` para boletim, azul navy `#1A2B5F` para lista
+  - Seeds `SEED_BOLETIM_MATRICULA` e `SEED_LISTA_ADMITIDOS` injectados automaticamente na BD
+  - `TemplateCard.handleEmitir`: tipos `boletim_matricula` → `/boletim-matricula`, `lista_admitidos` → `/lista-admitidos`
+
+### Fluxo de Matrícula (confirmado)
+- Candidato admitido → confirma matrícula no Portal Provisório → `completar-matricula` endpoint aceita `turmaId = null`
+- Secretaria confirma pagamento (`pagamentoMatriculaConfirmado = true`) → só depois o aluno pode completar a matrícula
+- Após matrícula: PDF Boletim de Matrícula gerado automaticamente no Portal Provisório
+- Secretaria usa Editor de Documentos → "Boletim de Matrícula" para emitir boletins individuais
+- Secretaria usa Editor de Documentos → "Lista de Admitidos" para imprimir a lista completa e organizar turmas
+
+## Recent Changes (Previous Session — Exclusões & Faltas / Quadro de Honra)
 - **app/(main)/_layout.tsx**: Adicionados `Stack.Screen` para `exclusoes-faltas` e `quadro-honra` — sem estes registos as rotas não eram reconhecidas pelo navegador Expo Router.
 - **app/(main)/gestao-academica.tsx**: Adicionados dois novos `ModuloCard` na grelha de módulos:
   - "Exclusões & Faltas" (ícone `account-cancel`, cor danger) → navega para `/(main)/exclusoes-faltas`

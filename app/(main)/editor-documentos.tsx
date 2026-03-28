@@ -16,7 +16,7 @@ import { useConfig } from '@/context/ConfigContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'recibo_salario' | 'extrato_propina' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'recibo_salario' | 'extrato_propina' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -199,6 +199,8 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   lista_turma: 'Lista da Turma',
   certificado_primario: 'Certificado Primário',
   ficha_inscricao: 'Boletim de Inscrição',
+  boletim_matricula: 'Boletim de Matrícula',
+  lista_admitidos: 'Lista de Admitidos',
   recibo_salario: 'Recibo de Vencimento',
   extrato_propina: 'Extracto de Propinas',
   outro: 'Outro',
@@ -216,6 +218,8 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   lista_turma: '#0369a1',
   certificado_primario: '#7c3aed',
   ficha_inscricao: '#CC1A1A',
+  boletim_matricula: '#0a5e14',
+  lista_admitidos: '#1A2B5F',
   recibo_salario: '#10b981',
   extrato_propina: '#0d9488',
   outro: Colors.textMuted,
@@ -1684,6 +1688,66 @@ Dados preenchidos automaticamente:
 O documento é emitido em formato A4 pronto para impressão e inclui declaração sob compromisso de honra com campos de assinatura.`,
 };
 
+// ─── Boletim de Matrícula Seed ───────────────────────────────────────────────
+
+const SEED_BOLETIM_MATRICULA_ID = 'tpl_seed_boletim_matricula_v1';
+
+const SEED_BOLETIM_MATRICULA: DocTemplate = {
+  id: SEED_BOLETIM_MATRICULA_ID,
+  nome: 'Boletim de Matrícula',
+  tipo: 'boletim_matricula',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `BOLETIM DE MATRÍCULA — Processo de Admissão
+
+Este modelo gera o Boletim de Matrícula oficial para candidatos admitidos ou já matriculados.
+
+Ao clicar em "Emitir", poderá pesquisar e seleccionar um candidato pelo nome ou código para gerar o seu boletim individual com QR Code e exportar em PDF.
+
+Dados preenchidos automaticamente:
+• Nome completo do candidato
+• Data de nascimento e género
+• Província e município
+• Contacto e email
+• Nível e classe atribuída
+• Curso / área de formação (para a 10ª classe)
+• Nome do encarregado de educação
+• Estado da matrícula (admitido ou matriculado)
+• Nota do exame de admissão (se lançada)
+• Código único de matrícula e QR Code de verificação
+
+O documento é emitido em formato A4 pronto para impressão e inclui declaração sob compromisso de honra com campos de assinatura para o aluno, secretaria e direcção.`,
+};
+
+// ─── Lista de Estudantes Admitidos Seed ──────────────────────────────────────
+
+const SEED_LISTA_ADMITIDOS_ID = 'tpl_seed_lista_admitidos_v1';
+
+const SEED_LISTA_ADMITIDOS: DocTemplate = {
+  id: SEED_LISTA_ADMITIDOS_ID,
+  nome: 'Lista de Estudantes Admitidos',
+  tipo: 'lista_admitidos',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `LISTA DE ESTUDANTES ADMITIDOS / APROVADOS — Processo de Admissão
+
+Este modelo gera a lista oficial de todos os estudantes admitidos (e/ou matriculados) no processo de admissão.
+
+Ao clicar em "Emitir", poderá filtrar por:
+• Estado: Admitidos | Matriculados | Ambos
+• Classe: Todas as classes ou uma classe específica
+
+Para a 10ª Classe com cursos / áreas de formação definidos, a lista é automaticamente organizada por curso, facilitando a distribuição em turmas.
+
+Dados incluídos em cada linha:
+• Nome completo do estudante
+• Sexo e idade
+• Nota do exame de admissão
+• Telefone de contacto
+
+A lista é emitida em formato A4 com totais por grupo (masculino/feminino) e assinaturas do secretário e director.`,
+};
+
 // ─── Seed: Extracto de Propinas do Estudante ─────────────────────────────────
 
 const SEED_EXTRATO_PROPINA_ID = 'tpl_seed_extrato_propina_v1';
@@ -2101,7 +2165,7 @@ export default function EditorDocumentos() {
         let list: DocTemplate[] = fetched ?? [];
 
         // Inject seed templates if not yet present in the database
-        const seeds = [SEED_EXTRATO_PROPINA, SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const seeds = [SEED_BOLETIM_MATRICULA, SEED_LISTA_ADMITIDOS, SEED_EXTRATO_PROPINA, SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
         const existingIds = new Set(list.map(t => t.id));
         const toInsert = seeds.filter(s => !existingIds.has(s.id));
         for (const seed of toInsert) {
@@ -6484,12 +6548,18 @@ export default function EditorDocumentos() {
     const preview = template.conteudo.slice(0, 120).replace(/\n/g, ' ');
     const bloqueado = !!template.bloqueado;
     const isBoletimInscricao = template.id === SEED_BOLETIM_INSCRICAO_ID;
+    const isBoletimMatricula = template.tipo === 'boletim_matricula';
+    const isListaAdmitidos = template.tipo === 'lista_admitidos';
     const isExtratoPropina = template.tipo === 'extrato_propina';
 
     function handleEmitir() {
       if (bloqueado) return;
       if (isBoletimInscricao) {
         router.push('/boletim-inscricao' as any);
+      } else if (isBoletimMatricula) {
+        router.push('/boletim-matricula' as any);
+      } else if (isListaAdmitidos) {
+        router.push('/lista-admitidos' as any);
       } else {
         openEmit(template);
       }
