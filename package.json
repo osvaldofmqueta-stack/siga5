@@ -12,15 +12,19 @@
     "web:build": "npx expo export -p web",
     "server:build": "esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist",
     "server:prod": "NODE_ENV=production node server_dist/index.js",
-    "db:push": "drizzle-kit push",
+    "db:push": "npx drizzle-kit push",
     "db:seed:utilizadores": "node scripts/seed-utilizadores.js",
     "start": "npx expo start",
     "lint": "npx expo lint",
-    "lint:fix": "npx expo lint --fix"
+    "lint:fix": "npx expo lint --fix",
+    "deploy:prod": "echo \"Deploy via GitHub Actions - push to main branch\"",
+    "db:seed": "node scripts/seed-utilizadores.js",
+    "neon:test": "node -e \"console.log(\\\"DATABASE_URL:\\\", process.env.DATABASE_URL)\""
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.1.1",
+    "@neondatabase/serverless": "^1.0.2",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@stardazed/streams-text-encoding": "^1.0.2",
     "@tanstack/react-query": "^5.95.2",
