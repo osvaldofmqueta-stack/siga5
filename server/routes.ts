@@ -1966,7 +1966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { email, senha } = b as { email: string; senha: string };
       if (!email || !senha) return json(res, 400, { error: "Email e senha são obrigatórios." });
       const rows = await query<JsonObject>(
-        `SELECT * FROM public.registros WHERE LOWER(email)=LOWER($1) AND "senhaProvisoria"=$2`,
+        `SELECT * FROM public.registros WHERE LOWER(email)=LOWER($1) AND LOWER("senhaProvisoria")=LOWER($2)`,
         [email.trim(), senha.trim()]
       );
       if (!rows[0]) return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha provisória." });
