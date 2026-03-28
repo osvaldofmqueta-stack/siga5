@@ -215,7 +215,8 @@ export default function AdminScreen() {
 
   function abrirNovoCurso() {
     setEditingCurso(null);
-    setCursoForm({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO[0], descricao: '' });
+    setCursoForm({ nome: '', codigo: '', areaFormacao: areasFormacao[0] || AREAS_FORMACAO_DEFAULT[0], descricao: '' });
+    setShowNovoAno(false); // Garantir que outros modais estão fechados
     setShowCursoForm(true);
   }
 
@@ -243,14 +244,33 @@ export default function AdminScreen() {
     setSavingCurso(false);
   }
 
+  async function deleteCurso(id: string) {
+    try {
+      const res = await fetch(`/api/cursos/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Erro ao eliminar curso');
+      }
+      await fetchCursos();
+      alertSucesso('Curso eliminado', 'O curso foi removido com sucesso.');
+    } catch (e) {
+      console.error('Erro ao eliminar curso:', e);
+      Alert.alert('Erro', (e as Error).message);
+    }
+  }
+
   async function toggleCursoAtivo(c: Curso) {
     try {
-      await fetch(`/api/cursos/${c.id}`, {
+      const res = await fetch(`/api/cursos/${c.id}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...c, ativo: !c.ativo }),
       });
+      if (!res.ok) throw new Error('Erro ao atualizar status do curso');
       await fetchCursos();
-    } catch {}
+    } catch (e) {
+      console.error('Erro ao alternar status do curso:', e);
+      Alert.alert('Erro', 'Não foi possível atualizar o estado do curso.');
+    }
   }
 
   const [showNovoAno, setShowNovoAno] = useState(false);
@@ -804,9 +824,10 @@ export default function AdminScreen() {
                             <Ionicons name="pencil-outline" size={15} color={Colors.gold} />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => {
-                            Alert.alert('Desactivar Curso', `Desactivar "${c.nome}"?`, [
+                            Alert.alert('Opções do Curso', `O que deseja fazer com "${c.nome}"?`, [
                               { text: 'Cancelar', style: 'cancel' },
-                              { text: 'Desactivar', style: 'destructive', onPress: () => toggleCursoAtivo(c) },
+                              { text: c.ativo ? 'Desactivar' : 'Activar', onPress: () => toggleCursoAtivo(c) },
+                              { text: 'Eliminar permanentemente', style: 'destructive', onPress: () => deleteCurso(c.id) },
                             ]);
                           }} style={[styles.exportBtn, { padding: 8, marginBottom: 0, minWidth: 0, borderColor: Colors.danger + '44', backgroundColor: Colors.danger + '11' }]}>
                             <Ionicons name="trash-outline" size={15} color={Colors.danger} />
@@ -899,7 +920,17 @@ export default function AdminScreen() {
                   </View>
                 </View>
                 <View style={styles.anoActions}>
-                  {!ano.ativo && (
+                  {ano.ativo ? (
+                    <TouchableOpacity
+                      style={[styles.ativarBtn, { backgroundColor: Colors.warning + '22' }]}
+                      onPress={() => Alert.alert('Desactivar Ano', `Deseja desactivar o ano ${ano.ano}? Isso pode limitar algumas funcionalidades até que outro ano seja activado.`, [
+                        { text: 'Cancelar', style: 'cancel' },
+                        { text: 'Desactivar', onPress: () => updateAno(ano.id, { ativo: false }) },
+                      ])}
+                    >
+                      <Text style={[styles.ativarText, { color: Colors.warning }]}>Desactivar</Text>
+                    </TouchableOpacity>
+                  ) : (
                     <TouchableOpacity
                       style={styles.ativarBtn}
                       onPress={() => Alert.alert('Activar Ano', `Activar ${ano.ano}?`, [
@@ -910,17 +941,16 @@ export default function AdminScreen() {
                       <Text style={styles.ativarText}>Activar</Text>
                     </TouchableOpacity>
                   )}
-                  {!ano.ativo && (
-                    <TouchableOpacity
-                      onPress={() => Alert.alert('Eliminar', `Eliminar ${ano.ano}?`, [
-                        { text: 'Cancelar', style: 'cancel' },
-                        { text: 'Eliminar', style: 'destructive', onPress: () => deleteAno(ano.id) },
-                      ])}
-                      style={styles.deleteBtn}
-                    >
-                      <Ionicons name="trash-outline" size={15} color={Colors.danger} />
-                    </TouchableOpacity>
-                  )}
+                  
+                  <TouchableOpacity
+                    onPress={() => Alert.alert('Eliminar', `Eliminar ${ano.ano}? Esta acção não pode ser desfeita.`, [
+                      { text: 'Cancelar', style: 'cancel' },
+                      { text: 'Eliminar', style: 'destructive', onPress: () => deleteAno(ano.id) },
+                    ])}
+                    style={styles.deleteBtn}
+                  >
+                    <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -2215,6 +2245,12 @@ const styles = StyleSheet.create({
   configToggleIcon: { width: 38, height: 38, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   configToggleLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
   configToggleDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  configToggleSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, alignItems: 'center' },
+  cancelBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  submitBtn: { flex: 2, paddingVertical: 14, borderRadius: 12, backgroundColor: Colors.accent, alignItems: 'center' },
+  submitBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
   configWarnBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12, marginTop: 10 },
   configWarnText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 17 },
   configFieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border },

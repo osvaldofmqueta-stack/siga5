@@ -54,6 +54,8 @@ export interface ConfigGeral {
   papHabilitado: boolean;
   estagioComoDisciplina: boolean;
   papDisciplinasContribuintes: string[];
+  inscricoesAbertas: boolean;
+  exclusaoDuasReprovacoes: boolean;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -98,6 +100,8 @@ const DEFAULT_CONFIG: ConfigGeral = {
   papHabilitado: false,
   estagioComoDisciplina: false,
   papDisciplinasContribuintes: [],
+  inscricoesAbertas: false,
+  exclusaoDuasReprovacoes: false,
 };
 
 interface ConfigContextValue {
@@ -153,6 +157,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           papDisciplinasContribuintes: Array.isArray(raw.papDisciplinasContribuintes)
             ? (raw.papDisciplinasContribuintes as string[])
             : DEFAULT_CONFIG.papDisciplinasContribuintes,
+          inscricoesAbertas: raw.inscricoesAbertas !== undefined ? Boolean(raw.inscricoesAbertas) : DEFAULT_CONFIG.inscricoesAbertas,
+          exclusaoDuasReprovacoes: raw.exclusaoDuasReprovacoes !== undefined ? Boolean(raw.exclusaoDuasReprovacoes) : DEFAULT_CONFIG.exclusaoDuasReprovacoes,
         };
         setConfig(parsed);
       })

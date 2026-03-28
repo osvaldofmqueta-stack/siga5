@@ -1086,9 +1086,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.delete("/api/anos-academicos/:id", async (req: Request, res: Response) => {
-    const rows = await query<JsonObject>(`DELETE FROM public.anos_academicos WHERE id=$1 RETURNING *`, [req.params.id]);
-    if (!rows[0]) return json(res, 404, { error: "Not found." });
-    json(res, 200, rows[0]);
+    try {
+      const { id } = req.params;
+      console.log(`Tentando eliminar ano académico: ${id}`);
+      
+      // Verificar se existem turmas vinculadas a este ano (pelo nome do ano)
+      const anoRow = await query<JsonObject>(`SELECT ano FROM public.anos_academicos WHERE id=$1`, [id]);
+      if (anoRow[0]) {
+        const turmasCount = await query<JsonObject>(`SELECT count(*) as count FROM public.turmas WHERE "anoLetivo"=$1`, [anoRow[0].ano]);
+        if (parseInt(String(turmasCount[0].count)) > 0) {
+          return json(res, 400, { error: "Não é possível eliminar um ano que possui turmas vinculadas." });
+        }
+      }
+
+      const rows = await query<JsonObject>(`DELETE FROM public.anos_academicos WHERE id=$1 RETURNING *`, [id]);
+      if (!rows[0]) return json(res, 404, { error: "Ano não encontrado." });
+      
+      console.log(`Ano eliminado com sucesso: ${id}`);
+      json(res, 200, rows[0]);
+    } catch (e) { 
+      console.error("Erro ao eliminar ano:", e);
+      json(res, 500, { error: (e as Error).message }); 
+    }
   });
 
   app.post("/api/anos-academicos/:id/transicao", async (req: Request, res: Response) => {
@@ -1960,25 +1979,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/registros", async (req: Request, res: Response) => {
+    console.log("POST /api/registros", req.body);
     try {
       const b = requireBodyObject(req);
       const senha = gerarSenhaProvisoria(String(b.nomeCompleto||''), String(b.dataNascimento||''));
+      const id = b.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
+      
       const rows = await query<JsonObject>(
         `INSERT INTO public.registros (
-          "nomeCompleto","dataNascimento","genero","provincia","municipio",
+          "id", "nomeCompleto","dataNascimento","genero","provincia","municipio",
           "telefone","email","endereco","bairro","numeroBi","numeroCedula",
-          "nivel","classe","nomeEncarregado","telefoneEncarregado","observacoes",
+          "nivel","classe","cursoId","nomeEncarregado","telefoneEncarregado","observacoes",
           "status","senhaProvisoria"
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
         [
-          b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
+          id, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
           b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
-          b.nivel, b.classe, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
+          b.nivel, b.classe, b.cursoId || null, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
           b.status??'pendente', senha
         ],
       );
+      console.log("Inscrição criada:", rows[0]);
       json(res, 201, rows[0]);
-    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+    } catch (e) { 
+      console.error("Erro ao criar inscrição:", e);
+      json(res, 400, { error: (e as Error).message }); 
+    }
   });
 
   app.put("/api/registros/:id", async (req: Request, res: Response) => {
@@ -2669,8 +2695,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/cursos/:id", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      await query(`UPDATE public.cursos SET ativo=false WHERE id=$1`, [id]);
-      json(res, 200, { ok: true });
+      
+      // Verificar se existem turmas vinculadas a este curso
+      const turmas = await query<JsonObject>(`SELECT id FROM public.turmas WHERE "cursoId"=$1 LIMIT 1`, [id]);
+      if (turmas.length > 0) {
+        return json(res, 400, { error: "Não é possível eliminar um curso que possui turmas vinculadas." });
+      }
+
+      // Verificar se existem alunos vinculados a este curso
+      const alunos = await query<JsonObject>(`SELECT id FROM public.alunos WHERE "cursoId"=$1 LIMIT 1`, [id]);
+      if (alunos.length > 0) {
+        return json(res, 400, { error: "Não é possível eliminar um curso que possui alunos matriculados." });
+      }
+
+      const rows = await query<JsonObject>(`DELETE FROM public.cursos WHERE id=$1 RETURNING *`, [id]);
+      if (!rows.length) return json(res, 404, { error: 'Curso não encontrado.' });
+      
+      json(res, 200, { message: "Curso eliminado com sucesso", curso: rows[0] });
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
@@ -4247,7 +4288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (prevIsNeg && !isNeg) {
               // R2 — Negativa seguida de positiva → Exame de Época Normal no final da 12ª classe
               examesPendentes.push(prev.anoLetivo);
-              if (situacao !== 'reprova_sem_exame') {
+              if (situacao === 'normal') {
                 situacao = 'exame_fechamento';
                 motivo   = `Negativa em ${prev.anoLetivo} (${prev.mediaAnual.toFixed(1)}) resgatada em ${ano.anoLetivo} (${ano.mediaAnual.toFixed(1)}) — Exame de Época Normal obrigatório no final da 12ª classe`;
               }
