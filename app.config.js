@@ -17,7 +17,7 @@ module.exports = {
     icon: "./assets/images/icon.png",
     scheme: "sgaa",
     userInterfaceStyle: "dark",
-    newArchEnabled: true,
+    newArchEnabled: false,
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
@@ -65,7 +65,12 @@ module.exports = {
     ],
     experiments: {
       typedRoutes: true,
-      reactCompiler: true,
+      reactCompiler: false,
+    },
+    extra: {
+      eas: {
+        projectId: "d0396d29-96bc-4aec-a943-0dfdda692205",
+      },
     },
   },
 };

@@ -240,12 +240,16 @@ function setupStaticWeb(app: express.Application) {
   if (fs.existsSync(distPath)) {
     log(`Production mode: serving static web build from ${distPath}`);
     app.use(express.static(distPath));
-    app.get("*", (_req: Request, res: Response) => {
+    app.get("*splat", (_req: Request, res: Response) => {
       const indexPath = path.join(distPath, "index.html");
-      const html = fs.readFileSync(indexPath, "utf-8");
-      const modified = injectPwaTags(html);
-      res.setHeader("Content-Type", "text/html");
-      res.send(modified);
+      if (fs.existsSync(indexPath)) {
+        const html = fs.readFileSync(indexPath, "utf-8");
+        const modified = injectPwaTags(html);
+        res.setHeader("Content-Type", "text/html");
+        res.send(modified);
+      } else {
+        res.status(404).send("Not Found");
+      }
     });
   } else {
     log("WARNING: dist/ folder not found. Run 'npx expo export -p web' to build.");

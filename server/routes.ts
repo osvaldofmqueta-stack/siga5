@@ -1048,15 +1048,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/anos-academicos", async (req: Request, res: Response) => {
+    console.log("POST /api/anos-academicos", req.body);
     try {
       const b = requireBodyObject(req);
+      const id = b.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
       const rows = await query<JsonObject>(
         `INSERT INTO public.anos_academicos (id,"ano","dataInicio","dataFim","ativo","trimestres")
          VALUES ($1,$2,$3,$4,$5,$6::jsonb) RETURNING *`,
-        [b.id ?? null, b.ano, b.dataInicio, b.dataFim, b.ativo ?? false, jsonbParam(b.trimestres) ?? '[]'],
+        [id, b.ano, b.dataInicio, b.dataFim, b.ativo ?? false, jsonbParam(b.trimestres) ?? '[]'],
       );
+      console.log("Ano criado:", rows[0]);
       json(res, 201, rows[0]);
-    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+    } catch (e) { 
+      console.error("Erro ao criar ano:", e);
+      json(res, 400, { error: (e as Error).message }); 
+    }
   });
 
   app.put("/api/anos-academicos/:id", async (req: Request, res: Response) => {
@@ -2633,10 +2639,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { nome, codigo, areaFormacao, descricao } = body as Record<string, string>;
       if (!nome?.trim()) return json(res, 400, { error: 'Nome é obrigatório.' });
       if (!areaFormacao?.trim()) return json(res, 400, { error: 'Área de formação é obrigatória.' });
+      
+      const id = body.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
+      
       const rows = await query<JsonObject>(
-        `INSERT INTO public.cursos (nome, codigo, "areaFormacao", descricao, ativo)
-         VALUES ($1, $2, $3, $4, true) RETURNING *`,
-        [nome.trim(), (codigo || '').trim(), areaFormacao.trim(), (descricao || '').trim()]
+        `INSERT INTO public.cursos (id, nome, codigo, "areaFormacao", descricao, ativo)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [id, nome.trim(), (codigo || '').trim(), areaFormacao.trim(), (descricao || '').trim(), true]
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }

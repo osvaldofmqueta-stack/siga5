@@ -301,37 +301,46 @@ export default function AdminScreen() {
 
   async function criarUser() {
     if (!formUser.nome.trim() || !formUser.email.trim() || !formUser.senha.trim()) {
-      Alert.alert('Erro', 'Nome, email e senha são obrigatórios.'); return;
+      Alert.alert('Erro', 'Nome, email e senha são obrigatórios.');
+      return;
     }
     if (users.some(u => u.email.toLowerCase() === formUser.email.toLowerCase().trim())) {
-      Alert.alert('Erro', 'Já existe um utilizador com este email.'); return;
+      Alert.alert('Erro', 'Já existe um utilizador com este email.');
+      return;
     }
-    const novoUser = await addUser({
-      nome: formUser.nome.trim(),
-      email: formUser.email.toLowerCase().trim(),
-      senha: formUser.senha,
-      role: formUser.role,
-      escola: escola.nome,
-      ativo: true,
-    });
-    if (formUser.role === 'professor') {
-      const nomes = formUser.nome.trim().split(' ');
-      await addProfessor({
-        id: novoUser.id,
-        numeroProfessor: formUser.numeroProfessor.trim() || `PROF-${Date.now().toString().slice(-4)}`,
-        nome: nomes[0],
-        apelido: nomes.slice(1).join(' ') || '',
-        disciplinas: [],
-        turmasIds: [],
-        telefone: formUser.telefone.trim(),
+
+    try {
+      const novoUser = await addUser({
+        nome: formUser.nome.trim(),
         email: formUser.email.toLowerCase().trim(),
-        habilitacoes: formUser.habilitacoes.trim(),
+        senha: formUser.senha,
+        role: formUser.role,
+        escola: escola.nome,
         ativo: true,
       });
+
+      if (formUser.role === 'professor') {
+        const nomes = formUser.nome.trim().split(' ');
+        await addProfessor({
+          id: novoUser.id,
+          numeroProfessor: formUser.numeroProfessor.trim() || `PROF-${Date.now().toString().slice(-4)}`,
+          nome: nomes[0],
+          apelido: nomes.slice(1).join(' ') || '',
+          disciplinas: [],
+          turmasIds: [],
+          telefone: formUser.telefone.trim(),
+          email: formUser.email.toLowerCase().trim(),
+          habilitacoes: formUser.habilitacoes.trim(),
+          ativo: true,
+        });
+      }
+      setShowNovoUser(false);
+      setFormUser({ nome: '', email: '', role: 'professor', senha: '', numeroProfessor: '', telefone: '', habilitacoes: '' });
+      alertSucesso('Utilizador criado', `${formUser.nome} foi criado com sucesso no sistema.`);
+    } catch (e) {
+      console.error('Erro ao criar utilizador:', e);
+      Alert.alert('Erro', 'Não foi possível criar o utilizador. Verifique os dados e tente novamente.');
     }
-    setShowNovoUser(false);
-    setFormUser({ nome: '', email: '', role: 'professor', senha: '', numeroProfessor: '', telefone: '', habilitacoes: '' });
-    alertSucesso('Utilizador criado', `${formUser.nome} foi criado com sucesso no sistema.`);
   }
 
   function confirmarEliminarUser(id: string, nome: string) {
@@ -346,23 +355,33 @@ export default function AdminScreen() {
   }
 
   async function criarAno() {
+    console.log("Tentando criar ano:", formAno);
     if (!formAno.ano || !formAno.dataInicio || !formAno.dataFim) {
-      Alert.alert('Erro', 'Preencha todos os campos.'); return;
+      Alert.alert('Erro', 'Preencha todos os campos.');
+      return;
     }
-    await addAno({
-      ano: formAno.ano,
-      dataInicio: formAno.dataInicio,
-      dataFim: formAno.dataFim,
-      ativo: false,
-      trimestres: [
-        { numero: 1, dataInicio: formAno.dataInicio, dataFim: formAno.dataInicio, ativo: false },
-        { numero: 2, dataInicio: formAno.dataInicio, dataFim: formAno.dataInicio, ativo: false },
-        { numero: 3, dataInicio: formAno.dataInicio, dataFim: formAno.dataFim, ativo: false },
-      ],
-    });
-    setShowNovoAno(false);
-    setFormAno({ ano: '', dataInicio: '', dataFim: '' });
-    alertSucesso('Ano académico criado', `O ano lectivo ${formAno.ano} foi criado com sucesso.`);
+
+    try {
+      console.log("Chamando addAno...");
+      await addAno({
+        ano: formAno.ano,
+        dataInicio: formAno.dataInicio,
+        dataFim: formAno.dataFim,
+        ativo: false,
+        trimestres: [
+          { numero: 1, dataInicio: formAno.dataInicio, dataFim: formAno.dataInicio, ativo: false },
+          { numero: 2, dataInicio: formAno.dataInicio, dataFim: formAno.dataInicio, ativo: false },
+          { numero: 3, dataInicio: formAno.dataInicio, dataFim: formAno.dataFim, ativo: false },
+        ],
+      });
+      console.log("addAno concluído com sucesso.");
+      setShowNovoAno(false);
+      setFormAno({ ano: '', dataInicio: '', dataFim: '' });
+      alertSucesso('Ano académico criado', `O ano lectivo ${formAno.ano} foi criado com sucesso.`);
+    } catch (e) {
+      console.error('Erro ao criar ano académico:', e);
+      Alert.alert('Erro', 'Não foi possível criar o ano académico: ' + (e as Error).message);
+    }
   }
 
   function handleAprovar(s: SolicitacaoRegistro) {
@@ -639,10 +658,10 @@ export default function AdminScreen() {
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <SectionHeader title="Parametrizar Cursos" icon="library" color="#A78BFA" />
-              {!showCursoForm && (
+                  {!showCursoForm && (
                 <TouchableOpacity
                   style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
-                  onPress={() => { abrirNovoCurso(); fetchCursos(); }}
+                  onPress={() => abrirNovoCurso()}
                 >
                   <Ionicons name="add" size={15} color="#A78BFA" />
                   <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
@@ -690,7 +709,7 @@ export default function AdminScreen() {
                   <Text style={styles.fieldLabel}>Área de Formação *</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                      {AREAS_FORMACAO.map(a => (
+                      {areasFormacao.map(a => (
                         <TouchableOpacity
                           key={a}
                           onPress={() => setCursoForm(f => ({ ...f, areaFormacao: a }))}
