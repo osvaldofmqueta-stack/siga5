@@ -79,6 +79,9 @@ export default function PortalProvisorioScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isActing, setIsActing] = useState(false);
   const [rupeModal, setRupeModal] = useState<{ visible: boolean; tipo: 'inscricao' | 'matricula'; rupe: any } | null>(null);
+  const [modalCompletar, setModalCompletar] = useState(false);
+  const [modalSucesso, setModalSucesso] = useState<{ visible: boolean; numeroMatricula: string }>({ visible: false, numeroMatricula: '' });
+  const [errorModal, setErrorModal] = useState<{ visible: boolean; message: string }>({ visible: false, message: '' });
 
   const topPad = Platform.OS === 'web' ? 56 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
@@ -123,37 +126,32 @@ export default function PortalProvisorioScreen() {
       await AsyncStorage.setItem(PROVISORIO_KEY, JSON.stringify(data.registro));
       setRupeModal({ visible: true, tipo, rupe: data });
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível gerar o RUPE.');
+      setErrorModal({ visible: true, message: e.message || 'Não foi possível gerar o RUPE.' });
     } finally {
       setIsActing(false);
     }
   }
 
-  async function handleCompletarMatricula() {
+  function handleCompletarMatricula() {
     if (!registro) return;
-    Alert.alert(
-      'Completar Matrícula',
-      'Confirma que pretende finalizar a sua matrícula? Esta acção é irreversível.',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar', onPress: async () => {
-            setIsActing(true);
-            try {
-              const res = await fetch(`/api/registros/${registro.id}/completar-matricula`, { method: 'POST' });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error);
-              await loadRegistro();
-              Alert.alert('Matrícula Concluída!', `O número de matrícula é: ${data.numeroMatricula}\n\nA sua conta oficial foi activada. Pode agora aceder com as mesmas credenciais.`);
-            } catch (e: any) {
-              Alert.alert('Erro', e.message || 'Não foi possível completar a matrícula.');
-            } finally {
-              setIsActing(false);
-            }
-          }
-        },
-      ]
-    );
+    setModalCompletar(true);
+  }
+
+  async function executarCompletarMatricula() {
+    if (!registro) return;
+    setModalCompletar(false);
+    setIsActing(true);
+    try {
+      const res = await fetch(`/api/registros/${registro.id}/completar-matricula`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await loadRegistro();
+      setModalSucesso({ visible: true, numeroMatricula: data.numeroMatricula || '' });
+    } catch (e: any) {
+      setErrorModal({ visible: true, message: e.message || 'Não foi possível completar a matrícula.' });
+    } finally {
+      setIsActing(false);
+    }
   }
 
   async function handleSair() {
@@ -461,6 +459,77 @@ export default function PortalProvisorioScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Confirmar Matrícula Modal */}
+      <Modal visible={modalCompletar} transparent animationType="fade" onRequestClose={() => setModalCompletar(false)}>
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(39,174,96,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <Ionicons name="school-outline" size={28} color={Colors.success} />
+            </View>
+            <Text style={modalStyles.title}>Completar Matrícula</Text>
+            <Text style={[modalStyles.info, { textAlign: 'center' }]}>
+              Confirma que pretende finalizar a sua matrícula?{'\n'}Esta acção é irreversível.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginTop: 4 }}>
+              <TouchableOpacity
+                style={[modalStyles.btn, { flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: Colors.border }]}
+                onPress={() => setModalCompletar(false)}
+              >
+                <Text style={[modalStyles.btnText, { color: Colors.textSecondary }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[modalStyles.btn, { flex: 1, backgroundColor: Colors.success }]}
+                onPress={executarCompletarMatricula}
+                disabled={isActing}
+              >
+                {isActing
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={modalStyles.btnText}>Confirmar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Sucesso Matrícula Modal */}
+      <Modal visible={modalSucesso.visible} transparent animationType="fade" onRequestClose={() => setModalSucesso({ visible: false, numeroMatricula: '' })}>
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(39,174,96,0.15)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
+              <Ionicons name="checkmark-circle" size={36} color={Colors.success} />
+            </View>
+            <Text style={[modalStyles.title, { color: Colors.success }]}>Matrícula Concluída!</Text>
+            {!!modalSucesso.numeroMatricula && (
+              <View style={modalStyles.refBox}>
+                <Text style={[modalStyles.ref, { fontSize: 13 }]}>Nº de Matrícula</Text>
+                <Text style={[modalStyles.ref, { color: Colors.success, fontSize: 20 }]}>{modalSucesso.numeroMatricula}</Text>
+              </View>
+            )}
+            <Text style={[modalStyles.info, { textAlign: 'center' }]}>
+              A sua conta oficial foi activada. Pode agora aceder com as mesmas credenciais no login principal.
+            </Text>
+            <TouchableOpacity style={[modalStyles.btn, { backgroundColor: Colors.success }]} onPress={() => { setModalSucesso({ visible: false, numeroMatricula: '' }); handleSair(); }}>
+              <Text style={modalStyles.btnText}>Aceder à Conta Oficial</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Erro Modal */}
+      <Modal visible={errorModal.visible} transparent animationType="fade" onRequestClose={() => setErrorModal({ visible: false, message: '' })}>
+        <View style={modalStyles.overlay}>
+          <View style={modalStyles.container}>
+            <Ionicons name="alert-circle-outline" size={40} color={Colors.danger} />
+            <Text style={[modalStyles.title, { color: Colors.danger }]}>Erro</Text>
+            <Text style={[modalStyles.info, { textAlign: 'center' }]}>{errorModal.message}</Text>
+            <TouchableOpacity style={[modalStyles.btn, { backgroundColor: Colors.danger }]} onPress={() => setErrorModal({ visible: false, message: '' })}>
+              <Text style={modalStyles.btnText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
