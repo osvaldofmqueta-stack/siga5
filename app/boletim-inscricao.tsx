@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator, Alert, TextInput, FlatList,
+  Platform, ActivityIndicator, Alert, TextInput, FlatList, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import QRCode from 'react-native-qrcode-svg';
 import { Colors } from '@/constants/colors';
+
+let QRCode: any = null;
+if (Platform.OS !== 'web') {
+  QRCode = require('react-native-qrcode-svg').default;
+}
+
+function buildQrImageUrl(data: string, size = 88): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -579,13 +587,9 @@ export default function BoletimInscricaoScreen() {
       setIsPrinting(false);
     };
 
-    if (qrSvgRef.current && typeof qrSvgRef.current.toDataURL === 'function') {
-      qrSvgRef.current.toDataURL((dataUrl: string) => {
-        doOpen(dataUrl);
-      });
-    } else {
-      doOpen('');
-    }
+    // On web use the QR image URL directly from the external service
+    const qrUrl = buildQrImageUrl(qrValue, 130);
+    doOpen(qrUrl);
   }
 
   const qrValue = registro ? buildQrData(registro) : 'SIGA-INSCRICAO';
@@ -778,13 +782,21 @@ export default function BoletimInscricaoScreen() {
 
             {/* QR Code */}
             <View style={styles.qrWrap}>
-              <QRCode
-                value={qrValue}
-                size={88}
-                color="#FFFFFF"
-                backgroundColor="#132145"
-                getRef={(ref) => { qrSvgRef.current = ref; }}
-              />
+              {Platform.OS === 'web' ? (
+                <Image
+                  source={{ uri: buildQrImageUrl(qrValue, 88) }}
+                  style={{ width: 88, height: 88, borderRadius: 6 }}
+                  resizeMode="contain"
+                />
+              ) : QRCode ? (
+                <QRCode
+                  value={qrValue}
+                  size={88}
+                  color="#FFFFFF"
+                  backgroundColor="#132145"
+                  getRef={(ref: any) => { qrSvgRef.current = ref; }}
+                />
+              ) : null}
               <Text style={styles.qrLabel}>{codigo}</Text>
             </View>
           </View>
