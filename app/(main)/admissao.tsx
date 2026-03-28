@@ -82,6 +82,7 @@ export default function AdmissaoScreen() {
   const [modalNota, setModalNota] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
   const [nota, setNota] = useState('');
   const [modalDetalhes, setModalDetalhes] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
+  const [modalConfirmarPagamento, setModalConfirmarPagamento] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
   const [isActing, setIsActing] = useState(false);
 
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
@@ -164,31 +165,30 @@ export default function AdmissaoScreen() {
     finally { setIsActing(false); }
   }
 
-  async function confirmarPagamentoMatricula(reg: Registro) {
-    Alert.alert(
-      'Confirmar Pagamento',
-      `Confirmar que ${reg.nomeCompleto} efectuou o pagamento da taxa de matrícula (RUPE: ${reg.rupeMatricula || 'não gerado'})?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Confirmar Pagamento', onPress: async () => {
-            setIsActing(true);
-            try {
-              const res = await fetch(`/api/registros/${reg.id}/confirmar-pagamento-matricula`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ confirmadoPor: user?.nome || 'Admin' }),
-              });
-              const data = await res.json();
-              if (!res.ok) throw new Error(data.error);
-              await load();
-              alertSucesso('Pagamento confirmado', `O pagamento de ${reg.nomeCompleto} foi confirmado. O estudante já pode concluir a matrícula.`);
-            } catch (e: any) { alertErro('Erro', e.message || 'Não foi possível confirmar o pagamento.'); }
-            finally { setIsActing(false); }
-          }
-        },
-      ]
-    );
+  function confirmarPagamentoMatricula(reg: Registro) {
+    setModalConfirmarPagamento({ visible: true, reg });
+  }
+
+  async function executarConfirmarPagamento() {
+    const reg = modalConfirmarPagamento.reg;
+    if (!reg) return;
+    setIsActing(true);
+    try {
+      const res = await fetch(`/api/registros/${reg.id}/confirmar-pagamento-matricula`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmadoPor: user?.nome || 'Admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await load();
+      setModalConfirmarPagamento({ visible: false, reg: null });
+      alertSucesso('Pagamento confirmado', `O pagamento de ${reg.nomeCompleto} foi confirmado. O estudante já pode concluir a matrícula.`);
+    } catch (e: any) {
+      alertErro('Erro', e.message || 'Não foi possível confirmar o pagamento.');
+    } finally {
+      setIsActing(false);
+    }
   }
 
   async function lancarNota() {
@@ -446,6 +446,42 @@ export default function AdmissaoScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[mStyles.actionBtn, { backgroundColor: Colors.success }]} onPress={lancarNota} disabled={isActing}>
                 {isActing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={mStyles.actionText}>Lançar Nota</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Confirmar Pagamento Modal ── */}
+      <Modal visible={modalConfirmarPagamento.visible} transparent animationType="slide" onRequestClose={() => setModalConfirmarPagamento({ visible: false, reg: null })}>
+        <View style={mStyles.overlay}>
+          <View style={mStyles.container}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(240,165,0,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="cash-outline" size={18} color={Colors.gold} />
+              </View>
+              <Text style={mStyles.title}>Confirmar Pagamento</Text>
+            </View>
+            {modalConfirmarPagamento.reg && (
+              <>
+                <Text style={mStyles.name}>{modalConfirmarPagamento.reg.nomeCompleto}</Text>
+                <View style={{ backgroundColor: 'rgba(240,165,0,0.07)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(240,165,0,0.2)', padding: 12, gap: 6 }}>
+                  <Text style={[mStyles.label, { marginBottom: 2 }]}>Referência RUPE — Matrícula</Text>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 0.5 }}>
+                    {modalConfirmarPagamento.reg.rupeMatricula || '(não gerado)'}
+                  </Text>
+                </View>
+                <Text style={[mStyles.hint, { marginTop: 4 }]}>
+                  Confirme apenas após verificar fisicamente o comprovativo de pagamento RUPE apresentado pelo estudante. Esta acção não pode ser revertida.
+                </Text>
+              </>
+            )}
+            <View style={mStyles.actions}>
+              <TouchableOpacity style={mStyles.cancelBtn} onPress={() => setModalConfirmarPagamento({ visible: false, reg: null })}>
+                <Text style={mStyles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[mStyles.actionBtn, { backgroundColor: Colors.success }]} onPress={executarConfirmarPagamento} disabled={isActing}>
+                {isActing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={mStyles.actionText}>Confirmar Pagamento</Text>}
               </TouchableOpacity>
             </View>
           </View>
