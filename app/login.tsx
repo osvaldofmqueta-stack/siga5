@@ -711,7 +711,7 @@ export default function LoginScreen() {
             <View style={styles.desktopLogoWrap}>
               <View style={styles.logoGlowBig} />
               <Image
-                source={require('../assets/sige-logo.png')}
+                source={{ uri: '/oigd-logo.png' }}
                 style={styles.desktopLogoImage}
                 resizeMode="contain"
               />
