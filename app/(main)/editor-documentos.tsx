@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
   Platform, Dimensions, FlatList, Image, Alert, Animated, ActivityIndicator, Modal,
@@ -2135,6 +2135,70 @@ export default function EditorDocumentos() {
   const [tinyInitContent, setTinyInitContent] = useState<string>('');
   const [editorKey, setEditorKey] = useState<number>(0);
 
+  // Stable callback — never recreated on re-renders so TinyMCE never re-initialises.
+  const tinyOnEditorChange = useCallback((content: string) => {
+    webEditorContentRef.current = content;
+  }, []);
+
+  // Stable init config — object identity preserved across re-renders.
+  const tinyInitConfig = useMemo(() => ({
+    height: 520,
+    menubar: true,
+    branding: false,
+    promotion: false,
+    convert_urls: false,
+    relative_urls: false,
+    plugins: [
+      'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
+      'preview', 'anchor', 'searchreplace', 'visualblocks', 'code',
+      'fullscreen', 'insertdatetime', 'media', 'table', 'wordcount',
+    ],
+    toolbar:
+      'undo redo | blocks | bold italic underline strikethrough | ' +
+      'alignleft aligncenter alignright alignjustify | ' +
+      'bullist numlist outdent indent | link image table | ' +
+      'forecolor backcolor | removeformat | fullscreen code',
+    content_style:
+      "body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.9; color: #111; padding: 20px 28px; }",
+    skin: 'oxide',
+    content_css: 'default',
+    language: 'pt_PT',
+    resize: false,
+    statusbar: true,
+    image_uploadtab: true,
+    automatic_uploads: false,
+    images_upload_handler: (blobInfo: any) =>
+      Promise.resolve(blobInfo.blobUri()),
+    file_picker_types: 'image',
+    file_picker_callback: (cb: any) => {
+      const input = document.createElement('input');
+      input.setAttribute('type', 'file');
+      input.setAttribute('accept', 'image/*');
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', (e: any) => {
+        const file = e.target.files[0];
+        document.body.removeChild(input);
+        if (!file) return;
+        const reader = new FileReader();
+        reader.addEventListener('load', () => {
+          const id = 'blobid' + Date.now();
+          const blobCache = (tinyEditorRef.current as any)?.editorUpload?.blobCache;
+          if (blobCache) {
+            const base64 = (reader.result as string).split(',')[1];
+            const blobInfo = blobCache.create(id, file, base64);
+            blobCache.add(blobInfo);
+            cb(blobInfo.blobUri(), { title: file.name });
+          } else {
+            cb(reader.result as string, { title: file.name });
+          }
+        });
+        reader.readAsDataURL(file);
+      });
+      input.click();
+    },
+  }), []);
+
   // Listen for content changes from the iframe (web only).
   // Update ref only — never state — to avoid re-renders that reload the iframe.
   useEffect(() => {
@@ -2617,7 +2681,7 @@ export default function EditorDocumentos() {
       <p>___________________________</p>
     </div>
     <div class="header-center">
-      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p><strong>REPÚBLICA DE ANGOLA</strong></p>
       <p><strong>MINISTÉRIO DA EDUCAÇÃO</strong></p>
       <p class="nivel">ENSINO PRIMÁRIO</p>
@@ -2806,7 +2870,7 @@ export default function EditorDocumentos() {
       <p>_________________________</p>
     </div>
     <div class="page-header" style="margin-left:130px;">
-      <img src="/angola-brasao.png" style="width:56px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+      <img src="/angola-brasao.png" style="width:56px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="title">PAUTA FINAL PARA A CLASSE DE EXAME DO ${ciclo} DO ENSINO SECUNDÁRIO</p>
@@ -3141,7 +3205,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>REPÚBLICA DE ANGOLA</p>
     <p>MINISTÉRIO DA EDUCAÇÃO</p>
     <p>ENSINO GERAL</p>
@@ -3573,7 +3637,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <div class="sub">República de Angola — Ministério da Educação</div>
     <div class="escola">${escola}</div>
     <div class="sub">Ensino Primário, Iº e IIº Ciclo</div>
@@ -3818,7 +3882,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="escola-nome">${escola}</p>
@@ -4170,7 +4234,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Governo da Província de ${config.provincia || '_______________'}</p>
     <p>Administração Municipal de ${config.municipio || '_______________'}</p>
@@ -4397,7 +4461,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">${escola.toUpperCase()}</p>
@@ -4588,7 +4652,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">Direcção Nacional do Ensino Técnico Profissional</p>
@@ -4822,7 +4886,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">${escola.toUpperCase()}</p>
@@ -5229,7 +5293,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p>Governo da Província de ${provincia}</p>
@@ -5422,7 +5486,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display:'none'" />
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="sub">Ensino Secundário Técnico-Profissional</p>
@@ -6827,56 +6891,8 @@ export default function EditorDocumentos() {
                 tinymceScriptSrc="https://cdn.jsdelivr.net/npm/tinymce@7.9.1/tinymce.min.js"
                 onInit={(_evt: any, editor: any) => { tinyEditorRef.current = editor; }}
                 initialValue={tinyInitContent}
-                onEditorChange={(content: string) => { webEditorContentRef.current = content; }}
-                init={{
-                  height: 520,
-                  menubar: true,
-                  branding: false,
-                  promotion: false,
-                  plugins: [
-                    'advlist', 'autolink', 'lists', 'link', 'image', 'charmap',
-                    'preview', 'anchor', 'searchreplace', 'visualblocks', 'code',
-                    'fullscreen', 'insertdatetime', 'media', 'table', 'wordcount',
-                  ],
-                  toolbar:
-                    'undo redo | blocks | bold italic underline strikethrough | ' +
-                    'alignleft aligncenter alignright alignjustify | ' +
-                    'bullist numlist outdent indent | link image table | ' +
-                    'forecolor backcolor | removeformat | fullscreen code',
-                  content_style:
-                    "body { font-family: 'Times New Roman', Times, serif; font-size: 14px; line-height: 1.9; color: #111; padding: 20px 28px; }",
-                  skin: 'oxide',
-                  content_css: 'default',
-                  language: 'pt_PT',
-                  resize: false,
-                  statusbar: true,
-                  image_uploadtab: true,
-                  automatic_uploads: false,
-                  file_picker_types: 'image',
-                  file_picker_callback: (cb: any) => {
-                    const input = document.createElement('input');
-                    input.setAttribute('type', 'file');
-                    input.setAttribute('accept', 'image/*');
-                    input.addEventListener('change', (e: any) => {
-                      const file = e.target.files[0];
-                      const reader = new FileReader();
-                      reader.addEventListener('load', () => {
-                        const id = 'blobid' + Date.now();
-                        const blobCache = (tinyEditorRef.current as any)?.editorUpload?.blobCache;
-                        if (blobCache) {
-                          const base64 = (reader.result as string).split(',')[1];
-                          const blobInfo = blobCache.create(id, file, base64);
-                          blobCache.add(blobInfo);
-                          cb(blobInfo.blobUri(), { title: file.name });
-                        } else {
-                          cb(reader.result as string, { title: file.name });
-                        }
-                      });
-                      reader.readAsDataURL(file);
-                    });
-                    input.click();
-                  },
-                } as any}
+                onEditorChange={tinyOnEditorChange}
+                init={tinyInitConfig as any}
               />
             ) : (
               <TextInput
