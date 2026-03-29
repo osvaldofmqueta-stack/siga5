@@ -3507,9 +3507,9 @@ export default function EditorDocumentos() {
             cells.push(`<td style="${tdBase}width:${discW}%;">${disc}</td>`);
             cells.push(`<td style="${tdBase}text-align:center;font-weight:bold;width:${notaW}%;">${nota}</td>`);
           } else {
-            // Empty filler cells to keep grid aligned
-            cells.push(`<td style="padding:5px 8px;border:1px solid #eee;background:${bg};width:${discW}%;"></td>`);
-            cells.push(`<td style="padding:5px 8px;border:1px solid #eee;background:${bg};width:${notaW}%;"></td>`);
+            // Invisible filler — no border, no background, no content
+            cells.push(`<td style="padding:5px 8px;border:none;background:transparent;width:${discW}%;"></td>`);
+            cells.push(`<td style="padding:5px 8px;border:none;background:transparent;width:${notaW}%;"></td>`);
           }
           if (c < numCols - 1) cells.push(sepTd);
         }
