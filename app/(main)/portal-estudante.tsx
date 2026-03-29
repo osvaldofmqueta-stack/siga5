@@ -158,6 +158,7 @@ export default function PortalEstudanteScreen() {
   const [cartaoMetodo, setCartaoMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
   const [documentosEmitidos, setDocumentosEmitidos] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
 
   const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
   const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
@@ -255,6 +256,7 @@ export default function PortalEstudanteScreen() {
           const uri = ev.target?.result as string;
           if (aluno) await updateAluno(aluno.id, { foto: uri });
           await updateUser({ avatar: uri });
+          setShowPhotoChangedModal(true);
         };
         reader.readAsDataURL(file);
       };
@@ -276,6 +278,7 @@ export default function PortalEstudanteScreen() {
       const uri = result.assets[0].uri;
       if (aluno) await updateAluno(aluno.id, { foto: uri });
       await updateUser({ avatar: uri });
+      setShowPhotoChangedModal(true);
     }
   }
 
@@ -1867,6 +1870,29 @@ export default function PortalEstudanteScreen() {
           alunoNome={`${aluno.nome} ${aluno.apelido}`}
         />
       )}
+
+      <Modal visible={showPhotoChangedModal} transparent animationType="fade" onRequestClose={() => setShowPhotoChangedModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { alignItems: 'center', paddingVertical: 32 }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="checkmark-circle" size={40} color={Colors.success} />
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Foto Actualizada</Text>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', marginBottom: 24, paddingHorizontal: 8 }}>
+              A tua foto de perfil foi alterada com sucesso. Já aparece no canto superior direito e no teu cartão de estudante.
+            </Text>
+            {foto ? (
+              <Image source={{ uri: foto }} style={{ width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: Colors.gold, marginBottom: 24 }} />
+            ) : null}
+            <TouchableOpacity
+              style={{ backgroundColor: Colors.success, borderRadius: 12, paddingHorizontal: 32, paddingVertical: 12 }}
+              onPress={() => setShowPhotoChangedModal(false)}
+            >
+              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

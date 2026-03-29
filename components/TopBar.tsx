@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -95,7 +95,11 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.avatarBtn} onPress={openRight} activeOpacity={0.7}>
-          <Text style={styles.avatarText}>{user?.nome?.charAt(0) ?? 'U'}</Text>
+          {(user as any)?.avatar ? (
+            <Image source={{ uri: (user as any).avatar }} style={styles.avatarImg} />
+          ) : (
+            <Text style={styles.avatarText}>{user?.nome?.charAt(0) ?? 'U'}</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -215,6 +219,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: Colors.gold,
+    overflow: 'hidden',
+  },
+  avatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   avatarText: {
     fontSize: 15,
