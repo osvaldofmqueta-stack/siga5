@@ -134,6 +134,7 @@ function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataU
   <div class="header-row">
     <div style="width:50px;flex-shrink:0;"></div>
     <div class="header-text">
+      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="bold">${nomeEscola}</p>

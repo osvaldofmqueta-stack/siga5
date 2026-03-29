@@ -149,6 +149,7 @@ function buildListaHTML(
 <body>
   <button class="print-btn no-print" onclick="window.print()">Imprimir / PDF</button>
   <div class="doc-header">
+    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>REPÚBLICA DE ANGOLA</p>
     <p>MINISTÉRIO DA EDUCAÇÃO</p>
     <p>ENSINO GERAL</p>
