@@ -259,6 +259,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
+  // Alunos sem turma atribuída (para organização pela secretaria)
+  app.get("/api/alunos/sem-turma", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT a.*, r.classe, r."cursoId", c.nome AS "cursoNome", r.nivel
+         FROM public.alunos a
+         LEFT JOIN public.registros r ON r."nomeCompleto" ILIKE (a.nome || ' ' || a.apelido)
+           AND r.status IN ('matriculado', 'admitido')
+         LEFT JOIN public.cursos c ON c.id = r."cursoId"
+         WHERE a."turmaId" IS NULL AND a.ativo = true
+         ORDER BY a.nome, a.apelido`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Atribuição em massa de turmas a alunos (pela secretaria)
+  app.post("/api/alunos/atribuir-turmas", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'secretaria', 'admin', 'director', 'ceo', 'pca'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) {
+        return json(res, 403, { error: 'Sem permissão. Apenas secretaria ou superiores podem organizar turmas.' });
+      }
+      const b = requireBodyObject(req) as any;
+      const atribuicoes: { alunoId: string; turmaId: string }[] = b.atribuicoes || [];
+      if (!atribuicoes.length) return json(res, 400, { error: 'Nenhuma atribuição fornecida.' });
+
+      let actualizados = 0;
+      for (const { alunoId, turmaId } of atribuicoes) {
+        if (!alunoId || !turmaId) continue;
+        await query(
+          `UPDATE public.alunos SET "turmaId" = $1 WHERE id = $2`,
+          [turmaId, alunoId]
+        );
+        actualizados++;
+      }
+      json(res, 200, { success: true, actualizados });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   // Registo de Falecimento — exclusivo para chefe_secretaria, admin, director, ceo, pca
   app.post("/api/alunos/:id/registar-falecimento", requireAuth, async (req: Request, res: Response) => {
     try {

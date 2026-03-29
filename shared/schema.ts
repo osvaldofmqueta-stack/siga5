@@ -90,7 +90,6 @@ export const alunos = pgTable("alunos", {
   municipio: text("municipio").notNull(),
 
   turmaId: varchar("turmaId")
-    .notNull()
     .references(() => turmas.id),
 
   cursoId: varchar("cursoId").references(() => cursos.id),

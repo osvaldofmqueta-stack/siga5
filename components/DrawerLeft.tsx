@@ -215,6 +215,7 @@ export default function DrawerLeft() {
       items: [
         { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'secretaria_hub' },
         { label: 'Processo de Admissão', route: '/(main)/admissao', icon: <MaterialCommunityIcons name="account-school" size={20} color="inherit" />, permKey: 'admissao' },
+        { label: 'Organizar Alunos em Turmas', route: '/(main)/organizar-turmas', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'admissao' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },

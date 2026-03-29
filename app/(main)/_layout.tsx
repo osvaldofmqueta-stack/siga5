@@ -88,6 +88,7 @@ export default function MainLayout() {
           <Stack.Screen name="portal-encarregado" />
           <Stack.Screen name="controlo-supervisao" />
           <Stack.Screen name="admissao" />
+          <Stack.Screen name="organizar-turmas" />
           <Stack.Screen name="visao-geral" />
           <Stack.Screen name="rh-hub" />
           <Stack.Screen name="rh-payroll" />
