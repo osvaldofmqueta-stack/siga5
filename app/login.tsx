@@ -558,6 +558,38 @@ export default function LoginScreen() {
     </Animated.View>
   );
 
+  // Converte "DD/MM/AAAA" → Date (meia-noite local)
+  function parseDatePT(s: string | null): Date | null {
+    if (!s) return null;
+    const parts = s.split('/');
+    if (parts.length !== 3) return null;
+    const [d, m, y] = parts.map(Number);
+    if (!d || !m || !y) return null;
+    return new Date(y, m - 1, d);
+  }
+
+  function calcularDiasRestantes(dataFim: string | null, dataInicio: string | null): { label: string; cor: string } | null {
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const fim = parseDatePT(dataFim);
+    const inicio = parseDatePT(dataInicio);
+    if (fim) {
+      const diff = Math.round((fim.getTime() - hoje.getTime()) / 86400000);
+      if (diff > 1) return { label: `${diff} dias restantes`, cor: '#22C55E' };
+      if (diff === 1) return { label: '1 dia restante', cor: '#F59E0B' };
+      if (diff === 0) return { label: 'Encerra hoje', cor: '#F59E0B' };
+      return { label: 'Período encerrado', cor: '#EF4444' };
+    }
+    if (inicio) {
+      const diff = Math.round((inicio.getTime() - hoje.getTime()) / 86400000);
+      if (diff > 0) return { label: `Começa em ${diff} dia${diff > 1 ? 's' : ''}`, cor: '#3B82F6' };
+      return { label: 'Em andamento', cor: '#22C55E' };
+    }
+    return null;
+  }
+
+  const countdown = calcularDiasRestantes(inscricaoDataFim, inscricaoDataInicio);
+
   const registerCard = (
     <Animated.View style={[styles.registerSection, { opacity: fadeAnim }]}>
       <View style={styles.registerCard}>
@@ -576,6 +608,14 @@ export default function LoginScreen() {
                     ? `Desde ${inscricaoDataInicio}`
                     : `Até ${inscricaoDataFim}`}
               </Text>
+            )}
+            {countdown && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                <Ionicons name="time-outline" size={11} color={countdown.cor} />
+                <Text style={{ fontSize: 11, color: countdown.cor, fontFamily: 'Inter_700Bold' }}>
+                  {countdown.label}
+                </Text>
+              </View>
             )}
           </View>
         </View>
