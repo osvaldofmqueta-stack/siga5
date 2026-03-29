@@ -55,7 +55,7 @@ type ModalMode = 'add' | 'edit' | null;
 
 export default function HorarioScreen() {
   const { user } = useAuth();
-  const { turmas, professores } = useData();
+  const { turmas, professores, alunos } = useData();
   const { anoSelecionado } = useAnoAcademico();
   const { addSumario } = useProfessor();
   const { addNotificacao } = useNotificacoes();
@@ -116,7 +116,7 @@ export default function HorarioScreen() {
   const turmasAtivas = turmas.filter(t => {
     const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
     if (isProf && profData) {
-      return t.ativo && anoOk && profData.turmasIds.includes(t.id);
+      return t.ativo && anoOk && (profData.turmasIds ?? []).includes(t.id);
     }
     return t.ativo && anoOk;
   });
@@ -488,7 +488,7 @@ export default function HorarioScreen() {
                       <Text style={[styles.dropdownText, form.professorId === p.id && styles.dropdownTextActive]}>
                         {p.nome} {p.apelido}
                       </Text>
-                      <Text style={styles.dropdownSub}>{p.disciplinas.join(', ')}</Text>
+                      <Text style={styles.dropdownSub}>{(p.disciplinas ?? []).join(', ')}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
