@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert, Modal,
+  View, Text, StyleSheet, TouchableOpacity,
+  ScrollView, ActivityIndicator, Alert, Modal, Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useData } from '@/context/DataContext';
+import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 
 interface AlunoSemTurma {
@@ -32,10 +33,14 @@ interface Turma {
   curso?: string;
 }
 
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
 export default function OrganizarTurmasScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { turmas } = useData();
+  const { turmas, alunos: alunosTodos, professores } = useData();
+  const { config } = useConfig();
+  const [cursosList, setCursosList] = useState<{ id: string; nome: string }[]>([]);
 
   const [alunos, setAlunos] = useState<AlunoSemTurma[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,8 +65,12 @@ export default function OrganizarTurmasScreen() {
     classe: string;
   }>({ visible: false, alunoId: '', nome: '', classe: '' });
 
+  // Modal de geração de listas
+  const [modalListas, setModalListas] = useState(false);
+
   useEffect(() => {
     carregarAlunos();
+    fetch('/api/cursos').then(r => r.json()).then((data: any[]) => setCursosList(data || [])).catch(() => {});
   }, []);
 
   async function carregarAlunos() {
@@ -155,6 +164,186 @@ export default function OrganizarTurmasScreen() {
 
   const totalComAtribuicao = alunos.filter(a => a.turmaIdAtribuida).length;
 
+  // ── PDF List Generation ─────────────────────────────────────────────────
+  function buildListasCicloHtml(ciclo: 'I Ciclo' | 'II Ciclo' | 'Todos'): string {
+    const now = new Date();
+    const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
+    const escolaNome = (config as any).nomeEscola || 'ESCOLA — SIGA';
+    const directorNome = (config as any).nomeDirector || '___________________________';
+
+    const I_CICLO_CLASSES = ['7', '8', '9'];
+    const II_CICLO_CLASSES = ['10', '11', '12', '13'];
+
+    const turmasFiltradas = (turmas as any[]).filter(t => {
+      const num = String(t.classe).replace(/[ªa°\s]/g, '').split(' ')[0];
+      if (ciclo === 'I Ciclo') return I_CICLO_CLASSES.includes(num);
+      if (ciclo === 'II Ciclo') return II_CICLO_CLASSES.includes(num);
+      return true;
+    }).sort((a: any, b: any) => {
+      const na = parseInt(String(a.classe)) || 0;
+      const nb = parseInt(String(b.classe)) || 0;
+      if (na !== nb) return na - nb;
+      return a.nome.localeCompare(b.nome, 'pt');
+    });
+
+    if (turmasFiltradas.length === 0) return '';
+
+    const cssBase = `
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { font-family: Arial, sans-serif; font-size: 11px; color: #000; }
+      .page { padding: 18mm 16mm; page-break-after: always; }
+      .page:last-child { page-break-after: avoid; }
+      .header { text-align: center; margin-bottom: 10px; }
+      .header p { margin: 1px 0; font-size: 11px; font-weight: bold; text-transform: uppercase; }
+      .info-block { margin-bottom: 6px; font-size: 11px; }
+      .info-row { display: flex; gap: 20px; margin-bottom: 3px; flex-wrap: wrap; }
+      .info-row span { white-space: nowrap; }
+      .curso-tag { display: inline-block; background: #1a2540; color: #fff; font-size: 9px; font-weight: bold; padding: 2px 8px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+      .doc-title { text-align: center; font-size: 13px; font-weight: bold; text-decoration: underline; margin: 8px 0; text-transform: uppercase; letter-spacing: 1px; }
+      .main-table { border-collapse: collapse; width: 100%; font-size: 10px; margin-bottom: 16px; }
+      .main-table th { background: #00BCD4; color: #fff; font-weight: bold; border: 1px solid #000; padding: 4px 5px; text-align: center; }
+      .main-table td { border: 1px solid #000; padding: 3px 4px; }
+      .stat-title { text-align: center; font-weight: bold; font-size: 11px; margin-bottom: 5px; text-transform: uppercase; }
+      .stat-table { border-collapse: collapse; margin: 0 auto; min-width: 300px; font-size: 10px; }
+      .stat-table th, .stat-table td { border: 1px solid #000; padding: 3px 7px; text-align: center; }
+      .stat-table .h { background: #00BCD4; color: #fff; font-weight: bold; }
+      .sig-row { display: flex; justify-content: space-between; margin-top: 20px; font-size: 10px; }
+      .sig-block { text-align: center; min-width: 140px; }
+      .sig-line { width: 130px; border-top: 1px solid #000; margin: 26px auto 4px; }
+      @media print {
+        .page { padding: 10mm 12mm; }
+        @page { size: A4 portrait; margin: 8mm; }
+      }`;
+
+    const pages = turmasFiltradas.map((turma: any) => {
+      const num = String(turma.classe).replace(/[ªa°\s]/g, '').split(' ')[0];
+      const isIICiclo = II_CICLO_CLASSES.includes(num);
+      const prof = (professores as any[]).find(p => p.id === turma.professorId);
+      const profNome = prof ? `${prof.nome} ${prof.apelido || ''}`.trim() : '___________________________';
+      const curso = isIICiclo ? cursosList.find(c => c.id === turma.cursoId) : null;
+      const cursoNome = curso?.nome || '';
+
+      const alunosDaTurma = (alunosTodos as any[])
+        .filter(a => a.ativo && a.turmaId === turma.id)
+        .sort((a: any, b: any) => `${a.nome} ${a.apelido}`.localeCompare(`${b.nome} ${b.apelido}`, 'pt'));
+
+      function calcAge(d: string) {
+        if (!d) return '';
+        const birth = new Date(d);
+        if (isNaN(birth.getTime())) return '';
+        let age = now.getFullYear() - birth.getFullYear();
+        const m = now.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
+        return age > 0 ? age : '';
+      }
+
+      function fmtDate(d: string) {
+        if (!d) return '';
+        const dt = new Date(d);
+        if (isNaN(dt.getTime())) return d;
+        return dt.toLocaleDateString('pt-PT');
+      }
+
+      const total = alunosDaTurma.length;
+      const masc = alunosDaTurma.filter((a: any) => a.genero === 'M').length;
+      const fem = alunosDaTurma.filter((a: any) => a.genero === 'F').length;
+      const pctM = total > 0 ? Math.round((masc / total) * 100) : 0;
+      const pctF = total > 0 ? Math.round((fem / total) * 100) : 0;
+
+      const rows = alunosDaTurma.map((a: any, i: number) => `
+        <tr style="background:${i % 2 === 1 ? '#FFF9C4' : '#fff'}">
+          <td style="text-align:center;font-weight:bold;">${i + 1}</td>
+          <td style="padding-left:5px;">${a.nome.toUpperCase()} ${a.apelido.toUpperCase()}</td>
+          <td style="text-align:center;">${calcAge(a.dataNascimento)}</td>
+          <td style="text-align:center;">${a.genero || ''}</td>
+          <td style="text-align:center;">${fmtDate(a.dataNascimento)}</td>
+          <td style="text-align:center;">${a.telefoneEncarregado || ''}</td>
+        </tr>`).join('');
+
+      return `<div class="page">
+        <div class="header">
+          <img src="/angola-brasao.png" style="width:58px;height:auto;display:block;margin:0 auto 3px;" onerror="this.style.display='none'" />
+          <p>REPÚBLICA DE ANGOLA</p>
+          <p>MINISTÉRIO DA EDUCAÇÃO</p>
+          <p>ENSINO GERAL</p>
+          <p style="margin-top:3px;">${escolaNome}</p>
+        </div>
+        <div class="info-block">
+          ${isIICiclo && cursoNome ? `<div><span class="curso-tag">${cursoNome}</span></div>` : ''}
+          <div class="info-row">
+            <span><strong>${turma.classe}</strong></span>
+            <span><strong>SALA:</strong> ${turma.sala || '___'}</span>
+            <span><strong>TURMA:</strong> ${turma.nome}</span>
+            <span><strong>PERÍODO:</strong> ${(turma.turno || '').toUpperCase()}</span>
+          </div>
+          <div class="info-row">
+            <span><strong>PROFESSOR(A) DT:</strong> ${profNome}</span>
+            <span><strong>ANO LECTIVO:</strong> ${turma.anoLetivo}</span>
+          </div>
+        </div>
+        <div class="doc-title">Lista da Turma</div>
+        <table class="main-table">
+          <thead><tr>
+            <th style="width:28px;">Nº</th>
+            <th style="width:38%;text-align:left;padding-left:5px;">NOME DO ALUNO</th>
+            <th>IDADE</th><th>SEXO</th>
+            <th>DATA DE<br>NASCIMENTO</th>
+            <th>CONTACTOS</th>
+          </tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;padding:8px;color:#888;font-style:italic;">Nenhum aluno atribuído a esta turma</td></tr>'}</tbody>
+        </table>
+        <div class="stat-title">Mapa Estatístico</div>
+        <table class="stat-table">
+          <thead><tr><th colspan="2" class="h"></th><th class="h">Nº DE ALUNOS</th><th class="h">VALOR %</th></tr></thead>
+          <tbody>
+            <tr><td rowspan="2" class="h">GÉNERO</td><td class="h">MASCULINO</td><td>${masc}</td><td>${pctM}%</td></tr>
+            <tr><td class="h">FEMININO</td><td>${fem}</td><td>${pctF}%</td></tr>
+            <tr><td colspan="2" class="h">TOTAL</td><td>${total}</td><td>100%</td></tr>
+          </tbody>
+        </table>
+        <div class="sig-row">
+          <div class="sig-block">
+            <div class="sig-line"></div>
+            <div>Director(a) de Turma</div>
+          </div>
+          <div class="sig-block">
+            <div>${dataActual}</div>
+            <div class="sig-line"></div>
+            <div>Director(a) da Escola<br><small>${directorNome}</small></div>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Listas de Turma — ${ciclo}</title>
+  <style>${cssBase}</style>
+</head>
+<body>${pages.join('')}</body>
+</html>`;
+  }
+
+  function gerarListasPDF(ciclo: 'I Ciclo' | 'II Ciclo' | 'Todos') {
+    if (Platform.OS !== 'web') {
+      Alert.alert('Funcionalidade Web', 'A geração de PDF está disponível apenas na versão web.');
+      return;
+    }
+    const html = buildListasCicloHtml(ciclo);
+    if (!html) {
+      alertErro(`Não existem turmas para ${ciclo}.`);
+      return;
+    }
+    const win = window.open('', '_blank');
+    if (!win) { alertErro('Não foi possível abrir a janela de impressão.'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+    setModalListas(false);
+  }
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <TopBar title="Organizar Alunos em Turmas" onBack={() => router.back()} />
@@ -182,6 +371,10 @@ export default function OrganizarTurmasScreen() {
             ? <ActivityIndicator size="small" color="#fff" />
             : <><Ionicons name="checkmark-circle" size={16} color="#fff" /><Text style={styles.saveBtnText}>Guardar</Text></>
           }
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.listasBtn} onPress={() => setModalListas(true)}>
+          <Ionicons name="print-outline" size={16} color={Colors.primary} />
+          <Text style={styles.listasBtnText}>Listas</Text>
         </TouchableOpacity>
       </View>
 
@@ -340,6 +533,33 @@ export default function OrganizarTurmasScreen() {
         </View>
       </Modal>
 
+      {/* Modal: Gerar Listas em PDF */}
+      <Modal visible={modalListas} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Gerar Listas de Turma</Text>
+            <Text style={styles.modalDesc}>Seleccione o ciclo para gerar a lista em PDF (uma página por turma)</Text>
+            {[
+              { ciclo: 'I Ciclo' as const, label: 'I Ciclo', sub: '7ª, 8ª e 9ª Classe', icon: 'school-outline' as const, cor: '#0369a1' },
+              { ciclo: 'II Ciclo' as const, label: 'II Ciclo', sub: '10ª, 11ª, 12ª e 13ª Classe • por Curso', icon: 'ribbon-outline' as const, cor: '#7c3aed' },
+              { ciclo: 'Todos' as const, label: 'Todos os Ciclos', sub: 'Todas as turmas — do 7º ao 13º', icon: 'layers-outline' as const, cor: '#0d9488' },
+            ].map(({ ciclo, label, sub, icon, cor }) => (
+              <TouchableOpacity key={ciclo} style={[styles.listasOpcao, { borderLeftColor: cor, borderLeftWidth: 4 }]} onPress={() => gerarListasPDF(ciclo)}>
+                <Ionicons name={icon} size={22} color={cor} style={{ marginRight: 10 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.listasOpcaoNome, { color: cor }]}>{label}</Text>
+                  <Text style={styles.listasOpcaoSub}>{sub}</Text>
+                </View>
+                <Ionicons name="print" size={18} color={cor} />
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.modalCancelar} onPress={() => setModalListas(false)}>
+              <Text style={styles.modalCancelarText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal: selecção de turma para aluno individual */}
       <Modal visible={modalAluno.visible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -394,6 +614,19 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.success, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8,
   },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  listasBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#f0f9ff', borderWidth: 1.5, borderColor: Colors.primary,
+    paddingHorizontal: 12, paddingVertical: 7, borderRadius: 8,
+  },
+  listasBtnText: { color: Colors.primary, fontWeight: '700', fontSize: 13 },
+  modalDesc: { fontSize: 12, color: '#6b7280', marginBottom: 16, textAlign: 'center' },
+  listasOpcao: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9fafb',
+    padding: 14, borderRadius: 10, marginBottom: 10, borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  listasOpcaoNome: { fontWeight: '700', fontSize: 14 },
+  listasOpcaoSub: { fontSize: 11, color: '#6b7280', marginTop: 2 },
 
   tabsScroll: { maxHeight: 48, backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabsContent: { paddingHorizontal: 12, gap: 6, alignItems: 'center' },
