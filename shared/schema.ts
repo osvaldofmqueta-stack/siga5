@@ -771,6 +771,8 @@ export const configGeral = pgTable("config_geral", {
   flashScreen: jsonb("flashScreen").notNull().default(sql`'{}'::jsonb`),
   multaConfig: jsonb("multaConfig").notNull().default(sql`'{"percentagem":10,"diasCarencia":5,"ativo":true}'::jsonb`),
   inscricoesAbertas: boolean("inscricoesAbertas").notNull().default(false),
+  inscricaoDataInicio: text("inscricaoDataInicio"),
+  inscricaoDataFim: text("inscricaoDataFim"),
   propinaHabilitada: boolean("propinaHabilitada").notNull().default(true),
 
   // Dados bancários para pagamentos

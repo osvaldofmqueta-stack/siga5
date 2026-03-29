@@ -1101,6 +1101,35 @@ export default function AdminScreen() {
                   trackColor={{ false: Colors.border, true: '#22C55E55' }}
                 />
               </View>
+
+              {/* Datas do período */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.fieldLabel}>Data de Início</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={config.inscricaoDataInicio ?? ''}
+                    onChangeText={v => updateConfig({ inscricaoDataInicio: v || undefined })}
+                    placeholder="DD/MM/AAAA"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                  />
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                  <Text style={styles.fieldLabel}>Data de Fim</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={config.inscricaoDataFim ?? ''}
+                    onChangeText={v => updateConfig({ inscricaoDataFim: v || undefined })}
+                    placeholder="DD/MM/AAAA"
+                    placeholderTextColor={Colors.textMuted}
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+              <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 6 }}>
+                As datas são exibidas no ecrã de Login quando as inscrições estão abertas.
+              </Text>
             </View>
 
             {/* Exclusão por Dupla Reprovação */}

@@ -55,6 +55,8 @@ export interface ConfigGeral {
   estagioComoDisciplina: boolean;
   papDisciplinasContribuintes: string[];
   inscricoesAbertas: boolean;
+  inscricaoDataInicio?: string;
+  inscricaoDataFim?: string;
   exclusaoDuasReprovacoes: boolean;
 }
 
@@ -158,6 +160,8 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
             ? (raw.papDisciplinasContribuintes as string[])
             : DEFAULT_CONFIG.papDisciplinasContribuintes,
           inscricoesAbertas: raw.inscricoesAbertas !== undefined ? Boolean(raw.inscricoesAbertas) : DEFAULT_CONFIG.inscricoesAbertas,
+          inscricaoDataInicio: (raw.inscricaoDataInicio as string) || undefined,
+          inscricaoDataFim: (raw.inscricaoDataFim as string) || undefined,
           exclusaoDuasReprovacoes: raw.exclusaoDuasReprovacoes !== undefined ? Boolean(raw.exclusaoDuasReprovacoes) : DEFAULT_CONFIG.exclusaoDuasReprovacoes,
         };
         setConfig(parsed);

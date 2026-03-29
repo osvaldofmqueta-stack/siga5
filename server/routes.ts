@@ -2304,9 +2304,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Public endpoint — no auth required (used by login screen)
   app.get("/api/public/inscricoes-status", async (_req: Request, res: Response) => {
-    const rows = await query<JsonObject>(`SELECT "inscricoesAbertas" FROM public.config_geral LIMIT 1`, []);
+    const rows = await query<JsonObject>(`SELECT "inscricoesAbertas", "inscricaoDataInicio", "inscricaoDataFim" FROM public.config_geral LIMIT 1`, []);
     const abertas = rows[0] ? Boolean(rows[0].inscricoesAbertas) : false;
-    json(res, 200, { abertas });
+    const dataInicio = rows[0]?.inscricaoDataInicio as string | null ?? null;
+    const dataFim = rows[0]?.inscricaoDataFim as string | null ?? null;
+    json(res, 200, { abertas, dataInicio, dataFim });
   });
 
   app.get("/api/config", async (_req: Request, res: Response) => {
@@ -2336,7 +2338,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {

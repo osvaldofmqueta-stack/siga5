@@ -70,6 +70,8 @@ export default function LoginScreen() {
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
   const [inscricoesAbertas, setInscricoesAbertas] = useState(false);
+  const [inscricaoDataInicio, setInscricaoDataInicio] = useState<string | null>(null);
+  const [inscricaoDataFim, setInscricaoDataFim] = useState<string | null>(null);
   const [alertModal, setAlertModal] = useState<{ visible: boolean; title: string; message: string; type: 'error' | 'success' }>({ visible: false, title: '', message: '', type: 'error' });
 
   function showAlert(title: string, message: string, type: 'error' | 'success' = 'error') {
@@ -119,6 +121,8 @@ export default function LoginScreen() {
       if (res.ok) {
         const data = await res.json();
         setInscricoesAbertas(!!data.abertas);
+        setInscricaoDataInicio(data.dataInicio ?? null);
+        setInscricaoDataFim(data.dataFim ?? null);
       }
     } catch { /* network silencioso */ }
 
@@ -564,6 +568,15 @@ export default function LoginScreen() {
           <View style={styles.registerTexts}>
             <Text style={styles.registerTitle}>Novo Estudante?</Text>
             <Text style={styles.registerDesc}>Solicite a sua matrícula online</Text>
+            {(inscricaoDataInicio || inscricaoDataFim) && (
+              <Text style={{ fontSize: 10, color: '#22C55E', marginTop: 2, fontFamily: 'Inter_500Medium' }}>
+                {inscricaoDataInicio && inscricaoDataFim
+                  ? `Período: ${inscricaoDataInicio} — ${inscricaoDataFim}`
+                  : inscricaoDataInicio
+                    ? `Desde ${inscricaoDataInicio}`
+                    : `Até ${inscricaoDataFim}`}
+              </Text>
+            )}
           </View>
         </View>
         <TouchableOpacity
