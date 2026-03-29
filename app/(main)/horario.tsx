@@ -67,6 +67,16 @@ export default function HorarioScreen() {
   const isProf = user?.role === 'professor';
   const isAluno = user?.role === 'aluno';
   const profData = professores.find(p => p.email === user?.email);
+  const alunoData = alunos.find(a => a.email === user?.email || a.numeroBi === user?.numeroBi);
+
+  function toArray(val: unknown): string[] {
+    if (!val) return [];
+    if (Array.isArray(val)) return val as string[];
+    if (typeof val === 'string') {
+      try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+    }
+    return [];
+  }
 
   const [showSumarioModal, setShowSumarioModal] = useState(false);
   const [sumarioAula, setSumarioAula] = useState<AulaHorario | null>(null);
@@ -116,7 +126,10 @@ export default function HorarioScreen() {
   const turmasAtivas = turmas.filter(t => {
     const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
     if (isProf && profData) {
-      return t.ativo && anoOk && (profData.turmasIds ?? []).includes(t.id);
+      return t.ativo && anoOk && toArray(profData.turmasIds).includes(t.id);
+    }
+    if (isAluno && alunoData) {
+      return t.ativo && anoOk && t.id === alunoData.turmaId;
     }
     return t.ativo && anoOk;
   });
@@ -488,7 +501,7 @@ export default function HorarioScreen() {
                       <Text style={[styles.dropdownText, form.professorId === p.id && styles.dropdownTextActive]}>
                         {p.nome} {p.apelido}
                       </Text>
-                      <Text style={styles.dropdownSub}>{(p.disciplinas ?? []).join(', ')}</Text>
+                      <Text style={styles.dropdownSub}>{toArray(p.disciplinas).join(', ')}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
