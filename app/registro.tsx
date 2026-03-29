@@ -307,7 +307,7 @@ export default function RegistroScreen() {
             <Ionicons name="arrow-back" size={19} color={Colors.text} />
           </TouchableOpacity>
           <View style={styles.headerTexts}>
-            <Text style={styles.headerTitle}>Solicitação de Inscrição de Ingresso</Text>
+            <Text style={styles.headerTitle}>Solicitação de Inscrição de Exame de Acesso</Text>
             <Text style={styles.headerSubtitle}>Preencha todos os campos obrigatórios</Text>
           </View>
         </View>
