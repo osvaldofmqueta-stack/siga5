@@ -170,6 +170,33 @@ const VARIABLE_GROUPS = [
     ],
   },
   {
+    grupo: 'Tabela de Notas',
+    icon: 'grid',
+    cor: '#7c3aed',
+    vars: [
+      {
+        tag: '{{TABELA_NOTAS}}',
+        desc: 'Tabela completa de notas (Disciplina | Nota | Por Extenso | Resultado)',
+        exemplo: `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;"><thead><tr><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:left;font-size:12px;">Disciplina</th><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:center;width:55px;font-size:12px;">Nota</th><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:left;font-size:12px;">Por Extenso</th><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:center;width:90px;font-size:12px;">Resultado</th></tr></thead><tbody><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Língua Portuguesa</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">14</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Catorze Valores</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;color:#166534;">Aprovado</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;">Matemática</td><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;text-align:center;font-weight:bold;">12</td><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;">Doze Valores</td><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;text-align:center;font-weight:bold;color:#166534;">Aprovado</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Educação Física</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">16</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Dezasseis Valores</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;color:#166534;">Aprovado</td></tr></tbody><tfoot><tr style="background:#eef2ff;"><td colspan="2" style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;">Média Final</td><td colspan="2" style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;">14 — Catorze Valores</td></tr></tfoot></table>`,
+      },
+      {
+        tag: '{{TABELA_NOTAS_SIMPLES}}',
+        desc: 'Tabela simples de notas (Disciplina | Nota)',
+        exemplo: `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;"><thead><tr><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:left;font-size:12px;">Disciplina</th><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:center;width:60px;font-size:12px;">Nota</th></tr></thead><tbody><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Língua Portuguesa</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">14</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;">Matemática</td><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;text-align:center;font-weight:bold;">12</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Educação Física</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">16</td></tr></tbody><tfoot><tr style="background:#eef2ff;"><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;">Média Final</td><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;text-align:center;">14</td></tr></tfoot></table>`,
+      },
+      {
+        tag: '{{MEDIA_GERAL}}',
+        desc: 'Média geral final do aluno (número)',
+        exemplo: '14',
+      },
+      {
+        tag: '{{MEDIA_GERAL_EXTENSO}}',
+        desc: 'Média geral final por extenso',
+        exemplo: 'Catorze Valores',
+      },
+    ],
+  },
+  {
     grupo: 'Extracto de Propinas',
     icon: 'cash',
     cor: '#0d9488',
@@ -3366,6 +3393,88 @@ export default function EditorDocumentos() {
       return '____';
     }
 
+    // ── Smart grade table generator ─────────────────────────────────────────
+    // Collect unique disciplines with final grade > 0, sorted alphabetically
+    const discMap: Record<string, number> = {};
+    for (const n of alunoNotas) {
+      if (n.nf > 0) {
+        const key = n.disciplina.trim();
+        // Keep highest nf per discipline
+        if (!discMap[key] || n.nf > discMap[key]) discMap[key] = n.nf;
+      }
+    }
+    const discList = Object.keys(discMap).sort((a, b) => a.localeCompare(b, 'pt'));
+
+    const numExtensoLocal = (n: number): string => {
+      const m: Record<number, string> = {
+        0:'Zero',1:'Um',2:'Dois',3:'Três',4:'Quatro',5:'Cinco',
+        6:'Seis',7:'Sete',8:'Oito',9:'Nove',10:'Dez',11:'Onze',
+        12:'Doze',13:'Treze',14:'Catorze',15:'Quinze',16:'Dezasseis',
+        17:'Dezassete',18:'Dezoito',19:'Dezanove',20:'Vinte',
+      };
+      return m[Math.round(n)] ?? String(Math.round(n));
+    };
+
+    const thS = 'padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:left;font-size:12px;font-family:"Times New Roman",serif;';
+    const tdS = (i: number) => `padding:6px 10px;border:1px solid #ccc;font-family:"Times New Roman",serif;background:${i % 2 === 0 ? '#fff' : '#f5f6fb'};`;
+    const noDataRow = (cols: number) =>
+      `<tr><td colspan="${cols}" style="padding:10px;text-align:center;color:#aaa;font-style:italic;border:1px solid #ccc;">Sem notas lançadas</td></tr>`;
+
+    const mediaVals = discList.map(d => discMap[d]);
+    const mediaGeral = mediaVals.length > 0
+      ? Math.round(mediaVals.reduce((s, v) => s + v, 0) / mediaVals.length)
+      : null;
+
+    // Full table: Disciplina | Nota | Por Extenso | Resultado
+    const tabelaNotas = (() => {
+      const rows = discList.length === 0 ? noDataRow(4) : discList.map((disc, i) => {
+        const nota = discMap[disc];
+        const ext = numExtensoLocal(nota);
+        const ok = nota >= 10;
+        return `<tr>
+          <td style="${tdS(i)}">${disc}</td>
+          <td style="${tdS(i)}text-align:center;font-weight:bold;">${nota}</td>
+          <td style="${tdS(i)}">${ext} Valores</td>
+          <td style="${tdS(i)}text-align:center;font-weight:bold;color:${ok ? '#166534' : '#991b1b'};">${ok ? 'Aprovado' : 'Reprovado'}</td>
+        </tr>`;
+      }).join('');
+      const mediaRow = mediaGeral !== null
+        ? `<tr style="background:#eef2ff;"><td colspan="2" style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;font-family:'Times New Roman',serif;">Média Final</td><td colspan="2" style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;font-family:'Times New Roman',serif;">${mediaGeral} — ${numExtensoLocal(mediaGeral)} Valores</td></tr>`
+        : '';
+      return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;">
+        <thead><tr>
+          <th style="${thS}">Disciplina</th>
+          <th style="${thS}text-align:center;width:55px;">Nota</th>
+          <th style="${thS}">Por Extenso</th>
+          <th style="${thS}text-align:center;width:90px;">Resultado</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        ${mediaRow ? `<tfoot>${mediaRow}</tfoot>` : ''}
+      </table>`;
+    })();
+
+    // Simple table: Disciplina | Nota
+    const tabelaNotasSimples = (() => {
+      const rows = discList.length === 0 ? noDataRow(2) : discList.map((disc, i) => {
+        const nota = discMap[disc];
+        return `<tr>
+          <td style="${tdS(i)}">${disc}</td>
+          <td style="${tdS(i)}text-align:center;font-weight:bold;">${nota}</td>
+        </tr>`;
+      }).join('');
+      const mediaRow = mediaGeral !== null
+        ? `<tr style="background:#eef2ff;"><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;font-family:'Times New Roman',serif;">Média Final</td><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;text-align:center;font-family:'Times New Roman',serif;">${mediaGeral}</td></tr>`
+        : '';
+      return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;">
+        <thead><tr>
+          <th style="${thS}">Disciplina</th>
+          <th style="${thS}text-align:center;width:60px;">Nota</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+        ${mediaRow ? `<tfoot>${mediaRow}</tfoot>` : ''}
+      </table>`;
+    })();
+
     const map: Record<string, string> = {
       '{{NOME_COMPLETO}}': `${aluno.nome} ${aluno.apelido}`,
       '{{NOME}}': aluno.nome,
@@ -3430,6 +3539,11 @@ export default function EditorDocumentos() {
       '{{NOTA_ECO_AV}}': resolveNota('{{NOTA_ECO_AV}}'),
       '{{NOTA_GEST_FIN}}': resolveNota('{{NOTA_GEST_FIN}}'),
       '{{NOTA_CONT_AV}}': resolveNota('{{NOTA_CONT_AV}}'),
+      // Smart table variables — resolved from actual student grades
+      '{{TABELA_NOTAS}}': tabelaNotas,
+      '{{TABELA_NOTAS_SIMPLES}}': tabelaNotasSimples,
+      '{{MEDIA_GERAL}}': mediaGeral !== null ? String(mediaGeral) : '____',
+      '{{MEDIA_GERAL_EXTENSO}}': mediaGeral !== null ? `${numExtensoLocal(mediaGeral)} Valores` : '________',
     };
 
     let result = template.conteudo;
