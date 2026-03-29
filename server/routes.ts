@@ -3168,6 +3168,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // RECUPERAÇÃO DE SENHA
   // -----------------------
+
+  // Endpoint público: verificar se o email existe e retornar dica do nome (sem autenticação)
+  app.post("/api/public/check-email-reset", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const email = String(b.email ?? "").toLowerCase().trim();
+      if (!email) return json(res, 400, { error: "Email é obrigatório." });
+      const FIXED = ["ceo@sige.ao","financeiro@sige.ao","secretaria@sige.ao","rh@sige.ao"];
+      if (FIXED.includes(email)) {
+        return json(res, 400, { error: "Esta conta de sistema só pode ser redefinida pelo administrador." });
+      }
+      const rows = await query<JsonObject>(
+        `SELECT nome FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
+        [email]
+      );
+      if (!rows[0]) {
+        // Por segurança, não revelar se o email existe
+        return json(res, 200, { encontrado: false });
+      }
+      // Retornar apenas o primeiro nome como dica
+      const nomeCompleto = String(rows[0].nome).trim();
+      const primeiroNome = nomeCompleto.split(' ')[0];
+      return json(res, 200, { encontrado: true, dica: primeiroNome });
+    } catch (e) {
+      console.error("[check-email-reset]", e);
+      return json(res, 500, { error: "Erro interno." });
+    }
+  });
+
+  // Endpoint público: redefinir senha sem email (verificação por nome completo)
+  app.post("/api/public/reset-senha-direto", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const email = String(b.email ?? "").toLowerCase().trim();
+      const nomeVerificacao = String(b.nomeVerificacao ?? "").trim();
+      const novaSenha = String(b.novaSenha ?? "").trim();
+
+      if (!email || !nomeVerificacao || !novaSenha) {
+        return json(res, 400, { error: "Todos os campos são obrigatórios." });
+      }
+      if (novaSenha.length < 6) {
+        return json(res, 400, { error: "A senha deve ter pelo menos 6 caracteres." });
+      }
+
+      const rows = await query<JsonObject>(
+        `SELECT id, nome FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
+        [email]
+      );
+      if (!rows[0]) {
+        return json(res, 404, { error: "Utilizador não encontrado." });
+      }
+      const nomeDB = String(rows[0].nome).trim().toLowerCase();
+      const nomeInput = nomeVerificacao.trim().toLowerCase();
+      // Verificar: o nome introduzido deve ser encontrado no nome completo registado
+      if (!nomeDB.includes(nomeInput) && !nomeInput.includes(nomeDB.split(' ')[0])) {
+        return json(res, 401, { error: "Nome não corresponde ao registado nesta conta." });
+      }
+
+      await query(
+        `UPDATE public.utilizadores SET senha=$1 WHERE LOWER(email)=LOWER($2) AND ativo=true`,
+        [novaSenha, email]
+      );
+      return json(res, 200, { ok: true });
+    } catch (e) {
+      console.error("[reset-senha-direto]", e);
+      return json(res, 500, { error: "Erro interno." });
+    }
+  });
+
   app.post("/api/forgot-password", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
