@@ -187,7 +187,6 @@ export default function DrawerLeft() {
     {
       title: 'Recursos Humanos',
       items: [
-        { label: 'Hub RH', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
         { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
