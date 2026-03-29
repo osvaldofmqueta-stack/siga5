@@ -708,15 +708,6 @@ export default function LoginScreen() {
 
         <View style={styles.desktopRow}>
           <Animated.View style={[styles.desktopLeft, { opacity: logoOpacity }]}>
-            <View style={styles.desktopLogoWrap}>
-              <View style={styles.logoGlowBig} />
-              <Image
-                source={{ uri: '/oigd-logo.png' }}
-                style={styles.desktopLogoImage}
-                resizeMode="contain"
-              />
-            </View>
-
             <Text style={styles.desktopBrandTitle}>Sistema Integral de{'\n'}Gestão Escolar</Text>
             <Text style={styles.desktopBrandSub}>Plataforma digital para a gestão académica e administrativa das escolas angolanas.</Text>
 
@@ -783,14 +774,6 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Animated.View style={[styles.logoSection, { opacity: logoOpacity, transform: [{ scale: logoScale }] }]}>
-            <View style={styles.logoContainer}>
-              <View style={styles.logoGlowBig} />
-              <Image
-                source={require('../assets/sige-logo.png')}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-            </View>
             {!showBiometricWelcome && (
               <View style={styles.taglineRow}>
                 <View style={styles.taglineLine} />
