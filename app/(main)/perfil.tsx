@@ -83,12 +83,15 @@ const perfilStyles = StyleSheet.create({
 });
 
 function AvatarCircle({ nome, avatar, size = 72, fontSize = 28 }: { nome: string; avatar?: string; size?: number; fontSize?: number }) {
-  const initials = nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
-  if (avatar) {
+  const [imgError, setImgError] = React.useState(false);
+  const initials = nome.split(' ').filter(Boolean).map(n => n[0]).slice(0, 2).join('').toUpperCase();
+  if (avatar && !imgError) {
+    const uri = avatar.startsWith('http') ? avatar : avatar;
     return (
       <Image
-        source={{ uri: avatar }}
+        source={{ uri }}
         style={[styles.avatarCircle, { width: size, height: size, borderRadius: size / 2 }]}
+        onError={() => setImgError(true)}
       />
     );
   }
@@ -137,7 +140,7 @@ const ROLE_COLOR: Record<string, string> = {
 
 export default function PerfilScreen() {
   const { user, updateUser, setBiometric, logout } = useAuth();
-  const { alunos, professores, turmas, notas, presencas } = useData();
+  const { alunos, professores, turmas, notas, presencas, updateAluno, updateProfessor } = useData();
   const { codigosGerados } = useLicense();
   const { config } = useConfig();
   const { anoSelecionado } = useAnoAcademico();
@@ -158,7 +161,7 @@ export default function PerfilScreen() {
     if (!user || user.role !== 'professor' || !config.papHabilitado) return;
     const prof = professores.find(p => p.email === user.email);
     if (!prof) return;
-    const turmas13 = turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo &&
+    const turmas13 = turmas.filter(t => (Array.isArray(prof.turmasIds) ? prof.turmasIds : []).includes(t.id) && t.ativo &&
       (t.classe === '13ª Classe' || t.classe === '13'));
     if (turmas13.length === 0) return;
     const anoLetivo = anoSelecionado?.ano || new Date().getFullYear().toString();
@@ -225,8 +228,19 @@ export default function PerfilScreen() {
     const url = await pickAndUploadPhoto();
     if (url) {
       await updateUser({ avatar: url });
+      if (user.role === 'aluno') {
+        const aluno = alunos.find(a => a.email === user.email || a.nome.includes(user.nome.split(' ')[0]));
+        if (aluno) await updateAluno(aluno.id, { foto: url });
+      } else if (user.role === 'professor') {
+        const prof = professores.find(p => p.email === user.email);
+        if (prof) await updateProfessor(prof.id, { foto: url });
+      }
     }
   }
+
+  const alunoRecord = alunos.find(a => a.email === user?.email || a.nome.includes((user?.nome || '').split(' ')[0]));
+  const profRecord = professores.find(p => p.email === user?.email);
+  const avatarUri = user?.avatar || (user?.role === 'aluno' ? alunoRecord?.foto : profRecord?.foto) || undefined;
 
   async function doLogout() {
     setIsLoggingOut(true);
@@ -388,7 +402,7 @@ export default function PerfilScreen() {
 
     if (user.role === 'professor') {
       const prof = professores.find(p => p.email === user.email);
-      const minhasTurmas = prof ? turmas.filter(t => prof.turmasIds.includes(t.id)) : [];
+      const minhasTurmas = prof ? turmas.filter(t => (Array.isArray(prof.turmasIds) ? prof.turmasIds : []).includes(t.id)) : [];
       const meusAlunos = prof ? alunos.filter(a => minhasTurmas.some(t => t.id === a.turmaId)).length : 0;
       const turmas13 = minhasTurmas.filter(t => t.ativo && (t.classe === '13ª Classe' || t.classe === '13'));
       const hasPap = config.papHabilitado && turmas13.length > 0;
@@ -409,13 +423,13 @@ export default function PerfilScreen() {
                     <Text style={styles.statLbl}>Alunos</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={[styles.statNum, { color: Colors.success }]}>{prof.disciplinas.length}</Text>
+                    <Text style={[styles.statNum, { color: Colors.success }]}>{(Array.isArray(prof.disciplinas) ? prof.disciplinas : []).length}</Text>
                     <Text style={styles.statLbl}>Disciplinas</Text>
                   </View>
                 </View>
                 <InfoRow label="N.º Professor" value={prof.numeroProfessor} />
                 <InfoRow label="Habilitações" value={prof.habilitacoes} />
-                <InfoRow label="Disciplinas" value={prof.disciplinas.join(', ')} />
+                <InfoRow label="Disciplinas" value={(Array.isArray(prof.disciplinas) ? prof.disciplinas : []).join(', ')} />
                 <InfoRow label="Turmas" value={minhasTurmas.map(t => t.nome).join(', ')} />
               </>
             )}
@@ -565,7 +579,7 @@ export default function PerfilScreen() {
         {/* Header */}
         <View style={styles.profileHeader}>
           <TouchableOpacity style={styles.avatarWrapper} onPress={handlePickPhoto} activeOpacity={0.8}>
-            <AvatarCircle nome={user.nome} avatar={(user as any).avatar} size={80} fontSize={30} />
+            <AvatarCircle nome={user.nome} avatar={avatarUri} size={80} fontSize={30} />
             <View style={styles.cameraOverlay}>
               <Ionicons name="camera" size={14} color="#fff" />
             </View>
