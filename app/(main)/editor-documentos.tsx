@@ -185,6 +185,16 @@ const VARIABLE_GROUPS = [
         exemplo: `<table style="width:100%;border-collapse:collapse;font-size:13px;margin:12px 0;"><thead><tr><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:left;font-size:12px;">Disciplina</th><th style="padding:7px 10px;border:1px solid #555;background:#1a2540;color:#fff;text-align:center;width:60px;font-size:12px;">Nota</th></tr></thead><tbody><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Língua Portuguesa</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">14</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;">Matemática</td><td style="padding:6px 10px;border:1px solid #ccc;background:#f5f6fb;text-align:center;font-weight:bold;">12</td></tr><tr><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;">Educação Física</td><td style="padding:6px 10px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;">16</td></tr></tbody><tfoot><tr style="background:#eef2ff;"><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;">Média Final</td><td style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;text-align:center;">14</td></tr></tfoot></table>`,
       },
       {
+        tag: '{{TABELA_NOTAS_2COL}}',
+        desc: 'Tabela de notas em 2 colunas lado a lado (compacta, ideal para declarações)',
+        exemplo: `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;"><tbody><tr><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;width:38%;">Língua Portuguesa</td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;width:12%;">14</td><td style="padding:5px 8px;border:none;width:2%;"></td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;width:38%;">Matemática</td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;width:10%;">12</td></tr></tbody></table>`,
+      },
+      {
+        tag: '{{TABELA_NOTAS_3COL}}',
+        desc: 'Tabela de notas em 3 colunas lado a lado (muito compacta, para muitas disciplinas)',
+        exemplo: `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;"><tbody><tr><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;width:27%;">Língua Portuguesa</td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;width:6%;">14</td><td style="padding:5px 8px;border:none;width:1%;"></td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;width:27%;">Matemática</td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;width:6%;">12</td><td style="padding:5px 8px;border:none;width:1%;"></td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;width:27%;">Educação Física</td><td style="padding:5px 8px;border:1px solid #ccc;background:#fff;text-align:center;font-weight:bold;width:5%;">16</td></tr></tbody></table>`,
+      },
+      {
         tag: '{{MEDIA_GERAL}}',
         desc: 'Média geral final do aluno (número)',
         exemplo: '14',
@@ -3475,6 +3485,50 @@ export default function EditorDocumentos() {
       </table>`;
     })();
 
+    // Multi-column table builder: groups disciplines into N side-by-side pairs (Disciplina | Nota)
+    function buildTabelaMultiCol(numCols: number): string {
+      if (discList.length === 0) {
+        return `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;"><tbody>${noDataRow(numCols * 2)}</tbody></table>`;
+      }
+      const sepTd = `<td style="padding:0 4px;border:none;width:8px;"></td>`;
+      // Widths per column group
+      const discW = Math.floor((100 - (numCols - 1) * 2) / numCols * 0.78);
+      const notaW = Math.floor((100 - (numCols - 1) * 2) / numCols * 0.22);
+      const rows: string[] = [];
+      for (let r = 0; r < discList.length; r += numCols) {
+        const cells: string[] = [];
+        for (let c = 0; c < numCols; c++) {
+          const idx = r + c;
+          const bg = r % 2 === 0 ? '#fff' : '#f5f6fb';
+          const tdBase = `padding:5px 8px;border:1px solid #ccc;background:${bg};font-family:'Times New Roman',serif;`;
+          if (idx < discList.length) {
+            const disc = discList[idx];
+            const nota = discMap[disc];
+            cells.push(`<td style="${tdBase}width:${discW}%;">${disc}</td>`);
+            cells.push(`<td style="${tdBase}text-align:center;font-weight:bold;width:${notaW}%;">${nota}</td>`);
+          } else {
+            // Empty filler cells to keep grid aligned
+            cells.push(`<td style="padding:5px 8px;border:1px solid #eee;background:${bg};width:${discW}%;"></td>`);
+            cells.push(`<td style="padding:5px 8px;border:1px solid #eee;background:${bg};width:${notaW}%;"></td>`);
+          }
+          if (c < numCols - 1) cells.push(sepTd);
+        }
+        rows.push(`<tr>${cells.join('')}</tr>`);
+      }
+      const mediaRow = mediaGeral !== null
+        ? (() => {
+            const totalCols = numCols * 2 + (numCols - 1);
+            return `<tr style="background:#eef2ff;"><td colspan="${totalCols}" style="padding:6px 10px;border:1px solid #aaa;font-weight:bold;text-align:right;font-family:'Times New Roman',serif;">Média Geral: ${mediaGeral} — ${numExtensoLocal(mediaGeral)} Valores</td></tr>`;
+          })()
+        : '';
+      return `<table style="width:100%;border-collapse:collapse;font-size:12px;margin:12px 0;">
+        <tbody>${rows.join('')}${mediaRow}</tbody>
+      </table>`;
+    }
+
+    const tabelaNotas2Col = buildTabelaMultiCol(2);
+    const tabelaNotas3Col = buildTabelaMultiCol(3);
+
     const map: Record<string, string> = {
       '{{NOME_COMPLETO}}': `${aluno.nome} ${aluno.apelido}`,
       '{{NOME}}': aluno.nome,
@@ -3542,6 +3596,8 @@ export default function EditorDocumentos() {
       // Smart table variables — resolved from actual student grades
       '{{TABELA_NOTAS}}': tabelaNotas,
       '{{TABELA_NOTAS_SIMPLES}}': tabelaNotasSimples,
+      '{{TABELA_NOTAS_2COL}}': tabelaNotas2Col,
+      '{{TABELA_NOTAS_3COL}}': tabelaNotas3Col,
       '{{MEDIA_GERAL}}': mediaGeral !== null ? String(mediaGeral) : '____',
       '{{MEDIA_GERAL_EXTENSO}}': mediaGeral !== null ? `${numExtensoLocal(mediaGeral)} Valores` : '________',
     };
