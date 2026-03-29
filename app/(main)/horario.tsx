@@ -93,6 +93,18 @@ export default function HorarioScreen() {
   const [showProfList, setShowProfList] = useState(false);
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
 
+  const turmasAtivas = turmas.filter(t => {
+    const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
+    if (isProf && profData) {
+      return t.ativo && anoOk && toArray(profData.turmasIds).includes(t.id);
+    }
+    if (isAluno && alunoData) {
+      return t.ativo && anoOk && t.id === alunoData.turmaId;
+    }
+    return t.ativo && anoOk;
+  });
+  const turmaAtual = turmasAtivas[turmaIdx] || turmasAtivas[0];
+
   useEffect(() => {
     loadHorarios();
   }, []);
@@ -122,18 +134,6 @@ export default function HorarioScreen() {
       setIsLoading(false);
     }
   }
-
-  const turmasAtivas = turmas.filter(t => {
-    const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
-    if (isProf && profData) {
-      return t.ativo && anoOk && toArray(profData.turmasIds).includes(t.id);
-    }
-    if (isAluno && alunoData) {
-      return t.ativo && anoOk && t.id === alunoData.turmaId;
-    }
-    return t.ativo && anoOk;
-  });
-  const turmaAtual = turmasAtivas[turmaIdx] || turmasAtivas[0];
 
   const horariosTurma = horarios.filter(h =>
     h.turmaId === turmaAtual?.id &&
