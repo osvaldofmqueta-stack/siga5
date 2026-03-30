@@ -176,6 +176,9 @@ interface Registro {
   rupeInscricao?: string;
   rupeMatricula?: string;
   tipoInscricao?: string;
+  pagamentoInscricaoConfirmado?: boolean;
+  pagamentoInscricaoConfirmadoEm?: string;
+  pagamentoInscricaoConfirmadoPor?: string;
   pagamentoMatriculaConfirmado?: boolean;
   pagamentoMatriculaConfirmadoEm?: string;
   pagamentoMatriculaConfirmadoPor?: string;
@@ -184,9 +187,10 @@ interface Registro {
   telefoneEncarregado: string;
 }
 
-type TabKey = 'pendentes' | 'aprovados' | 'resultado' | 'concluidos';
+type TabKey = 'pagamento' | 'pendentes' | 'aprovados' | 'resultado' | 'concluidos';
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  pendente_pagamento: { label: 'Aguarda Pagamento', color: '#E67E22' },
   pendente: { label: 'Pendente', color: Colors.warning },
   aprovado: { label: 'Aprovado p/ Exame', color: '#3498DB' },
   rejeitado: { label: 'Rejeitado', color: Colors.danger },
@@ -226,6 +230,7 @@ export default function AdmissaoScreen() {
   const [nota, setNota] = useState('');
   const [modalDetalhes, setModalDetalhes] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
   const [modalConfirmarPagamento, setModalConfirmarPagamento] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
+  const [modalConfirmarPagamentoInscricao, setModalConfirmarPagamentoInscricao] = useState<{ visible: boolean; reg: Registro | null }>({ visible: false, reg: null });
   const [isActing, setIsActing] = useState(false);
 
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
@@ -244,12 +249,13 @@ export default function AdmissaoScreen() {
 
   const filtered = useMemo(() => {
     const byTab: Record<TabKey, Registro[]> = {
+      pagamento: registros.filter(r => r.status === 'pendente_pagamento'),
       pendentes: registros.filter(r => r.status === 'pendente'),
       aprovados: registros.filter(r => r.status === 'aprovado'),
       resultado: registros.filter(r => r.status === 'admitido' || r.status === 'reprovado_admissao'),
       concluidos: registros.filter(r => r.status === 'matriculado' || r.status === 'rejeitado'),
     };
-    const list = byTab[activeTab];
+    const list = byTab[activeTab] ?? [];
     if (!search.trim()) return list;
     const q = search.toLowerCase();
     return list.filter(r => r.nomeCompleto.toLowerCase().includes(q) || r.classe.toLowerCase().includes(q));
@@ -308,6 +314,28 @@ export default function AdmissaoScreen() {
     finally { setIsActing(false); }
   }
 
+  async function executarConfirmarPagamentoInscricao() {
+    const reg = modalConfirmarPagamentoInscricao.reg;
+    if (!reg) return;
+    setIsActing(true);
+    try {
+      const res = await fetch(`/api/registros/${reg.id}/confirmar-pagamento-inscricao`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ confirmadoPor: user?.nome || 'Admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      await load();
+      setModalConfirmarPagamentoInscricao({ visible: false, reg: null });
+      alertSucesso('Pagamento confirmado', `O pagamento de inscrição de ${reg.nomeCompleto} foi confirmado. A candidatura pode agora ser analisada.`);
+    } catch (e: any) {
+      alertErro('Erro', e.message || 'Não foi possível confirmar o pagamento.');
+    } finally {
+      setIsActing(false);
+    }
+  }
+
   function confirmarPagamentoMatricula(reg: Registro) {
     setModalConfirmarPagamento({ visible: true, reg });
   }
@@ -358,6 +386,7 @@ export default function AdmissaoScreen() {
   }
 
   const TABS = [
+    { key: 'pagamento' as TabKey, label: 'Pag. Inscrição', icon: 'cash-outline', count: registros.filter(r => r.status === 'pendente_pagamento').length },
     { key: 'pendentes' as TabKey, label: 'Pendentes', icon: 'hourglass-outline', count: registros.filter(r => r.status === 'pendente').length },
     { key: 'aprovados' as TabKey, label: 'Aprovados', icon: 'checkmark-circle-outline', count: registros.filter(r => r.status === 'aprovado').length },
     { key: 'resultado' as TabKey, label: 'Resultado', icon: 'trophy-outline', count: registros.filter(r => ['admitido', 'reprovado_admissao'].includes(r.status)).length },
@@ -398,6 +427,12 @@ export default function AdmissaoScreen() {
             <Text style={styles.infoText}>Nota: {reg.notaAdmissao}/20 — {reg.notaAdmissao >= 10 ? 'Admitido' : 'Reprovado'}</Text>
           </View>
         )}
+        {reg.status === 'pendente_pagamento' && reg.rupeInscricao && (
+          <View style={[styles.infoRow, { backgroundColor: 'rgba(230,126,34,0.08)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, marginTop: 2 }]}>
+            <Ionicons name="receipt-outline" size={12} color="#E67E22" />
+            <Text style={[styles.infoText, { color: '#E67E22', fontFamily: 'Inter_600SemiBold' }]}>RUPE Inscrição: {reg.rupeInscricao}</Text>
+          </View>
+        )}
         {reg.senhaProvisoria && (
           <View style={styles.infoRow}>
             <Ionicons name="lock-closed-outline" size={12} color={Colors.textMuted} />
@@ -415,6 +450,25 @@ export default function AdmissaoScreen() {
             <Ionicons name="document-text-outline" size={14} color={Colors.gold} />
             <Text style={[styles.regActionText, { color: Colors.gold }]}>Boletim</Text>
           </TouchableOpacity>
+
+          {/* Pag. Inscrição actions */}
+          {reg.status === 'pendente_pagamento' && (
+            reg.pagamentoInscricaoConfirmado ? (
+              <View style={[styles.regActionBtn, { borderColor: Colors.success + '50', backgroundColor: 'rgba(39,174,96,0.08)' }]}>
+                <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                <Text style={[styles.regActionText, { color: Colors.success }]}>Pag. Confirmado</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={[styles.regActionBtn, { borderColor: '#E67E22' + '70', backgroundColor: 'rgba(230,126,34,0.1)' }]}
+                onPress={() => setModalConfirmarPagamentoInscricao({ visible: true, reg })}
+                disabled={isActing}
+              >
+                <Ionicons name="cash-outline" size={14} color="#E67E22" />
+                <Text style={[styles.regActionText, { color: '#E67E22' }]}>Confirmar Pag.</Text>
+              </TouchableOpacity>
+            )
+          )}
 
           {/* Pendentes actions */}
           {reg.status === 'pendente' && <>
@@ -602,6 +656,42 @@ export default function AdmissaoScreen() {
               </TouchableOpacity>
               <TouchableOpacity style={[mStyles.actionBtn, { backgroundColor: Colors.success }]} onPress={lancarNota} disabled={isActing}>
                 {isActing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={mStyles.actionText}>Lançar Nota</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Confirmar Pagamento Inscrição Modal ── */}
+      <Modal visible={modalConfirmarPagamentoInscricao.visible} transparent animationType="slide" onRequestClose={() => setModalConfirmarPagamentoInscricao({ visible: false, reg: null })}>
+        <View style={mStyles.overlay}>
+          <View style={mStyles.container}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(230,126,34,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="receipt-outline" size={18} color="#E67E22" />
+              </View>
+              <Text style={mStyles.title}>Confirmar Pagamento da Inscrição</Text>
+            </View>
+            {modalConfirmarPagamentoInscricao.reg && (
+              <>
+                <Text style={mStyles.name}>{modalConfirmarPagamentoInscricao.reg.nomeCompleto}</Text>
+                <View style={{ backgroundColor: 'rgba(230,126,34,0.07)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(230,126,34,0.25)', padding: 12, gap: 6 }}>
+                  <Text style={[mStyles.label, { marginBottom: 2 }]}>Referência RUPE — Taxa de Inscrição</Text>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#E67E22', letterSpacing: 0.5 }}>
+                    {modalConfirmarPagamentoInscricao.reg.rupeInscricao || '(não gerado)'}
+                  </Text>
+                </View>
+                <Text style={[mStyles.hint, { marginTop: 4 }]}>
+                  Verifique o comprovativo de pagamento apresentado pelo candidato antes de confirmar. Após a confirmação, a candidatura passa para análise da secretaria. Esta acção não pode ser revertida.
+                </Text>
+              </>
+            )}
+            <View style={mStyles.actions}>
+              <TouchableOpacity style={mStyles.cancelBtn} onPress={() => setModalConfirmarPagamentoInscricao({ visible: false, reg: null })}>
+                <Text style={mStyles.cancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[mStyles.actionBtn, { backgroundColor: '#E67E22' }]} onPress={executarConfirmarPagamentoInscricao} disabled={isActing}>
+                {isActing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={mStyles.actionText}>Confirmar Pagamento</Text>}
               </TouchableOpacity>
             </View>
           </View>

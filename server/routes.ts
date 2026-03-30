@@ -2140,23 +2140,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const b = requireBodyObject(req);
       const senha = gerarSenhaProvisoria(String(b.nomeCompleto||''), String(b.dataNascimento||''));
       const id = b.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
-      
+      const rupeInscricao = gerarReferenciaRUPE();
+
       const rows = await query<JsonObject>(
         `INSERT INTO public.registros (
           "id", "nomeCompleto","dataNascimento","genero","provincia","municipio",
           "telefone","email","endereco","bairro","numeroBi","numeroCedula",
           "nivel","classe","cursoId","nomeEncarregado","telefoneEncarregado","observacoes",
-          "status","senhaProvisoria","tipoInscricao"
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21) RETURNING *`,
+          "status","senhaProvisoria","tipoInscricao","rupeInscricao"
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
         [
           id, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
           b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
           b.nivel, b.classe, b.cursoId || null, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
-          b.status??'pendente', senha, b.tipoInscricao??'novo'
+          'pendente_pagamento', senha, b.tipoInscricao??'novo', rupeInscricao
         ],
       );
       console.log("Inscrição criada:", rows[0]);
-      json(res, 201, rows[0]);
+      json(res, 201, { ...rows[0], senhaProvisoria: senha });
     } catch (e) { 
       console.error("Erro ao criar inscrição:", e);
       json(res, 400, { error: (e as Error).message }); 
@@ -2171,6 +2172,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "status","avaliadoEm","avaliadoPor","motivoRejeicao",
         "dataProva","notaAdmissao","resultadoAdmissao","matriculaCompleta",
         "rupeInscricao","rupeMatricula","tipoInscricao",
+        "pagamentoInscricaoConfirmado","pagamentoInscricaoConfirmadoEm","pagamentoInscricaoConfirmadoPor",
         "pagamentoMatriculaConfirmado","pagamentoMatriculaConfirmadoEm","pagamentoMatriculaConfirmadoPor"
       ] as const;
       const setParts: string[] = []; const values: unknown[] = [];
@@ -2260,6 +2262,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       if (!rows[0]) return json(res, 404, { error: "Not found." });
       json(res, 200, { referencia, valor, validade: new Date(Date.now() + 15*24*60*60*1000).toISOString().split('T')[0], registro: rows[0] });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/registros/:id/confirmar-pagamento-inscricao", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const confirmadoPor = String(b.confirmadoPor || 'Admin');
+      const rows = await query<JsonObject>(
+        `UPDATE public.registros SET "pagamentoInscricaoConfirmado"=true, "pagamentoInscricaoConfirmadoEm"=$1, "pagamentoInscricaoConfirmadoPor"=$2, "status"='pendente' WHERE id=$3 AND status='pendente_pagamento' RETURNING *`,
+        [new Date().toISOString().split('T')[0], confirmadoPor, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Inscrição não encontrada ou não está aguardando confirmação de pagamento." });
+      json(res, 200, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 

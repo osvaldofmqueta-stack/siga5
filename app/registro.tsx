@@ -45,10 +45,10 @@ interface FormData {
 }
 
 function InputField({
-  label, value, onChangeText, placeholder, required, keyboardType, multiline, hint, autoCapitalize,
+  label, value, onChangeText, placeholder, required, keyboardType, multiline, hint, autoCapitalize, error,
 }: {
   label: string; value: string; onChangeText: (v: string) => void;
-  placeholder?: string; required?: boolean; keyboardType?: any; multiline?: boolean; hint?: string; autoCapitalize?: any;
+  placeholder?: string; required?: boolean; keyboardType?: any; multiline?: boolean; hint?: string; autoCapitalize?: any; error?: string;
 }) {
   const [focused, setFocused] = useState(false);
   return (
@@ -58,7 +58,7 @@ function InputField({
         {required && <Text style={styles.fieldRequired}>*</Text>}
       </View>
       {hint && <Text style={styles.fieldHint}>{hint}</Text>}
-      <View style={[styles.inputWrap, focused && styles.inputWrapFocused, multiline && styles.inputWrapMulti]}>
+      <View style={[styles.inputWrap, focused && styles.inputWrapFocused, multiline && styles.inputWrapMulti, !!error && styles.inputWrapError]}>
         <TextInput
           style={[styles.input, multiline && styles.inputMulti]}
           value={value}
@@ -74,6 +74,7 @@ function InputField({
           textAlignVertical={multiline ? 'top' : 'center'}
         />
       </View>
+      {!!error && <Text style={styles.fieldError}>{error}</Text>}
     </View>
   );
 }
@@ -111,7 +112,7 @@ function ChipSelector({
 
 function CredenciaisModal({ visible, dados, onClose }: {
   visible: boolean;
-  dados: { nomeCompleto: string; email: string; senha: string } | null;
+  dados: { nomeCompleto: string; email: string; senha: string; rupeInscricao?: string } | null;
   onClose: () => void;
 }) {
   if (!dados) return null;
@@ -122,10 +123,26 @@ function CredenciaisModal({ visible, dados, onClose }: {
           <View style={credStyles.iconCircle}>
             <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
           </View>
-          <Text style={credStyles.title}>Inscrição Enviada!</Text>
+          <Text style={credStyles.title}>Inscrição Submetida!</Text>
           <Text style={credStyles.subtitle}>
-            Guarde as suas credenciais de acesso à conta provisória. Serão necessárias para acompanhar o processo.
+            Guarde as suas credenciais e a referência de pagamento. São necessárias para continuar o processo.
           </Text>
+
+          {/* Payment RUPE */}
+          {!!dados.rupeInscricao && (
+            <View style={[credStyles.box, { borderColor: Colors.gold + '50', backgroundColor: 'rgba(240,165,0,0.06)', marginBottom: 10 }]}>
+              <View style={credStyles.row}>
+                <Ionicons name="receipt-outline" size={15} color={Colors.gold} />
+                <View style={{ flex: 1 }}>
+                  <Text style={credStyles.rowLabel}>Taxa de Inscrição — Referência RUPE</Text>
+                  <Text style={[credStyles.rowValue, { color: Colors.gold, letterSpacing: 1.5, fontSize: 16 }]}>{dados.rupeInscricao}</Text>
+                  <Text style={{ fontSize: 10, color: Colors.textMuted, marginTop: 3, fontFamily: 'Inter_400Regular' }}>
+                    Pague em qualquer balcão Multicaixa ou banco. Após o pagamento, dirija-se à secretaria com o comprovativo para confirmar.
+                  </Text>
+                </View>
+              </View>
+            </View>
+          )}
 
           <View style={credStyles.box}>
             <View style={credStyles.row}>
@@ -148,7 +165,7 @@ function CredenciaisModal({ visible, dados, onClose }: {
           <View style={credStyles.notice}>
             <Ionicons name="information-circle-outline" size={14} color={Colors.textMuted} />
             <Text style={credStyles.noticeText}>
-              A senha é gerada a partir do seu apelido e ano de nascimento. Guarde num local seguro.
+              Pague a taxa de inscrição e apresente o comprovativo na secretaria. Só após a confirmação do pagamento a sua candidatura será analisada.
             </Text>
           </View>
 
@@ -168,7 +185,8 @@ export default function RegistroScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [errorMsg, setErrorMsg] = useState('');
-  const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string; rupeInscricao?: string } | null>(null);
   const [cursosDisponiveis, setCursosDisponiveis] = useState<CursoOption[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
 
@@ -213,39 +231,113 @@ export default function RegistroScreen() {
 
   function showError(msg: string) {
     setErrorMsg(msg);
-    setTimeout(() => setErrorMsg(''), 5000);
+    setTimeout(() => setErrorMsg(''), 6000);
+  }
+
+  function clearErrors() {
+    setFieldErrors({});
+    setErrorMsg('');
+  }
+
+  function validarTelefone(tel: string): boolean {
+    const digits = tel.replace(/[\s+\-()]/g, '');
+    if (digits.startsWith('244')) return digits.length === 12;
+    return /^9\d{8}$/.test(digits);
   }
 
   function validateStep1() {
-    if (!form.nomeCompleto.trim()) { showError('Introduza o nome completo.'); return false; }
-    if (!form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) { showError('Data de nascimento inválida. Use o formato AAAA-MM-DD (ex: 2010-05-15).'); return false; }
-    if (!form.provincia) { showError('Seleccione a província.'); return false; }
-    if (!form.municipio) { showError('Seleccione o município.'); return false; }
-    return true;
+    clearErrors();
+    const erros: Record<string, string> = {};
+    let ok = true;
+
+    const nome = form.nomeCompleto.trim();
+    if (!nome) {
+      erros.nomeCompleto = 'O nome completo é obrigatório.';
+      ok = false;
+    } else if (nome.split(/\s+/).length < 2) {
+      erros.nomeCompleto = 'Introduza o nome completo (mínimo nome e apelido).';
+      ok = false;
+    }
+
+    if (!form.dataNascimento || !form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      showError('Seleccione a data de nascimento.');
+      ok = false;
+    } else {
+      const nasc = new Date(form.dataNascimento);
+      const hoje = new Date();
+      const idade = hoje.getFullYear() - nasc.getFullYear();
+      if (isNaN(nasc.getTime()) || idade < 3 || idade > 70) {
+        showError('Data de nascimento inválida. Verifique o ano introduzido.');
+        ok = false;
+      }
+    }
+
+    if (!form.provincia) { showError('Seleccione a província de naturalidade.'); ok = false; }
+    else if (!form.municipio) { showError('Seleccione o município.'); ok = false; }
+
+    if (Object.keys(erros).length > 0) setFieldErrors(erros);
+    return ok;
   }
 
   function validateStep2() {
-    if (!form.telefone.trim()) { showError('Introduza o número de telefone.'); return false; }
-    if (!form.email.trim()) { showError('Introduza o email de contacto.'); return false; }
-    if (!form.email.includes('@')) { showError('Introduza um email válido.'); return false; }
-    return true;
+    clearErrors();
+    const erros: Record<string, string> = {};
+    let ok = true;
+
+    if (!form.telefone.trim()) {
+      erros.telefone = 'O número de telefone é obrigatório.';
+      ok = false;
+    } else if (!validarTelefone(form.telefone.trim())) {
+      erros.telefone = 'Número inválido. Ex: 923 456 789 ou +244 923 456 789';
+      ok = false;
+    }
+
+    if (!form.email.trim()) {
+      erros.email = 'O email de contacto é obrigatório.';
+      ok = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) {
+      erros.email = 'Introduza um email válido (ex: nome@dominio.ao).';
+      ok = false;
+    }
+
+    if (Object.keys(erros).length > 0) setFieldErrors(erros);
+    return ok;
   }
 
   function validateStep3() {
-    if (!form.nivel) { showError('Seleccione o nível de ensino.'); return false; }
-    if (!form.classe) { showError('Seleccione a classe.'); return false; }
-    if (form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
-      showError('Seleccione o curso para a 10ª Classe.'); return false;
+    clearErrors();
+    const erros: Record<string, string> = {};
+    let ok = true;
+
+    if (!form.nivel) { showError('Seleccione o nível de ensino.'); ok = false; }
+    else if (!form.classe) { showError('Seleccione a classe pretendida.'); ok = false; }
+    else if (form.nivel === 'II Ciclo' && form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
+      showError('Seleccione o curso/área de formação para a 10ª Classe do II Ciclo.'); ok = false;
     }
-    if (!form.nomeEncarregado.trim()) { showError('Introduza o nome do encarregado de educação.'); return false; }
-    if (!form.telefoneEncarregado.trim()) { showError('Introduza o contacto do encarregado de educação.'); return false; }
-    return true;
+
+    if (!form.nomeEncarregado.trim()) {
+      erros.nomeEncarregado = 'O nome do encarregado é obrigatório.';
+      ok = false;
+    } else if (form.nomeEncarregado.trim().split(/\s+/).length < 2) {
+      erros.nomeEncarregado = 'Introduza o nome completo do encarregado.';
+      ok = false;
+    }
+
+    if (!form.telefoneEncarregado.trim()) {
+      erros.telefoneEncarregado = 'O contacto do encarregado é obrigatório.';
+      ok = false;
+    } else if (!validarTelefone(form.telefoneEncarregado.trim())) {
+      erros.telefoneEncarregado = 'Número inválido. Ex: 923 456 789 ou +244 923 456 789';
+      ok = false;
+    }
+
+    if (Object.keys(erros).length > 0) setFieldErrors(erros);
+    return ok;
   }
 
   function handleNext() {
-    setErrorMsg('');
-    if (step === 1 && validateStep1()) setStep(2);
-    else if (step === 2 && validateStep2()) setStep(3);
+    if (step === 1 && validateStep1()) { setStep(2); clearErrors(); }
+    else if (step === 2 && validateStep2()) { setStep(3); clearErrors(); }
     else if (step === 3) handleSubmit();
   }
 
@@ -287,6 +379,7 @@ export default function RegistroScreen() {
         nomeCompleto: data.nomeCompleto,
         email: data.email,
         senha: data.senhaProvisoria || '',
+        rupeInscricao: data.rupeInscricao || '',
       });
     } catch (e: any) {
       showError(e.message || 'Não foi possível enviar. Tente novamente.');
@@ -352,7 +445,7 @@ export default function RegistroScreen() {
                 <Text style={styles.stepCardTitle}>Dados do Estudante</Text>
               </View>
 
-              <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => set('nomeCompleto', v)} placeholder="Nome completo do estudante" required />
+              <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => { set('nomeCompleto', v); if (fieldErrors.nomeCompleto) setFieldErrors(e => ({ ...e, nomeCompleto: '' })); }} placeholder="Nome completo do estudante" required error={fieldErrors.nomeCompleto} />
               <DatePickerField label="Data de Nascimento" value={form.dataNascimento} onChange={v => set('dataNascimento', v)} required />
               <ChipSelector label="Género" options={['M', 'F']} value={form.genero} onSelect={v => set('genero', v)} required />
 
@@ -381,7 +474,7 @@ export default function RegistroScreen() {
                 <Text style={styles.sectionLabelText}>Contacto</Text>
               </View>
 
-              <InputField label="Telefone" value={form.telefone} onChangeText={v => set('telefone', v)} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" />
+              <InputField label="Telefone" value={form.telefone} onChangeText={v => { set('telefone', v); if (fieldErrors.telefone) setFieldErrors(e => ({ ...e, telefone: '' })); }} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" error={fieldErrors.telefone} />
 
               <View style={styles.emailAlertBox}>
                 <Ionicons name="warning-outline" size={16} color="#F39C12" style={{ marginTop: 1 }} />
@@ -391,7 +484,7 @@ export default function RegistroScreen() {
                 </Text>
               </View>
 
-              <InputField label="Email de Contacto" value={form.email} onChangeText={v => set('email', v)} placeholder="email@exemplo.ao" required keyboardType="email-address" autoCapitalize="none" hint="Use um email real — necessário para recuperar a senha e aceder à conta provisória" />
+              <InputField label="Email de Contacto" value={form.email} onChangeText={v => { set('email', v); if (fieldErrors.email) setFieldErrors(e => ({ ...e, email: '' })); }} placeholder="email@exemplo.ao" required keyboardType="email-address" autoCapitalize="none" hint="Use um email real — necessário para recuperar a senha e aceder à conta provisória" error={fieldErrors.email} />
 
               <View style={styles.sectionLabel}>
                 <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
@@ -532,8 +625,8 @@ export default function RegistroScreen() {
                 <Text style={styles.sectionLabelText}>Encarregado de Educação</Text>
               </View>
 
-              <InputField label="Nome do Encarregado" value={form.nomeEncarregado} onChangeText={v => set('nomeEncarregado', v)} placeholder="Nome completo do encarregado" required />
-              <InputField label="Telefone de Contacto" value={form.telefoneEncarregado} onChangeText={v => set('telefoneEncarregado', v)} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" />
+              <InputField label="Nome do Encarregado" value={form.nomeEncarregado} onChangeText={v => { set('nomeEncarregado', v); if (fieldErrors.nomeEncarregado) setFieldErrors(e => ({ ...e, nomeEncarregado: '' })); }} placeholder="Nome completo do encarregado" required error={fieldErrors.nomeEncarregado} />
+              <InputField label="Telefone de Contacto" value={form.telefoneEncarregado} onChangeText={v => { set('telefoneEncarregado', v); if (fieldErrors.telefoneEncarregado) setFieldErrors(e => ({ ...e, telefoneEncarregado: '' })); }} placeholder="+244 9XX XXX XXX" required keyboardType="phone-pad" autoCapitalize="none" error={fieldErrors.telefoneEncarregado} />
               <InputField label="Observações Adicionais" value={form.observacoes} onChangeText={v => set('observacoes', v)} placeholder="Necessidades especiais, transferência, etc..." multiline />
 
               <View style={styles.approvalNotice}>
@@ -545,7 +638,7 @@ export default function RegistroScreen() {
                   Após submissão receberá credenciais de acesso provisório para acompanhar o processo de admissão:
                 </Text>
                 <View style={styles.approvalSteps}>
-                  {['Análise da inscrição', 'Exame de admissão', 'Publicação de resultados', 'Completar matrícula'].map((s, i) => (
+                  {['Pagamento da taxa de inscrição', 'Análise da candidatura', 'Exame de admissão', 'Publicação de resultados', 'Completar matrícula'].map((s, i) => (
                     <View key={i} style={styles.approvalStep}>
                       <View style={styles.approvalStepNum}><Text style={styles.approvalStepNumText}>{i + 1}</Text></View>
                       <Text style={styles.approvalStepText}>{s}</Text>
@@ -660,6 +753,8 @@ const styles = StyleSheet.create({
   inputWrap: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, paddingHorizontal: 14, height: 52, justifyContent: 'center' },
   inputWrapFocused: { borderColor: Colors.gold, backgroundColor: 'rgba(240,165,0,0.04)' },
   inputWrapMulti: { height: 110, paddingVertical: 12, justifyContent: 'flex-start' },
+  inputWrapError: { borderColor: Colors.danger, backgroundColor: 'rgba(231,76,60,0.04)' },
+  fieldError: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.danger, marginTop: 4 },
   input: { fontSize: 15, fontFamily: 'Inter_400Regular', color: Colors.text },
   inputMulti: { textAlignVertical: 'top', lineHeight: 22 },
 
