@@ -472,7 +472,7 @@ export default function SecretariaHubScreen() {
 
   function handleUpdateProcesso(id: string, status: ProcessoStatus) {
     setProcessos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-    const labels: Record<ProcessoStatus, string> = { pendente: 'pendente', em_analise: 'em análise', concluido: 'concluído', cancelado: 'cancelado' };
+    const labels: Record<ProcessoStatus, string> = { pendente: 'pendente', em_curso: 'em curso', concluido: 'concluído', cancelado: 'cancelado' };
     alertSucesso('Processo actualizado', `O estado foi alterado para "${labels[status]}".`);
   }
 
