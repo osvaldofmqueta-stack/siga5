@@ -233,7 +233,75 @@ const VARIABLE_GROUPS = [
       { tag: '{{CHEFE_SECRETARIA}}', desc: 'Nome do Chefe de Secretaria', exemplo: 'Maria da Silva' },
     ],
   },
+  {
+    grupo: 'Histórico Académico',
+    icon: 'time',
+    cor: '#4f46e5',
+    vars: [
+      {
+        tag: '{{HISTORICO_ANOS}}',
+        desc: 'Blocos completos de histórico por ano lectivo (com notas por trimestre e situação)',
+        exemplo: `<div style="margin:14px 0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;"><div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1a2b5f;"><span style="font-size:11pt;font-weight:700;color:white;">2024</span><span style="font-size:7.5pt;font-weight:700;padding:2px 8px;border-radius:20px;background:#16a34a20;color:#16a34a;border:1px solid #16a34a50;">Aprovado</span><span style="margin-left:auto;font-size:8pt;color:#cbd5e1;">Média: <strong>13.5</strong></span></div><div style="padding:5px 10px;font-size:8.5pt;font-weight:600;background:#3b82f620;border-left:4px solid #3b82f6;color:#3b82f6;">1º Trimestre — Média: 13.5</div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="background:#f1f5f9;font-size:7.5pt;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:left;">Disciplina</th><th style="background:#f1f5f9;font-size:7.5pt;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">MAC</th><th style="background:#f1f5f9;font-size:7.5pt;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">PP</th><th style="background:#f1f5f9;font-size:7.5pt;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">PT</th><th style="background:#f1f5f9;font-size:7.5pt;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">NF</th></tr></thead><tbody><tr><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;">Língua Portuguesa</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">11.5</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">14</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">13</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:#16a34a;">14</td></tr></tbody></table></div>`,
+      },
+      { tag: '{{NOME_ESCOLA}}', desc: 'Nome da escola (já disponível em Escola)', exemplo: 'Escola Secundária N.º 1' },
+      { tag: '{{NOME_COMPLETO}}', desc: 'Nome completo do aluno (já disponível em Aluno)', exemplo: 'João Manuel Silva' },
+      { tag: '{{NUMERO_MATRICULA}}', desc: 'Número de matrícula (já disponível em Aluno)', exemplo: '2025001' },
+      { tag: '{{TURMA}}', desc: 'Turma actual (já disponível em Turma)', exemplo: '10ª A' },
+      { tag: '{{CLASSE}}', desc: 'Classe actual (já disponível em Turma)', exemplo: '10ª Classe' },
+      { tag: '{{TURNO}}', desc: 'Turno (já disponível em Turma)', exemplo: 'Manhã' },
+      { tag: '{{NOME_ENCARREGADO}}', desc: 'Encarregado de educação (já disponível em Aluno)', exemplo: 'Manuel Silva' },
+      { tag: '{{DATA_ACTUAL}}', desc: 'Data de emissão actual (já disponível em Data)', exemplo: '30 de Março de 2026' },
+    ],
+  },
 ];
+
+const HISTORICO_ACADEMICO_DEFAULT = `<div style="font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;max-width:210mm;margin:0 auto;">
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:8px;border-bottom:3px solid #1a2b5f;padding-bottom:8px;">
+    <div style="width:54px;height:54px;background:#1a2b5f;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:20pt;font-weight:900;flex-shrink:0;">E</div>
+    <div style="flex:1;">
+      <div style="font-size:14pt;font-weight:700;color:#1a2b5f;">{{NOME_ESCOLA}}</div>
+      <div style="font-size:7.5pt;color:#6b7280;margin-top:2px;letter-spacing:1px;">SISTEMA INTEGRADO DE GESTÃO ACADÉMICA</div>
+    </div>
+    <div style="text-align:right;padding:8px 12px;background:#1a2b5f;color:white;border-radius:6px;min-width:130px;">
+      <div style="font-size:6pt;letter-spacing:2px;opacity:.7;">DOCUMENTO OFICIAL</div>
+      <div style="font-size:9.5pt;font-weight:700;">HISTÓRICO ACADÉMICO</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;background:#f8fafc;border-radius:6px;padding:8px 12px;border:1px solid #e2e8f0;">
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Nome Completo</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{NOME_COMPLETO}}</div></div>
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Nº de Matrícula</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{NUMERO_MATRICULA}}</div></div>
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Turma Actual</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{TURMA}} · {{CLASSE}}</div></div>
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Turno</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{TURNO}}</div></div>
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Encarregado de Educação</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{NOME_ENCARREGADO}}</div></div>
+    <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Data de Emissão</div><div style="font-size:9pt;font-weight:600;color:#1e293b;">{{DATA_ACTUAL}}</div></div>
+  </div>
+
+  {{HISTORICO_ANOS}}
+
+  <div style="display:flex;justify-content:space-around;margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;gap:20px;">
+    <div style="text-align:center;flex:1;">
+      <div style="border-top:1px solid #374151;margin:20px 10px 4px;"></div>
+      <div style="font-size:7pt;color:#6b7280;">Director(a) Pedagógico(a)</div>
+    </div>
+    <div style="text-align:center;flex:1;">
+      <div style="border-top:1px solid #374151;margin:20px 10px 4px;"></div>
+      <div style="font-size:7pt;color:#6b7280;">Director(a) Geral</div>
+    </div>
+    <div style="text-align:center;flex:1;">
+      <div style="border-top:1px solid #374151;margin:20px 10px 4px;"></div>
+      <div style="font-size:7pt;color:#6b7280;">Encarregado de Educação</div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:6px;">
+    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · Lei n.º 17/16 Angola
+  </div>
+</div>`;
+
+const TIPO_DEFAULT_TEMPLATES: Partial<Record<DocTipo, string>> = {
+  historico_academico: HISTORICO_ACADEMICO_DEFAULT,
+};
 
 const TIPO_LABELS: Record<DocTipo, string> = {
   declaracao: 'Declaração',
@@ -2320,6 +2388,21 @@ export default function EditorDocumentos() {
     setMode('editor');
   }
 
+  function handleTipoChange(newTipo: DocTipo) {
+    const currentContent = Platform.OS === 'web' ? webEditorContentRef.current : editorContent;
+    const defaultTpl = TIPO_DEFAULT_TEMPLATES[newTipo];
+    setEditorTipo(newTipo);
+    if (defaultTpl && !currentContent.trim()) {
+      setEditorContent(defaultTpl);
+      webEditorContentRef.current = defaultTpl;
+      if (Platform.OS === 'web') {
+        quillSrcdocRef.current = buildQuillSrcdoc(defaultTpl);
+        setTinyInitContent(defaultTpl);
+        setEditorKey(k => k + 1);
+      }
+    }
+  }
+
   function openEdit(t: DocTemplate) {
     setEditingTemplate(t);
     setEditorNome(t.nome);
@@ -2578,6 +2661,10 @@ export default function EditorDocumentos() {
   }
   function isExtratoPropinaType(t: DocTemplate | null) {
     return t?.tipo === 'extrato_propina';
+  }
+
+  function isHistoricoAcademicoType(t: DocTemplate | null) {
+    return t?.tipo === 'historico_academico';
   }
 
   // ─── Certificado do Ensino Primário HTML Builder ───────────────────────────
@@ -3615,6 +3702,46 @@ export default function EditorDocumentos() {
       '{{MEDIA_GERAL}}': mediaGeral !== null ? String(mediaGeral) : '____',
       '{{MEDIA_GERAL_EXTENSO}}': mediaGeral !== null ? `${numExtensoLocal(mediaGeral)} Valores` : '________',
     };
+
+    if (template.tipo === 'historico_academico') {
+      const TRIM_COLORS: Record<number, string> = { 1: '#3b82f6', 2: '#f59e0b', 3: '#10b981' };
+      const alunoNotas = notas.filter(n => n.alunoId === alunoId);
+      const anosMap: Record<string, typeof alunoNotas> = {};
+      for (const n of alunoNotas) {
+        if (!anosMap[n.anoLetivo]) anosMap[n.anoLetivo] = [];
+        anosMap[n.anoLetivo].push(n);
+      }
+      const anosOrdenados = Object.keys(anosMap).sort((a, b) => b.localeCompare(a));
+      let anosHTML = '';
+      for (const ano of anosOrdenados) {
+        const notasAno = anosMap[ano];
+        const trims: Record<number, typeof alunoNotas> = { 1: [], 2: [], 3: [] };
+        for (const n of notasAno) {
+          if (trims[n.trimestre]) trims[n.trimestre].push(n);
+        }
+        const allNfs = notasAno.filter(n => n.nf > 0).map(n => n.nf);
+        const mediaGeralAno = allNfs.length > 0 ? allNfs.reduce((a, b) => a + b, 0) / allNfs.length : null;
+        const situacao = mediaGeralAno !== null ? (mediaGeralAno >= 10 ? 'Aprovado' : 'Reprovado') : '—';
+        const situacaoCor = situacao === 'Aprovado' ? '#16a34a' : situacao === 'Reprovado' ? '#dc2626' : '#6b7280';
+        let tabelasHTML = '';
+        for (const tri of [1, 2, 3] as const) {
+          const notasTri = trims[tri];
+          if (!notasTri.length) continue;
+          const mediaTri = notasTri.reduce((s, n) => s + (n.nf > 0 ? n.nf : n.mac ?? 0), 0) / notasTri.length;
+          const rows = notasTri.map(n => {
+            const nf = n.nf > 0 ? n.nf : (n.mac ?? 0);
+            const color = nf >= 10 ? '#16a34a' : nf > 0 ? '#dc2626' : '#9ca3af';
+            return `<tr><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;color:#1e293b;">${n.disciplina || '—'}</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">${(n as any).mac1 > 0 ? Number((n as any).mac1).toFixed(1) : '—'}</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">${(n as any).pp1 > 0 ? (n as any).pp1 : '—'}</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">${(n as any).ppt > 0 ? (n as any).ppt : '—'}</td><td style="font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;font-weight:700;color:${color};">${nf > 0 ? Number(nf).toFixed(1) : '—'}</td></tr>`;
+          }).join('');
+          const tc = TRIM_COLORS[tri];
+          tabelasHTML += `<div style="border-bottom:1px solid #f1f5f9;"><div style="padding:5px 10px;font-size:8.5pt;font-weight:600;background:${tc}20;border-left:4px solid ${tc};color:${tc};">${tri}º Trimestre — Média: ${mediaTri.toFixed(1)}</div><table style="width:100%;border-collapse:collapse;"><thead><tr><th style="background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:left;">Disciplina</th><th style="background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">MAC</th><th style="background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">PP</th><th style="background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">PT</th><th style="background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-align:center;">NF</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+        if (!tabelasHTML) tabelasHTML = `<p style="color:#9ca3af;text-align:center;padding:16px;font-style:italic;">Sem notas registadas neste ano lectivo.</p>`;
+        anosHTML += `<div style="margin:14px 0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;page-break-inside:avoid;"><div style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1a2b5f;flex-wrap:wrap;"><span style="font-size:11pt;font-weight:700;color:white;">${ano}</span><span style="font-size:7.5pt;font-weight:700;padding:2px 8px;border-radius:20px;background:${situacaoCor}20;color:${situacaoCor};border:1px solid ${situacaoCor}50;">${situacao}</span><span style="margin-left:auto;font-size:8pt;color:#cbd5e1;">Média: <strong>${mediaGeralAno !== null ? Number(mediaGeralAno).toFixed(1) : '—'}</strong></span></div>${tabelasHTML}</div>`;
+      }
+      if (!anosHTML) anosHTML = `<p style="color:#9ca3af;text-align:center;padding:16px;font-style:italic;">Sem histórico registado.</p>`;
+      map['{{HISTORICO_ANOS}}'] = anosHTML;
+    }
 
     let result = template.conteudo;
     Object.entries(map).forEach(([k, v]) => {
@@ -6976,7 +7103,7 @@ export default function EditorDocumentos() {
             <TouchableOpacity
               key={t}
               style={[styles.tipoChip, editorTipo === t && { backgroundColor: TIPO_COLORS[t], borderColor: TIPO_COLORS[t] }]}
-              onPress={() => setEditorTipo(t)}
+              onPress={() => handleTipoChange(t)}
             >
               <Text style={[styles.tipoChipText, editorTipo === t && { color: '#fff' }]}>{TIPO_LABELS[t]}</Text>
             </TouchableOpacity>
