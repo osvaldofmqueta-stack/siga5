@@ -1093,6 +1093,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("POST /api/anos-academicos", req.body);
     try {
       const b = requireBodyObject(req);
+
+      // Verificar se já existe um ano académico com o mesmo valor de "ano"
+      const existente = await query<JsonObject>(
+        `SELECT id, ano FROM public.anos_academicos WHERE ano = $1 LIMIT 1`,
+        [b.ano]
+      );
+      if (existente.length > 0) {
+        return json(res, 409, {
+          error: `Já existe um ano académico "${b.ano}" registado no sistema. Não é permitido criar dois anos académicos iguais.`,
+          codigo: 'ANO_DUPLICADO',
+        });
+      }
+
       const id = b.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
       const rows = await query<JsonObject>(
         `INSERT INTO public.anos_academicos (id,"ano","dataInicio","dataFim","ativo","trimestres")

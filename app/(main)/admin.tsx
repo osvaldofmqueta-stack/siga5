@@ -276,6 +276,7 @@ export default function AdminScreen() {
   const [showNovoAno, setShowNovoAno] = useState(false);
   const [showNovoUser, setShowNovoUser] = useState(false);
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
+  const [modalAnoDuplicado, setModalAnoDuplicado] = useState<{ visible: boolean; anoExistente: string }>({ visible: false, anoExistente: '' });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '', telefone: '', habilitacoes: '' });
   const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
   const [activeGroup, setActiveGroup] = useState<string>(paramGroup || 'academico');
@@ -400,7 +401,13 @@ export default function AdminScreen() {
       alertSucesso('Ano académico criado', `O ano lectivo ${formAno.ano} foi criado com sucesso.`);
     } catch (e) {
       console.error('Erro ao criar ano académico:', e);
-      Alert.alert('Erro', 'Não foi possível criar o ano académico: ' + (e as Error).message);
+      const msg = (e as Error).message || '';
+      if (msg.includes('409') || msg.includes('ANO_DUPLICADO') || msg.includes('Já existe')) {
+        setShowNovoAno(false);
+        setModalAnoDuplicado({ visible: true, anoExistente: formAno.ano });
+      } else {
+        Alert.alert('Erro', 'Não foi possível criar o ano académico: ' + msg);
+      }
     }
   }
 
@@ -2014,6 +2021,32 @@ export default function AdminScreen() {
                 <Text style={styles.submitBtnText}>{gDiscSaving ? 'A guardar...' : `Guardar (${gDiscSelected.length} selec.)`}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Ano Duplicado */}
+      <Modal visible={modalAnoDuplicado.visible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { alignItems: 'center', paddingVertical: 28 }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.warning + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="warning-outline" size={34} color={Colors.warning} />
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Ano Académico Duplicado</Text>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
+              Já existe um ano académico{' '}
+              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.warning }}>"{modalAnoDuplicado.anoExistente}"</Text>
+              {' '}registado no sistema.
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>
+              Não é permitido criar dois anos académicos iguais em simultâneo. O histórico académico dos estudantes depende de um único ano activo de cada vez. Por favor elimine o duplicado antes de continuar.
+            </Text>
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: Colors.warning, width: '100%' }]}
+              onPress={() => setModalAnoDuplicado({ visible: false, anoExistente: '' })}
+            >
+              <Text style={styles.saveBtnText}>Percebido</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
