@@ -78,7 +78,7 @@ export default function TrabalhosFinals() {
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<TrabalhoFinal | null>(null);
   const [selectedItem, setSelectedItem] = useState<TrabalhoFinal | null>(null);
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const { user } = useAuth();
 
   const canWrite = !['aluno', 'encarregado'].includes(user?.role || '');
@@ -89,7 +89,7 @@ export default function TrabalhosFinals() {
       const rows = await req<TrabalhoFinal[]>('/api/trabalhos-finais');
       setTrabalhos(rows);
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -116,10 +116,10 @@ export default function TrabalhosFinals() {
   const handleDelete = async (id: string) => {
     try {
       await req(`/api/trabalhos-finais/${id}`, { method: 'DELETE' });
-      addToast({ type: 'success', message: 'Trabalho removido com sucesso.' });
+      showToast('Trabalho removido com sucesso.', 'success');
       load(true);
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     }
   };
 
@@ -420,7 +420,7 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
@@ -479,27 +479,27 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
           const data = await res.json();
           if (!res.ok) throw new Error(data?.error || 'Erro ao carregar imagem');
           setForm(f => ({ ...f, imagemCapa: data.url }));
-          addToast({ type: 'success', message: 'Imagem carregada com sucesso.' });
+          showToast('Imagem carregada com sucesso.', 'success');
         } catch (err) {
-          addToast({ type: 'error', message: (err as Error).message });
+          showToast((err as Error).message, 'error');
         } finally {
           setUploading(false);
         }
       };
       input.click();
     } else {
-      addToast({ type: 'info', message: 'Cole o URL da imagem no campo abaixo.' });
+      showToast('Cole o URL da imagem no campo abaixo.', 'info');
     }
   };
 
   const save = async () => {
     if (!form.titulo.trim() || !form.autor.trim() || !form.orientador.trim() || !form.curso) {
-      addToast({ type: 'error', message: 'Tema, autor, orientador e curso são obrigatórios.' });
+      showToast('Tema, autor, orientador e curso são obrigatórios.', 'error');
       return;
     }
     const ano = parseInt(form.anoConclusao);
     if (isNaN(ano) || ano < 1990 || ano > new Date().getFullYear() + 1) {
-      addToast({ type: 'error', message: 'Ano de conclusão inválido.' });
+      showToast('Ano de conclusão inválido.', 'error');
       return;
     }
     setSaving(true);
@@ -515,14 +515,14 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
       };
       if (item) {
         await req(`/api/trabalhos-finais/${item.id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        addToast({ type: 'success', message: 'Trabalho actualizado com sucesso.' });
+        showToast('Trabalho actualizado com sucesso.', 'success');
       } else {
         await req('/api/trabalhos-finais', { method: 'POST', body: JSON.stringify(payload) });
-        addToast({ type: 'success', message: 'Trabalho registado com sucesso.' });
+        showToast('Trabalho registado com sucesso.', 'success');
       }
       onSaved();
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setSaving(false);
     }

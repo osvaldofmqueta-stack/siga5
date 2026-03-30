@@ -587,9 +587,9 @@ export function registerMEDRoutes(app: Express) {
         query<{ total: string }>(`SELECT COUNT(*) AS total FROM public.turmas WHERE ativo=true`),
         query<{ total: string; aprovados: string; notaminimaaprovacao: string }>(`
           SELECT COUNT(*) AS total,
-                 SUM(CASE WHEN n.nf >= cfg."notaMinimaAprovacao" THEN 1 ELSE 0 END) AS aprovados,
-                 (SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1) AS notaminimaaprovacao
-          FROM public.notas n, (SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1) cfg
+                 SUM(CASE WHEN n.nf >= COALESCE((SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1), 10) THEN 1 ELSE 0 END) AS aprovados,
+                 COALESCE((SELECT "notaMinimaAprovacao" FROM public.config_geral LIMIT 1), 10) AS notaminimaaprovacao
+          FROM public.notas n
         `),
       ]);
       const total = parseInt(notasRow[0]?.total ?? '0');

@@ -767,12 +767,18 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
   const [maxFaltas, setMaxFaltas] = useState('3');
   const [saving, setSaving] = useState(false);
 
+  const maxNum = parseInt(maxFaltas) || 3;
+  const riskAt = maxNum - 1;
+  const PRESETS = [1, 2, 3, 4, 5, 6];
+
   const save = async () => {
-    if (!turmaId || !disciplina) return webAlert('Erro', 'Seleccione a turma e indique a disciplina.');
+    if (!turmaId || !disciplina.trim()) return webAlert('Erro', 'Seleccione a turma e indique a disciplina.');
+    if (maxNum < 1 || maxNum > 30) return webAlert('Erro', 'O limite deve estar entre 1 e 30 faltas por mês.');
     setSaving(true);
     try {
       await api.post('/api/configuracoes-falta', {
-        turmaId, disciplina, anoLetivo, maxFaltasMensais: parseInt(maxFaltas) || 3,
+        turmaId, disciplina: disciplina.trim(), anoLetivo,
+        maxFaltasMensais: maxNum,
         definidoPor: userName, definidoPorId: userId,
       });
       onSaved();
@@ -782,9 +788,21 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
 
   return (
     <ModalShell title="Definir Limite de Faltas" onClose={onClose}>
-      <ScrollView>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Info banner */}
+        <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 8, padding: 10, marginBottom: 14,
+          borderLeftWidth: 3, borderLeftColor: Colors.gold }}>
+          <Text style={{ color: Colors.textMuted, fontSize: 12, lineHeight: 18 }}>
+            Define o número máximo de faltas mensais permitidas por disciplina. Ao atingir o limite,
+            o aluno fica marcado como{' '}
+            <Text style={{ color: Colors.danger, fontWeight: '700' }}>excluído</Text>.
+            Ao atingir {riskAt > 0 ? riskAt : maxNum} falta(s), fica{' '}
+            <Text style={{ color: Colors.warning, fontWeight: '700' }}>em risco</Text>.
+          </Text>
+        </View>
+
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => setTurmaId(t.id)}>
@@ -792,14 +810,52 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
             </TouchableOpacity>
           ))}
         </ScrollView>
-        <Text style={styles.label}>Disciplina * (use * para todas)</Text>
+
+        <Text style={styles.label}>Disciplina *</Text>
         <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-          placeholder="Ex: Matemática ou *" placeholderTextColor={Colors.textMuted} />
+          placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
+        <TouchableOpacity onPress={() => setDisciplina('*')} style={{ marginTop: -6, marginBottom: 10, alignSelf: 'flex-start' }}>
+          <Text style={{ color: Colors.gold, fontSize: 12 }}>Aplicar a todas as disciplinas (*)</Text>
+        </TouchableOpacity>
+
         <Text style={styles.label}>Máx. faltas por mês *</Text>
-        <TextInput style={styles.input} value={maxFaltas} onChangeText={setMaxFaltas}
-          keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
+        {/* Quick-select presets */}
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+          {PRESETS.map(n => (
+            <TouchableOpacity key={n} onPress={() => setMaxFaltas(String(n))}
+              style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center',
+                backgroundColor: maxNum === n ? Colors.gold : Colors.cardAlt,
+                borderWidth: 1, borderColor: maxNum === n ? Colors.gold : Colors.border }}>
+              <Text style={{ color: maxNum === n ? Colors.dark : Colors.text, fontWeight: '700', fontSize: 15 }}>{n}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {/* Custom input for values outside presets */}
+        <TextInput style={[styles.input, { textAlign: 'center', fontWeight: '700', fontSize: 18 }]}
+          value={maxFaltas} onChangeText={v => setMaxFaltas(v.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad" placeholderTextColor={Colors.textMuted} placeholder="Outro valor" />
+
+        {/* Status preview */}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, marginBottom: 16 }}>
+          <View style={{ flex: 1, alignItems: 'center', backgroundColor: Colors.cardAlt,
+            borderRadius: 8, padding: 8, borderTopWidth: 2, borderTopColor: '#4CAF50' }}>
+            <Text style={{ color: '#4CAF50', fontSize: 11, fontWeight: '700' }}>NORMAL</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>{'< '}{riskAt > 0 ? riskAt : maxNum} falta(s)</Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center', backgroundColor: Colors.cardAlt,
+            borderRadius: 8, padding: 8, borderTopWidth: 2, borderTopColor: Colors.warning }}>
+            <Text style={{ color: Colors.warning, fontSize: 11, fontWeight: '700' }}>EM RISCO</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>{riskAt > 0 ? riskAt : maxNum} falta(s)</Text>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center', backgroundColor: Colors.cardAlt,
+            borderRadius: 8, padding: 8, borderTopWidth: 2, borderTopColor: Colors.danger }}>
+            <Text style={{ color: Colors.danger, fontSize: 11, fontWeight: '700' }}>EXCLUÍDO</Text>
+            <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>≥ {maxNum} falta(s)</Text>
+          </View>
+        </View>
+
         <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar Configuração</Text>}
         </TouchableOpacity>
       </ScrollView>
     </ModalShell>
