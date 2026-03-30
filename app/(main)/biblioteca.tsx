@@ -83,7 +83,7 @@ export default function BibliotecaScreen() {
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const { user } = useAuth();
   const isReadOnly = user?.role === 'aluno';
 
@@ -98,7 +98,7 @@ export default function BibliotecaScreen() {
       setLivros(ls);
       setEmprestimos(es);
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -318,7 +318,7 @@ function catColor(cat: string) {
 function LivroModal({ visible, livro, onClose, onSaved }: {
   visible: boolean; livro: Livro | null; onClose: () => void; onSaved: () => void;
 }) {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '',
@@ -343,7 +343,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
 
   const save = async () => {
     if (!form.titulo.trim() || !form.autor.trim()) {
-      addToast({ type: 'error', message: 'Título e autor são obrigatórios.' }); return;
+      showToast('Título e autor são obrigatórios.', 'error'); return;
     }
     setSaving(true);
     try {
@@ -357,14 +357,14 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
       };
       if (livro) {
         await req(`/api/livros/${livro.id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        addToast({ type: 'success', message: 'Livro atualizado.' });
+        showToast('Livro atualizado.', 'success');
       } else {
         await req('/api/livros', { method: 'POST', body: JSON.stringify(payload) });
-        addToast({ type: 'success', message: 'Livro adicionado ao catálogo.' });
+        showToast('Livro adicionado ao catálogo.', 'success');
       }
       onSaved();
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setSaving(false);
     }
@@ -438,7 +438,7 @@ function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing,
   const [filtro, setFiltro] = useState<'todos' | 'ativos' | 'atrasados' | 'devolvidos'>('ativos');
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   const filtered = emprestimos.filter(e => {
     const matchFiltro =
@@ -457,10 +457,10 @@ function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing,
         method: 'PUT',
         body: JSON.stringify({ status: 'devolvido', dataDevolucao: hoje }),
       });
-      addToast({ type: 'success', message: 'Devolução registada com sucesso.' });
+      showToast('Devolução registada com sucesso.', 'success');
       onReload();
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     }
   };
 
@@ -597,7 +597,7 @@ function tipoColor(tipo: string) {
 function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
   visible: boolean; livros: Livro[]; onClose: () => void; onSaved: () => void;
 }) {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [livroSearch, setLivroSearch] = useState('');
@@ -621,8 +621,8 @@ function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
   const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!livroSel) { addToast({ type: 'error', message: 'Selecione um livro.' }); return; }
-    if (!form.nomeLeitor.trim()) { addToast({ type: 'error', message: 'Nome do leitor é obrigatório.' }); return; }
+    if (!livroSel) { showToast('Selecione um livro.', 'error'); return; }
+    if (!form.nomeLeitor.trim()) { showToast('Nome do leitor é obrigatório.', 'error'); return; }
     setSaving(true);
     try {
       await req('/api/emprestimos', {
@@ -637,10 +637,10 @@ function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
           registadoPor: user?.nome || 'Sistema',
         }),
       });
-      addToast({ type: 'success', message: 'Empréstimo registado com sucesso.' });
+      showToast('Empréstimo registado com sucesso.', 'success');
       onSaved();
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setSaving(false);
     }
