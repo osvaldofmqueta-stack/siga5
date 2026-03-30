@@ -89,7 +89,7 @@ async function fetchNomeEscola(): Promise<string> {
   } catch { return 'ESCOLA — SIGA'; }
 }
 
-function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataUrl: string): string {
+function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataUrl: string, origin = ''): string {
   const codigo = codigoMatricula(reg);
   const generoLabel = reg.genero === 'M' ? 'Masculino' : reg.genero === 'F' ? 'Feminino' : reg.genero;
   const statusLabel = reg.status === 'matriculado' ? 'Matriculado(a)' : 'Admitido(a) — Pagamento Confirmado';
@@ -142,7 +142,7 @@ function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataU
   <div class="header-row">
     <div style="width:50px;flex-shrink:0;"></div>
     <div class="header-text">
-      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+      <img src="${origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="bold">${nomeEscola}</p>
@@ -330,7 +330,7 @@ export default function BoletimMatriculaScreen() {
     if (!registro || Platform.OS !== 'web') return;
     setIsPrinting(true);
     const qrUrl = buildQrImageUrl(buildQrData(registro), 130);
-    const html = generateBoletimMatriculaHTML(registro, nomeEscola, qrUrl);
+    const html = generateBoletimMatriculaHTML(registro, nomeEscola, qrUrl, window.location.origin);
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(html);

@@ -269,7 +269,7 @@ export default function OrganizarTurmasScreen() {
 
       return `<div class="page">
         <div class="header">
-          <img src="/angola-brasao.png" style="width:58px;height:auto;display:block;margin:0 auto 3px;" onerror="this.style.display='none'" />
+          <img src="${window.location.origin}/angola-brasao.png" style="width:58px;height:auto;display:block;margin:0 auto 3px;" onerror="this.style.display='none'" />
           <p>REPÚBLICA DE ANGOLA</p>
           <p>MINISTÉRIO DA EDUCAÇÃO</p>
           <p>ENSINO GERAL</p>

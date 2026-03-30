@@ -44,6 +44,7 @@ interface Registro {
   numeroCedula?: string;
   nivel: string;
   classe: string;
+  cursoNome?: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
   observacoes?: string;
@@ -111,7 +112,7 @@ async function fetchNomeEscola(): Promise<string> {
   }
 }
 
-function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: string): string {
+function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: string, origin = ''): string {
   const codigo = codigoInscricao(reg);
   const generoLabel = reg.genero === 'M' ? 'Masculino' : reg.genero === 'F' ? 'Feminino' : reg.genero;
 
@@ -296,7 +297,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
   <div class="header-row">
     <div style="width:50px;flex-shrink:0;"></div>
     <div class="header-text">
-      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+      <img src="${origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="bold">${nomeEscola}</p>
@@ -412,6 +413,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
       <span class="label">Classe Pretendida:</span>
       <span class="value">${reg.classe}</span>
     </div>
+    ${reg.cursoNome ? `<div class="item"><span class="label">Curso / Área:</span><span class="value">${reg.cursoNome}</span></div>` : ''}
     <div class="item">
       <span class="label">Ano Lectivo:</span>
       <span class="value">${anoAtual()}</span>
@@ -587,7 +589,7 @@ export default function BoletimInscricaoScreen() {
     setIsPrinting(true);
 
     const doOpen = (dataUrl: string) => {
-      const html = generateBoletimHTML(registro, nomeEscola, dataUrl);
+      const html = generateBoletimHTML(registro, nomeEscola, dataUrl, window.location.origin);
       const win = window.open('', '_blank');
       if (win) {
         win.document.write(html);
@@ -863,6 +865,7 @@ export default function BoletimInscricaoScreen() {
           </View>
           <PreviewRow label="Nível de Ensino" value={registro.nivel} />
           <PreviewRow label="Classe Pretendida" value={registro.classe} />
+          {registro.cursoNome ? <PreviewRow label="Curso / Área" value={registro.cursoNome} /> : null}
           <PreviewRow label="Ano Lectivo" value={anoAtual()} />
           {registro.observacoes ? <PreviewRow label="Observações" value={registro.observacoes} /> : null}
         </View>

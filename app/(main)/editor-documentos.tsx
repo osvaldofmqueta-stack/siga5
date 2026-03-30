@@ -1940,7 +1940,7 @@ thead th{background:#1a2540;color:#fff;padding:7px 8px;font-size:9.5px;text-tran
 
   <!-- CABEÇALHO -->
   <div class="doc-header">
-    <img class="doc-header-logo" src="/angola-brasao.png" alt="Insígnia de Angola" onerror="this.style.display='none'"/>
+    <img class="doc-header-logo" src="${window.location.origin}/angola-brasao.png" alt="Insígnia de Angola" onerror="this.style.display='none'"/>
     <div class="doc-header-text">
       <div class="rep">República de Angola</div>
       <div class="escola-nome">{{NOME_ESCOLA}}</div>
@@ -2819,7 +2819,7 @@ export default function EditorDocumentos() {
       <p>___________________________</p>
     </div>
     <div class="header-center">
-      <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+      <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p><strong>REPÚBLICA DE ANGOLA</strong></p>
       <p><strong>MINISTÉRIO DA EDUCAÇÃO</strong></p>
       <p class="nivel">ENSINO PRIMÁRIO</p>
@@ -3008,7 +3008,7 @@ export default function EditorDocumentos() {
       <p>_________________________</p>
     </div>
     <div class="page-header" style="margin-left:130px;">
-      <img src="/angola-brasao.png" style="width:56px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+      <img src="${window.location.origin}/angola-brasao.png" style="width:56px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="title">PAUTA FINAL PARA A CLASSE DE EXAME DO ${ciclo} DO ENSINO SECUNDÁRIO</p>
@@ -3343,7 +3343,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>REPÚBLICA DE ANGOLA</p>
     <p>MINISTÉRIO DA EDUCAÇÃO</p>
     <p>ENSINO GERAL</p>
@@ -3948,7 +3948,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <div class="sub">República de Angola — Ministério da Educação</div>
     <div class="escola">${escola}</div>
     <div class="sub">Ensino Primário, Iº e IIº Ciclo</div>
@@ -4193,7 +4193,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="escola-nome">${escola}</p>
@@ -4545,7 +4545,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Governo da Província de ${config.provincia || '_______________'}</p>
     <p>Administração Municipal de ${config.municipio || '_______________'}</p>
@@ -4772,7 +4772,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">${escola.toUpperCase()}</p>
@@ -4963,7 +4963,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">Direcção Nacional do Ensino Técnico Profissional</p>
@@ -5197,7 +5197,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="inst">${escola.toUpperCase()}</p>
@@ -5400,7 +5400,7 @@ export default function EditorDocumentos() {
 
   <!-- HEADER -->
   <div class="header">
-    <img src="/angola-brasao.png" alt="Insígnia da República de Angola" style="height:72px;width:auto;object-fit:contain;margin-bottom:6px;" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" alt="Insígnia da República de Angola" style="height:72px;width:auto;object-fit:contain;margin-bottom:6px;" onerror="this.style.display='none'" />
     <p class="rep">República de Angola</p>
     <p class="min">Ministério da Educação</p>
     <p class="escola">${escola}</p>
@@ -5604,7 +5604,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p>Governo da Província de ${provincia}</p>
@@ -5797,7 +5797,7 @@ export default function EditorDocumentos() {
 </head>
 <body>
   <div class="header">
-    <img src="/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
+    <img src="${window.location.origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
     <p>República de Angola</p>
     <p>Ministério da Educação</p>
     <p class="sub">Ensino Secundário Técnico-Profissional</p>
