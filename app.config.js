@@ -1,4 +1,3 @@
-const IS_DEV = process.env.NODE_ENV !== "production";
 const REPLIT_DEV_DOMAIN = process.env.REPLIT_DEV_DOMAIN || "";
 const REPLIT_DOMAINS = process.env.REPLIT_DOMAINS || "";
 
@@ -6,7 +5,7 @@ const origin = REPLIT_DOMAINS
   ? `https://${REPLIT_DOMAINS.split(",")[0].trim()}`
   : REPLIT_DEV_DOMAIN
   ? `https://${REPLIT_DEV_DOMAIN}`
-  : "https://localhost:5000";
+  : "https://sgaa.angola.ao";
 
 module.exports = {
   expo: {
@@ -21,7 +20,7 @@ module.exports = {
     splash: {
       image: "./assets/images/splash-icon.png",
       resizeMode: "contain",
-      backgroundColor: "#0D1B3E",
+      backgroundColor: "#FFFFFF",
     },
     ios: {
       supportsTablet: false,
@@ -36,7 +35,7 @@ module.exports = {
     android: {
       package: "com.sgaa.angola",
       adaptiveIcon: {
-        backgroundColor: "#0D1B3E",
+        backgroundColor: "#FFFFFF",
         foregroundImage: "./assets/images/android-icon-foreground.png",
         backgroundImage: "./assets/images/android-icon-background.png",
         monochromeImage: "./assets/images/android-icon-monochrome.png",
@@ -62,6 +61,31 @@ module.exports = {
       "expo-font",
       "expo-web-browser",
       "expo-local-authentication",
+      [
+        "expo-camera",
+        {
+          cameraPermission:
+            "Necessário para digitalizar códigos QR e tirar fotografias.",
+          microphonePermission:
+            "Necessário para gravar vídeo.",
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "Permite seleccionar fotografias da galeria.",
+          cameraPermission:
+            "Permite tirar fotografias directamente.",
+        },
+      ],
+      [
+        "expo-location",
+        {
+          locationAlwaysAndWhenInUsePermission:
+            "Permite aceder à localização para funcionalidades geográficas.",
+        },
+      ],
     ],
     experiments: {
       typedRoutes: true,
