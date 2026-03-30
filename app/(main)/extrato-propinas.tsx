@@ -455,7 +455,7 @@ export default function ExtratoPropinas() {
   const [extrato, setExtrato] = useState<Extrato | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const { user } = useAuth();
   const { config } = useConfig();
 
@@ -467,7 +467,7 @@ export default function ExtratoPropinas() {
       setAllAlunos(rows);
       setAlunosFetched(true);
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setLoadingAlunos(false);
     }
@@ -487,7 +487,7 @@ export default function ExtratoPropinas() {
 
   const gerarExtrato = async () => {
     if (!selectedAluno) {
-      addToast({ type: 'error', message: 'Seleccione um aluno primeiro.' });
+      showToast('Seleccione um aluno primeiro.', 'error');
       return;
     }
     setLoading(true);
@@ -499,10 +499,10 @@ export default function ExtratoPropinas() {
       const data = await req<Extrato>(`/api/extrato-propinas?${params}`);
       setExtrato(data);
       if (data.pagamentos.length === 0) {
-        addToast({ type: 'info', message: 'Nenhum pagamento encontrado para o período seleccionado.' });
+        showToast('Nenhum pagamento encontrado para o período seleccionado.', 'info');
       }
     } catch (e) {
-      addToast({ type: 'error', message: (e as Error).message });
+      showToast((e as Error).message, 'error');
     } finally {
       setLoading(false);
     }
