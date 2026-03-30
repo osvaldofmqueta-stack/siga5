@@ -28,7 +28,7 @@ import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'recibo_salario' | 'extrato_propina' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'recibo_salario' | 'extrato_propina' | 'historico_academico' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -252,6 +252,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   lista_admitidos: 'Lista de Admitidos',
   recibo_salario: 'Recibo de Vencimento',
   extrato_propina: 'Extracto de Propinas',
+  historico_academico: 'Histórico Académico',
   outro: 'Outro',
 };
 const TIPO_COLORS: Record<DocTipo, string> = {
@@ -271,6 +272,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   lista_admitidos: '#1A2B5F',
   recibo_salario: '#10b981',
   extrato_propina: '#0d9488',
+  historico_academico: '#4f46e5',
   outro: Colors.textMuted,
 };
 
