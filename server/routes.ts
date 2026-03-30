@@ -51,6 +51,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] disciplinas componente:', (migErr as Error).message);
   }
   try {
+    await query(`ALTER TABLE public.disciplinas ADD CONSTRAINT disciplinas_nome_unique UNIQUE (nome)`, []);
+  } catch {
+    // constraint already exists — ignore
+  }
+  // Seed — Produção Vegetal (idempotent via ON CONFLICT DO NOTHING)
+  try {
+    await query(`
+      INSERT INTO public.disciplinas (nome, codigo, area, descricao, ativo, tipo, "classeInicio", "classeFim", componente) VALUES
+        ('Língua Portuguesa','PORT','Línguas e Comunicação','',true,'continuidade','10ª Classe','13ª Classe','Sócio-Cultural'),
+        ('Língua Inglesa','ING','Línguas e Comunicação','',true,'continuidade','10ª Classe','13ª Classe','Sócio-Cultural'),
+        ('Formação de Atitudes Integradoras','FAI','Ciências Sociais e Humanas','',true,'continuidade','10ª Classe','13ª Classe','Sócio-Cultural'),
+        ('Educação Física','EFI','Educação Física','',true,'continuidade','10ª Classe','13ª Classe','Sócio-Cultural'),
+        ('Matemática','MAT','Ciências Exactas','',true,'continuidade','10ª Classe','13ª Classe','Científica'),
+        ('Biologia','BIO','Ciências Naturais','',true,'continuidade','10ª Classe','13ª Classe','Científica'),
+        ('Química','QUI','Ciências Exactas','',true,'continuidade','10ª Classe','13ª Classe','Científica'),
+        ('Física','FIS','Ciências Exactas','',true,'continuidade','10ª Classe','13ª Classe','Científica'),
+        ('Ecologia e Ambiente','ECO','Ciências Naturais','',true,'continuidade','10ª Classe','13ª Classe','Científica'),
+        ('Botânica e Morfologia Vegetal','BOT','Formação Profissional','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Ciência do Solo / Edafologia','CSE','Formação Profissional','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Climatologia e Agrometeorologia','CLM','Formação Profissional','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Topografia Agrícola','TOP','Formação Profissional','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Informática Aplicada','INF','Tecnologia e Informática','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Empreendedorismo','EMP','Ciências Sociais e Humanas','Produção Vegetal — 10ª Classe',true,'terminal','10ª Classe','10ª Classe','Técnica, Tecnológica e Prática'),
+        ('Fisiologia Vegetal','FVG','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Fitotecnia (Culturas Anuais)','FIT','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Propagação e Multiplicação de Plantas','PMP','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Fitopatologia e Entomologia (Defesa Sanitária)','FPE','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Horticultura / Olericultura','HOR','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Irrigação e Drenagem','IRD','Formação Profissional','Produção Vegetal — 11ª Classe',true,'terminal','11ª Classe','11ª Classe','Técnica, Tecnológica e Prática'),
+        ('Fruticultura','FRU','Formação Profissional','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Tecnologia Pós-Colheita e Armazenamento','TPC','Formação Profissional','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Mecanização Agrícola','MEC','Formação Profissional','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Gestão e Economia Agrária','GEA','Ciências Sociais e Humanas','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Organização da Exploração Agrícola','OEA','Formação Profissional','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Extensão Rural','EXR','Formação Profissional','Produção Vegetal — 12ª Classe',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Trabalho de Campo e Oficina','TCO','Formação Profissional','Disciplina prática: ensaios de culturas (tomate, feijão) e trabalhos na exploração agropecuária do ISTM',true,'terminal','12ª Classe','12ª Classe','Técnica, Tecnológica e Prática'),
+        ('Prova de Aptidão Profissional (PAP)','PAP','Formação Profissional','Projecto prático desenvolvido no campo experimental do ISTM pelos alunos finalistas',true,'terminal','13ª Classe','13ª Classe','Técnica, Tecnológica e Prática'),
+        ('Estágio Curricular Supervisionado','ECS','Formação Profissional','Estágio em fazendas parceiras da região, como a Fazenda Pungo Andongo',true,'terminal','13ª Classe','13ª Classe','Técnica, Tecnológica e Prática')
+      ON CONFLICT (nome) DO NOTHING
+    `, []);
+    console.log('[seed] Produção Vegetal disciplines seeded successfully.');
+  } catch (seedErr) {
+    console.warn('[seed] disciplinas seed warning:', (seedErr as Error).message);
+  }
+  try {
     await query(`ALTER TABLE public.livros ADD COLUMN IF NOT EXISTS "capaUrl" text NOT NULL DEFAULT ''`, []);
     await query(`
       CREATE TABLE IF NOT EXISTS public.solicitacoes_emprestimo (
