@@ -10,7 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import DatePickerField from '@/components/DatePickerField';
-import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import { useAnoAcademico, type AnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth, UserRole, AUTHORIZED_APPROVER_ROLES } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
 import { useData } from '@/context/DataContext';
@@ -277,6 +277,7 @@ export default function AdminScreen() {
   const [showNovoUser, setShowNovoUser] = useState(false);
   const [formAno, setFormAno] = useState({ ano: '', dataInicio: '', dataFim: '' });
   const [modalAnoDuplicado, setModalAnoDuplicado] = useState<{ visible: boolean; anoExistente: string }>({ visible: false, anoExistente: '' });
+  const [confirmDeleteAno, setConfirmDeleteAno] = useState<{ visible: boolean; ano: AnoAcademico | null; loading: boolean; erro: string | null }>({ visible: false, ano: null, loading: false, erro: null });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '', telefone: '', habilitacoes: '' });
   const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
   const [activeGroup, setActiveGroup] = useState<string>(paramGroup || 'academico');
@@ -408,6 +409,25 @@ export default function AdminScreen() {
       } else {
         Alert.alert('Erro', 'Não foi possível criar o ano académico: ' + msg);
       }
+    }
+  }
+
+  async function handleDeleteAnoConfirm() {
+    if (!confirmDeleteAno.ano) return;
+    setConfirmDeleteAno(p => ({ ...p, loading: true, erro: null }));
+    try {
+      await deleteAno(confirmDeleteAno.ano.id);
+      setConfirmDeleteAno({ visible: false, ano: null, loading: false, erro: null });
+      alertSucesso('Ano eliminado', `O ano académico ${confirmDeleteAno.ano.ano} foi eliminado com sucesso.`);
+    } catch (e) {
+      const msg = (e as Error).message || '';
+      let erroLegivel = 'Não foi possível eliminar o ano académico.';
+      if (msg.includes('turmas') || msg.includes('vinculadas')) {
+        erroLegivel = `O ano "${confirmDeleteAno.ano.ano}" possui turmas vinculadas e não pode ser eliminado. Elimine primeiro todas as turmas deste ano.`;
+      } else if (msg.includes('400') || msg.includes('409')) {
+        try { erroLegivel = JSON.parse(msg.slice(msg.indexOf('{'))).error; } catch { /* usa msg padrão */ }
+      }
+      setConfirmDeleteAno(p => ({ ...p, loading: false, erro: erroLegivel }));
     }
   }
 
@@ -950,10 +970,7 @@ export default function AdminScreen() {
                   )}
                   
                   <TouchableOpacity
-                    onPress={() => Alert.alert('Eliminar', `Eliminar ${ano.ano}? Esta acção não pode ser desfeita.`, [
-                      { text: 'Cancelar', style: 'cancel' },
-                      { text: 'Eliminar', style: 'destructive', onPress: () => deleteAno(ano.id) },
-                    ])}
+                    onPress={() => setConfirmDeleteAno({ visible: true, ano, loading: false, erro: null })}
                     style={styles.deleteBtn}
                   >
                     <Ionicons name="trash-outline" size={15} color={Colors.danger} />
@@ -2019,6 +2036,52 @@ export default function AdminScreen() {
               >
                 <Ionicons name="checkmark" size={16} color="#fff" />
                 <Text style={styles.submitBtnText}>{gDiscSaving ? 'A guardar...' : `Guardar (${gDiscSelected.length} selec.)`}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Confirmar Eliminação de Ano */}
+      <Modal visible={confirmDeleteAno.visible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { alignItems: 'center', paddingVertical: 28 }]}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.danger + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+              <Ionicons name="trash-outline" size={32} color={Colors.danger} />
+            </View>
+            <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Eliminar Ano Académico</Text>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 4 }}>
+              Tem a certeza que pretende eliminar o ano{' '}
+              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text }}>"{confirmDeleteAno.ano?.ano}"</Text>?
+            </Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
+              Esta acção é irreversível. O ano só pode ser eliminado se não tiver turmas vinculadas.
+            </Text>
+
+            {!!confirmDeleteAno.erro && (
+              <View style={{ backgroundColor: Colors.danger + '15', borderRadius: 10, padding: 12, marginBottom: 16, width: '100%', flexDirection: 'row', gap: 8, alignItems: 'flex-start' }}>
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.danger} style={{ marginTop: 1 }} />
+                <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger, lineHeight: 18 }}>{confirmDeleteAno.erro}</Text>
+              </View>
+            )}
+
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+              <TouchableOpacity
+                style={[styles.cancelBtn, { flex: 1 }]}
+                onPress={() => setConfirmDeleteAno({ visible: false, ano: null, loading: false, erro: null })}
+                disabled={confirmDeleteAno.loading}
+              >
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: confirmDeleteAno.loading ? Colors.danger + '88' : Colors.danger }]}
+                onPress={handleDeleteAnoConfirm}
+                disabled={confirmDeleteAno.loading}
+              >
+                {confirmDeleteAno.loading
+                  ? <Text style={styles.saveBtnText}>A eliminar...</Text>
+                  : <><Ionicons name="trash-outline" size={14} color="#fff" /><Text style={styles.saveBtnText}>Eliminar</Text></>
+                }
               </TouchableOpacity>
             </View>
           </View>
