@@ -1,6 +1,20 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Boletim de Matrícula & Lista de Admitidos)
+## Recent Changes (Latest Session — Processos Secretaria ligados à BD)
+- **shared/schema.ts**: Nova tabela `processos_secretaria` com campos: `id`, `tipo`, `descricao`, `solicitante`, `prazo`, `status`, `prioridade`, `criadoPor`, `createdAt`, `updatedAt`
+- **server/routes.ts**: Novas rotas REST para processos da secretaria:
+  - `GET /api/processos-secretaria` — lista todos os processos ordenados por data decrescente
+  - `POST /api/processos-secretaria` — cria novo processo (requer permissão `secretaria_hub`)
+  - `PUT /api/processos-secretaria/:id` — actualiza status/prioridade/descrição/prazo
+  - `DELETE /api/processos-secretaria/:id` — elimina processo
+- **app/(main)/secretaria-hub.tsx**: Aba "Processos" ligada à API real em vez de dados mock estáticos:
+  - `INITIAL_PROCESSOS` substituído por `fetchProcessos` com `useCallback` + `useEffect`
+  - `handleNovoProcesso` faz `POST` à API e adiciona ao estado local em caso de sucesso
+  - `handleUpdateProcesso` faz `PUT` à API e actualiza estado local
+  - Indicador de carregamento e mensagem de estado vazio adicionados
+  - Autenticação via `localStorage.getItem('siga_token')`
+
+## Recent Changes (Previous Session — Boletim de Matrícula & Lista de Admitidos)
 - **app/boletim-matricula.tsx** *(new)*: Página para emissão do Boletim de Matrícula oficial.
   - Lista todos os candidatos com status `admitido` ou `matriculado` (picker com pesquisa por nome, código, curso ou telefone)
   - Gera PDF com HTML completo: QR code, dados pessoais, dados escolares (incluindo curso/área para 10ª classe), encarregado, declaração sob compromisso de honra e 3 blocos de assinatura

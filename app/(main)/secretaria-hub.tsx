@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import MapaAproveitamentoModal from '@/components/MapaAproveitamentoModal';
 import {
@@ -121,14 +121,20 @@ const INITIAL_DOCUMENTOS: Documento[] = [
   { id: 'd5', tipo: 'historico', alunoNome: 'Isabel Rodrigues', alunoNum: 'ALN-2023-0019', emitidoEm: '15/03/2025', emitidoPor: 'Secretaria', finalidade: 'Transferência' },
 ];
 
-const INITIAL_PROCESSOS: Processo[] = [
-  { id: 'p1', tipo: 'Transferência', descricao: 'Transferência entrada — Escola Sec. 10 de Fevereiro', solicitante: 'Eduardo Camilo', dataAbertura: '18/03/2025', prazo: '25/03/2025', status: 'em_curso', prioridade: 'alta' },
-  { id: 'p2', tipo: 'Re-matrícula', descricao: 'Re-matrícula fora do prazo — 12.ª Classe', solicitante: 'Filomena Costa', dataAbertura: '17/03/2025', prazo: '22/03/2025', status: 'pendente', prioridade: 'alta' },
-  { id: 'p3', tipo: 'Reclamação', descricao: 'Revisão de pauta — Matemática 10.ª B', solicitante: 'Rogério Alves', dataAbertura: '15/03/2025', status: 'em_curso', prioridade: 'media' },
-  { id: 'p4', tipo: 'Registo Civil', descricao: 'Actualização BI — Aluno Afonso Teixeira', solicitante: 'Encar. Educação', dataAbertura: '12/03/2025', status: 'pendente', prioridade: 'media' },
-  { id: 'p5', tipo: 'Equivalência', descricao: 'Pedido de equivalência — aluno proveniente do estrangeiro', solicitante: 'Família Nkosi', dataAbertura: '10/03/2025', status: 'pendente', prioridade: 'baixa' },
-  { id: 'p6', tipo: 'Dispensa', descricao: 'Dispensa de Educação Física — atestado médico', solicitante: 'Beatriz Moreira', dataAbertura: '08/03/2025', status: 'concluido', prioridade: 'baixa' },
-];
+function mapProcessoFromApi(r: any): Processo {
+  return {
+    id: r.id,
+    tipo: r.tipo,
+    descricao: r.descricao,
+    solicitante: r.solicitante,
+    dataAbertura: r.createdAt
+      ? new Date(r.createdAt).toLocaleDateString('pt-PT')
+      : today(),
+    prazo: r.prazo ?? undefined,
+    status: r.status as ProcessoStatus,
+    prioridade: r.prioridade as 'baixa' | 'media' | 'alta',
+  };
+}
 
 const CORRESPONDENCIAS: Correspondencia[] = [
   { id: 'c1', assunto: 'Convocatória — Reunião Conselho Pedagógico', destinatario: 'Corpo Docente', tipo: 'saida', data: '20/03/2025', urgente: true },
@@ -436,7 +442,8 @@ export default function SecretariaHubScreen() {
   }, [pautas, pautaFiltroStatus, pautaFiltroTrimestre, pautaFiltroTurma]);
 
   const [documentos, setDocumentos] = useState<Documento[]>(INITIAL_DOCUMENTOS);
-  const [processos, setProcessos] = useState<Processo[]>(INITIAL_PROCESSOS);
+  const [processos, setProcessos] = useState<Processo[]>([]);
+  const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showEmissaoRapida, setShowEmissaoRapida] = useState(false);
   const [showMapaAproveitamento, setShowMapaAproveitamento] = useState(false);
@@ -458,22 +465,76 @@ export default function SecretariaHubScreen() {
     [eventos]
   );
 
+  function getToken() {
+    try { return localStorage.getItem('siga_token') ?? ''; } catch { return ''; }
+  }
+
+  const fetchProcessos = useCallback(async () => {
+    setLoadingProcessos(true);
+    try {
+      const res = await fetch('/api/processos-secretaria', {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProcessos((data as any[]).map(mapProcessoFromApi));
+      }
+    } catch (_) {
+    } finally {
+      setLoadingProcessos(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchProcessos(); }, [fetchProcessos]);
+
   function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     const novo: Documento = { ...doc, id: `d${Date.now()}`, emitidoEm: today(), emitidoPor: user?.nome ?? 'Secretaria' };
     setDocumentos(prev => [novo, ...prev]);
     alertSucesso('Documento emitido', `"${doc.tipo}" foi emitido com sucesso para ${doc.alunoNome}.`);
   }
 
-  function handleNovoProcesso(p: Omit<Processo, 'id' | 'dataAbertura' | 'status'>) {
-    const novo: Processo = { ...p, id: `p${Date.now()}`, dataAbertura: today(), status: 'pendente' };
-    setProcessos(prev => [novo, ...prev]);
-    alertSucesso('Processo aberto', `O processo de ${p.alunoNome} foi registado com sucesso.`);
+  async function handleNovoProcesso(p: Omit<Processo, 'id' | 'dataAbertura' | 'status'>) {
+    try {
+      const res = await fetch('/api/processos-secretaria', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify(p),
+      });
+      if (res.ok) {
+        const novo = mapProcessoFromApi(await res.json());
+        setProcessos(prev => [novo, ...prev]);
+        alertSucesso('Processo aberto', `O processo de "${p.solicitante}" foi registado com sucesso.`);
+      } else {
+        alertErro('Erro', 'Não foi possível abrir o processo.');
+      }
+    } catch (_) {
+      alertErro('Erro', 'Falha de ligação ao servidor.');
+    }
   }
 
-  function handleUpdateProcesso(id: string, status: ProcessoStatus) {
-    setProcessos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
-    const labels: Record<ProcessoStatus, string> = { pendente: 'pendente', em_curso: 'em curso', concluido: 'concluído', cancelado: 'cancelado' };
-    alertSucesso('Processo actualizado', `O estado foi alterado para "${labels[status]}".`);
+  async function handleUpdateProcesso(id: string, status: ProcessoStatus) {
+    try {
+      const res = await fetch(`/api/processos-secretaria/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (res.ok) {
+        setProcessos(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+        const labels: Record<ProcessoStatus, string> = { pendente: 'pendente', em_curso: 'em curso', concluido: 'concluído', cancelado: 'cancelado' };
+        alertSucesso('Processo actualizado', `O estado foi alterado para "${labels[status]}".`);
+      } else {
+        alertErro('Erro', 'Não foi possível actualizar o processo.');
+      }
+    } catch (_) {
+      alertErro('Erro', 'Falha de ligação ao servidor.');
+    }
   }
 
   const QUICK_ACTIONS = [
@@ -634,6 +695,12 @@ export default function SecretariaHubScreen() {
         {activeTab === 'processos' && (
           <View style={styles.card}>
             <SectionHeader title="Gestão de Processos" icon="folder-open" count={processos.length} onAction={() => setShowProcessoModal(true)} actionLabel="+ Novo" />
+            {loadingProcessos && (
+              <Text style={[styles.emptyText, { marginVertical: 16 }]}>A carregar processos…</Text>
+            )}
+            {!loadingProcessos && processos.length === 0 && (
+              <Text style={styles.emptyText}>Nenhum processo registado. Clique em "+ Novo" para abrir o primeiro.</Text>
+            )}
             {processos.map(p => (
               <View key={p.id} style={styles.processoCard}>
                 <View style={styles.processoCardTop}>

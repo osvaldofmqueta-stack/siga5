@@ -1476,3 +1476,26 @@ export const quadroHonra = pgTable("quadro_honra", {
 });
 
 export type QuadroHonraEntry = typeof quadroHonra.$inferSelect;
+
+// -----------------------
+// PROCESSOS SECRETARIA
+// -----------------------
+export const processosSecretaria = pgTable("processos_secretaria", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  tipo: text("tipo").notNull(),
+  descricao: text("descricao").notNull(),
+  solicitante: text("solicitante").notNull(),
+  prazo: text("prazo"),
+  status: text("status").notNull().default("pendente"),
+  prioridade: text("prioridade").notNull().default("media"),
+
+  criadoPor: text("criadoPor").notNull().default("Secretaria"),
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ProcessoSecretaria = typeof processosSecretaria.$inferSelect;
+export const insertProcessoSecretariaSchema = createInsertSchema(processosSecretaria);

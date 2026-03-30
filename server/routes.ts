@@ -5543,6 +5543,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── PROCESSOS SECRETARIA ─────────────────────────────────────────────────
+  app.get("/api/processos-secretaria", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.processos_secretaria ORDER BY "createdAt" DESC`
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/processos-secretaria", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const user = (req as any).user;
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.processos_secretaria
+          ("tipo","descricao","solicitante","prazo","status","prioridade","criadoPor")
+         VALUES ($1,$2,$3,$4,'pendente',$5,$6) RETURNING *`,
+        [
+          b.tipo, b.descricao, b.solicitante,
+          b.prazo || null,
+          b.prioridade || 'media',
+          user?.nome || 'Secretaria'
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/processos-secretaria/:id", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.processos_secretaria
+         SET "status"=COALESCE($1,"status"),
+             "prioridade"=COALESCE($2,"prioridade"),
+             "descricao"=COALESCE($3,"descricao"),
+             "prazo"=COALESCE($4,"prazo"),
+             "updatedAt"=NOW()
+         WHERE id=$5 RETURNING *`,
+        [b.status || null, b.prioridade || null, b.descricao || null, b.prazo || null, req.params.id]
+      );
+      if (rows.length === 0) return json(res, 404, { error: "Processo não encontrado." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/processos-secretaria/:id", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.processos_secretaria WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
