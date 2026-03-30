@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  useLocalSearchParams } from 'expo-router';
+  useLocalSearchParams, useRouter } from 'expo-router';
 import {
   View,
   Text,
@@ -60,13 +60,12 @@ const DEFAULT_ESCOLA: EscolaConfig = {
 };
 
 const AREAS_FORMACAO_DEFAULT = [
-  'Ciências Físicas e Biológicas',
-  'Ciências Económicas e Jurídicas',
+  'Ciências e Tecnologia',
+  'Ciências Económicas, Jurídicas e Sociais',
   'Humanidades',
-  'Artes Visuais',
-  'Ciências de Informática',
+  'Artes',
+  'Ciências de Informação e Comunicação',
   'Formação de Professores',
-  'Outro',
 ];
 
 interface Curso {
@@ -76,6 +75,7 @@ interface Curso {
 const SECTION_COLORS: Record<string, string> = {
   matriculas: Colors.warning,
   cursos: '#A78BFA',
+  disciplinas: '#22D3EE',
   escola: Colors.info,
   anos: '#9B59B6',
   usuarios: Colors.gold,
@@ -91,7 +91,7 @@ const GROUPS = [
     label: 'Académico',
     icon: 'school' as const,
     color: Colors.warning,
-    sections: ['matriculas', 'cursos', 'anos'],
+    sections: ['matriculas', 'cursos', 'disciplinas', 'anos'],
   },
   {
     key: 'pessoal',
@@ -151,6 +151,7 @@ function StatusBadge({ status }: { status: SolicitacaoRegistro['status'] }) {
 }
 
 export default function AdminScreen() {
+  const router = useRouter();
   const { section: paramSection, group: paramGroup } = useLocalSearchParams<{ section?: string; group?: string }>();
   const { anos, anoAtivo, addAno, updateAno, ativarAno, deleteAno } = useAnoAcademico();
   const { user } = useAuth();
@@ -478,6 +479,7 @@ export default function AdminScreen() {
   const allSections = [
     { key: 'matriculas', label: 'Matrículas', icon: 'person-add', badge: pendentes.length },
     { key: 'cursos', label: 'Cursos', icon: 'library' },
+    { key: 'disciplinas', label: 'Disciplinas', icon: 'book' },
     { key: 'escola', label: 'Escola', icon: 'school' },
     { key: 'anos', label: 'Ano Académico', icon: 'calendar' },
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
@@ -714,15 +716,13 @@ export default function AdminScreen() {
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <SectionHeader title="Parametrizar Cursos" icon="library" color="#A78BFA" />
-                  {!showCursoForm && (
-                <TouchableOpacity
-                  style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
-                  onPress={() => abrirNovoCurso()}
-                >
-                  <Ionicons name="add" size={15} color="#A78BFA" />
-                  <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity
+                style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
+                onPress={() => abrirNovoCurso()}
+              >
+                <Ionicons name="add" size={15} color="#A78BFA" />
+                <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
+              </TouchableOpacity>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(167,139,250,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)', padding: 12, marginBottom: 4 }}>
@@ -732,86 +732,7 @@ export default function AdminScreen() {
               </Text>
             </View>
 
-            {showCursoForm ? (
-              <View style={{ gap: 14 }}>
-                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 }}>
-                  {editingCurso ? 'Editar Curso' : 'Novo Curso'}
-                </Text>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.fieldLabel}>Nome do Curso *</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={cursoForm.nome}
-                    onChangeText={v => setCursoForm(f => ({ ...f, nome: v }))}
-                    placeholder="Ex: Ciências e Tecnologia"
-                    placeholderTextColor={Colors.textMuted}
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.fieldLabel}>Código</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={cursoForm.codigo}
-                    onChangeText={v => setCursoForm(f => ({ ...f, codigo: v }))}
-                    placeholder="Ex: CT, CEJ, HUM..."
-                    placeholderTextColor={Colors.textMuted}
-                    autoCapitalize="characters"
-                  />
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.fieldLabel}>Área de Formação *</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                      {areasFormacao.map(a => (
-                        <TouchableOpacity
-                          key={a}
-                          onPress={() => setCursoForm(f => ({ ...f, areaFormacao: a }))}
-                          style={[
-                            { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-                            cursoForm.areaFormacao === a && { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: '#A78BFA' },
-                          ]}
-                        >
-                          <Text style={[
-                            { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-                            cursoForm.areaFormacao === a && { color: '#A78BFA', fontFamily: 'Inter_600SemiBold' },
-                          ]}>{a}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </ScrollView>
-                </View>
-
-                <View style={styles.inputGroup}>
-                  <Text style={styles.fieldLabel}>Descrição</Text>
-                  <TextInput
-                    style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 12 }]}
-                    value={cursoForm.descricao}
-                    onChangeText={v => setCursoForm(f => ({ ...f, descricao: v }))}
-                    placeholder="Breve descrição do curso..."
-                    placeholderTextColor={Colors.textMuted}
-                    multiline
-                  />
-                </View>
-
-                <View style={[styles.modalActions, { marginTop: 6 }]}>
-                  <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCursoForm(false)}>
-                    <Text style={styles.cancelBtnText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.submitBtn, savingCurso && { opacity: 0.6 }]}
-                    onPress={salvarCurso}
-                    disabled={savingCurso}
-                  >
-                    <Ionicons name="checkmark" size={16} color="#fff" />
-                    <Text style={styles.submitBtnText}>{savingCurso ? 'A guardar...' : 'Guardar Curso'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View onLayout={fetchCursos} style={{ gap: 4 }}>
+            <View onLayout={fetchCursos} style={{ gap: 4 }}>
                 {loadingCursos && (
                   <Text style={{ color: Colors.textMuted, textAlign: 'center', paddingVertical: 20, fontFamily: 'Inter_400Regular', fontSize: 13 }}>
                     A carregar cursos...
@@ -889,7 +810,47 @@ export default function AdminScreen() {
                   </View>
                 )}
               </View>
-            )}
+          </View>
+        )}
+
+        {/* DISCIPLINAS */}
+        {activeSection === 'disciplinas' && (
+          <View style={styles.card}>
+            <SectionHeader title="Catálogo de Disciplinas" icon="book" color="#22D3EE" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(34,211,238,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(34,211,238,0.2)', padding: 12, marginBottom: 16 }}>
+              <Ionicons name="information-circle-outline" size={16} color="#22D3EE" />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 18 }}>
+                Aqui gere o catálogo central de disciplinas do sistema. Depois de criar as disciplinas, associe-as aos cursos na secção <Text style={{ fontFamily: 'Inter_600SemiBold', color: '#A78BFA' }}>Cursos</Text>.
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => router.push('/(main)/disciplinas' as any)}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(34,211,238,0.08)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(34,211,238,0.3)', padding: 18 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(34,211,238,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="book" size={22} color="#22D3EE" />
+                </View>
+                <View>
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>Gerir Disciplinas</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2 }}>Criar, editar e organizar o catálogo de disciplinas</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#22D3EE" />
+            </TouchableOpacity>
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {[
+                { icon: 'add-circle-outline', color: '#22D3EE', text: 'Adicionar novas disciplinas ao catálogo' },
+                { icon: 'layers-outline', color: '#A78BFA', text: 'Organizar por área de conhecimento' },
+                { icon: 'link-outline', color: Colors.success, text: 'Depois associe as disciplinas a cada Curso (secção Cursos)' },
+                { icon: 'grid-outline', color: Colors.warning, text: 'As disciplinas aparecem automaticamente nas turmas e na grelha curricular' },
+              ].map((item, i) => (
+                <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 4 }}>
+                  <Ionicons name={item.icon as any} size={15} color={item.color} style={{ marginTop: 1 }} />
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 18 }}>{item.text}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
@@ -1986,6 +1947,92 @@ export default function AdminScreen() {
                 <Text style={styles.saveBtnText}>Guardar Alterações</Text>
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Criar / Editar Curso */}
+      <Modal visible={showCursoForm} transparent animationType="slide" onRequestClose={() => setShowCursoForm(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{editingCurso ? 'Editar Curso' : 'Novo Curso'}</Text>
+              <TouchableOpacity onPress={() => setShowCursoForm(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 480 }}>
+              <View style={{ gap: 14 }}>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Nome do Curso *</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.nome}
+                    onChangeText={v => setCursoForm(f => ({ ...f, nome: v }))}
+                    placeholder="Ex: Ciências e Tecnologia"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Código</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.codigo}
+                    onChangeText={v => setCursoForm(f => ({ ...f, codigo: v }))}
+                    placeholder="Ex: CT, CEJS, HUM, ART..."
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Área de Formação *</Text>
+                  <View style={{ gap: 8 }}>
+                    {areasFormacao.map(a => (
+                      <TouchableOpacity
+                        key={a}
+                        onPress={() => setCursoForm(f => ({ ...f, areaFormacao: a }))}
+                        style={[
+                          { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 10 },
+                          cursoForm.areaFormacao === a && { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: '#A78BFA' },
+                        ]}
+                      >
+                        <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: cursoForm.areaFormacao === a ? '#A78BFA' : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                          {cursoForm.areaFormacao === a && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: '#A78BFA' }} />}
+                        </View>
+                        <Text style={[
+                          { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+                          cursoForm.areaFormacao === a && { color: '#A78BFA', fontFamily: 'Inter_600SemiBold' },
+                        ]}>{a}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Descrição</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 12 }]}
+                    value={cursoForm.descricao}
+                    onChangeText={v => setCursoForm(f => ({ ...f, descricao: v }))}
+                    placeholder="Breve descrição do curso..."
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                  />
+                </View>
+              </View>
+            </ScrollView>
+            <View style={[styles.modalActions, { marginTop: 16 }]}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowCursoForm(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitBtn, savingCurso && { opacity: 0.6 }]}
+                onPress={salvarCurso}
+                disabled={savingCurso}
+              >
+                <Ionicons name="checkmark" size={16} color="#fff" />
+                <Text style={styles.submitBtnText}>{savingCurso ? 'A guardar...' : 'Guardar Curso'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
