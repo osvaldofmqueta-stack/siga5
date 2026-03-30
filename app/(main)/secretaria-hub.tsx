@@ -112,14 +112,19 @@ function prioColor(p: 'baixa' | 'media' | 'alta') {
 
 function today() { return new Date().toLocaleDateString('pt-PT'); }
 
-// ─── INITIAL DATA ───────────────────────────────────────────────────────────
-const INITIAL_DOCUMENTOS: Documento[] = [
-  { id: 'd1', tipo: 'declaracao', alunoNome: 'Maria João Silva', alunoNum: 'ALN-2025-0042', emitidoEm: '20/03/2025', emitidoPor: 'Secretaria', finalidade: 'Pedido de bolsa' },
-  { id: 'd2', tipo: 'certificado', alunoNome: 'António Ferreira', alunoNum: 'ALN-2024-0107', emitidoEm: '19/03/2025', emitidoPor: 'Secretaria', finalidade: 'Concurso Universitário' },
-  { id: 'd3', tipo: 'boletim', alunoNome: 'Ana Paula Neto', alunoNum: 'ALN-2025-0031', emitidoEm: '18/03/2025', emitidoPor: 'Secretaria', finalidade: '' },
-  { id: 'd4', tipo: 'atestado', alunoNome: 'Pedro Lopes', alunoNum: 'ALN-2025-0058', emitidoEm: '17/03/2025', emitidoPor: 'Secretaria', finalidade: 'Emprego' },
-  { id: 'd5', tipo: 'historico', alunoNome: 'Isabel Rodrigues', alunoNum: 'ALN-2023-0019', emitidoEm: '15/03/2025', emitidoPor: 'Secretaria', finalidade: 'Transferência' },
-];
+function mapDocumentoFromApi(r: any): Documento {
+  return {
+    id: r.id,
+    tipo: r.tipo as DocType,
+    alunoNome: r.alunoNome ?? '',
+    alunoNum: r.alunoNum ?? '',
+    emitidoEm: r.emitidoEm
+      ? new Date(r.emitidoEm).toLocaleDateString('pt-PT')
+      : today(),
+    emitidoPor: r.emitidoPor ?? 'Secretaria',
+    finalidade: r.finalidade ?? '',
+  };
+}
 
 function mapProcessoFromApi(r: any): Processo {
   return {
@@ -441,7 +446,8 @@ export default function SecretariaHubScreen() {
     });
   }, [pautas, pautaFiltroStatus, pautaFiltroTrimestre, pautaFiltroTurma]);
 
-  const [documentos, setDocumentos] = useState<Documento[]>(INITIAL_DOCUMENTOS);
+  const [documentos, setDocumentos] = useState<Documento[]>([]);
+  const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
@@ -469,6 +475,22 @@ export default function SecretariaHubScreen() {
     try { return localStorage.getItem('siga_token') ?? ''; } catch { return ''; }
   }
 
+  const fetchDocumentos = useCallback(async () => {
+    setLoadingDocumentos(true);
+    try {
+      const res = await fetch('/api/documentos-emitidos', {
+        headers: { Authorization: `Bearer ${getToken()}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDocumentos((data as any[]).map(mapDocumentoFromApi));
+      }
+    } catch (_) {
+    } finally {
+      setLoadingDocumentos(false);
+    }
+  }, []);
+
   const fetchProcessos = useCallback(async () => {
     setLoadingProcessos(true);
     try {
@@ -485,12 +507,37 @@ export default function SecretariaHubScreen() {
     }
   }, []);
 
-  useEffect(() => { fetchProcessos(); }, [fetchProcessos]);
+  useEffect(() => {
+    fetchDocumentos();
+    fetchProcessos();
+  }, [fetchDocumentos, fetchProcessos]);
 
-  function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
-    const novo: Documento = { ...doc, id: `d${Date.now()}`, emitidoEm: today(), emitidoPor: user?.nome ?? 'Secretaria' };
-    setDocumentos(prev => [novo, ...prev]);
-    alertSucesso('Documento emitido', `"${doc.tipo}" foi emitido com sucesso para ${doc.alunoNome}.`);
+  async function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
+    try {
+      const res = await fetch('/api/documentos-emitidos', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({
+          alunoNome: doc.alunoNome,
+          alunoNum: doc.alunoNum,
+          tipo: doc.tipo,
+          finalidade: doc.finalidade ?? '',
+          emitidoPor: user?.nome ?? 'Secretaria',
+        }),
+      });
+      if (res.ok) {
+        const novo = mapDocumentoFromApi(await res.json());
+        setDocumentos(prev => [novo, ...prev]);
+        alertSucesso('Documento emitido', `"${doc.tipo}" foi emitido com sucesso para ${doc.alunoNome}.`);
+      } else {
+        alertErro('Erro', 'Não foi possível registar o documento.');
+      }
+    } catch (_) {
+      alertErro('Erro', 'Falha de ligação ao servidor.');
+    }
   }
 
   async function handleNovoProcesso(p: Omit<Processo, 'id' | 'dataAbertura' | 'status'>) {
@@ -654,18 +701,24 @@ export default function SecretariaHubScreen() {
             {/* Últimos documentos */}
             <View style={styles.card}>
               <SectionHeader title="Documentos Recentes" icon="document-text" count={documentos.length} onAction={() => setActiveTab('documentos')} />
-              {documentos.slice(0, 4).map(d => (
-                <View key={d.id} style={styles.docRow}>
-                  <View style={[styles.docIconWrap, { backgroundColor: docColor(d.tipo) + '22' }]}>
-                    <Ionicons name="document-text" size={16} color={docColor(d.tipo)} />
+              {loadingDocumentos ? (
+                <Text style={styles.emptyText}>A carregar documentos...</Text>
+              ) : documentos.length === 0 ? (
+                <Text style={styles.emptyText}>Nenhum documento emitido ainda.</Text>
+              ) : (
+                documentos.slice(0, 4).map(d => (
+                  <View key={d.id} style={styles.docRow}>
+                    <View style={[styles.docIconWrap, { backgroundColor: docColor(d.tipo) + '22' }]}>
+                      <Ionicons name="document-text" size={16} color={docColor(d.tipo)} />
+                    </View>
+                    <View style={styles.docInfo}>
+                      <Text style={styles.docNome}>{d.alunoNome}</Text>
+                      <Text style={styles.docTipo}>{docLabel(d.tipo)}{d.finalidade ? ` — ${d.finalidade}` : ''}</Text>
+                    </View>
+                    <Text style={styles.docData}>{d.emitidoEm}</Text>
                   </View>
-                  <View style={styles.docInfo}>
-                    <Text style={styles.docNome}>{d.alunoNome}</Text>
-                    <Text style={styles.docTipo}>{docLabel(d.tipo)}{d.finalidade ? ` — ${d.finalidade}` : ''}</Text>
-                  </View>
-                  <Text style={styles.docData}>{d.emitidoEm}</Text>
-                </View>
-              ))}
+                ))
+              )}
             </View>
 
             {/* Próximos eventos */}
@@ -749,24 +802,30 @@ export default function SecretariaHubScreen() {
         {activeTab === 'documentos' && (
           <View style={styles.card}>
             <SectionHeader title="Documentos Emitidos" icon="document-text" count={documentos.length} onAction={() => setShowEmitirModal(true)} actionLabel="+ Emitir" />
-            {documentos.map(d => (
-              <View key={d.id} style={styles.docCard}>
-                <View style={[styles.docCardLeft, { borderLeftColor: docColor(d.tipo) }]}>
-                  <View style={styles.docCardTopRow}>
-                    <View style={[styles.docTypeBadge, { backgroundColor: docColor(d.tipo) + '22' }]}>
-                      <Text style={[styles.docTypeText, { color: docColor(d.tipo) }]}>{docLabel(d.tipo)}</Text>
+            {loadingDocumentos ? (
+              <Text style={styles.emptyText}>A carregar documentos...</Text>
+            ) : documentos.length === 0 ? (
+              <Text style={styles.emptyText}>Nenhum documento emitido ainda.</Text>
+            ) : (
+              documentos.map(d => (
+                <View key={d.id} style={styles.docCard}>
+                  <View style={[styles.docCardLeft, { borderLeftColor: docColor(d.tipo) }]}>
+                    <View style={styles.docCardTopRow}>
+                      <View style={[styles.docTypeBadge, { backgroundColor: docColor(d.tipo) + '22' }]}>
+                        <Text style={[styles.docTypeText, { color: docColor(d.tipo) }]}>{docLabel(d.tipo)}</Text>
+                      </View>
+                      <Text style={styles.docData}>{d.emitidoEm}</Text>
                     </View>
-                    <Text style={styles.docData}>{d.emitidoEm}</Text>
+                    <Text style={styles.docNome}>{d.alunoNome}</Text>
+                    <Text style={styles.docTipo}>
+                      N.º {d.alunoNum}
+                      {d.finalidade ? ` · ${d.finalidade}` : ''}
+                    </Text>
+                    <Text style={styles.processoMeta}>Emitido por: {d.emitidoPor}</Text>
                   </View>
-                  <Text style={styles.docNome}>{d.alunoNome}</Text>
-                  <Text style={styles.docTipo}>
-                    N.º {d.alunoNum}
-                    {d.finalidade ? ` · ${d.finalidade}` : ''}
-                  </Text>
-                  <Text style={styles.processoMeta}>Emitido por: {d.emitidoPor}</Text>
                 </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         )}
 
