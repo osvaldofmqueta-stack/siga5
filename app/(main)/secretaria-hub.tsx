@@ -586,6 +586,7 @@ export default function SecretariaHubScreen() {
 
   const QUICK_ACTIONS = [
     { label: 'Emitir\nDocumentos', icon: 'documents', color: Colors.gold, action: () => setShowEmissaoRapida(true) },
+    { label: 'Processo de\nAdmissão', icon: 'account-school', color: '#8B5CF6', action: () => router.push('/(main)/admissao' as any), isMCI: true },
     { label: 'Mapas de\nAproveitamento', icon: 'podium', color: '#1a6b3c', action: () => setShowMapaAproveitamento(true) },
     { label: 'Gerar\nDocumento PDF', icon: 'print', color: Colors.info, action: () => router.push('/(main)/gerar-documento' as any) },
     { label: 'Abrir\nProcesso', icon: 'folder-open', color: Colors.warning, action: () => setShowProcessoModal(true) },
@@ -662,7 +663,10 @@ export default function SecretariaHubScreen() {
                 {QUICK_ACTIONS.map((a, i) => (
                   <TouchableOpacity key={i} style={styles.actionCard} onPress={a.action} activeOpacity={0.75}>
                     <View style={[styles.actionIconWrap, { backgroundColor: a.color + '22' }]}>
-                      <Ionicons name={a.icon as any} size={22} color={a.color} />
+                      {(a as any).isMCI
+                        ? <MaterialCommunityIcons name={a.icon as any} size={22} color={a.color} />
+                        : <Ionicons name={a.icon as any} size={22} color={a.color} />
+                      }
                     </View>
                     <Text style={styles.actionLabel}>{a.label}</Text>
                   </TouchableOpacity>
