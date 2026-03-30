@@ -1,6 +1,22 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Permissões Secretaria & Bug Cursos Admin)
+## Recent Changes (Latest Session — Validação Formulário Inscrição & Fluxo Pagamento Boletim)
+- **app/registro.tsx**: Corrigida validação do formulário de inscrição de exame de acesso:
+  - Todos os erros de campo agora são inline (sob o campo) usando `fieldErrors`, não banner genérico
+  - `validateStep1`: `dataNascimento`, `provincia`, `municipio` usam `fieldErrors` em vez de `showError()`
+  - `validateStep3`: `nivel`, `classe`, `cursoId` usam `fieldErrors` em vez de `showError()`
+  - `ChipSelector` actualizado para aceitar e mostrar prop `error` com borda vermelha
+  - `DatePickerField` actualizado para aceitar prop `hasError` com borda vermelha
+  - Erros inline adicionados após `<DatePickerField>` e dentro da secção de cursos no Step 3
+- **components/ProvinciaMunicipioSelector.tsx**: Adicionadas props `provinciaError` e `municipioError` com estilos de erro (`selectorError`, `fieldError`) e mensagens inline
+- **components/DatePickerField.tsx**: Adicionada prop `hasError` para indicar campo com erro (borda vermelha)
+- **app/boletim-inscricao.tsx**: Implementado fluxo de pagamento antes da emissão do boletim:
+  - Interface `Registro` inclui agora `pagamentoInscricaoConfirmado`, `pagamentoInscricaoConfirmadoEm`, `pagamentoInscricaoConfirmadoPor`
+  - Estado `pendente_pagamento` adicionado a ambos os statusMaps (lista e detalhe)
+  - Quando `status === 'pendente_pagamento'` e pagamento não confirmado: botão de impressão oculto, banner laranja explicativo com RUPE e passos do processo mostrado
+  - Boletim só pode ser gerado/impresso após a área financeira confirmar o pagamento no sistema
+
+## Recent Changes (Previous Session — Permissões Secretaria & Bug Cursos Admin)
 - **context/PermissoesContext.tsx**: Adicionadas permissões `disciplinas` e `grelha` ao perfil `secretaria` (permite gerir disciplinas e áreas de formação)
 - **app/(main)/admin.tsx**: Corrigido bug de salto/vibração na aba "Cursos" do painel de administração:
   - Removido `onLayout={fetchCursos}` (disparava fetch a cada recálculo de layout → loop de requests)

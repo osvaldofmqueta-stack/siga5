@@ -80,10 +80,10 @@ function InputField({
 }
 
 function ChipSelector({
-  label, options, value, onSelect, required,
+  label, options, value, onSelect, required, error,
 }: {
   label: string; options: string[]; value: string;
-  onSelect: (v: string) => void; required?: boolean;
+  onSelect: (v: string) => void; required?: boolean; error?: string;
 }) {
   return (
     <View style={styles.fieldGroup}>
@@ -91,7 +91,7 @@ function ChipSelector({
         <Text style={styles.fieldLabel}>{label}</Text>
         {required && <Text style={styles.fieldRequired}>*</Text>}
       </View>
-      <View style={styles.chipsWrap}>
+      <View style={[styles.chipsWrap, !!error && { borderWidth: 1, borderColor: Colors.danger, borderRadius: 10, padding: 8 }]}>
         {options.map(opt => (
           <TouchableOpacity
             key={opt}
@@ -106,6 +106,7 @@ function ChipSelector({
           </TouchableOpacity>
         ))}
       </View>
+      {!!error && <Text style={styles.fieldError}>{error}</Text>}
     </View>
   );
 }
@@ -260,20 +261,25 @@ export default function RegistroScreen() {
     }
 
     if (!form.dataNascimento || !form.dataNascimento.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      showError('Seleccione a data de nascimento.');
+      erros.dataNascimento = 'Seleccione a data de nascimento (DD-MM-AAAA).';
       ok = false;
     } else {
       const nasc = new Date(form.dataNascimento);
       const hoje = new Date();
       const idade = hoje.getFullYear() - nasc.getFullYear();
       if (isNaN(nasc.getTime()) || idade < 3 || idade > 70) {
-        showError('Data de nascimento inválida. Verifique o ano introduzido.');
+        erros.dataNascimento = 'Data de nascimento inválida. Verifique o ano introduzido.';
         ok = false;
       }
     }
 
-    if (!form.provincia) { showError('Seleccione a província de naturalidade.'); ok = false; }
-    else if (!form.municipio) { showError('Seleccione o município.'); ok = false; }
+    if (!form.provincia) {
+      erros.provincia = 'Seleccione a província de naturalidade.';
+      ok = false;
+    } else if (!form.municipio) {
+      erros.municipio = 'Seleccione o município.';
+      ok = false;
+    }
 
     if (Object.keys(erros).length > 0) setFieldErrors(erros);
     return ok;
@@ -309,10 +315,15 @@ export default function RegistroScreen() {
     const erros: Record<string, string> = {};
     let ok = true;
 
-    if (!form.nivel) { showError('Seleccione o nível de ensino.'); ok = false; }
-    else if (!form.classe) { showError('Seleccione a classe pretendida.'); ok = false; }
-    else if (form.nivel === 'II Ciclo' && form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
-      showError('Seleccione o curso/área de formação para a 10ª Classe do II Ciclo.'); ok = false;
+    if (!form.nivel) {
+      erros.nivel = 'Seleccione o nível de ensino.';
+      ok = false;
+    } else if (!form.classe) {
+      erros.classe = 'Seleccione a classe pretendida.';
+      ok = false;
+    } else if (form.nivel === 'II Ciclo' && form.classe === '10ª Classe' && cursosDisponiveis.length > 0 && !form.cursoId) {
+      erros.cursoId = 'Seleccione o curso/área de formação para a 10ª Classe do II Ciclo.';
+      ok = false;
     }
 
     if (!form.nomeEncarregado.trim()) {
@@ -446,15 +457,28 @@ export default function RegistroScreen() {
               </View>
 
               <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => { set('nomeCompleto', v); if (fieldErrors.nomeCompleto) setFieldErrors(e => ({ ...e, nomeCompleto: '' })); }} placeholder="Nome completo do estudante" required error={fieldErrors.nomeCompleto} />
-              <DatePickerField label="Data de Nascimento" value={form.dataNascimento} onChange={v => set('dataNascimento', v)} required />
+
+              <View style={styles.fieldGroup}>
+                <DatePickerField
+                  label="Data de Nascimento"
+                  value={form.dataNascimento}
+                  onChange={v => { set('dataNascimento', v); if (fieldErrors.dataNascimento) setFieldErrors(e => ({ ...e, dataNascimento: '' })); }}
+                  required
+                  hasError={!!fieldErrors.dataNascimento}
+                />
+                {!!fieldErrors.dataNascimento && <Text style={styles.fieldError}>{fieldErrors.dataNascimento}</Text>}
+              </View>
+
               <ChipSelector label="Género" options={['M', 'F']} value={form.genero} onSelect={v => set('genero', v)} required />
 
               <ProvinciaMunicipioSelector
                 provinciaValue={form.provincia}
                 municipioValue={form.municipio}
-                onProvinciaChange={v => { set('provincia', v); set('municipio', ''); }}
-                onMunicipioChange={v => set('municipio', v)}
+                onProvinciaChange={v => { set('provincia', v); set('municipio', ''); if (fieldErrors.provincia) setFieldErrors(e => ({ ...e, provincia: '' })); }}
+                onMunicipioChange={v => { set('municipio', v); if (fieldErrors.municipio) setFieldErrors(e => ({ ...e, municipio: '' })); }}
                 required
+                provinciaError={fieldErrors.provincia}
+                municipioError={fieldErrors.municipio}
               />
             </View>
           )}
@@ -554,12 +578,20 @@ export default function RegistroScreen() {
                 label="Nível de Ensino"
                 options={NIVEIS}
                 value={form.nivel}
-                onSelect={v => { set('nivel', v); set('classe', ''); }}
+                onSelect={v => { set('nivel', v); set('classe', ''); if (fieldErrors.nivel) setFieldErrors(e => ({ ...e, nivel: '' })); }}
                 required
+                error={fieldErrors.nivel}
               />
 
               {classeOptions.length > 0 && (
-                <ChipSelector label="Classe" options={classeOptions} value={form.classe} onSelect={v => { set('classe', v); set('cursoId', ''); }} required />
+                <ChipSelector
+                  label="Classe"
+                  options={classeOptions}
+                  value={form.classe}
+                  onSelect={v => { set('classe', v); set('cursoId', ''); if (fieldErrors.classe) setFieldErrors(e => ({ ...e, classe: '' })); }}
+                  required
+                  error={fieldErrors.classe}
+                />
               )}
 
               {form.classe === '10ª Classe' && (
@@ -569,6 +601,7 @@ export default function RegistroScreen() {
                     <Text style={styles.fieldRequired}>*</Text>
                   </View>
                   <Text style={styles.fieldHint}>Apenas disponível para a 10ª Classe — II Ciclo</Text>
+                  {!!fieldErrors.cursoId && <Text style={styles.fieldError}>{fieldErrors.cursoId}</Text>}
                   {loadingCursos ? (
                     <View style={styles.cursoLoadingBox}>
                       <Text style={styles.cursoLoadingText}>A carregar cursos...</Text>

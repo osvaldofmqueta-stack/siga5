@@ -54,6 +54,9 @@ interface Registro {
   notaAdmissao?: number;
   rupeInscricao?: string;
   rupeMatricula?: string;
+  pagamentoInscricaoConfirmado?: boolean;
+  pagamentoInscricaoConfirmadoEm?: string;
+  pagamentoInscricaoConfirmadoPor?: string;
   criadoEm: string;
 }
 
@@ -608,12 +611,15 @@ export default function BoletimInscricaoScreen() {
   const codigo = registro ? codigoInscricao(registro) : '—';
 
   const statusMap: Record<string, { label: string; color: string }> = {
+    pendente_pagamento: { label: 'Aguardando Pagamento', color: '#E67E22' },
     pendente: { label: 'Pendente de Análise', color: Colors.warning },
     aprovado: { label: 'Aprovado para Exame', color: Colors.info },
     admitido: { label: 'Admitido', color: Colors.success },
     reprovado_admissao: { label: 'Não Admitido', color: Colors.danger },
     matriculado: { label: 'Matriculado', color: Colors.gold },
   };
+
+  const pagamentoPendente = registro?.status === 'pendente_pagamento' && !registro?.pagamentoInscricaoConfirmado;
   const statusInfo = registro ? (statusMap[registro.status] ?? { label: registro.status, color: Colors.textMuted }) : null;
 
   if (isLoading) {
@@ -630,6 +636,7 @@ export default function BoletimInscricaoScreen() {
 
   if (isPickMode) {
     const statusMap2: Record<string, { label: string; color: string }> = {
+      pendente_pagamento: { label: 'Ag. Pagamento', color: '#E67E22' },
       pendente: { label: 'Pendente', color: Colors.warning },
       aprovado: { label: 'Aprovado', color: Colors.info },
       admitido: { label: 'Admitido', color: Colors.success },
@@ -746,7 +753,7 @@ export default function BoletimInscricaoScreen() {
               <Text style={[styles.printBtnText, { color: Colors.text }]}>Outro</Text>
             </TouchableOpacity>
           )}
-          {Platform.OS === 'web' && (
+          {Platform.OS === 'web' && !pagamentoPendente && (
             <TouchableOpacity
               style={[styles.printBtn, isPrinting && { opacity: 0.6 }]}
               onPress={handlePrint}
@@ -768,6 +775,47 @@ export default function BoletimInscricaoScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomPad + 32 }]}
         showsVerticalScrollIndicator={false}
       >
+
+        {/* ── Aviso de Pagamento Pendente ── */}
+        {pagamentoPendente && (
+          <View style={styles.pagamentoPendenteCard}>
+            <View style={styles.pagamentoPendenteHeader}>
+              <View style={styles.pagamentoPendenteIconWrap}>
+                <Ionicons name="time-outline" size={22} color="#E67E22" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pagamentoPendenteTitle}>Pagamento Pendente de Confirmação</Text>
+                <Text style={styles.pagamentoPendenteSubtitle}>
+                  O boletim de inscrição só pode ser gerado após a área financeira confirmar o pagamento da taxa de inscrição.
+                </Text>
+              </View>
+            </View>
+            {registro?.rupeInscricao ? (
+              <View style={styles.pagamentoPendenteRupe}>
+                <Ionicons name="receipt-outline" size={14} color="#E67E22" />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pagamentoPendenteRupeLabel}>Referência RUPE — Taxa de Inscrição</Text>
+                  <Text style={styles.pagamentoPendenteRupeValue}>{registro.rupeInscricao}</Text>
+                </View>
+              </View>
+            ) : null}
+            <View style={styles.pagamentoPendenteSteps}>
+              {[
+                'Candidato paga a taxa de inscrição (ref. RUPE acima)',
+                'Candidato apresenta comprovativo na secretaria',
+                'Área financeira confirma o pagamento no sistema',
+                'Boletim de inscrição fica disponível para impressão',
+              ].map((step, i) => (
+                <View key={i} style={styles.pagamentoPendenteStep}>
+                  <View style={[styles.pagamentoPendenteStepNum, i === 2 && { backgroundColor: 'rgba(230,126,34,0.3)' }]}>
+                    <Text style={styles.pagamentoPendenteStepNumText}>{i + 1}</Text>
+                  </View>
+                  <Text style={styles.pagamentoPendenteStepText}>{step}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* ── Card de identificação ── */}
         <View style={styles.identCard}>
@@ -899,30 +947,41 @@ export default function BoletimInscricaoScreen() {
             : null}
         </View>
 
-        {/* ── Botão de impressão (mobile hint) ── */}
-        {Platform.OS !== 'web' && (
-          <View style={styles.mobileHint}>
-            <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
-            <Text style={styles.mobileHintText}>
-              Para imprimir ou exportar como PDF, aceda a este ecrã através de um computador.
+        {/* ── Botão de impressão / aviso de pagamento ── */}
+        {pagamentoPendente ? (
+          <View style={styles.printBlockedBanner}>
+            <Ionicons name="lock-closed-outline" size={18} color="#E67E22" />
+            <Text style={styles.printBlockedText}>
+              Impressão bloqueada — aguardando confirmação do pagamento pela área financeira.
             </Text>
           </View>
-        )}
+        ) : (
+          <>
+            {Platform.OS !== 'web' && (
+              <View style={styles.mobileHint}>
+                <Ionicons name="information-circle-outline" size={16} color={Colors.textMuted} />
+                <Text style={styles.mobileHintText}>
+                  Para imprimir ou exportar como PDF, aceda a este ecrã através de um computador.
+                </Text>
+              </View>
+            )}
 
-        {Platform.OS === 'web' && (
-          <TouchableOpacity
-            style={[styles.printBtnLarge, isPrinting && { opacity: 0.6 }]}
-            onPress={handlePrint}
-            disabled={isPrinting}
-            activeOpacity={0.85}
-          >
-            <LinearGradient colors={['#1A2B5F', '#0D1B3E']} style={styles.printBtnLargeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
-              {isPrinting
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Ionicons name="print-outline" size={20} color="#fff" />}
-              <Text style={styles.printBtnLargeText}>{isPrinting ? 'A preparar impressão...' : 'Imprimir / Exportar PDF'}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            {Platform.OS === 'web' && (
+              <TouchableOpacity
+                style={[styles.printBtnLarge, isPrinting && { opacity: 0.6 }]}
+                onPress={handlePrint}
+                disabled={isPrinting}
+                activeOpacity={0.85}
+              >
+                <LinearGradient colors={['#1A2B5F', '#0D1B3E']} style={styles.printBtnLargeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                  {isPrinting
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Ionicons name="print-outline" size={20} color="#fff" />}
+                  <Text style={styles.printBtnLargeText}>{isPrinting ? 'A preparar impressão...' : 'Imprimir / Exportar PDF'}</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </>
         )}
 
       </ScrollView>
@@ -984,6 +1043,44 @@ const styles = StyleSheet.create({
   printBtnLarge: { borderRadius: 16, overflow: 'hidden' },
   printBtnLargeGrad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, gap: 10, borderRadius: 16 },
   printBtnLargeText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  printBlockedBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: 'rgba(230,126,34,0.1)',
+    borderRadius: 14, borderWidth: 1, borderColor: 'rgba(230,126,34,0.35)',
+    padding: 16,
+  },
+  printBlockedText: { flex: 1, fontSize: 13, fontFamily: 'Inter_500Medium', color: '#E67E22', lineHeight: 19 },
+
+  pagamentoPendenteCard: {
+    backgroundColor: 'rgba(230,126,34,0.07)',
+    borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(230,126,34,0.35)',
+    padding: 18, gap: 14,
+  },
+  pagamentoPendenteHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  pagamentoPendenteIconWrap: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: 'rgba(230,126,34,0.15)',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  pagamentoPendenteTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#E67E22', marginBottom: 4 },
+  pagamentoPendenteSubtitle: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', lineHeight: 18 },
+  pagamentoPendenteRupe: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: 'rgba(230,126,34,0.1)', borderRadius: 12,
+    borderWidth: 1, borderColor: 'rgba(230,126,34,0.25)', padding: 12,
+  },
+  pagamentoPendenteRupeLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.3 },
+  pagamentoPendenteRupeValue: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#E67E22', letterSpacing: 1, marginTop: 2 },
+  pagamentoPendenteSteps: { gap: 10 },
+  pagamentoPendenteStep: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  pagamentoPendenteStepNum: {
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(230,126,34,0.15)',
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  pagamentoPendenteStepNumText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#E67E22' },
+  pagamentoPendenteStepText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', flex: 1, lineHeight: 17 },
 });
 
 const pk = StyleSheet.create({

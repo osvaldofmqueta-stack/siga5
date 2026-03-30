@@ -25,6 +25,8 @@ interface Props {
   required?: boolean;
   labelStyle?: object;
   fieldStyle?: object;
+  provinciaError?: string;
+  municipioError?: string;
 }
 
 export default function ProvinciaMunicipioSelector({
@@ -35,6 +37,8 @@ export default function ProvinciaMunicipioSelector({
   required,
   labelStyle,
   fieldStyle,
+  provinciaError,
+  municipioError,
 }: Props) {
   const [provincias, setProvincias] = useState<Provincia[]>([]);
   const [municipios, setMunicipos] = useState<Municipio[]>([]);
@@ -94,7 +98,7 @@ export default function ProvinciaMunicipioSelector({
           {required && <Text style={styles.required}>*</Text>}
         </View>
         <TouchableOpacity
-          style={[styles.selector, !!provinciaValue && styles.selectorActive]}
+          style={[styles.selector, !!provinciaValue && styles.selectorActive, !!provinciaError && styles.selectorError]}
           onPress={() => { setSearchProv(''); setShowProvModal(true); }}
           activeOpacity={0.8}
         >
@@ -107,6 +111,7 @@ export default function ProvinciaMunicipioSelector({
           )}
           <Ionicons name="chevron-down" size={16} color={provinciaValue ? Colors.gold : Colors.textMuted} />
         </TouchableOpacity>
+        {!!provinciaError && <Text style={styles.fieldError}>{provinciaError}</Text>}
       </View>
 
       {!!provinciaValue && (
@@ -116,7 +121,7 @@ export default function ProvinciaMunicipioSelector({
             {required && <Text style={styles.required}>*</Text>}
           </View>
           <TouchableOpacity
-            style={[styles.selector, !!municipioValue && styles.selectorActive]}
+            style={[styles.selector, !!municipioValue && styles.selectorActive, !!municipioError && styles.selectorError]}
             onPress={() => { setSearchMun(''); setShowMunModal(true); }}
             activeOpacity={0.8}
             disabled={loadingMun}
@@ -130,6 +135,7 @@ export default function ProvinciaMunicipioSelector({
             )}
             <Ionicons name="chevron-down" size={16} color={municipioValue ? Colors.gold : Colors.textMuted} />
           </TouchableOpacity>
+          {!!municipioError && <Text style={styles.fieldError}>{municipioError}</Text>}
         </View>
       )}
 
@@ -255,6 +261,8 @@ const styles = StyleSheet.create({
   },
   selectorText: { fontSize: 15, fontFamily: 'Inter_500Medium', color: Colors.text, flex: 1 },
   selectorPlaceholder: { color: Colors.textMuted, fontFamily: 'Inter_400Regular' },
+  selectorError: { borderColor: Colors.danger, backgroundColor: 'rgba(231,76,60,0.04)' },
+  fieldError: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.danger, marginTop: 4 },
 });
 
 const modal = StyleSheet.create({

@@ -10,6 +10,7 @@ interface DatePickerFieldProps {
   required?: boolean;
   style?: any;
   labelStyle?: any;
+  hasError?: boolean;
 }
 
 function isoToDisplay(iso: string): string {
@@ -38,6 +39,7 @@ export default function DatePickerField({
   required,
   style,
   labelStyle,
+  hasError,
 }: DatePickerFieldProps) {
   const [inputText, setInputText] = useState(() => isoToDisplay(value));
 
@@ -66,7 +68,7 @@ export default function DatePickerField({
         <Text style={[styles.label, labelStyle]}>{label}</Text>
         {required && <Text style={styles.required}>*</Text>}
       </View>
-      <View style={styles.inputWrap}>
+      <View style={[styles.inputWrap, hasError && { borderColor: Colors.danger, backgroundColor: 'rgba(231,76,60,0.04)' }]}>
         <Ionicons name="calendar-outline" size={16} color={Colors.gold} style={styles.icon} />
         <TextInput
           style={styles.textInput}
