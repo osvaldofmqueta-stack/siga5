@@ -490,18 +490,18 @@ function TabIICiclo() {
 
 function TabCatalogo() {
   const cor = TAB_COLORS['Catálogo'];
-  const [disciplinas, setDisciplinas] = useState<DiscCatalogo[]>([]);
+  const [todasDiscs, setTodasDiscs] = useState<DiscCatalogo[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [expandedArea, setExpandedArea] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [mostrarInativas, setMostrarInativas] = useState(true);
 
   const load = useCallback(async () => {
     try {
       const res = await fetch('/api/disciplinas');
       if (res.ok) {
         const data: DiscCatalogo[] = await res.json();
-        setDisciplinas(Array.isArray(data) ? data.filter(d => d.ativo) : []);
+        setTodasDiscs(Array.isArray(data) ? data : []);
       }
     } catch {
     } finally {
@@ -514,6 +514,8 @@ function TabCatalogo() {
 
   const onRefresh = () => { setRefreshing(true); load(); };
 
+  const disciplinas = mostrarInativas ? todasDiscs : todasDiscs.filter(d => d.ativo);
+
   const byArea = disciplinas.reduce<Record<string, DiscCatalogo[]>>((acc, d) => {
     const a = d.area || 'Sem Área';
     if (!acc[a]) acc[a] = [];
@@ -522,6 +524,7 @@ function TabCatalogo() {
   }, {});
 
   const areas = Object.keys(byArea).sort();
+  const totalInativas = todasDiscs.filter(d => !d.ativo).length;
 
   if (loading) {
     return (
@@ -532,7 +535,7 @@ function TabCatalogo() {
     );
   }
 
-  if (disciplinas.length === 0) {
+  if (todasDiscs.length === 0) {
     return (
       <ScrollView
         contentContainerStyle={styles.emptyBox}
@@ -545,6 +548,7 @@ function TabCatalogo() {
     );
   }
 
+  const ativas = todasDiscs.filter(d => d.ativo).length;
   const continuidade = disciplinas.filter(d => d.tipo !== 'terminal').length;
   const terminal = disciplinas.filter(d => d.tipo === 'terminal').length;
 
@@ -556,10 +560,10 @@ function TabCatalogo() {
     >
       <View style={styles.statsRow}>
         {[
-          { label: 'Total',         value: `${disciplinas.length}`, color: cor },
-          { label: 'Áreas',         value: `${areas.length}`,       color: Colors.info },
-          { label: 'Continuidade',  value: `${continuidade}`,       color: Colors.success },
-          { label: 'Terminal',      value: `${terminal}`,           color: Colors.warning },
+          { label: 'Total',        value: `${todasDiscs.length}`, color: cor },
+          { label: 'Activas',      value: `${ativas}`,            color: Colors.success },
+          { label: 'Inactivas',    value: `${totalInativas}`,     color: Colors.textMuted },
+          { label: 'Áreas',        value: `${areas.length}`,      color: Colors.info },
         ].map(s => (
           <View key={s.label} style={styles.statCard}>
             <Text style={[styles.statValue, { color: s.color }]}>{s.value}</Text>
@@ -568,10 +572,30 @@ function TabCatalogo() {
         ))}
       </View>
 
+      {totalInativas > 0 && (
+        <TouchableOpacity
+          style={styles.toggleInativasBtn}
+          onPress={() => setMostrarInativas(v => !v)}
+          activeOpacity={0.75}
+        >
+          <Ionicons
+            name={mostrarInativas ? 'eye' : 'eye-off'}
+            size={15}
+            color={mostrarInativas ? cor : Colors.textMuted}
+          />
+          <Text style={[styles.toggleInativasText, { color: mostrarInativas ? cor : Colors.textMuted }]}>
+            {mostrarInativas
+              ? `Mostrar todas (incl. ${totalInativas} inactiva${totalInativas !== 1 ? 's' : ''})`
+              : `Apenas activas — ${totalInativas} inactiva${totalInativas !== 1 ? 's' : ''} oculta${totalInativas !== 1 ? 's' : ''}`}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {areas.map(area => {
         const discs = byArea[area];
         const isOpen = expandedArea === area;
         const acor = areaColor(area);
+        const inativasNaArea = discs.filter(d => !d.ativo).length;
         return (
           <View key={area} style={styles.areaSection}>
             <TouchableOpacity
@@ -584,18 +608,28 @@ function TabCatalogo() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.areaNome}>{area}</Text>
-                <Text style={styles.areaCount}>{discs.length} disciplina{discs.length !== 1 ? 's' : ''}</Text>
+                <Text style={styles.areaCount}>
+                  {discs.length} disciplina{discs.length !== 1 ? 's' : ''}
+                  {inativasNaArea > 0 ? ` · ${inativasNaArea} inactiva${inativasNaArea !== 1 ? 's' : ''}` : ''}
+                </Text>
               </View>
               <Ionicons name={isOpen ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textMuted} />
             </TouchableOpacity>
 
             {isOpen && discs.map((d, i) => (
-              <View key={d.id} style={[styles.catalogoRow, i % 2 !== 0 && styles.tableRowAlt]}>
-                <View style={[styles.codBadge, { backgroundColor: acor + '22' }]}>
-                  <Text style={[styles.codText, { color: acor }]}>{d.codigo || '—'}</Text>
+              <View key={d.id} style={[styles.catalogoRow, i % 2 !== 0 && styles.tableRowAlt, !d.ativo && styles.catalogoRowInativa]}>
+                <View style={[styles.codBadge, { backgroundColor: (d.ativo ? acor : Colors.textMuted) + '22' }]}>
+                  <Text style={[styles.codText, { color: d.ativo ? acor : Colors.textMuted }]}>{d.codigo || '—'}</Text>
                 </View>
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.discNome}>{d.nome}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={[styles.discNome, !d.ativo && { color: Colors.textMuted }]}>{d.nome}</Text>
+                    {!d.ativo && (
+                      <View style={styles.inativaBadge}>
+                        <Text style={styles.inativaBadgeText}>Inactiva</Text>
+                      </View>
+                    )}
+                  </View>
                   {(d.classeInicio || d.classeFim) ? (
                     <Text style={styles.discObs}>
                       {d.classeInicio === d.classeFim
@@ -606,7 +640,7 @@ function TabCatalogo() {
                 </View>
                 <View style={[
                   styles.tipoPill,
-                  { backgroundColor: d.tipo === 'terminal' ? Colors.warning + '20' : Colors.success + '20' },
+                  { backgroundColor: d.tipo === 'terminal' ? Colors.warning + '20' : Colors.success + '20', opacity: d.ativo ? 1 : 0.5 },
                 ]}>
                   <Text style={[
                     styles.tipoPillText,
@@ -759,7 +793,14 @@ const styles = StyleSheet.create({
   areaIconWrap:{ width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   areaNome:    { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   areaCount:   { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
-  catalogoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '60' },
+  catalogoRow:        { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border + '60' },
+  catalogoRowInativa: { opacity: 0.6 },
+
+  toggleInativasBtn:  { flexDirection: 'row', alignItems: 'center', gap: 6, marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: Colors.backgroundCard, borderRadius: 10, borderWidth: 1, borderColor: Colors.border },
+  toggleInativasText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+
+  inativaBadge:     { backgroundColor: Colors.textMuted + '25', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
+  inativaBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
 
   centerBox:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
