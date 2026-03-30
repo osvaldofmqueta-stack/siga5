@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Dimensions,
+  FlatList, Dimensions, Modal, Platform,
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
@@ -116,6 +116,7 @@ export default function HistoricoScreen() {
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>(turmas[0]?.id || '');
   const [showAlunoSelector, setShowAlunoSelector] = useState(false);
   const [showTurmaSelector, setShowTurmaSelector] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const alunosAtivos = alunos.filter(a => a.ativo);
   const turmasAtivas = turmas.filter(t => t.ativo);
@@ -182,8 +183,56 @@ export default function HistoricoScreen() {
   const reprovados = turmaAlunos.filter(x => x.situacao === 'Reprovado').length;
   const mediaTurma = turmaAlunos.length > 0 ? turmaAlunos.reduce((s, x) => s + x.media, 0) / turmaAlunos.length : 0;
 
+  function handlePrintPreview() {
+    if (Platform.OS !== 'web') return;
+    const iframe = document.getElementById('hist-pdf-iframe') as HTMLIFrameElement | null;
+    if (iframe?.contentWindow) iframe.contentWindow.print();
+  }
+
+  function abrirPDF() {
+    if (!selectedAlunoId) return;
+    setPreviewUrl(`/api/pdf/historico-academico/${selectedAlunoId}?autoprint=false`);
+  }
+
   return (
     <View style={styles.container}>
+
+      {/* ── A4 Preview Modal ─────────────────────────────────────────────── */}
+      {Platform.OS === 'web' && (
+        <Modal
+          visible={!!previewUrl}
+          animationType="fade"
+          transparent={false}
+          onRequestClose={() => setPreviewUrl(null)}
+        >
+          <View style={styles.previewModal}>
+            <View style={styles.previewHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.previewTitle}>Histórico Académico</Text>
+                <Text style={styles.previewSub}>Formato A4 · Pré-visualização antes de imprimir</Text>
+              </View>
+              <TouchableOpacity style={styles.previewPrintBtn} onPress={handlePrintPreview}>
+                <Ionicons name="print-outline" size={16} color="#fff" />
+                <Text style={styles.previewPrintTxt}>Imprimir / PDF</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => setPreviewUrl(null)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.previewBody}>
+              {previewUrl && (
+                <iframe
+                  id="hist-pdf-iframe"
+                  src={previewUrl}
+                  style={{ flex: 1, border: 'none', width: '100%', height: '100%', minHeight: 600, background: '#f0f0f0' } as any}
+                  title="Histórico Académico"
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
       <TopBar title="Histórico Académico" subtitle={anoSelecionado?.ano || ''} />
 
       {/* Aviso de somente-leitura */}
@@ -256,7 +305,15 @@ export default function HistoricoScreen() {
                   <Text style={styles.alunoMatricula}>{selectedAluno.numeroMatricula}</Text>
                   <Text style={styles.alunoTurma}>{turmas.find(t => t.id === selectedAluno.turmaId)?.nome || '—'}</Text>
                 </View>
-                <SituacaoBadge situacao={historicoAluno.find(h => h.ano.ativo)?.situacao || 'Em curso'} />
+                <View style={styles.alunoCardRight}>
+                  <SituacaoBadge situacao={historicoAluno.find(h => h.ano.ativo)?.situacao || 'Em curso'} />
+                  {Platform.OS === 'web' && (
+                    <TouchableOpacity style={styles.pdfBtn} onPress={abrirPDF} activeOpacity={0.8}>
+                      <Ionicons name="document-text-outline" size={14} color={Colors.gold} />
+                      <Text style={styles.pdfBtnText}>Ver / Imprimir</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               {/* Stats globais */}
@@ -552,4 +609,17 @@ const styles = StyleSheet.create({
   turmaAlunoMat: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
   turmaAlunoMedia: { fontSize: 15, fontFamily: 'Inter_700Bold', textAlign: 'center' },
   turmaTrimMedia: { fontSize: 13, fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
+
+  alunoCardRight: { alignItems: 'flex-end', gap: 8 },
+  pdfBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.gold + '18', borderWidth: 1, borderColor: Colors.gold + '50', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  pdfBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+
+  previewModal: { flex: 1, backgroundColor: Colors.background },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  previewTitle: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text },
+  previewSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  previewPrintBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1a2b5f', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 9 },
+  previewPrintTxt: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
+  previewCloseBtn: { padding: 6 },
+  previewBody: { flex: 1 },
 });

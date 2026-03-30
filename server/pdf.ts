@@ -1115,6 +1115,180 @@ ${autoprint ? `<script>window.onload=function(){setTimeout(function(){window.pri
 </html>`;
 }
 
+function buildHistoricoAcademicoHTML(aluno: any, turma: any, anosData: any[], config: any, autoprint: boolean): string {
+  const escolaNome = config?.nomeEscola || 'Escola';
+  const nomeCompleto = aluno ? `${aluno.nome || ''} ${aluno.apelido || ''}`.trim() : '—';
+  const dataEmissao = fmtDate(new Date().toISOString());
+  const matricula = aluno?.numeroMatricula || 'MAT000';
+
+  const TRIM_COLORS: Record<number, string> = { 1: '#3b82f6', 2: '#f59e0b', 3: '#10b981' };
+
+  let anosHTML = '';
+  for (const h of anosData) {
+    const { anoLetivo, notas, mediaGeral, presencasPct, situacao } = h;
+    const situacaoCor = situacao === 'Aprovado' ? '#16a34a' : situacao === 'Reprovado' ? '#dc2626' : '#6b7280';
+
+    const trimestres: Record<number, any[]> = { 1: [], 2: [], 3: [] };
+    for (const n of notas) {
+      if (trimestres[n.trimestre]) trimestres[n.trimestre].push(n);
+    }
+
+    let tabelasTrimHTML = '';
+    for (const tri of [1, 2, 3]) {
+      const notasTri = trimestres[tri];
+      if (!notasTri.length) continue;
+      const mediaTri = notasTri.reduce((s: number, n: any) => s + (n.nf ?? n.mac ?? 0), 0) / notasTri.length;
+      const rows = notasTri.map((n: any) => {
+        const nf = n.nf ?? n.mac ?? 0;
+        const nfCls = nf >= 10 ? 'nota-bom' : nf > 0 ? 'nota-neg' : 'nota-neutro';
+        return `<tr>
+          <td>${n.disciplina || '—'}</td>
+          <td class="center">${n.mac1 > 0 ? Number(n.mac1).toFixed(1) : '—'}</td>
+          <td class="center">${n.pp1 > 0 ? n.pp1 : '—'}</td>
+          <td class="center">${n.ppt > 0 ? n.ppt : '—'}</td>
+          <td class="center ${nfCls}" style="font-weight:700">${nf > 0 ? Number(nf).toFixed(1) : '—'}</td>
+        </tr>`;
+      }).join('');
+      const triCor = TRIM_COLORS[tri];
+      tabelasTrimHTML += `
+      <div class="trim-block">
+        <div class="trim-header" style="background:${triCor}20;border-left:4px solid ${triCor};color:${triCor}">
+          ${tri}º Trimestre &nbsp;—&nbsp; Média: <strong>${mediaTri.toFixed(1)}</strong>
+        </div>
+        <table>
+          <thead><tr>
+            <th style="text-align:left;width:38%">Disciplina</th>
+            <th class="center">MAC</th><th class="center">PP</th>
+            <th class="center">PT</th><th class="center">NF</th>
+          </tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }
+
+    if (!tabelasTrimHTML) tabelasTrimHTML = `<p class="sem-notas">Sem notas registadas neste ano lectivo.</p>`;
+
+    const badge = `<span class="situacao-badge" style="background:${situacaoCor}20;color:${situacaoCor};border:1px solid ${situacaoCor}50">${situacao}</span>`;
+
+    anosHTML += `
+    <div class="ano-block">
+      <div class="ano-header">
+        <span class="ano-titulo">${anoLetivo}</span>
+        ${badge}
+        <span class="ano-stats">
+          Média: <strong>${mediaGeral !== null ? Number(mediaGeral).toFixed(1) : '—'}</strong>
+          &nbsp;·&nbsp; Presenças: <strong>${presencasPct}%</strong>
+        </span>
+      </div>
+      ${tabelasTrimHTML}
+    </div>`;
+  }
+
+  if (!anosHTML) anosHTML = `<p class="sem-notas">Sem histórico registado.</p>`;
+
+  const verifSection = buildVerificationSection({
+    barcodeId: `hist-${matricula}`,
+    barcodeValue: matricula,
+    qrData: [
+      `DOC: HISTÓRICO ACADÉMICO`,
+      `ESCOLA: ${escolaNome}`,
+      `ALUNO: ${nomeCompleto}`,
+      `MATRICULA: ${matricula}`,
+      `TURMA: ${turma?.nome || 'N/D'}`,
+      `EMITIDO: ${dataEmissao}`,
+    ].join('\n'),
+    docRef: `HIST-${matricula}`,
+    emitidoEm: dataEmissao,
+  });
+
+  return `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<title>Histórico Académico – ${nomeCompleto}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;color:#111;font-size:9pt}
+.doc{background:white;width:210mm;min-height:297mm;margin:8mm auto;padding:14mm 16mm;border:1px solid #ddd}
+@media print{body{background:white}.doc{margin:0;border:none;width:100%;padding:12mm}.no-print{display:none!important}}
+.header{display:flex;align-items:center;gap:14px;margin-bottom:8px;border-bottom:3px solid #1a2b5f;padding-bottom:8px}
+.logo-box{width:54px;height:54px;background:#1a2b5f;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:20pt;font-weight:900;flex-shrink:0}
+.escola-info{flex:1}
+.escola-nome{font-size:14pt;font-weight:700;color:#1a2b5f}
+.escola-sub{font-size:7.5pt;color:#6b7280;margin-top:2px;letter-spacing:1px}
+.titulo-doc{text-align:right;padding:8px 12px;background:#1a2b5f;color:white;border-radius:6px;min-width:130px}
+.titulo-doc-label{font-size:6pt;letter-spacing:2px;opacity:.7}
+.titulo-doc-val{font-size:9.5pt;font-weight:700}
+.aluno-section{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0;background:#f8fafc;border-radius:6px;padding:8px 12px;border:1px solid #e2e8f0}
+.aluno-field{display:flex;flex-direction:column;gap:1px}
+.aluno-label{font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px}
+.aluno-value{font-size:9pt;font-weight:600;color:#1e293b}
+.ano-block{margin:14px 0;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;page-break-inside:avoid}
+.ano-header{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#1a2b5f;flex-wrap:wrap}
+.ano-titulo{font-size:11pt;font-weight:700;color:white}
+.ano-stats{margin-left:auto;font-size:8pt;color:#cbd5e1}
+.situacao-badge{font-size:7.5pt;font-weight:700;padding:2px 8px;border-radius:20px}
+.trim-block{margin:0;border-bottom:1px solid #f1f5f9}
+.trim-header{padding:5px 10px;font-size:8.5pt;font-weight:600;letter-spacing:.5px}
+table{width:100%;border-collapse:collapse}
+th{background:#f1f5f9;font-size:7.5pt;font-weight:700;color:#475569;padding:4px 8px;border:1px solid #e2e8f0;text-transform:uppercase;letter-spacing:.5px}
+td{font-size:8.5pt;padding:4px 8px;border:1px solid #e2e8f0;color:#1e293b}
+tr:nth-child(even) td{background:#fafafa}
+.center{text-align:center}
+.nota-bom{color:#16a34a}
+.nota-neg{color:#dc2626}
+.nota-neutro{color:#9ca3af}
+.sem-notas{color:#9ca3af;text-align:center;padding:16px;font-style:italic}
+.footer{display:flex;justify-content:space-around;margin-top:20px;padding-top:10px;border-top:1px solid #e2e8f0;gap:20px}
+.assinatura-block{text-align:center;flex:1}
+.assinatura-linha{border-top:1px solid #374151;margin:20px 10px 4px}
+.assinatura-label{font-size:7pt;color:#6b7280}
+.rodape{text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:10px;border-top:1px dashed #e5e7eb;padding-top:6px}
+.print-btn{position:fixed;top:10px;right:10px;background:#1a2b5f;color:white;border:none;padding:10px 18px;border-radius:8px;font-size:11pt;cursor:pointer;z-index:999}
+${VERIF_CSS}
+</style>
+${JSBARCODE_CDN}
+</head>
+<body>
+<button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+<div class="doc">
+  <div class="header">
+    <div class="logo-box">${escolaNome.charAt(0)}</div>
+    <div class="escola-info">
+      <div class="escola-nome">${escolaNome}</div>
+      <div class="escola-sub">SISTEMA INTEGRADO DE GESTÃO ACADÉMICA</div>
+    </div>
+    <div class="titulo-doc">
+      <div class="titulo-doc-label">DOCUMENTO OFICIAL</div>
+      <div class="titulo-doc-val">HISTÓRICO ACADÉMICO</div>
+    </div>
+  </div>
+
+  <div class="aluno-section">
+    <div class="aluno-field"><span class="aluno-label">Nome Completo</span><span class="aluno-value">${nomeCompleto}</span></div>
+    <div class="aluno-field"><span class="aluno-label">Nº de Matrícula</span><span class="aluno-value">${matricula}</span></div>
+    <div class="aluno-field"><span class="aluno-label">Turma Actual</span><span class="aluno-value">${turma?.nome || '—'} · ${turma?.classe || '—'}</span></div>
+    <div class="aluno-field"><span class="aluno-label">Turno</span><span class="aluno-value">${turma?.turno || '—'}</span></div>
+    <div class="aluno-field"><span class="aluno-label">Encarregado de Educação</span><span class="aluno-value">${aluno?.nomeEncarregado || '—'}</span></div>
+    <div class="aluno-field"><span class="aluno-label">Data de Emissão</span><span class="aluno-value">${dataEmissao}</span></div>
+  </div>
+
+  ${anosHTML}
+
+  ${verifSection}
+
+  <div class="footer">
+    <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Director(a) Pedagógico(a)</div></div>
+    <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Director(a) Geral</div></div>
+    <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Encarregado de Educação</div></div>
+  </div>
+  <div class="rodape">Emitido em ${dataEmissao} · ${escolaNome} · Documento Oficial · Lei n.º 17/16 Angola</div>
+</div>
+${autoprint ? `<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>` : ''}
+</body>
+</html>`;
+}
+
 export function registerPDFRoutes(app: Express) {
   // ─── RECIBO INDIVIDUAL ───
   app.get('/api/pdf/recibo/:pagamentoId', requireAuth, async (req: Request, res: Response) => {
@@ -1473,6 +1647,57 @@ export function registerPDFRoutes(app: Express) {
   });
 
   // ─── GERAR REFERÊNCIA MULTICAIXA (nova, sem rupe existente) ───
+  // ─── HISTÓRICO ACADÉMICO ───
+  app.get('/api/pdf/historico-academico/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const autoprint = req.query.autoprint !== 'false';
+
+      const alunoRows = await query<any>(`SELECT * FROM public.alunos WHERE id=$1`, [alunoId]);
+      if (!alunoRows.length) return res.status(404).json({ error: 'Aluno não encontrado' });
+      const aluno = alunoRows[0];
+
+      const turmaRows = aluno.turmaId
+        ? await query<any>(`SELECT * FROM public.turmas WHERE id=$1`, [aluno.turmaId])
+        : [];
+      const turma = turmaRows[0] || null;
+
+      const notasRows = await query<any>(
+        `SELECT * FROM public.notas WHERE "alunoId"=$1 ORDER BY "anoLetivo", trimestre, disciplina`,
+        [alunoId]
+      );
+
+      const presencasRows = await query<any>(
+        `SELECT * FROM public.presencas WHERE "alunoId"=$1`,
+        [alunoId]
+      );
+
+      const anosSet = Array.from(new Set(notasRows.map((n: any) => n.anoLetivo as string))).sort();
+
+      const anosData = anosSet.map((anoLetivo: string) => {
+        const notas = notasRows.filter((n: any) => n.anoLetivo === anoLetivo);
+        const presAno = presencasRows;
+        const mediaGeral = notas.length > 0
+          ? notas.reduce((s: number, n: any) => s + (n.nf ?? n.mac ?? 0), 0) / notas.length
+          : null;
+        const presencasPct = presAno.length > 0
+          ? Math.round((presAno.filter((p: any) => p.status === 'P').length / presAno.length) * 100)
+          : 100;
+        const situacao = mediaGeral === null ? 'Em curso' : mediaGeral >= 10 ? 'Aprovado' : 'Reprovado';
+        return { anoLetivo, notas, mediaGeral, presencasPct, situacao };
+      });
+
+      const configRows = await query<any>(`SELECT * FROM public.config_geral LIMIT 1`, []);
+      const config = configRows[0] || {};
+
+      const html = buildHistoricoAcademicoHTML(aluno, turma, anosData, config, autoprint);
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post('/api/pdf/multicaixa/gerar', requireAuth, async (req: Request, res: Response) => {
     try {
       const { alunoId, taxaId, valor, mes, ano } = req.body;
