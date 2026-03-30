@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, Dimensions, ActivityIndicator,
-} from 'react-native';
+  Modal, TextInputDimensions, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
@@ -14,6 +13,7 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { apiRequest } from '@/lib/query-client';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -159,7 +159,7 @@ export default function HorarioScreen() {
   }
 
   function openOptions(aula: AulaHorario) {
-    Alert.alert(aula.disciplina, `${DIAS_FULL[aula.diaSemana - 1]} — ${aula.horaInicio}`, [
+    webAlert(aula.disciplina, `${DIAS_FULL[aula.diaSemana - 1]} — ${aula.horaInicio}`, [
       { text: 'Editar', onPress: () => openEdit(aula) },
       { text: 'Remover', style: 'destructive', onPress: () => removeAula(aula.id) },
       { text: 'Cancelar', style: 'cancel' },
@@ -253,7 +253,7 @@ export default function HorarioScreen() {
 
   function openProfCell(aula: AulaHorario) {
     if (aula.professorId !== profData?.id) {
-      Alert.alert(aula.disciplina, `Prof. ${aula.professorNome} · ${aula.sala}\n${DIAS_FULL[aula.diaSemana - 1]} — ${aula.horaInicio}`);
+      webAlert(aula.disciplina, `Prof. ${aula.professorNome} · ${aula.sala}\n${DIAS_FULL[aula.diaSemana - 1]} — ${aula.horaInicio}`);
       return;
     }
     setSumarioAula(aula);

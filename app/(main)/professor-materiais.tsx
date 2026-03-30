@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList, Linking,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList, Linking } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as DocumentPicker from 'expo-document-picker';
@@ -12,6 +11,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useProfessor, Material } from '@/context/ProfessorContext';
 import { timeAgo } from '@/context/NotificacoesContext';
+import { webAlert } from '@/utils/webAlert';
 
 type TipoMaterial = 'texto' | 'link' | 'resumo' | 'pdf' | 'docx' | 'ppt';
 
@@ -87,7 +87,7 @@ export default function ProfessorMateriaisScreen() {
         if (!titulo) setTitulo(asset.name.replace(/\.[^/.]+$/, ''));
       }
     } catch {
-      Alert.alert('Erro', 'Não foi possível selecionar o ficheiro.');
+      webAlert('Erro', 'Não foi possível selecionar o ficheiro.');
     } finally {
       setUploadLoading(false);
     }
@@ -96,11 +96,11 @@ export default function ProfessorMateriaisScreen() {
   async function salvar() {
     if (!titulo.trim() || !turmaId || !disciplina || !prof) return;
     if (isFileTipo && !conteudo) {
-      Alert.alert('Ficheiro em falta', 'Selecione um ficheiro antes de enviar.');
+      webAlert('Ficheiro em falta', 'Selecione um ficheiro antes de enviar.');
       return;
     }
     if (!isFileTipo && !conteudo.trim()) {
-      Alert.alert('Conteúdo em falta', 'Preencha o conteúdo antes de enviar.');
+      webAlert('Conteúdo em falta', 'Preencha o conteúdo antes de enviar.');
       return;
     }
     const turma = minhasTurmas.find(t => t.id === turmaId);
@@ -118,7 +118,7 @@ export default function ProfessorMateriaisScreen() {
     });
     resetForm();
     setShowForm(false);
-    Alert.alert('Sucesso', 'Material enviado à turma!');
+    webAlert('Sucesso', 'Material enviado à turma!');
   }
 
   function resetForm() {
@@ -131,9 +131,9 @@ export default function ProfessorMateriaisScreen() {
   function abrirFicheiro(mat: Material) {
     if (!mat.conteudo) return;
     if (mat.tipo === 'link') {
-      Linking.openURL(mat.conteudo).catch(() => Alert.alert('Erro', 'Não foi possível abrir o link.'));
+      Linking.openURL(mat.conteudo).catch(() => webAlert('Erro', 'Não foi possível abrir o link.'));
     } else if (FILE_TIPOS.includes(mat.tipo as TipoMaterial)) {
-      Linking.openURL(mat.conteudo).catch(() => Alert.alert('Ficheiro local', 'O ficheiro está guardado no dispositivo: ' + (mat.nomeArquivo || mat.conteudo)));
+      Linking.openURL(mat.conteudo).catch(() => webAlert('Ficheiro local', 'O ficheiro está guardado no dispositivo: ' + (mat.nomeArquivo || mat.conteudo)));
     }
   }
 
@@ -210,7 +210,7 @@ export default function ProfessorMateriaisScreen() {
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
                 <Text style={styles.matTime}>{timeAgo(mat.createdAt)}</Text>
                 <TouchableOpacity
-                  onPress={() => Alert.alert('Eliminar', 'Deseja eliminar este material?', [
+                  onPress={() => webAlert('Eliminar', 'Deseja eliminar este material?', [
                     { text: 'Cancelar', style: 'cancel' },
                     { text: 'Eliminar', style: 'destructive', onPress: () => deleteMaterial(mat.id) }
                   ])}

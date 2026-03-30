@@ -1,9 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList, RefreshControl,
-  ActivityIndicator,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList, RefreshControl,
+  ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +16,7 @@ import ExportMenu from '@/components/ExportMenu';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 type Tab = 'painel' | 'professores' | 'sumarios' | 'solicitacoes' | 'calendario' | 'pautas';
 type SumarioFiltro = 'pendente' | 'aceite' | 'rejeitado' | 'todos';
@@ -181,7 +181,7 @@ export default function RHHubScreen() {
 
   async function rejeitarSumario() {
     if (!sumarioSelecionado) return;
-    if (!observacao.trim()) { Alert.alert('Obrigatório', 'Indique o motivo da rejeição.'); return; }
+    if (!observacao.trim()) { webAlert('Obrigatório', 'Indique o motivo da rejeição.'); return; }
     await updateSumario(sumarioSelecionado.id, { status: 'rejeitado', observacaoRH: observacao });
     await addNotificacao({
       titulo: 'Sumário Rejeitado',
@@ -216,7 +216,7 @@ export default function RHHubScreen() {
 
   async function publicarProva() {
     if (!provaTitulo || !provaData || !provaDisciplina) {
-      Alert.alert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
+      webAlert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
     }
     if (editingProva) {
       await updateCalendarioProva(editingProva, {
@@ -717,7 +717,7 @@ export default function RHHubScreen() {
                           {prova.publicado ? 'Publicado' : 'Rascunho'}
                         </Text>
                       </TouchableOpacity>
-                      <TouchableOpacity onPress={() => Alert.alert('Eliminar', 'Eliminar esta prova?', [
+                      <TouchableOpacity onPress={() => webAlert('Eliminar', 'Eliminar esta prova?', [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Eliminar', style: 'destructive', onPress: () => deleteCalendarioProva(prova.id) },
                       ])}>

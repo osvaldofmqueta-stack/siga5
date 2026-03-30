@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, Alert, ActivityIndicator, RefreshControl, Platform,
-} from 'react-native';
+  ModalActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -11,6 +10,7 @@ import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -119,17 +119,17 @@ export default function QuadroHonraScreen() {
         trimestre: filtroTrimestre,
         geradoPor: user?.nome || 'Sistema',
       });
-      Alert.alert('Quadro de Honra Gerado', `${result.gerados} aluno(s) classificado(s) com sucesso.`);
+      webAlert('Quadro de Honra Gerado', `${result.gerados} aluno(s) classificado(s) com sucesso.`);
       fetchData();
     } catch (e) {
-      Alert.alert('Erro', (e as Error).message);
+      webAlert('Erro', (e as Error).message);
     } finally {
       setGenerating(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert(
+    webAlert(
       'Limpar Quadro de Honra',
       `Tem a certeza que deseja eliminar o quadro de honra de ${anoLetivo}${filtroTrimestre ? ` — ${TRIMESTRE_LABELS[filtroTrimestre]}` : ''}?`,
       [
@@ -142,7 +142,7 @@ export default function QuadroHonraScreen() {
               if (filtroTrimestre !== null) url += `&trimestre=${filtroTrimestre}`;
               await api.delete(url);
               fetchData();
-            } catch (e) { Alert.alert('Erro', (e as Error).message); }
+            } catch (e) { webAlert('Erro', (e as Error).message); }
           },
         },
       ]

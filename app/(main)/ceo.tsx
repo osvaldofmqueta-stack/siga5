@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, Platform, Clipboard, Animated,
-} from 'react-native';
+  TextInput, ModalPlatform, Clipboard, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -15,6 +14,7 @@ import {
 } from '@/context/LicenseContext';
 import { useData } from '@/context/DataContext';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 const PLANO_PRECO: Record<TipoPlano, string> = {
   demo: 'Grátis',
@@ -168,7 +168,7 @@ export default function CeoScreen() {
   async function handleGerar() {
     const saldo = parseInt(formSaldo) || PLANO_SALDO_DEFAULT[formPlano];
     if (saldo <= 0) {
-      Alert.alert('Erro', 'Saldo deve ser maior que zero.');
+      webAlert('Erro', 'Saldo deve ser maior que zero.');
       return;
     }
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -180,11 +180,11 @@ export default function CeoScreen() {
 
   function copiarCodigo(codigo: string) {
     Clipboard.setString(codigo);
-    Alert.alert('Copiado!', `Código ${codigo} copiado para a área de transferência.`);
+    webAlert('Copiado!', `Código ${codigo} copiado para a área de transferência.`);
   }
 
   async function handleRevogar(cod: CodigoAtivacao) {
-    Alert.alert('Revogar Código', `Revogar o código ${cod.codigo}?`, [
+    webAlert('Revogar Código', `Revogar o código ${cod.codigo}?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Revogar', style: 'destructive', onPress: async () => {
         await revogarCodigo(cod.id);
@@ -195,11 +195,11 @@ export default function CeoScreen() {
 
   async function handleAddSaldo() {
     const val = parseInt(formAddSaldo);
-    if (!val || val <= 0) { Alert.alert('Erro', 'Valor inválido.'); return; }
+    if (!val || val <= 0) { webAlert('Erro', 'Valor inválido.'); return; }
     await adicionarSaldo(val);
     setShowSaldo(false);
     setFormAddSaldo('');
-    Alert.alert('Sucesso', `${val} créditos adicionados ao saldo.`);
+    webAlert('Sucesso', `${val} créditos adicionados ao saldo.`);
   }
 
   const sections = [

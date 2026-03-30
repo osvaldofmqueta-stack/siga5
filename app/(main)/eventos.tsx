@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform
+  Modal, ScrollViewPlatform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { Colors } from '@/constants/colors';
 import { useData, Evento } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 const TIPOS = ['Académico', 'Cultural', 'Desportivo', 'Exame', 'Feriado', 'Reunião'] as const;
 
@@ -33,7 +34,7 @@ function EventoFormModal({ visible, onClose, onSave, evento }: any) {
 
   function handleSave() {
     if (!form.titulo || !form.data) {
-      Alert.alert('Campos obrigatórios', 'Preencha título e data.');
+      webAlert('Campos obrigatórios', 'Preencha título e data.');
       return;
     }
     onSave(form);
@@ -133,7 +134,7 @@ export default function EventosScreen() {
   }
 
   function confirmDelete(ev: Evento) {
-    Alert.alert('Remover Evento', `Remover "${ev.titulo}"?`, [
+    webAlert('Remover Evento', `Remover "${ev.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover', style: 'destructive', onPress: async () => {

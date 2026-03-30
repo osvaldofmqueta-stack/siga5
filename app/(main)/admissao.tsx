@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Modal, TextInput, Alert, ScrollView, Platform, ActivityIndicator,
-} from 'react-native';
+  Modal, TextInputScrollView, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +11,7 @@ import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import DatePickerField from '@/components/DatePickerField';
+import { webAlert } from '@/utils/webAlert';
 
 function buildQrImageUrl(data: string, size = 100): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;
@@ -263,7 +263,7 @@ export default function AdmissaoScreen() {
 
   async function rejeitar() {
     const reg = modalRejeitar.reg;
-    if (!reg || !motivoRejeicao.trim()) { Alert.alert('Motivo obrigatório', 'Indique o motivo da rejeição.'); return; }
+    if (!reg || !motivoRejeicao.trim()) { webAlert('Motivo obrigatório', 'Indique o motivo da rejeição.'); return; }
     setIsActing(true);
     try {
       const res = await fetch(`/api/registros/${reg.id}`, {
@@ -282,7 +282,7 @@ export default function AdmissaoScreen() {
 
   async function publicarDataProva() {
     const reg = modalProva.reg;
-    if (!reg || !dataProva.trim()) { Alert.alert('Data obrigatória', 'Seleccione a data do exame.'); return; }
+    if (!reg || !dataProva.trim()) { webAlert('Data obrigatória', 'Seleccione a data do exame.'); return; }
     setIsActing(true);
     try {
       const res = await fetch(`/api/registros/${reg.id}/publicar-data-prova`, {
@@ -327,9 +327,9 @@ export default function AdmissaoScreen() {
 
   async function lancarNota() {
     const reg = modalNota.reg;
-    if (!reg || nota.trim() === '') { Alert.alert('Nota obrigatória', 'Introduza a nota do exame.'); return; }
+    if (!reg || nota.trim() === '') { webAlert('Nota obrigatória', 'Introduza a nota do exame.'); return; }
     const n = parseFloat(nota.replace(',', '.'));
-    if (isNaN(n) || n < 0 || n > 20) { Alert.alert('Nota inválida', 'A nota deve estar entre 0 e 20.'); return; }
+    if (isNaN(n) || n < 0 || n > 20) { webAlert('Nota inválida', 'A nota deve estar entre 0 e 20.'); return; }
     setIsActing(true);
     try {
       const res = await fetch(`/api/registros/${reg.id}/lancar-nota`, {

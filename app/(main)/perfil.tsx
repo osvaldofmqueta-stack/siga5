@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Switch, Alert, Platform, Image, Animated,
-} from 'react-native';
+  TextInput, SwitchPlatform, Image, Animated } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { pickAndUploadPhoto } from '@/lib/uploadPhoto';
@@ -15,6 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso } from '@/utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 interface PapRecord {
   alunoId: string;
@@ -627,7 +627,7 @@ export default function PerfilScreen() {
               thumbColor={biometricEnabled ? Colors.info : Colors.textMuted}
             />
           </View>
-          <TouchableOpacity style={styles.actionRow} onPress={() => Alert.alert('Mudar Senha', 'Funcionalidade disponível na próxima versão.')}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => webAlert('Mudar Senha', 'Funcionalidade disponível na próxima versão.')}>
             <Ionicons name="key" size={18} color={Colors.gold} />
             <Text style={styles.actionLabel}>Mudar Senha</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />

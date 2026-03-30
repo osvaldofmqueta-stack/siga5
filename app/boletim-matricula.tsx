@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator, Alert, TextInput, FlatList,
-} from 'react-native';
+  Platform, ActivityIndicatorTextInput, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
+import { webAlert } from '@/utils/webAlert';
 
 function buildQrImageUrl(data: string, size = 88): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;
@@ -298,7 +298,7 @@ export default function BoletimMatriculaScreen() {
       setRegistro(reg);
       setNomeEscola(escola);
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível carregar o registo.');
+      webAlert('Erro', e.message || 'Não foi possível carregar o registo.');
     } finally {
       setIsLoading(false);
     }

@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -13,6 +12,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { useProfessor as useProfCtx } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { timeAgo } from '@/context/NotificacoesContext';
+import { webAlert } from '@/utils/webAlert';
 
 type Tab = 'sumarios' | 'solicitacoes' | 'calendario';
 
@@ -75,7 +75,7 @@ export default function RHControleScreen() {
   async function rejeitarSumario() {
     if (!sumarioSelecionado) return;
     if (!observacao.trim()) {
-      Alert.alert('Obrigatório', 'Indique o motivo da rejeição.');
+      webAlert('Obrigatório', 'Indique o motivo da rejeição.');
       return;
     }
     await updateSumario(sumarioSelecionado.id, { status: 'rejeitado', observacaoRH: observacao });
@@ -334,7 +334,7 @@ export default function RHControleScreen() {
                         {prova.publicado ? 'Publicado' : 'Rascunho'}
                       </Text>
                     </TouchableOpacity>
-                    <TouchableOpacity onPress={() => Alert.alert('Eliminar', 'Eliminar esta prova?', [
+                    <TouchableOpacity onPress={() => webAlert('Eliminar', 'Eliminar esta prova?', [
                       { text: 'Cancelar', style: 'cancel' },
                       { text: 'Eliminar', style: 'destructive', onPress: () => deleteCalendarioProva(prova.id) }
                     ])}>

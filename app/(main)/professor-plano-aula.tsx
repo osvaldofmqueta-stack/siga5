@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Modal, ActivityIndicator, FlatList, Platform, Alert,
-} from 'react-native';
+  Modal, ActivityIndicator, FlatList, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -12,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -458,7 +458,7 @@ export default function ProfessorPlanoAulaScreen() {
   async function handleSave(submeter = false) {
     if (!prof) return;
     if (!form.disciplina.trim()) {
-      Alert.alert('Aviso', 'A disciplina é obrigatória.');
+      webAlert('Aviso', 'A disciplina é obrigatória.');
       return;
     }
     setSaving(true);
@@ -478,21 +478,21 @@ export default function ProfessorPlanoAulaScreen() {
       }
       setView('list');
     } catch (e: any) {
-      Alert.alert('Erro', e?.message || 'Não foi possível guardar o plano.');
+      webAlert('Erro', e?.message || 'Não foi possível guardar o plano.');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(id: string) {
-    Alert.alert('Eliminar', 'Tem a certeza que deseja eliminar este plano?', [
+    webAlert('Eliminar', 'Tem a certeza que deseja eliminar este plano?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Eliminar', style: 'destructive', onPress: async () => {
           try {
             await api.delete(`/api/planos-aula/${id}`);
             setPlanos(prev => prev.filter(p => p.id !== id));
-          } catch { Alert.alert('Erro', 'Não foi possível eliminar.'); }
+          } catch { webAlert('Erro', 'Não foi possível eliminar.'); }
         }
       }
     ]);
@@ -608,7 +608,7 @@ export default function ProfessorPlanoAulaScreen() {
                           try {
                             const updated = await api.put<PlanoAula>(`/api/planos-aula/${plano.id}`, { status: 'submetido' });
                             setPlanos(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
-                          } catch { Alert.alert('Erro', 'Não foi possível submeter.'); }
+                          } catch { webAlert('Erro', 'Não foi possível submeter.'); }
                         }}
                       >
                         <Ionicons name="send-outline" size={16} color={Colors.success} />

@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  TextInput, Modal, ScrollView, Alert, Platform,
-} from 'react-native';
+  TextInput, Modal, ScrollViewPlatform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -15,6 +14,7 @@ import TopBar from '@/components/TopBar';
 import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const ALL_AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
 type AvalKey = typeof ALL_AVAL_KEYS[number];
@@ -173,17 +173,17 @@ function NotaFormModal({
 
   function handleSave(asFinal: boolean) {
     if (!form.alunoId || !form.disciplina) {
-      Alert.alert('Campos obrigatórios', 'Seleccione aluno e disciplina.');
+      webAlert('Campos obrigatórios', 'Seleccione aluno e disciplina.');
       return;
     }
     const vals = [...activeAvalKeys.map(k => (form[k as keyof Nota] as number) || 0), form.pp1, form.ppt];
     if (vals.some(v => (v || 0) > 20)) {
-      Alert.alert('Nota inválida', 'Nenhuma nota pode exceder 20 valores.');
+      webAlert('Nota inválida', 'Nenhuma nota pode exceder 20 valores.');
       return;
     }
     const hasAny = Object.values(lanc).some(Boolean);
     if (!hasAny && asFinal) {
-      Alert.alert('Sem dados', 'Introduza pelo menos uma avaliação antes de guardar.');
+      webAlert('Sem dados', 'Introduza pelo menos uma avaliação antes de guardar.');
       return;
     }
     const parcial = !isComplete();

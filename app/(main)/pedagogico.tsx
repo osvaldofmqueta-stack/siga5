@@ -11,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Planificacao {
@@ -341,11 +342,11 @@ export default function PedagogicoScreen() {
       });
       setPlanosAula(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
       setObsModalPlano(null); setObsText('');
-    } catch { Alert.alert('Erro', 'Não foi possível aprovar o plano.'); }
+    } catch { webAlert('Erro', 'Não foi possível aprovar o plano.'); }
   }
 
   async function rejeitarPlano(plano: PlanoAula, obs: string) {
-    if (!obs.trim()) { Alert.alert('Aviso', 'Por favor, indique o motivo da rejeição.'); return; }
+    if (!obs.trim()) { webAlert('Aviso', 'Por favor, indique o motivo da rejeição.'); return; }
     try {
       const updated = await api.put<PlanoAula>(`/api/planos-aula/${plano.id}`, {
         status: 'rejeitado',
@@ -355,7 +356,7 @@ export default function PedagogicoScreen() {
       });
       setPlanosAula(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
       setObsModalPlano(null); setObsText('');
-    } catch { Alert.alert('Erro', 'Não foi possível rejeitar o plano.'); }
+    } catch { webAlert('Erro', 'Não foi possível rejeitar o plano.'); }
   }
 
   async function handleRefresh() {
@@ -376,18 +377,18 @@ export default function PedagogicoScreen() {
 
   async function savePlan() {
     if (!formPlan.turmaId || !formPlan.disciplina || !formPlan.tema.trim()) {
-      Alert.alert('Erro', 'Preencha turma, disciplina e tema.'); return;
+      webAlert('Erro', 'Preencha turma, disciplina e tema.'); return;
     }
     const professorId = meuProfessor?.id || (isProf ? '' : (professores[0]?.id || ''));
     const payload = { ...formPlan, numAulas: parseInt(formPlan.numAulas)||1, anoLetivo: anoAtual, professorId };
     if (editPlan) {
       const updated = await api.put<Planificacao>(`/api/planificacoes/${editPlan.id}`, payload);
       setPlanificacoes(prev => prev.map(x => x.id === editPlan.id ? updated : x));
-      Alert.alert('Actualizado', 'Planificação actualizada.');
+      webAlert('Actualizado', 'Planificação actualizada.');
     } else {
       const novo = await api.post<Planificacao>('/api/planificacoes', payload);
       setPlanificacoes(prev => [novo, ...prev]);
-      Alert.alert('Criada', 'Planificação de aula criada.');
+      webAlert('Criada', 'Planificação de aula criada.');
     }
     setShowPlanModal(false); setEditPlan(null); setFormPlan(defaultPlan);
   }
@@ -398,7 +399,7 @@ export default function PedagogicoScreen() {
   }
 
   async function deletePlan(id: string) {
-    Alert.alert('Remover', 'Tem a certeza que quer remover esta planificação?', [
+    webAlert('Remover', 'Tem a certeza que quer remover esta planificação?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
         await api.delete(`/api/planificacoes/${id}`);
@@ -424,7 +425,7 @@ export default function PedagogicoScreen() {
 
   async function saveProg() {
     if (!formProg.disciplina || !formProg.classe || !formProg.titulo.trim()) {
-      Alert.alert('Erro', 'Preencha disciplina, classe e título.'); return;
+      webAlert('Erro', 'Preencha disciplina, classe e título.'); return;
     }
     const payload = { ...formProg, ordem: parseInt(formProg.ordem)||0, percentagem: parseInt(formProg.percentagem)||0, anoLetivo: anoAtual };
     if (editProg) {
@@ -444,7 +445,7 @@ export default function PedagogicoScreen() {
   }
 
   async function deleteProg(id: string) {
-    Alert.alert('Remover', 'Remover este conteúdo?', [
+    webAlert('Remover', 'Remover este conteúdo?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
         await api.delete(`/api/conteudos-programaticos/${id}`);
@@ -546,7 +547,7 @@ export default function PedagogicoScreen() {
 
   async function saveOco() {
     if (!formOco.alunoId || !formOco.turmaId || !formOco.descricao.trim()) {
-      Alert.alert('Erro', 'Preencha aluno, turma e descrição.'); return;
+      webAlert('Erro', 'Preencha aluno, turma e descrição.'); return;
     }
     const payload = { ...formOco, registadoPor: user?.nome || 'Sistema', professorId: meuProfessor?.id || null };
     if (editOco) {
@@ -565,7 +566,7 @@ export default function PedagogicoScreen() {
   }
 
   async function deleteOco(id: string) {
-    Alert.alert('Remover', 'Remover esta ocorrência?', [
+    webAlert('Remover', 'Remover esta ocorrência?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
         await api.delete(`/api/ocorrencias/${id}`);

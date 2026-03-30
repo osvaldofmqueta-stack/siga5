@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Dimensions, Linking, Alert,
-} from 'react-native';
+  ActivityIndicator, Dimensions, Linking} from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -15,6 +14,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useUsers } from '@/context/UsersContext';
 import TopBar from '@/components/TopBar';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { webAlert } from '@/utils/webAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -258,7 +258,7 @@ export default function PortalEncarregadoScreen() {
                       ? await unsubscribe()
                       : await subscribe();
                     setPushLoading(false);
-                    Alert.alert(
+                    webAlert(
                       result.success ? 'Sucesso' : 'Erro',
                       result.message
                     );

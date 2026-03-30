@@ -1,14 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, ActivityIndicator, RefreshControl, Alert,
-} from 'react-native';
+  TextInput, Modal, ActivityIndicator, RefreshControl} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { alertSucesso, alertErro } from '../../utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Avaliacao {
@@ -281,7 +281,7 @@ export default function AvaliacaoProfessoresScreen() {
   };
 
   const eliminar = (av: Avaliacao) => {
-    Alert.alert('Eliminar Avaliação', `Eliminar avaliação de ${av.nome} ${av.apelido} (${av.periodoLetivo})?`, [
+    webAlert('Eliminar Avaliação', `Eliminar avaliação de ${av.nome} ${av.apelido} (${av.periodoLetivo})?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try {

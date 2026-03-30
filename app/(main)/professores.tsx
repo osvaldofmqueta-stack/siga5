@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform
+  Modal, ScrollViewPlatform
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import QRCodeModal from '@/components/QRCodeModal';
 import ExportMenu from '@/components/ExportMenu';
+import { webAlert } from '@/utils/webAlert';
 
 interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
 
@@ -46,7 +47,7 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
 
   function handleSave() {
     if (!form.nome || !form.apelido) {
-      Alert.alert('Campos obrigatórios', 'Preencha nome e apelido.');
+      webAlert('Campos obrigatórios', 'Preencha nome e apelido.');
       return;
     }
     onSave(form);
@@ -166,7 +167,7 @@ export default function ProfessoresScreen() {
   }
 
   function confirmDelete(prof: Professor) {
-    Alert.alert('Remover Professor', `Remover ${prof.nome} ${prof.apelido}?`, [
+    webAlert('Remover Professor', `Remover ${prof.nome} ${prof.apelido}?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover', style: 'destructive', onPress: async () => {

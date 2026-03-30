@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform
+  Modal, ScrollViewPlatform
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +14,7 @@ import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
 
@@ -54,11 +55,11 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
 
   function handleSave() {
     if (!form.nome) {
-      Alert.alert('Campo obrigatório', 'Preencha o nome da turma.');
+      webAlert('Campo obrigatório', 'Preencha o nome da turma.');
       return;
     }
     if (!form.sala) {
-      Alert.alert('Sala obrigatória', 'Seleccione uma sala para a turma.');
+      webAlert('Sala obrigatória', 'Seleccione uma sala para a turma.');
       return;
     }
     onSave(form);
@@ -229,7 +230,7 @@ export default function TurmasScreen() {
   }
 
   function confirmDelete(t: Turma) {
-    Alert.alert('Remover Turma', `Remover turma ${t.nome}?`, [
+    webAlert('Remover Turma', `Remover turma ${t.nome}?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Remover', style: 'destructive', onPress: async () => {

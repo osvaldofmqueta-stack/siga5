@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, FlatList, Alert,
-} from 'react-native';
+  TextInput, Platform, FlatList} from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +11,7 @@ import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
+import { webAlert } from '@/utils/webAlert';
 
 const DISCIPLINAS_DISPONIVEIS = [
   'Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia',
@@ -74,7 +74,7 @@ export default function ProfessorTurmasScreen() {
 
   async function marcar(alunoId: string, status: 'P' | 'F' | 'J') {
     if (!turmaAtual || !disciplinaPresenca) {
-      Alert.alert('Atenção', 'Selecione uma disciplina antes de marcar presenças.');
+      webAlert('Atenção', 'Selecione uma disciplina antes de marcar presenças.');
       return;
     }
     const existing = presencasHoje.find(p => p.alunoId === alunoId);
@@ -85,7 +85,7 @@ export default function ProfessorTurmasScreen() {
 
   async function marcarTodos(status: 'P' | 'F') {
     if (!turmaAtual || !disciplinaPresenca) {
-      Alert.alert('Atenção', 'Selecione uma disciplina antes de marcar presenças.');
+      webAlert('Atenção', 'Selecione uma disciplina antes de marcar presenças.');
       return;
     }
     for (const aluno of alunosDaTurma) {

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, ActivityIndicator, RefreshControl, Platform,
-} from 'react-native';
+  Modal, ScrollViewActivityIndicator, RefreshControl, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -205,7 +205,7 @@ function FormModal({
 
   function handleSave() {
     if (!form.nomeAluno?.trim()) {
-      Alert.alert('Campo obrigatório', 'Preencha o nome do aluno.');
+      webAlert('Campo obrigatório', 'Preencha o nome do aluno.');
       return;
     }
     onSave(form);
@@ -685,7 +685,7 @@ export default function TransferenciasScreen() {
   }
 
   function handleDelete(item: Transferencia) {
-    Alert.alert(
+    webAlert(
       'Eliminar Transferência',
       `Confirma a eliminação do processo de transferência de "${item.nomeAluno}"?`,
       [

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform
+  Modal, ScrollViewPlatform
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,6 +17,7 @@ import QRCodeModal from '@/components/QRCodeModal';
 import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 import ExportMenu from '@/components/ExportMenu';
+import { webAlert } from '@/utils/webAlert';
 
 function normalizeEmail(str: string) {
   return str
@@ -56,7 +57,7 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
 
   function handleSave() {
     if (!form.nome || !form.apelido || !form.turmaId) {
-      Alert.alert('Campos obrigatórios', 'Preencha nome, apelido e turma.');
+      webAlert('Campos obrigatórios', 'Preencha nome, apelido e turma.');
       return;
     }
     onSave(form);
@@ -358,14 +359,14 @@ export default function AlunosScreen() {
         setShowCredenciais(true);
       }
     } catch (err) {
-      Alert.alert('Erro', 'Não foi possível gerar as credenciais. Tente novamente.');
+      webAlert('Erro', 'Não foi possível gerar as credenciais. Tente novamente.');
     } finally {
       setRegenerating(null);
     }
   }
 
   function confirmDelete(aluno: Aluno) {
-    Alert.alert('Remover Aluno', `Remover ${aluno.nome} ${aluno.apelido}?`, [
+    webAlert('Remover Aluno', `Remover ${aluno.nome} ${aluno.apelido}?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: () => deleteAluno(aluno.id) },
     ]);

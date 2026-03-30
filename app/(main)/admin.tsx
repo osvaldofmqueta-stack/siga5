@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Modal, Platform, Switch,
-} from 'react-native';
+  TextInputModal, Platform, Switch } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +18,7 @@ import { useConfig } from '@/context/ConfigContext';
 import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -227,7 +227,7 @@ export default function AdminScreen() {
   }
 
   async function salvarCurso() {
-    if (!cursoForm.nome.trim()) { Alert.alert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
+    if (!cursoForm.nome.trim()) { webAlert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
     setSavingCurso(true);
     try {
       const method = editingCurso ? 'PUT' : 'POST';
@@ -255,7 +255,7 @@ export default function AdminScreen() {
       alertSucesso('Curso eliminado', 'O curso foi removido com sucesso.');
     } catch (e) {
       console.error('Erro ao eliminar curso:', e);
-      Alert.alert('Erro', (e as Error).message);
+      webAlert('Erro', (e as Error).message);
     }
   }
 
@@ -269,7 +269,7 @@ export default function AdminScreen() {
       await fetchCursos();
     } catch (e) {
       console.error('Erro ao alternar status do curso:', e);
-      Alert.alert('Erro', 'Não foi possível atualizar o estado do curso.');
+      webAlert('Erro', 'Não foi possível atualizar o estado do curso.');
     }
   }
 
@@ -323,11 +323,11 @@ export default function AdminScreen() {
 
   async function criarUser() {
     if (!formUser.nome.trim() || !formUser.email.trim() || !formUser.senha.trim()) {
-      Alert.alert('Erro', 'Nome, email e senha são obrigatórios.');
+      webAlert('Erro', 'Nome, email e senha são obrigatórios.');
       return;
     }
     if (users.some(u => u.email.toLowerCase() === formUser.email.toLowerCase().trim())) {
-      Alert.alert('Erro', 'Já existe um utilizador com este email.');
+      webAlert('Erro', 'Já existe um utilizador com este email.');
       return;
     }
 
@@ -361,12 +361,12 @@ export default function AdminScreen() {
       alertSucesso('Utilizador criado', `${formUser.nome} foi criado com sucesso no sistema.`);
     } catch (e) {
       console.error('Erro ao criar utilizador:', e);
-      Alert.alert('Erro', 'Não foi possível criar o utilizador. Verifique os dados e tente novamente.');
+      webAlert('Erro', 'Não foi possível criar o utilizador. Verifique os dados e tente novamente.');
     }
   }
 
   function confirmarEliminarUser(id: string, nome: string) {
-    Alert.alert(
+    webAlert(
       'Eliminar Utilizador',
       `Deseja eliminar o utilizador "${nome}"?`,
       [
@@ -379,7 +379,7 @@ export default function AdminScreen() {
   async function criarAno() {
     console.log("Tentando criar ano:", formAno);
     if (!formAno.ano || !formAno.dataInicio || !formAno.dataFim) {
-      Alert.alert('Erro', 'Preencha todos os campos.');
+      webAlert('Erro', 'Preencha todos os campos.');
       return;
     }
 
@@ -407,7 +407,7 @@ export default function AdminScreen() {
         setShowNovoAno(false);
         setModalAnoDuplicado({ visible: true, anoExistente: formAno.ano });
       } else {
-        Alert.alert('Erro', 'Não foi possível criar o ano académico: ' + msg);
+        webAlert('Erro', 'Não foi possível criar o ano académico: ' + msg);
       }
     }
   }
@@ -432,7 +432,7 @@ export default function AdminScreen() {
   }
 
   function handleAprovar(s: SolicitacaoRegistro) {
-    Alert.alert(
+    webAlert(
       'Aprovar Matrícula',
       `Aprovar a solicitação de "${s.nomeCompleto}"?`,
       [
@@ -458,12 +458,12 @@ export default function AdminScreen() {
   async function confirmarRejeicao() {
     if (!selectedSolicitacao) return;
     if (!motivoRejeicao.trim()) {
-      Alert.alert('Motivo obrigatório', 'Indique o motivo da rejeição.'); return;
+      webAlert('Motivo obrigatório', 'Indique o motivo da rejeição.'); return;
     }
     await rejeitarSolicitacao(selectedSolicitacao.id, user?.nome || 'Administrador', motivoRejeicao.trim());
     setShowRejeitar(false);
     setSelectedSolicitacao(null);
-    Alert.alert('Rejeitado', 'A solicitação foi rejeitada.');
+    webAlert('Rejeitado', 'A solicitação foi rejeitada.');
   }
 
   const allSections = [
@@ -683,7 +683,7 @@ export default function AdminScreen() {
                       {s.status !== 'pendente' && (
                         <TouchableOpacity
                           style={styles.deleteCardBtn}
-                          onPress={() => Alert.alert('Eliminar', 'Eliminar este registo?', [
+                          onPress={() => webAlert('Eliminar', 'Eliminar este registo?', [
                             { text: 'Cancelar', style: 'cancel' },
                             { text: 'Eliminar', style: 'destructive', onPress: () => deletarSolicitacao(s.id) },
                           ])}
@@ -851,7 +851,7 @@ export default function AdminScreen() {
                             <Ionicons name="pencil-outline" size={15} color={Colors.gold} />
                           </TouchableOpacity>
                           <TouchableOpacity onPress={() => {
-                            Alert.alert('Opções do Curso', `O que deseja fazer com "${c.nome}"?`, [
+                            webAlert('Opções do Curso', `O que deseja fazer com "${c.nome}"?`, [
                               { text: 'Cancelar', style: 'cancel' },
                               { text: c.ativo ? 'Desactivar' : 'Activar', onPress: () => toggleCursoAtivo(c) },
                               { text: 'Eliminar permanentemente', style: 'destructive', onPress: () => deleteCurso(c.id) },
@@ -950,7 +950,7 @@ export default function AdminScreen() {
                   {ano.ativo ? (
                     <TouchableOpacity
                       style={[styles.ativarBtn, { backgroundColor: Colors.warning + '22' }]}
-                      onPress={() => Alert.alert('Desactivar Ano', `Deseja desactivar o ano ${ano.ano}? Isso pode limitar algumas funcionalidades até que outro ano seja activado.`, [
+                      onPress={() => webAlert('Desactivar Ano', `Deseja desactivar o ano ${ano.ano}? Isso pode limitar algumas funcionalidades até que outro ano seja activado.`, [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Desactivar', onPress: () => updateAno(ano.id, { ativo: false }) },
                       ])}
@@ -960,7 +960,7 @@ export default function AdminScreen() {
                   ) : (
                     <TouchableOpacity
                       style={styles.ativarBtn}
-                      onPress={() => Alert.alert('Activar Ano', `Activar ${ano.ano}?`, [
+                      onPress={() => webAlert('Activar Ano', `Activar ${ano.ano}?`, [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Activar', onPress: () => ativarAno(ano.id) },
                       ])}
@@ -1114,7 +1114,7 @@ export default function AdminScreen() {
                   value={!!config.inscricoesAbertas}
                   onValueChange={v => {
                     updateConfig({ inscricoesAbertas: v });
-                    Alert.alert(
+                    webAlert(
                       v ? 'Inscrições Abertas' : 'Inscrições Fechadas',
                       v
                         ? 'Os encarregados já podem solicitar matrícula pelo ecrã de Login.'
@@ -1180,7 +1180,7 @@ export default function AdminScreen() {
                   value={!!config.exclusaoDuasReprovacoes}
                   onValueChange={v => {
                     updateConfig({ exclusaoDuasReprovacoes: v });
-                    Alert.alert(
+                    webAlert(
                       v ? 'Exclusão por Dupla Reprovação Activada' : 'Exclusão por Dupla Reprovação Desactivada',
                       v
                         ? 'Alunos que reprovem duas vezes na mesma classe serão sujeitos a exclusão automática.'
@@ -1216,7 +1216,7 @@ export default function AdminScreen() {
                   value={config.pp1Habilitado}
                   onValueChange={v => {
                     updateConfig({ pp1Habilitado: v });
-                    Alert.alert(
+                    webAlert(
                       v ? 'PP Activada' : 'PP Desactivada',
                       v
                         ? 'A PP será incluída no cálculo da Média Total (MT1).'
@@ -1244,7 +1244,7 @@ export default function AdminScreen() {
                   value={config.pptHabilitado}
                   onValueChange={v => {
                     updateConfig({ pptHabilitado: v });
-                    Alert.alert(
+                    webAlert(
                       v ? 'PT Activada' : 'PT Desactivada',
                       v
                         ? 'A PT será incluída no cálculo da Média Total (MT1).'
@@ -1452,7 +1452,7 @@ export default function AdminScreen() {
                     {valor ? (
                       <TouchableOpacity
                         onPress={() => {
-                          Alert.alert(
+                          webAlert(
                             'Remover Prazo',
                             `Deseja remover a data limite do ${label}? Os professores poderão lançar notas sem restrição de prazo.`,
                             [
@@ -1577,7 +1577,7 @@ export default function AdminScreen() {
                           const nome = papDiscInput.trim();
                           if (!nome) return;
                           if ((config.papDisciplinasContribuintes || []).includes(nome)) {
-                            Alert.alert('Aviso', 'Esta disciplina já foi adicionada.');
+                            webAlert('Aviso', 'Esta disciplina já foi adicionada.');
                             return;
                           }
                           updateConfig({ papDisciplinasContribuintes: [...(config.papDisciplinasContribuintes || []), nome] });
@@ -1590,7 +1590,7 @@ export default function AdminScreen() {
                           const nome = papDiscInput.trim();
                           if (!nome) return;
                           if ((config.papDisciplinasContribuintes || []).includes(nome)) {
-                            Alert.alert('Aviso', 'Esta disciplina já foi adicionada.');
+                            webAlert('Aviso', 'Esta disciplina já foi adicionada.');
                             return;
                           }
                           updateConfig({ papDisciplinasContribuintes: [...(config.papDisciplinasContribuintes || []), nome] });
@@ -1639,7 +1639,7 @@ export default function AdminScreen() {
                   value={config.exameAntecipadoHabilitado}
                   onValueChange={v => {
                     updateConfig({ exameAntecipadoHabilitado: v });
-                    Alert.alert(
+                    webAlert(
                       v ? 'Exame Antecipado Activado' : 'Exame Antecipado Desactivado',
                       v
                         ? 'Os alunos com negativa em disciplinas terminais poderão solicitar exame antecipado para não arrastar a negativa.'
@@ -1888,7 +1888,7 @@ export default function AdminScreen() {
                 onPress={async () => {
                   const dur = parseInt(flashForm.duracao);
                   if (!flashForm.titulo.trim()) {
-                    Alert.alert('Erro', 'O título é obrigatório.'); return;
+                    webAlert('Erro', 'O título é obrigatório.'); return;
                   }
                   await updateFlashScreen({
                     titulo: flashForm.titulo.trim(),
@@ -1933,14 +1933,14 @@ export default function AdminScreen() {
             ))}
             <TouchableOpacity
               style={styles.exportBtn}
-              onPress={() => Alert.alert('Exportar Dados', 'A funcionalidade de exportação estará disponível na versão 1.1.0.')}
+              onPress={() => webAlert('Exportar Dados', 'A funcionalidade de exportação estará disponível na versão 1.1.0.')}
             >
               <Ionicons name="download-outline" size={17} color={Colors.gold} />
               <Text style={styles.exportText}>Exportar Dados (CSV/Excel)</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.exportBtn, { borderColor: Colors.info + '44', backgroundColor: Colors.info + '11' }]}
-              onPress={() => Alert.alert('Backup Manual', 'Backup iniciado. Concluído em breve.')}
+              onPress={() => webAlert('Backup Manual', 'Backup iniciado. Concluído em breve.')}
             >
               <Ionicons name="cloud-upload-outline" size={17} color={Colors.info} />
               <Text style={[styles.exportText, { color: Colors.info }]}>Executar Backup Manual</Text>

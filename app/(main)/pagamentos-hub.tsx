@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Modal, TextInput, Platform, Linking, Alert,
-  ActivityIndicator, RefreshControl,
-} from 'react-native';
+  FlatList, Modal, TextInput, Platform, LinkingActivityIndicator, RefreshControl } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -16,6 +14,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { useUsers } from '@/context/UsersContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 const MESES = ['','Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 const MESES_FULL = ['','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -202,7 +201,7 @@ export default function PagamentosHubScreen() {
   async function confirmarSelecionados() {
     const ids = [...selectedIds];
     if (!ids.length) return;
-    Alert.alert(
+    webAlert(
       'Confirmar Pagamentos',
       `Confirmar ${ids.length} pagamento(s) seleccionado(s)?`,
       [

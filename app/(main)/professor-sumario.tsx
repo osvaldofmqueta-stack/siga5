@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -12,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { webAlert } from '@/utils/webAlert';
 
 const HORARIO_KEY = '@sgaa_horarios';
 const PERIODOS = [
@@ -85,7 +85,7 @@ export default function ProfessorSumarioScreen() {
 
     setConteudo(''); setTurmaId(''); setDisciplina(''); setNumeroAula('');
     setShowForm(false);
-    Alert.alert('Sumário enviado', 'O seu sumário foi enviado ao Recursos Humanos para validação.');
+    webAlert('Sumário enviado', 'O seu sumário foi enviado ao Recursos Humanos para validação.');
   }
 
   function statusColor(status: string) {

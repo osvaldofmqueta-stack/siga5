@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, ActivityIndicator, RefreshControl, Alert,
-} from 'react-native';
+  TextInput, Modal, ActivityIndicator, RefreshControl} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +11,7 @@ import { Colors } from '../../constants/colors';
 import { alertSucesso, alertErro } from '../../utils/toast';
 import { formatAOA } from '../../context/FinanceiroContext';
 import { useFinanceiro } from '../../context/FinanceiroContext';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Bolsa {
@@ -209,7 +209,7 @@ export default function BolsasScreen() {
   };
 
   const eliminar = (b: Bolsa) => {
-    Alert.alert('Eliminar Bolsa', `Tem a certeza que pretende eliminar a bolsa de ${b.nome} ${b.apelido}?`, [
+    webAlert('Eliminar Bolsa', `Tem a certeza que pretende eliminar a bolsa de ${b.nome} ${b.apelido}?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Eliminar', style: 'destructive', onPress: async () => {
         try {

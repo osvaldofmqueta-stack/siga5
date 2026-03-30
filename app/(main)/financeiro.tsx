@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Alert, FlatList, Platform, RefreshControl,
-} from 'react-native';
+  Modal, TextInputFlatList, Platform, RefreshControl } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { DonutChart, BarChart } from '@/components/Charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const TIPO_LABEL: Record<string, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -288,7 +288,7 @@ export default function FinanceiroScreen() {
 
   async function registarPagamento() {
     if (!formPag.alunoId || !formPag.taxaId) {
-      Alert.alert('Erro', 'Selecione o aluno e a taxa.'); return;
+      webAlert('Erro', 'Selecione o aluno e a taxa.'); return;
     }
     const taxa = taxas.find(x => x.id === formPag.taxaId);
     const ref  = `REF-${anoAtual}-${Date.now().toString(36).toUpperCase()}`;
@@ -311,7 +311,7 @@ export default function FinanceiroScreen() {
 
   async function gravarTaxa() {
     if (!formTaxa.descricao.trim() || !formTaxa.valor) {
-      Alert.alert('Erro', 'Preencha a descrição e o valor.'); return;
+      webAlert('Erro', 'Preencha a descrição e o valor.'); return;
     }
     const payload = {
       tipo: formTaxa.tipo,
@@ -345,7 +345,7 @@ export default function FinanceiroScreen() {
   }
 
   async function removerTaxa(taxa: Taxa) {
-    Alert.alert('Remover Rubrica', `Tem a certeza que quer remover "${taxa.descricao}"?`, [
+    webAlert('Remover Rubrica', `Tem a certeza que quer remover "${taxa.descricao}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => { await deleteTaxa(taxa.id); alertSucesso('Rubrica removida', `"${taxa.descricao}" foi removida.`); } },
     ]);
@@ -353,7 +353,7 @@ export default function FinanceiroScreen() {
 
   async function handleEnviarMensagem() {
     if (!msgAlunoId || !msgTexto.trim()) {
-      Alert.alert('Erro', 'Escreva a mensagem.'); return;
+      webAlert('Erro', 'Escreva a mensagem.'); return;
     }
     await enviarMensagem(msgAlunoId, msgTexto.trim(), nomeRemetente, msgTipo);
     setShowMsgModal(false);
@@ -364,7 +364,7 @@ export default function FinanceiroScreen() {
 
   async function handleGerarRUPE() {
     if (!rupeAlunoId || !rupeTaxaId) {
-      Alert.alert('Erro', 'Selecione o aluno e a rubrica.'); return;
+      webAlert('Erro', 'Selecione o aluno e a rubrica.'); return;
     }
     const taxa = taxas.find(t => t.id === rupeTaxaId);
     const valor = parseFloat(rupeValor) || taxa?.valor || 0;
@@ -380,7 +380,7 @@ export default function FinanceiroScreen() {
 
   async function handleBloquear(alunoId: string, bloqueado: boolean) {
     if (bloqueado) {
-      Alert.alert('Desbloquear', `Pretende desbloquear o acesso deste estudante?`, [
+      webAlert('Desbloquear', `Pretende desbloquear o acesso deste estudante?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Desbloquear', onPress: async () => {
           await desbloquearAluno(alunoId);
@@ -388,7 +388,7 @@ export default function FinanceiroScreen() {
         }},
       ]);
     } else {
-      Alert.alert('Bloquear Acesso', `O estudante ficará sem acesso ao sistema até regularizar os pagamentos. Deseja continuar?`, [
+      webAlert('Bloquear Acesso', `O estudante ficará sem acesso ao sistema até regularizar os pagamentos. Deseja continuar?`, [
         { text: 'Cancelar', style: 'cancel' },
         { text: 'Bloquear', style: 'destructive', onPress: async () => {
           await bloquearAluno(alunoId);
@@ -401,7 +401,7 @@ export default function FinanceiroScreen() {
   async function handleAdicionarSaldo() {
     if (!saldoAlunoId) return;
     const valor = parseFloat(saldoValor);
-    if (!valor || valor <= 0) { Alert.alert('Erro', 'Introduza um valor válido.'); return; }
+    if (!valor || valor <= 0) { webAlert('Erro', 'Introduza um valor válido.'); return; }
     setSaldoLoading(true);
     try {
       await creditarSaldo(
@@ -478,7 +478,7 @@ export default function FinanceiroScreen() {
 
   async function handleNotificarTodos() {
     if (alunosEmAtraso.length === 0) return;
-    Alert.alert(
+    webAlert(
       'Notificar Todos',
       `Vai enviar uma mensagem de aviso a ${alunosEmAtraso.length} estudante(s) com pagamentos em atraso. Deseja continuar?`,
       [
@@ -495,7 +495,7 @@ export default function FinanceiroScreen() {
                 'aviso'
               );
             }
-            Alert.alert('Concluído', `Mensagem de aviso enviada a ${alunosEmAtraso.length} estudante(s).`);
+            webAlert('Concluído', `Mensagem de aviso enviada a ${alunosEmAtraso.length} estudante(s).`);
           } finally {
             setNotifLoading(false);
           }
@@ -507,10 +507,10 @@ export default function FinanceiroScreen() {
   async function handleSalvarMulta() {
     const pct  = parseFloat(multaPct) || 0;
     const dias = parseInt(multaDias) || 0;
-    if (pct < 0 || pct > 100) { Alert.alert('Erro', 'Percentagem inválida (0-100).'); return; }
+    if (pct < 0 || pct > 100) { webAlert('Erro', 'Percentagem inválida (0-100).'); return; }
     await updateMultaConfig({ percentagem: pct, diasCarencia: dias });
     setShowMultaModal(false);
-    Alert.alert('Guardado', 'Configuração de multa actualizada.');
+    webAlert('Guardado', 'Configuração de multa actualizada.');
   }
 
   const maxMes = Math.max(...Object.values(resumoPorMes), 1);
@@ -2193,7 +2193,7 @@ export default function FinanceiroScreen() {
             <TouchableOpacity
               style={[st.saveBtn, { backgroundColor: '#6B21A8', marginTop: 8 }, obituarioLoading && { opacity: 0.6 }]}
               onPress={() => {
-                Alert.alert(
+                webAlert(
                   'Confirmar Registo de Óbito',
                   'Esta acção é permanente e irá bloquear e arquivar a conta do estudante. Confirmar?',
                   [

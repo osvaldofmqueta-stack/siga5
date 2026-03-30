@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
-  Platform, Dimensions, FlatList, Image, Alert, Animated, ActivityIndicator, Modal,
-} from 'react-native';
+  Platform, Dimensions, FlatList, ImageAnimated, ActivityIndicator, Modal } from 'react-native';
 import { Editor } from '@tinymce/tinymce-react';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
@@ -13,6 +12,7 @@ import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -2420,7 +2420,7 @@ export default function EditorDocumentos() {
     const template = templates.find(t => t.id === id);
     if (!template) return;
     const isBlocking = !template.bloqueado;
-    Alert.alert(
+    webAlert(
       isBlocking ? 'Bloquear Modelo' : 'Desbloquear Modelo',
       isBlocking
         ? `O modelo "${template.nome}" ficará indisponível para emissão. Deseja continuar?`

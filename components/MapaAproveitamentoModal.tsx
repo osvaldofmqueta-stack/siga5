@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Alert,
-} from 'react-native';
+  TextInput, Platform, ActivityIndicator} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -508,7 +508,7 @@ export default function MapaAproveitamentoModal({
 
   function handleGenerate() {
     if (!anoLetivo.trim()) {
-      Alert.alert('Ano Académico obrigatório', 'Indique o ano académico.');
+      webAlert('Ano Académico obrigatório', 'Indique o ano académico.');
       return;
     }
     setGenerating(true);
@@ -539,7 +539,7 @@ export default function MapaAproveitamentoModal({
 
   function handlePrint() {
     if (!isWeb) {
-      Alert.alert('Impressão', 'A impressão está disponível na versão web.');
+      webAlert('Impressão', 'A impressão está disponível na versão web.');
       return;
     }
     const iframe = document.getElementById('mapa-iframe') as HTMLIFrameElement | null;

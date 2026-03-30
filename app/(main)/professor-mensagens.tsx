@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -11,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
+import { webAlert } from '@/utils/webAlert';
 
 type Tab = 'recebidas' | 'enviadas' | 'nova';
 type MsgTipo = 'turma' | 'privada';
@@ -72,11 +72,11 @@ export default function ProfessorMensagensScreen() {
   async function enviarMensagem() {
     if (!assunto.trim() || !corpo.trim() || !prof) return;
     if (tipo === 'privada' && !destinatarioId) {
-      Alert.alert('Erro', 'Selecione um destinatário.');
+      webAlert('Erro', 'Selecione um destinatário.');
       return;
     }
     if (tipo === 'turma' && !destinatarioId) {
-      Alert.alert('Erro', 'Selecione uma turma.');
+      webAlert('Erro', 'Selecione uma turma.');
       return;
     }
 
@@ -124,7 +124,7 @@ export default function ProfessorMensagensScreen() {
     setSearchDest('');
     setShowCompor(false);
     setTab('enviadas');
-    Alert.alert('Sucesso', 'Mensagem enviada com sucesso.');
+    webAlert('Sucesso', 'Mensagem enviada com sucesso.');
   }
 
   function openMsg(msg: typeof mensagens[0]) {

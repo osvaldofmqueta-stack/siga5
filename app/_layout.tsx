@@ -32,6 +32,7 @@ import { ChatInternoProvider } from '@/context/ChatInternoContext';
 import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 import { OfflineProvider } from '@/context/OfflineContext';
 import OfflineBanner from '@/components/OfflineBanner';
+import { WebAlertProvider } from '@/utils/webAlert';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -96,9 +97,11 @@ function AppProviders() {
                                       <ChatInternoProvider>
                                         <DrawerProvider>
                                           <ToastProvider>
-                                            <RootLayoutNav />
-                                            <FlashScreenOverlay />
-                                            <OfflineBanner />
+                                            <WebAlertProvider>
+                                              <RootLayoutNav />
+                                              <FlashScreenOverlay />
+                                              <OfflineBanner />
+                                            </WebAlertProvider>
                                           </ToastProvider>
                                         </DrawerProvider>
                                       </ChatInternoProvider>

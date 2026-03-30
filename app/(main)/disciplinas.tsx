@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform, ActivityIndicator,
-} from 'react-native';
+  Modal, ScrollViewPlatform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const AREAS_DEFAULT = [
   'Ciências Exactas',
@@ -109,7 +109,7 @@ function DisciplinaFormModal({
 
   async function handleSave() {
     if (!form.nome.trim()) {
-      Alert.alert('Campo obrigatório', 'O nome da disciplina é obrigatório.');
+      webAlert('Campo obrigatório', 'O nome da disciplina é obrigatório.');
       return;
     }
     setSaving(true);
@@ -420,7 +420,7 @@ export default function DisciplinasScreen() {
   }
 
   function handleDelete(d: Disciplina) {
-    Alert.alert(
+    webAlert(
       'Remover Disciplina',
       `Tem a certeza que deseja remover "${d.nome}"? Esta acção não pode ser revertida.`,
       [

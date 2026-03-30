@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  ScrollView, ActivityIndicator, Alert, Modal, Platform,
-} from 'react-native';
+  ScrollView, ActivityIndicatorModal, Platform } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,6 +10,7 @@ import TopBar from '@/components/TopBar';
 import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 interface AlunoSemTurma {
   id: string;
@@ -136,7 +136,7 @@ export default function OrganizarTurmasScreen() {
   async function guardarAtribuicoes() {
     const comTurma = alunos.filter(a => a.turmaIdAtribuida);
     if (comTurma.length === 0) {
-      Alert.alert('Sem atribuições', 'Seleccione pelo menos uma turma para algum aluno.');
+      webAlert('Sem atribuições', 'Seleccione pelo menos uma turma para algum aluno.');
       return;
     }
     setSaving(true);
@@ -328,7 +328,7 @@ export default function OrganizarTurmasScreen() {
 
   function gerarListasPDF(ciclo: 'I Ciclo' | 'II Ciclo' | 'Todos') {
     if (Platform.OS !== 'web') {
-      Alert.alert('Funcionalidade Web', 'A geração de PDF está disponível apenas na versão web.');
+      webAlert('Funcionalidade Web', 'A geração de PDF está disponível apenas na versão web.');
       return;
     }
     const html = buildListasCicloHtml(ciclo);

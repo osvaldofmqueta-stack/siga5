@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  Modal, ScrollView, Alert, Platform
+  Modal, ScrollViewPlatform
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +11,7 @@ import { useData, Sala } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
+import { webAlert } from '@/utils/webAlert';
 
 const TIPOS_SALA_FALLBACK = ['Sala Normal', 'Laboratório', 'Sala de Informática', 'Auditório', 'Sala de Reunião'];
 
@@ -49,11 +50,11 @@ function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; o
 
   function handleSave() {
     if (!form.nome?.trim()) {
-      Alert.alert('Campo obrigatório', 'Introduza o nome da sala.');
+      webAlert('Campo obrigatório', 'Introduza o nome da sala.');
       return;
     }
     if (!form.capacidade || form.capacidade < 1) {
-      Alert.alert('Capacidade inválida', 'A capacidade deve ser pelo menos 1.');
+      webAlert('Capacidade inválida', 'A capacidade deve ser pelo menos 1.');
       return;
     }
     onSave(form);
@@ -214,7 +215,7 @@ export default function SalasScreen() {
   }
 
   function handleDelete(sala: Sala) {
-    Alert.alert(
+    webAlert(
       'Remover Sala',
       `Tem a certeza que deseja remover "${sala.nome}"? Esta acção não pode ser desfeita.`,
       [

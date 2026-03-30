@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Alert, Platform, Image, ActivityIndicator,
-  Modal, Dimensions,
-} from 'react-native';
+  TextInputPlatform, Image, ActivityIndicator,
+  Modal, Dimensions } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
@@ -18,6 +17,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
+import { webAlert } from '@/utils/webAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -265,7 +265,7 @@ export default function PortalEstudanteScreen() {
     }
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria.');
+      webAlert('Permissão necessária', 'Precisamos de acesso à galeria.');
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -284,7 +284,7 @@ export default function PortalEstudanteScreen() {
 
   async function handleSolicitarDocumento() {
     if (!solForm.motivo.trim()) {
-      Alert.alert('Atenção', 'Indique o motivo da solicitação.');
+      webAlert('Atenção', 'Indique o motivo da solicitação.');
       return;
     }
     const nova = {
@@ -301,7 +301,7 @@ export default function PortalEstudanteScreen() {
     await AsyncStorage.setItem(STORAGE_SOLICITACOES, JSON.stringify(updated));
     setShowSolicitacaoModal(false);
     setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
-    Alert.alert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
+    webAlert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
   }
 
   async function handlePagarDocumento() {
@@ -322,7 +322,7 @@ export default function PortalEstudanteScreen() {
       observacao: `Pagamento de documento: ${rubrica.nome}`,
     });
     setShowPagamentoModal(false);
-    Alert.alert('Referência Gerada', `Método: ${pagForm.metodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(rubrica.valor)}\n\nEfetue o pagamento com esta referência.`);
+    webAlert('Referência Gerada', `Método: ${pagForm.metodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(rubrica.valor)}\n\nEfetue o pagamento com esta referência.`);
   }
 
   async function handlePagarPropina() {
@@ -345,7 +345,7 @@ export default function PortalEstudanteScreen() {
       observacao: `Propina - Trimestre ${propinaTrimestre}, Mês ${propinaMes}`,
     });
     setShowPagarPropina(false);
-    Alert.alert('Referência de Propina Gerada', `Método: ${propMetodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxa.valor)}\n\nEfetue o pagamento com esta referência.`);
+    webAlert('Referência de Propina Gerada', `Método: ${propMetodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxa.valor)}\n\nEfetue o pagamento com esta referência.`);
   }
 
   async function handlePagarTaxa() {
@@ -364,7 +364,7 @@ export default function PortalEstudanteScreen() {
       observacao: taxaParaPagar.descricao,
     });
     setTaxaParaPagar(null);
-    Alert.alert(
+    webAlert(
       'Referência Gerada',
       `Rubrica: ${taxaParaPagar.descricao}\nMétodo: ${metodoPagarTaxa === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxaParaPagar.valor)}\n\nEfetue o pagamento com esta referência.`
     );
@@ -381,7 +381,7 @@ export default function PortalEstudanteScreen() {
     };
     const already = reconfirmacoes.find(r => r.alunoId === aluno.id && r.anoLetivo === anoLetivo);
     if (already) {
-      Alert.alert('Já reconfirmado', 'A sua matrícula para este ano já foi reconfirmada.');
+      webAlert('Já reconfirmado', 'A sua matrícula para este ano já foi reconfirmada.');
       setShowReconfirmacaoModal(false);
       return;
     }
@@ -389,7 +389,7 @@ export default function PortalEstudanteScreen() {
     setReconfirmacoes(updated);
     await AsyncStorage.setItem(STORAGE_RECONFIRMACOES, JSON.stringify(updated));
     setShowReconfirmacaoModal(false);
-    Alert.alert('Matrícula Reconfirmada', `A sua matrícula para o ano lectivo ${anoLetivo} foi reconfirmada com sucesso.`);
+    webAlert('Matrícula Reconfirmada', `A sua matrícula para o ano lectivo ${anoLetivo} foi reconfirmada com sucesso.`);
   }
 
   const reconfirmacaoAtual = reconfirmacoes.find(r => r.alunoId === aluno?.id && r.anoLetivo === anoLetivo);
@@ -416,7 +416,7 @@ export default function PortalEstudanteScreen() {
         observacao: 'Cartão de Estudante Virtual',
       });
       setShowPagarCartao(false);
-      Alert.alert('Cartão Activado!', `O seu cartão de estudante está agora válido para ${anoLetivo}.\nReferência: ${ref}`);
+      webAlert('Cartão Activado!', `O seu cartão de estudante está agora válido para ${anoLetivo}.\nReferência: ${ref}`);
     } finally {
       setIsLoading(false);
     }
@@ -869,16 +869,16 @@ export default function PortalEstudanteScreen() {
       return p?.status === 'fechada';
     });
     if (pautasFechadas.length === 0) {
-      Alert.alert('Mini-Pauta Indisponível', 'A mini-pauta ainda não foi publicada pelo professor. Aguarde o fecho oficial da pauta.');
+      webAlert('Mini-Pauta Indisponível', 'A mini-pauta ainda não foi publicada pelo professor. Aguarde o fecho oficial da pauta.');
       return;
     }
     if (Platform.OS !== 'web') {
-      Alert.alert('Indisponível', 'A visualização da mini-pauta está disponível na versão web do sistema.');
+      webAlert('Indisponível', 'A visualização da mini-pauta está disponível na versão web do sistema.');
       return;
     }
     const html = gerarHtmlMiniPautaAluno(trimestreNotas);
     if (!html) {
-      Alert.alert('Sem Notas', 'Não existem notas publicadas para este trimestre.');
+      webAlert('Sem Notas', 'Não existem notas publicadas para este trimestre.');
       return;
     }
     const win = window.open('', '_blank');
@@ -1332,7 +1332,7 @@ export default function PortalEstudanteScreen() {
           )}
           <TouchableOpacity
             style={[styles.payBtn, reconfirmacaoAtual && { backgroundColor: Colors.success }]}
-            onPress={() => reconfirmacaoAtual ? Alert.alert('Já confirmado', 'A matrícula já está reconfirmada.') : setShowReconfirmacaoModal(true)}
+            onPress={() => reconfirmacaoAtual ? webAlert('Já confirmado', 'A matrícula já está reconfirmada.') : setShowReconfirmacaoModal(true)}
           >
             <Ionicons name={reconfirmacaoAtual ? 'checkmark-circle' : 'refresh'} size={18} color="#fff" />
             <Text style={styles.payBtnText}>{reconfirmacaoAtual ? 'Matrícula Confirmada' : 'Reconfirmar Matrícula'}</Text>

@@ -1,5 +1,6 @@
-import { Platform, Alert } from 'react-native';
+import { Platform} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { webAlert } from '@/utils/webAlert';
 
 export async function pickAndUploadPhoto(): Promise<string | null> {
   if (Platform.OS === 'web') {
@@ -33,7 +34,7 @@ export async function pickAndUploadPhoto(): Promise<string | null> {
 
   const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
   if (status !== 'granted') {
-    Alert.alert('Permissão necessária', 'Precisamos de acesso à galeria para alterar a sua foto.');
+    webAlert('Permissão necessária', 'Precisamos de acesso à galeria para alterar a sua foto.');
     return null;
   }
 

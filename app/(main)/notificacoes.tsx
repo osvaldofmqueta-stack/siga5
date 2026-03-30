@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Alert,
-} from 'react-native';
+  FlatList} from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useNotificacoes, TipoNotificacao, Notificacao, timeAgo } from '@/context/NotificacoesContext';
+import { webAlert } from '@/utils/webAlert';
 
 const FILTROS = [
   { key: 'todas', label: 'Todas' },
@@ -72,7 +72,7 @@ export default function NotificacoesScreen() {
   }
 
   async function handleDelete(id: string) {
-    Alert.alert('Remover', 'Remover esta notificação?', [
+    webAlert('Remover', 'Remover esta notificação?', [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: () => deletarNotificacao(id) },
     ]);

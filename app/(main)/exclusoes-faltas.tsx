@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput,
-  Modal, Alert, ActivityIndicator, RefreshControl, FlatList, Platform,
-  useWindowDimensions,
-} from 'react-native';
+  ModalActivityIndicator, RefreshControl, FlatList, Platform,
+  useWindowDimensions } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -12,6 +11,7 @@ import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -758,7 +758,7 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
-    if (!turmaId || !disciplina) return Alert.alert('Erro', 'Seleccione a turma e indique a disciplina.');
+    if (!turmaId || !disciplina) return webAlert('Erro', 'Seleccione a turma e indique a disciplina.');
     setSaving(true);
     try {
       await api.post('/api/configuracoes-falta', {
@@ -766,7 +766,7 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
         definidoPor: userName, definidoPorId: userId,
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -821,7 +821,7 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
     parseInt(totalFaltas) >= maxFaltas - 1 ? 'em_risco' : 'normal';
 
   const save = async () => {
-    if (!turmaId || !alunoId || !disciplina) return Alert.alert('Erro', 'Preencha todos os campos obrigatórios.');
+    if (!turmaId || !alunoId || !disciplina) return webAlert('Erro', 'Preencha todos os campos obrigatórios.');
     setSaving(true);
     try {
       await api.post('/api/registos-falta-mensal', {
@@ -833,7 +833,7 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
         dataRegisto: today(),
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -921,7 +921,7 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
   ];
 
   const save = async () => {
-    if (!turmaId || !alunoId || !disciplina) return Alert.alert('Erro', 'Preencha todos os campos obrigatórios.');
+    if (!turmaId || !alunoId || !disciplina) return webAlert('Erro', 'Preencha todos os campos obrigatórios.');
     setSaving(true);
     try {
       await api.post('/api/exclusoes-falta', {
@@ -932,7 +932,7 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
         dataExclusao: today(),
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -1012,7 +1012,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
   const turmaAlunos = useMemo(() => alunos.filter(a => a.turmaId === turmaId), [alunos, turmaId]);
 
   const save = async () => {
-    if (!turmaId || !alunoId || !disciplina || !motivo) return Alert.alert('Erro', 'Preencha todos os campos.');
+    if (!turmaId || !alunoId || !disciplina || !motivo) return webAlert('Erro', 'Preencha todos os campos.');
     setSaving(true);
     try {
       await api.post('/api/solicitacoes-prova-justificada', {
@@ -1020,7 +1020,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
         dataProvaOriginal, motivo, solicitadoPor: userName, solicitadoPorId: userId,
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -1102,7 +1102,7 @@ function RespostaProvaModal({ solicitacao, userName, onClose, onSaved }: {
         respondidoEm: today(), dataProvaJustificada: dataProvaJustificada || null,
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 
@@ -1174,9 +1174,9 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
   };
 
   const save = async () => {
-    if (!alunoId || !turmaId || !motivo) return Alert.alert('Erro', 'Preencha todos os campos obrigatórios.');
+    if (!alunoId || !turmaId || !motivo) return webAlert('Erro', 'Preencha todos os campos obrigatórios.');
     const conf = await new Promise<boolean>(resolve => {
-      Alert.alert(
+      webAlert(
         'Confirmar Anulação',
         `Tem a certeza que deseja anular a matrícula de ${alunoSel?.nome} ${alunoSel?.apelido}? O aluno será marcado como inactivo.`,
         [{ text: 'Cancelar', onPress: () => resolve(false) }, { text: 'Confirmar', style: 'destructive', onPress: () => resolve(true) }]
@@ -1191,7 +1191,7 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
         dataAnulacao, registadoPor: userName, registadoPorId: userId, reAdmissaoPermitida,
       });
       onSaved();
-    } catch (e) { Alert.alert('Erro', (e as Error).message); }
+    } catch (e) { webAlert('Erro', (e as Error).message); }
     finally { setSaving(false); }
   };
 

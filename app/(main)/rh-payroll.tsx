@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, ActivityIndicator, RefreshControl, Alert,
-} from 'react-native';
+  TextInput, Modal, ActivityIndicator, RefreshControl} from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
@@ -10,6 +9,7 @@ import { useConfig, calcIRT as calcIRTFromTabela, IrtEscalao } from '../../conte
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { useToast } from '../../context/ToastContext';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FolhaSalarios {
@@ -784,7 +784,7 @@ export default function RhPayrollScreen() {
                 {selectedFolha.status === 'rascunho' && (
                   <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#EF5350' }]}
                     onPress={() => {
-                      Alert.alert('Eliminar Folha', 'Tem a certeza que pretende eliminar esta folha?', [
+                      webAlert('Eliminar Folha', 'Tem a certeza que pretende eliminar esta folha?', [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Eliminar', style: 'destructive', onPress: () => eliminarFolha(selectedFolha.id) },
                       ]);

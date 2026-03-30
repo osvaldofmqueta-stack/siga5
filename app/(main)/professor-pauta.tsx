@@ -1,9 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, Alert, Modal, FlatList, ActivityIndicator,
-  BackHandler,
-} from 'react-native';
+  TextInput, PlatformModal, FlatList, ActivityIndicator,
+  BackHandler } from 'react-native';
 import * as XLSX from 'xlsx';
 import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,6 +15,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import { webAlert } from '@/utils/webAlert';
 
 type Trimestre = 1 | 2 | 3;
 
@@ -239,9 +239,9 @@ export default function ProfessorPautaScreen() {
           }),
         });
       }
-      Alert.alert('PAP Guardado', 'As notas PAP foram guardadas com sucesso.');
+      webAlert('PAP Guardado', 'As notas PAP foram guardadas com sucesso.');
     } catch {
-      Alert.alert('Erro', 'Não foi possível guardar as notas PAP.');
+      webAlert('Erro', 'Não foi possível guardar as notas PAP.');
     } finally {
       setPapSaving(false);
     }
@@ -259,7 +259,7 @@ export default function ProfessorPautaScreen() {
     useCallback(() => {
       const onBack = () => {
         if (step === 'pauta' && pautaAtual?.status === 'aberta') {
-          Alert.alert(
+          webAlert(
             'Pauta em Edição',
             'A pauta está aberta. Deseja fechar antes de sair?',
             [
@@ -360,9 +360,9 @@ export default function ProfessorPautaScreen() {
         });
       }
 
-      Alert.alert('Notas guardadas', 'As notas foram guardadas com sucesso.');
+      webAlert('Notas guardadas', 'As notas foram guardadas com sucesso.');
     } catch (e) {
-      Alert.alert('Erro', 'Não foi possível guardar as notas.');
+      webAlert('Erro', 'Não foi possível guardar as notas.');
     } finally {
       setSaving(false);
     }
@@ -370,10 +370,10 @@ export default function ProfessorPautaScreen() {
 
   async function fecharPauta() {
     if (!pautaAtual) {
-      Alert.alert('Aviso', 'Guarde as notas primeiro antes de fechar a pauta.');
+      webAlert('Aviso', 'Guarde as notas primeiro antes de fechar a pauta.');
       return;
     }
-    Alert.alert(
+    webAlert(
       'Fechar Pauta',
       `Tem a certeza que deseja fechar a pauta de ${disciplina} — ${turmaAtual?.nome} — ${trimestre}º Trimestre?\n\nApós o fecho, as notas não poderão ser alteradas sem autorização.`,
       [
@@ -392,7 +392,7 @@ export default function ProfessorPautaScreen() {
               tipo: 'sucesso',
               data: new Date().toISOString(),
             });
-            Alert.alert('Pauta Fechada', 'A pauta foi fechada com sucesso. Para reabrir, será necessária autorização.');
+            webAlert('Pauta Fechada', 'A pauta foi fechada com sucesso. Para reabrir, será necessária autorização.');
           },
         },
       ]
@@ -402,7 +402,7 @@ export default function ProfessorPautaScreen() {
   async function solicitarReabertura() {
     if (!pautaAtual || !prof) return;
     if (!motivoSolicidade.trim()) {
-      Alert.alert('Obrigatório', 'Indique o motivo do pedido de reabertura.');
+      webAlert('Obrigatório', 'Indique o motivo do pedido de reabertura.');
       return;
     }
     await addSolicitacao({
@@ -425,7 +425,7 @@ export default function ProfessorPautaScreen() {
     });
     setMotivoSolicidade('');
     setShowSolicitModal(false);
-    Alert.alert('Pedido Enviado', 'A sua solicitação de reabertura foi enviada. Aguarde a aprovação.');
+    webAlert('Pedido Enviado', 'A sua solicitação de reabertura foi enviada. Aguarde a aprovação.');
   }
 
   function gerarHtmlMiniPauta(): string {
@@ -542,11 +542,11 @@ export default function ProfessorPautaScreen() {
 
   function gerarExcelMiniPauta() {
     if (!turmaId || !disciplina) {
-      Alert.alert('Atenção', 'Selecione a turma e disciplina antes de exportar.');
+      webAlert('Atenção', 'Selecione a turma e disciplina antes de exportar.');
       return;
     }
     if (Platform.OS !== 'web') {
-      Alert.alert('Indisponível', 'A exportação Excel está disponível na versão web do sistema.');
+      webAlert('Indisponível', 'A exportação Excel está disponível na versão web do sistema.');
       return;
     }
     const turmaObj = minhasTurmas.find(t => t.id === turmaId);
@@ -605,7 +605,7 @@ export default function ProfessorPautaScreen() {
 
   async function enviarMiniPauta() {
     if (!turmaId || !disciplina) {
-      Alert.alert('Atenção', 'Selecione a turma e disciplina antes de enviar a mini-pauta.');
+      webAlert('Atenção', 'Selecione a turma e disciplina antes de enviar a mini-pauta.');
       return;
     }
     if (Platform.OS === 'web') {
@@ -616,7 +616,7 @@ export default function ProfessorPautaScreen() {
         win.document.close();
       }
     } else {
-      Alert.alert('Indisponível', 'A impressão da mini-pauta está disponível na versão web do sistema.');
+      webAlert('Indisponível', 'A impressão da mini-pauta está disponível na versão web do sistema.');
     }
     const turmaObj = minhasTurmas.find(t => t.id === turmaId);
     await addNotificacao({
@@ -967,7 +967,7 @@ export default function ProfessorPautaScreen() {
           <TouchableOpacity
             style={styles.reaberturaBtn}
             onPress={() => temSolicPendente
-              ? Alert.alert('Aguardar', 'Já existe um pedido de reabertura pendente.')
+              ? webAlert('Aguardar', 'Já existe um pedido de reabertura pendente.')
               : setShowSolicitModal(true)
             }
           >
@@ -987,7 +987,7 @@ export default function ProfessorPautaScreen() {
         </TouchableOpacity>
         <TouchableOpacity onPress={() => {
           if (pautaAtual?.status === 'aberta') {
-            Alert.alert('Pauta Aberta', 'A pauta está em edição. Deseja sair?', [
+            webAlert('Pauta Aberta', 'A pauta está em edição. Deseja sair?', [
               { text: 'Continuar', style: 'cancel' },
               { text: 'Sair', onPress: () => setStep('selecao') },
             ]);

@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, Alert,
-  Platform, ScrollView, KeyboardAvoidingView, Animated,
-} from 'react-native';
+  View, Text, StyleSheet, TouchableOpacity, TextInputPlatform, ScrollView, KeyboardAvoidingView, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +10,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-na
 import { Colors } from '@/constants/colors';
 import { useLicense } from '@/context/LicenseContext';
 import { useAuth } from '@/context/AuthContext';
+import { webAlert } from '@/utils/webAlert';
 
 const RING_SIZE = 220;
 const RING_STROKE = 16;
@@ -180,7 +179,7 @@ export default function LicencaScreen() {
 
   async function handleActivar() {
     if (!codigo.trim()) {
-      Alert.alert('Código inválido', 'Introduza o código de activação.');
+      webAlert('Código inválido', 'Introduza o código de activação.');
       return;
     }
     setIsLoading(true);
@@ -189,12 +188,12 @@ export default function LicencaScreen() {
     setIsLoading(false);
     if (result.sucesso) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Licença Activada!', result.mensagem, [
+      webAlert('Licença Activada!', result.mensagem, [
         { text: 'Continuar', onPress: () => router.replace('/(main)/dashboard') },
       ]);
     } else {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Erro', result.mensagem);
+      webAlert('Erro', result.mensagem);
     }
   }
 

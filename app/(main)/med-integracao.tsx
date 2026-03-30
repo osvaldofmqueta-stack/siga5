@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, ActivityIndicator, Platform, Alert,
-} from 'react-native';
+  TextInput, ActivityIndicator, Platform} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -133,7 +133,7 @@ function ExportCard({
 
   const doExport = useCallback(async () => {
     if (Platform.OS !== 'web') {
-      Alert.alert('Exportação', 'A exportação directa está disponível apenas na versão Web. Use o portal SIGE Gov para submissão.');
+      webAlert('Exportação', 'A exportação directa está disponível apenas na versão Web. Use o portal SIGE Gov para submissão.');
       return;
     }
     setLoading(true);
@@ -530,7 +530,7 @@ export default function MEDIntegracaoScreen() {
               <TouchableOpacity
                 style={styles.consolidadoBtn}
                 onPress={async () => {
-                  if (Platform.OS !== 'web') { Alert.alert('Disponível apenas na versão Web.'); return; }
+                  if (Platform.OS !== 'web') { webAlert('Disponível apenas na versão Web.'); return; }
                   try {
                     const token = localStorage.getItem('siga_token') ?? '';
                     const params = anoLetivo ? `?anoLetivo=${anoLetivo}` : '';

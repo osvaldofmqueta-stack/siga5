@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator, Alert, TextInput, FlatList, Image,
-} from 'react-native';
+  Platform, ActivityIndicatorTextInput, FlatList, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
+import { webAlert } from '@/utils/webAlert';
 
 let QRCode: any = null;
 if (Platform.OS !== 'web') {
@@ -554,7 +554,7 @@ export default function BoletimInscricaoScreen() {
       setRegistro(reg);
       setNomeEscola(escola);
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível carregar o registo.');
+      webAlert('Erro', e.message || 'Não foi possível carregar o registo.');
     } finally {
       setIsLoading(false);
     }

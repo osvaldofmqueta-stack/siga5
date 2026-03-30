@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal,
-  TextInput, Alert, ActivityIndicator, Platform,
-} from 'react-native';
+  TextInputActivityIndicator, Platform } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
@@ -12,6 +11,7 @@ import { useProfessor, CalendarioProva } from '@/context/ProfessorContext';
 import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
+import { webAlert } from '@/utils/webAlert';
 
 // ─────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -93,11 +93,11 @@ function TrimestreModal({ visible, trimestre, onClose, onSave }: {
 
   function handleSave() {
     if (!form.dataInicio || !form.dataFim) {
-      Alert.alert('Campos obrigatórios', 'Preencha Data Início e Data Fim do trimestre.');
+      webAlert('Campos obrigatórios', 'Preencha Data Início e Data Fim do trimestre.');
       return;
     }
     if (form.dataFim < form.dataInicio) {
-      Alert.alert('Datas inválidas', 'A data de fim deve ser posterior à data de início.');
+      webAlert('Datas inválidas', 'A data de fim deve ser posterior à data de início.');
       return;
     }
     onSave(form);
@@ -220,7 +220,7 @@ function FeriadoModal({ visible, evento, anoAtivo, onClose, onSave }: {
           </ScrollView>
           <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.warning }]} onPress={() => {
             if (!form.titulo || !form.data) {
-              Alert.alert('Campos obrigatórios', 'Preencha nome e data.'); return;
+              webAlert('Campos obrigatórios', 'Preencha nome e data.'); return;
             }
             onSave(form);
           }}>
@@ -299,7 +299,7 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
           </ScrollView>
           <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.danger }]} onPress={() => {
             if (!form.titulo || !form.disciplina || !form.data) {
-              Alert.alert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
+              webAlert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
             }
             onSave(form);
           }}>
@@ -499,7 +499,7 @@ export default function CalendarioAcademicoScreen() {
     if (!ano) return;
     const epItem = epocasDraft[key] ?? {};
     if (epItem.dataInicio && epItem.dataFim && epItem.dataFim < epItem.dataInicio) {
-      Alert.alert('Datas inválidas', 'A data de fim deve ser posterior à data de início.');
+      webAlert('Datas inválidas', 'A data de fim deve ser posterior à data de início.');
       return;
     }
     setSavingEpoca(key);
@@ -535,9 +535,9 @@ export default function CalendarioAcademicoScreen() {
     const existingNames = feriados.map(f => f.titulo.toLowerCase());
     const missing = FERIADOS_NACIONAIS.filter(f => !existingNames.some(e => e.includes(f.nome.toLowerCase().slice(0, 10))));
     if (missing.length === 0) {
-      Alert.alert('Feriados', 'Os feriados nacionais já estão todos registados.'); return;
+      webAlert('Feriados', 'Os feriados nacionais já estão todos registados.'); return;
     }
-    Alert.alert(
+    webAlert(
       'Adicionar Feriados Nacionais',
       `Adicionar ${missing.length} feriado(s) oficial(is) de Angola para ${anoBase}?`,
       [
@@ -560,7 +560,7 @@ export default function CalendarioAcademicoScreen() {
 
   // ── Delete feriado ────────────────────────────────────────
   function confirmDeleteFeriado(ev: Evento) {
-    Alert.alert('Remover Feriado', `Remover "${ev.titulo}"?`, [
+    webAlert('Remover Feriado', `Remover "${ev.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
           try { await deleteEvento(ev.id); alertSucesso('Removido', `"${ev.titulo}" foi removido.`); }
@@ -603,7 +603,7 @@ export default function CalendarioAcademicoScreen() {
 
   // ── Delete prova ──────────────────────────────────────────
   function confirmDeleteProva(p: CalendarioProva) {
-    Alert.alert('Remover Prova', `Remover "${p.titulo}"?`, [
+    webAlert('Remover Prova', `Remover "${p.titulo}"?`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Remover', style: 'destructive', onPress: async () => {
           try { await deleteCalendarioProva(p.id); }

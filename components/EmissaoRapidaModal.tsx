@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator, Alert,
-} from 'react-native';
+  TextInput, Platform, ActivityIndicator} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -467,7 +467,7 @@ export default function EmissaoRapidaModal({ visible, onClose, alunos, turmas, n
   }
 
   function handleGenerate() {
-    if (!selectedAluno) { Alert.alert('Aluno necessário', 'Seleccione um aluno.'); return; }
+    if (!selectedAluno) { webAlert('Aluno necessário', 'Seleccione um aluno.'); return; }
     setGenerating(true);
     setTimeout(() => {
       try {
@@ -507,7 +507,7 @@ export default function EmissaoRapidaModal({ visible, onClose, alunos, turmas, n
   }
 
   function handlePrint() {
-    if (!isWeb) { Alert.alert('Impressão', 'A impressão está disponível na versão web.'); return; }
+    if (!isWeb) { webAlert('Impressão', 'A impressão está disponível na versão web.'); return; }
     const iframe = document.getElementById('emissao-iframe') as HTMLIFrameElement | null;
     if (iframe?.contentWindow) {
       iframe.contentWindow.print();

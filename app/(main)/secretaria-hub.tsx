@@ -3,8 +3,7 @@ import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import MapaAproveitamentoModal from '@/components/MapaAproveitamentoModal';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Platform, Dimensions, Alert,
-} from 'react-native';
+  Modal, TextInput, Platform, Dimensions} from 'react-native';
 import * as XLSX from 'xlsx';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
+import { webAlert } from '@/utils/webAlert';
 
 const { width } = Dimensions.get('window');
 
@@ -186,7 +186,7 @@ function EmitirDocumentoModal({ visible, onClose, onEmit, alunos }: {
 
   function handleSubmit() {
     if (!alunoNome.trim()) {
-      Alert.alert('Campo obrigatório', 'Indique o nome do aluno.');
+      webAlert('Campo obrigatório', 'Indique o nome do aluno.');
       return;
     }
     onEmit({ tipo, alunoNome: alunoNome.trim(), alunoNum: alunoNum.trim() || `ALN-2025-${Math.floor(Math.random() * 900 + 100)}`, finalidade });
@@ -274,7 +274,7 @@ function NovoProcessoModal({ visible, onClose, onSave }: {
 
   function handleSubmit() {
     if (!tipo || !descricao.trim() || !solicitante.trim()) {
-      Alert.alert('Campos obrigatórios', 'Preencha tipo, descrição e solicitante.');
+      webAlert('Campos obrigatórios', 'Preencha tipo, descrição e solicitante.');
       return;
     }
     onSave({ tipo, descricao: descricao.trim(), solicitante: solicitante.trim(), prazo, prioridade });
@@ -909,7 +909,7 @@ export default function SecretariaHubScreen() {
 
           function imprimirPauta(pautaItem: typeof pautas[0]) {
             if (Platform.OS !== 'web') {
-              Alert.alert('Indisponível', 'A impressão está disponível na versão web do sistema.');
+              webAlert('Indisponível', 'A impressão está disponível na versão web do sistema.');
               return;
             }
             const turmaObj = turmas.find(t => t.id === pautaItem.turmaId);
@@ -1042,7 +1042,7 @@ export default function SecretariaHubScreen() {
 
           function exportarExcelPauta(pautaItem: typeof pautas[0]) {
             if (Platform.OS !== 'web') {
-              Alert.alert('Indisponível', 'A exportação Excel está disponível na versão web.');
+              webAlert('Indisponível', 'A exportação Excel está disponível na versão web.');
               return;
             }
             const turmaObj = turmas.find(t => t.id === pautaItem.turmaId);

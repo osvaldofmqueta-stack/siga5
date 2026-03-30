@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Dimensions, Platform, Alert, ActivityIndicator,
-} from 'react-native';
+  Dimensions, PlatformActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +11,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
 import TopBar from '@/components/TopBar';
 import { BarChart, LineChart } from '@/components/Charts';
+import { webAlert } from '@/utils/webAlert';
 
 const { width } = Dimensions.get('window');
 const CHART_WIDTH = Math.min(width - 64, 380);
@@ -98,13 +98,13 @@ export default function VisaoGeralScreen() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro na transição');
       setTransicaoModal(false);
-      Alert.alert(
+      webAlert(
         'Transição Concluída',
         `${data.turmasCriadas} turma(s) criada(s) para ${data.anoDestino}.\nOs alunos podem agora ser matriculados nas novas turmas.`,
         [{ text: 'OK' }]
       );
     } catch (e: any) {
-      Alert.alert('Erro', e.message || 'Não foi possível realizar a transição.');
+      webAlert('Erro', e.message || 'Não foi possível realizar a transição.');
     } finally {
       setTransitioning(false);
     }
