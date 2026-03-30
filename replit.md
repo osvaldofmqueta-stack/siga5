@@ -1,6 +1,12 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Processos Secretaria ligados à BD)
+## Recent Changes (Latest Session — Permissões Secretaria & Bug Cursos Admin)
+- **context/PermissoesContext.tsx**: Adicionadas permissões `disciplinas` e `grelha` ao perfil `secretaria` (permite gerir disciplinas e áreas de formação)
+- **app/(main)/admin.tsx**: Corrigido bug de salto/vibração na aba "Cursos" do painel de administração:
+  - Removido `onLayout={fetchCursos}` (disparava fetch a cada recálculo de layout → loop de requests)
+  - Adicionado `useEffect` com `useRef` (`cursosFetched`) que executa `fetchCursos` **uma única vez** ao entrar na secção 'cursos' e repõe o flag ao sair
+
+## Recent Changes (Previous Session — Processos Secretaria ligados à BD)
 - **shared/schema.ts**: Nova tabela `processos_secretaria` com campos: `id`, `tipo`, `descricao`, `solicitante`, `prazo`, `status`, `prioridade`, `criadoPor`, `createdAt`, `updatedAt`
 - **server/routes.ts**: Novas rotas REST para processos da secretaria:
   - `GET /api/processos-secretaria` — lista todos os processos ordenados por data decrescente

@@ -300,6 +300,18 @@ export default function AdminScreen() {
       initialised.current = true;
     }
   }, [paramSection, paramGroup]);
+
+  const cursosFetched = useRef(false);
+  useEffect(() => {
+    if (activeSection === 'cursos' && !cursosFetched.current) {
+      cursosFetched.current = true;
+      fetchCursos();
+    }
+    if (activeSection !== 'cursos') {
+      cursosFetched.current = false;
+    }
+  }, [activeSection]);
+
   const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoRegistro | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
   const [showRejeitar, setShowRejeitar] = useState(false);
@@ -732,7 +744,7 @@ export default function AdminScreen() {
               </Text>
             </View>
 
-            <View onLayout={fetchCursos} style={{ gap: 4 }}>
+            <View style={{ gap: 4 }}>
                 {loadingCursos && (
                   <Text style={{ color: Colors.textMuted, textAlign: 'center', paddingVertical: 20, fontFamily: 'Inter_400Regular', fontSize: 13 }}>
                     A carregar cursos...

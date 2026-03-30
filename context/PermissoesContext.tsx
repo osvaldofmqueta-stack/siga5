@@ -241,6 +241,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Operações académicas (core da secretaria)
     'alunos', 'turmas', 'presencas', 'notas', 'horario', 'historico',
     'admissao', 'transferencias', 'gestao_academica',
+    // Parametrização curricular (cursos, disciplinas, áreas de formação)
+    'disciplinas', 'grelha',
     // Documentos (responsabilidade da secretaria)
     'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
     // Planeamento
