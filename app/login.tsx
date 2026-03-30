@@ -66,6 +66,7 @@ export default function LoginScreen() {
   const [showSenha, setShowSenha] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'senha' | null>(null);
+  const [fieldError, setFieldError] = useState<{ field: 'email' | 'senha'; message: string } | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
@@ -271,19 +272,20 @@ export default function LoginScreen() {
   }
 
   async function handleLogin() {
+    setFieldError(null);
     if (!email.trim() && !senha.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showAlert('Campos Obrigatórios', 'Por favor, preencha o email e a senha para continuar.');
+      setFieldError({ field: 'email', message: 'Preencha o email para continuar.' });
       return;
     }
     if (!email.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showAlert('Email em falta', 'Por favor, introduza o seu email institucional.');
+      setFieldError({ field: 'email', message: 'Introduza o seu email institucional.' });
       return;
     }
     if (!senha.trim()) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showAlert('Senha em falta', 'Por favor, introduza a sua senha de acesso.');
+      setFieldError({ field: 'senha', message: 'Introduza a sua senha de acesso.' });
       return;
     }
     setIsLoading(true);
@@ -299,7 +301,12 @@ export default function LoginScreen() {
       const data = await res.json();
       if (!res.ok) {
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        showAlert('Credenciais Inválidas', data.error ?? 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
+        const errField = data.field as 'email' | 'senha' | undefined;
+        if (errField === 'email' || errField === 'senha') {
+          setFieldError({ field: errField, message: data.error ?? 'Erro de acesso.' });
+        } else {
+          showAlert('Acesso Negado', data.error ?? 'O email ou a senha estão incorrectos.\nVerifique os dados e tente novamente.');
+        }
         setIsLoading(false);
         return;
       }
@@ -446,17 +453,21 @@ export default function LoginScreen() {
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Email Institucional</Text>
-        <View style={[styles.inputBox, focusedField === 'email' && styles.inputBoxFocused]}>
+        <View style={[
+          styles.inputBox,
+          focusedField === 'email' && styles.inputBoxFocused,
+          fieldError?.field === 'email' && styles.inputBoxError,
+        ]}>
           <Ionicons
             name="mail-outline"
             size={17}
-            color={focusedField === 'email' ? Colors.gold : Colors.textMuted}
+            color={fieldError?.field === 'email' ? '#e74c3c' : focusedField === 'email' ? Colors.gold : Colors.textMuted}
             style={styles.inputIcon}
           />
           <TextInput
             style={styles.inputText}
             value={email}
-            onChangeText={setEmail}
+            onChangeText={v => { setEmail(v); if (fieldError?.field === 'email') setFieldError(null); }}
             placeholder="utilizador@escola.ao"
             placeholderTextColor={Colors.textMuted}
             keyboardType="email-address"
@@ -468,6 +479,12 @@ export default function LoginScreen() {
             onBlur={() => setFocusedField(null)}
           />
         </View>
+        {fieldError?.field === 'email' && (
+          <View style={styles.fieldErrorRow}>
+            <Ionicons name="alert-circle-outline" size={13} color="#e74c3c" />
+            <Text style={styles.fieldErrorText}>{fieldError.message}</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.inputGroup}>
@@ -477,18 +494,22 @@ export default function LoginScreen() {
             <Text style={styles.forgotLink}>Esqueceu a senha?</Text>
           </TouchableOpacity>
         </View>
-        <View style={[styles.inputBox, focusedField === 'senha' && styles.inputBoxFocused]}>
+        <View style={[
+          styles.inputBox,
+          focusedField === 'senha' && styles.inputBoxFocused,
+          fieldError?.field === 'senha' && styles.inputBoxError,
+        ]}>
           <Ionicons
             name="lock-closed-outline"
             size={17}
-            color={focusedField === 'senha' ? Colors.gold : Colors.textMuted}
+            color={fieldError?.field === 'senha' ? '#e74c3c' : focusedField === 'senha' ? Colors.gold : Colors.textMuted}
             style={styles.inputIcon}
           />
           <TextInput
             ref={senhaRef}
             style={styles.inputText}
             value={senha}
-            onChangeText={setSenha}
+            onChangeText={v => { setSenha(v); if (fieldError?.field === 'senha') setFieldError(null); }}
             placeholder="••••••••••"
             placeholderTextColor={Colors.textMuted}
             secureTextEntry={!showSenha}
@@ -506,6 +527,12 @@ export default function LoginScreen() {
             <Ionicons name={showSenha ? 'eye-off-outline' : 'eye-outline'} size={17} color={Colors.textMuted} />
           </TouchableOpacity>
         </View>
+        {fieldError?.field === 'senha' && (
+          <View style={styles.fieldErrorRow}>
+            <Ionicons name="alert-circle-outline" size={13} color="#e74c3c" />
+            <Text style={styles.fieldErrorText}>{fieldError.message}</Text>
+          </View>
+        )}
       </View>
 
       <TouchableOpacity
@@ -992,6 +1019,23 @@ const styles = StyleSheet.create({
   inputBoxFocused: {
     borderColor: Colors.gold,
     backgroundColor: 'rgba(240,165,0,0.05)',
+  },
+  inputBoxError: {
+    borderColor: '#e74c3c',
+    backgroundColor: 'rgba(231,76,60,0.05)',
+  },
+  fieldErrorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 5,
+    marginLeft: 2,
+  },
+  fieldErrorText: {
+    color: '#e74c3c',
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    flex: 1,
   },
   inputIcon: { marginHorizontal: 10 },
   inputText: {

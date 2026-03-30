@@ -71,35 +71,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ua = req.headers["user-agent"];
 
       // Verificar contas fixas primeiro
-      const hardcoded = HARDCODED_ACCOUNTS.find(
-        a => a.email.toLowerCase() === email && a.senha === senha
-      );
-      if (hardcoded) {
-        const token = signToken({ userId: hardcoded.id, role: hardcoded.role, email: hardcoded.email });
+      const hardcodedByEmail = HARDCODED_ACCOUNTS.find(a => a.email.toLowerCase() === email);
+      if (hardcodedByEmail) {
+        if (hardcodedByEmail.senha !== senha) {
+          logAudit({
+            userId: "unknown", userEmail: email, userRole: "desconhecido",
+            acao: "login_falhado", modulo: "Autenticação", descricao: `Senha incorrecta para conta fixa: ${email}`,
+            ipAddress: ip, userAgent: ua,
+          }).catch(() => {});
+          return json(res, 401, { error: "Senha incorrecta. Verifique a sua senha de acesso.", field: "senha" });
+        }
+        const token = signToken({ userId: hardcodedByEmail.id, role: hardcodedByEmail.role, email: hardcodedByEmail.email });
         logAudit({
-          userId: hardcoded.id, userEmail: hardcoded.email, userRole: hardcoded.role, userName: hardcoded.nome,
-          acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${hardcoded.email}`,
+          userId: hardcodedByEmail.id, userEmail: hardcodedByEmail.email, userRole: hardcodedByEmail.role, userName: hardcodedByEmail.nome,
+          acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${hardcodedByEmail.email}`,
           ipAddress: ip, userAgent: ua,
         }).catch(() => {});
         return json(res, 200, {
           token,
-          user: { id: hardcoded.id, nome: hardcoded.nome, email: hardcoded.email, role: hardcoded.role, escola: hardcoded.escola },
+          user: { id: hardcodedByEmail.id, nome: hardcodedByEmail.nome, email: hardcodedByEmail.email, role: hardcodedByEmail.role, escola: hardcodedByEmail.escola },
         });
       }
 
-      // Verificar na base de dados
-      const rows = await query<JsonObject>(
-        `SELECT * FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND senha=$2 AND ativo=true LIMIT 1`,
-        [email, senha]
+      // Verificar na base de dados — primeiro só pelo email
+      const emailRows = await query<JsonObject>(
+        `SELECT * FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
+        [email]
       );
-      if (!rows[0]) {
+      if (!emailRows[0]) {
         logAudit({
           userId: "unknown", userEmail: email, userRole: "desconhecido",
-          acao: "login_falhado", modulo: "Autenticação", descricao: `Tentativa de login falhada: ${email}`,
+          acao: "login_falhado", modulo: "Autenticação", descricao: `Email não encontrado: ${email}`,
           ipAddress: ip, userAgent: ua,
         }).catch(() => {});
-        return json(res, 401, { error: "Credenciais inválidas. Verifique o email e a senha." });
+        return json(res, 401, { error: "Email não encontrado. Verifique o endereço de email.", field: "email" });
       }
+      // Email existe — verificar senha
+      if (emailRows[0].senha !== senha) {
+        logAudit({
+          userId: String(emailRows[0].id), userEmail: email, userRole: "desconhecido",
+          acao: "login_falhado", modulo: "Autenticação", descricao: `Senha incorrecta para: ${email}`,
+          ipAddress: ip, userAgent: ua,
+        }).catch(() => {});
+        return json(res, 401, { error: "Senha incorrecta. Verifique a sua senha de acesso.", field: "senha" });
+      }
+      const rows = emailRows;
       const u = rows[0];
       const token = signToken({ userId: String(u.id), role: String(u.role) as UserRole, email: String(u.email) });
       logAudit({
