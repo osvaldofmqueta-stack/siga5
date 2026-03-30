@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, ActivityIndicator, FlatList, Platform,
-  Animated, RefreshControl,
+  Image, RefreshControl,
 } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
@@ -23,6 +23,7 @@ interface Livro {
   quantidadeDisponivel: number;
   localizacao: string;
   descricao: string;
+  capaUrl: string;
   ativo: boolean;
   createdAt: string;
 }
@@ -43,11 +44,19 @@ interface Emprestimo {
   createdAt: string;
 }
 
-const CATEGORIAS = [
-  'Todas', 'Geral', 'Matemática', 'Ciências', 'Língua Portuguesa', 'História', 'Geografia',
-  'Física', 'Química', 'Biologia', 'Literatura', 'Filosofia', 'Informática',
-  'Inglês', 'Francês', 'Educação Física', 'Artes', 'Religião', 'Outros',
-];
+interface Solicitacao {
+  id: string;
+  livroId: string;
+  livroTitulo: string;
+  alunoId: string | null;
+  nomeLeitor: string;
+  tipoLeitor: string;
+  diasSolicitados: number;
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  motivoRejeicao: string | null;
+  registadoPor: string;
+  createdAt: string;
+}
 
 const TIPOS_LEITOR = ['aluno', 'professor', 'funcionário', 'externo'];
 
@@ -76,16 +85,28 @@ function diasAtraso(dataPrevista: string): number {
   return Math.floor((hoje.getTime() - prev.getTime()) / 86400000);
 }
 
+function catColor(cat: string) {
+  const map: Record<string, string> = {
+    'Matemática': '#5E6AD2', 'Ciências': '#26A69A', 'Língua Portuguesa': '#FF7043',
+    'História': '#AB47BC', 'Geografia': '#42A5F5', 'Física': '#FFA726',
+    'Química': '#EF5350', 'Biologia': '#66BB6A', 'Literatura': '#EC407A',
+    'Filosofia': '#7E57C2', 'Informática': '#29B6F6', 'Inglês': '#FF7139',
+    'Geral': '#888',
+  };
+  return map[cat] || '#888';
+}
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function BibliotecaScreen() {
   const [tab, setTab] = useState<'catalogo' | 'emprestimos' | 'stats'>('catalogo');
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
+  const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { showToast } = useToast();
   const { user } = useAuth();
-  const isReadOnly = user?.role === 'aluno';
+  const canManage = user?.role !== 'aluno';
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -97,13 +118,17 @@ export default function BibliotecaScreen() {
       ]);
       setLivros(ls);
       setEmprestimos(es);
+      if (canManage) {
+        const sols = await req<Solicitacao[]>('/api/solicitacoes-emprestimo?status=pendente');
+        setSolicitacoes(sols);
+      }
     } catch (e) {
       showToast((e as Error).message, 'error');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [canManage]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -115,15 +140,17 @@ export default function BibliotecaScreen() {
   const totalLivros = livros.reduce((s, l) => s + l.quantidadeTotal, 0);
   const totalDisp = livros.reduce((s, l) => s + l.quantidadeDisponivel, 0);
   const totalEmprestados = totalLivros - totalDisp;
+  const pendentesCount = solicitacoes.length;
 
   return (
     <View style={styles.root}>
       <TopBar title="Biblioteca Escolar" subtitle="Gestão de livros e empréstimos" />
-      {/* Tabs */}
+
       <View style={styles.tabBar}>
         {([
           { key: 'catalogo', label: 'Catálogo', icon: 'book' },
-          { key: 'emprestimos', label: 'Empréstimos', icon: 'swap-horizontal', badge: atrasados.length },
+          { key: 'emprestimos', label: 'Empréstimos', icon: 'swap-horizontal',
+            badge: atrasados.length + (canManage ? pendentesCount : 0) },
           { key: 'stats', label: 'Estatísticas', icon: 'bar-chart' },
         ] as const).map(t => (
           <TouchableOpacity
@@ -147,7 +174,8 @@ export default function BibliotecaScreen() {
           {tab === 'catalogo' && (
             <CatalogoTab
               livros={livros}
-              isReadOnly={isReadOnly}
+              canManage={canManage}
+              user={user}
               onReload={() => load(true)}
               refreshing={refreshing}
               onRefresh={onRefresh}
@@ -157,7 +185,9 @@ export default function BibliotecaScreen() {
             <EmprestimosTab
               emprestimos={emprestimos}
               livros={livros}
-              isReadOnly={isReadOnly}
+              solicitacoes={solicitacoes}
+              canManage={canManage}
+              user={user}
               onReload={() => load(true)}
               refreshing={refreshing}
               onRefresh={onRefresh}
@@ -183,17 +213,22 @@ export default function BibliotecaScreen() {
 }
 
 // ─── Catálogo Tab ─────────────────────────────────────────────────────────────
-function CatalogoTab({ livros, isReadOnly, onReload, refreshing, onRefresh }: {
+function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh }: {
   livros: Livro[];
-  isReadOnly: boolean;
+  canManage: boolean;
+  user: any;
   onReload: () => void;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
+  const { showToast } = useToast();
   const [search, setSearch] = useState('');
   const [catFiltro, setCatFiltro] = useState('Todas');
   const [showModal, setShowModal] = useState(false);
   const [editLivro, setEditLivro] = useState<Livro | null>(null);
+  const [solicitarLivro, setSolicitarLivro] = useState<Livro | null>(null);
+
+  const cats = ['Todas', ...Array.from(new Set(livros.map(l => l.categoria))).sort()];
 
   const filtered = livros.filter(l => {
     const q = search.toLowerCase();
@@ -221,43 +256,48 @@ function CatalogoTab({ livros, isReadOnly, onReload, refreshing, onRefresh }: {
             </TouchableOpacity>
           )}
         </View>
-        {!isReadOnly && (
+        {canManage && (
           <TouchableOpacity style={styles.addBtn} onPress={() => { setEditLivro(null); setShowModal(true); }}>
             <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Category filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-        {CATEGORIAS.map(c => (
+      {/* Compact category filter */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
+        {cats.map(c => (
           <TouchableOpacity
             key={c}
-            style={[styles.chip, catFiltro === c && styles.chipActive]}
+            style={[styles.catChip, catFiltro === c && styles.catChipActive]}
             onPress={() => setCatFiltro(c)}
           >
-            <Text style={[styles.chipText, catFiltro === c && { color: '#fff' }]}>{c}</Text>
+            <Text style={[styles.catChipText, catFiltro === c && { color: '#fff' }]}>{c}</Text>
           </TouchableOpacity>
         ))}
       </ScrollView>
 
+      {/* Book grid */}
       <FlatList
         data={filtered}
         keyExtractor={i => i.id}
+        numColumns={2}
+        columnWrapperStyle={{ paddingHorizontal: 12, gap: 12, marginBottom: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-        contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 120 }}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Ionicons name="library-outline" size={48} color="#444" />
             <Text style={styles.emptyText}>Nenhum livro encontrado</Text>
-            {!isReadOnly && <Text style={styles.emptySub}>Toque em + para adicionar o primeiro livro</Text>}
+            {canManage && <Text style={styles.emptySub}>Toque em + para adicionar o primeiro livro</Text>}
           </View>
         }
         renderItem={({ item }) => (
-          <LivroCard
+          <BookCard
             livro={item}
-            isReadOnly={isReadOnly}
+            canManage={canManage}
             onEdit={() => { setEditLivro(item); setShowModal(true); }}
+            onSolicitar={() => setSolicitarLivro(item)}
           />
         )}
       />
@@ -268,50 +308,197 @@ function CatalogoTab({ livros, isReadOnly, onReload, refreshing, onRefresh }: {
         onClose={() => setShowModal(false)}
         onSaved={() => { setShowModal(false); onReload(); }}
       />
+
+      <SolicitarModal
+        visible={!!solicitarLivro}
+        livro={solicitarLivro}
+        user={user}
+        onClose={() => setSolicitarLivro(null)}
+        onSaved={() => {
+          setSolicitarLivro(null);
+          showToast('Pedido enviado! Aguarda aprovação da biblioteca.', 'success');
+        }}
+      />
     </View>
   );
 }
 
-function LivroCard({ livro, isReadOnly, onEdit }: { livro: Livro; isReadOnly: boolean; onEdit: () => void }) {
-  const dispColor = livro.quantidadeDisponivel === 0 ? '#EF5350' : livro.quantidadeDisponivel <= 2 ? '#FFA726' : '#66BB6A';
+// ─── Book Card (Grid) ─────────────────────────────────────────────────────────
+function BookCard({ livro, canManage, onEdit, onSolicitar }: {
+  livro: Livro;
+  canManage: boolean;
+  onEdit: () => void;
+  onSolicitar: () => void;
+}) {
+  const available = livro.quantidadeDisponivel > 0;
+  const dispColor = !available ? '#EF5350' : livro.quantidadeDisponivel <= 2 ? '#FFA726' : '#66BB6A';
+  const cc = catColor(livro.categoria);
+
   return (
-    <View style={bStyles.card}>
-      <View style={[bStyles.catBadge, { backgroundColor: catColor(livro.categoria) + '33' }]}>
-        <Ionicons name="book" size={20} color={catColor(livro.categoria)} />
-      </View>
-      <View style={bStyles.cardInfo}>
-        <Text style={bStyles.cardTitle} numberOfLines={1}>{livro.titulo}</Text>
-        <Text style={bStyles.cardAutor}>{livro.autor}</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-          <Text style={bStyles.cardCat}>{livro.categoria}</Text>
-          {livro.isbn ? <Text style={bStyles.cardIsbn}>ISBN: {livro.isbn}</Text> : null}
+    <View style={bookStyles.card}>
+      {/* Cover */}
+      <View style={bookStyles.coverWrap}>
+        {livro.capaUrl ? (
+          <Image source={{ uri: livro.capaUrl }} style={bookStyles.coverImg} resizeMode="cover" />
+        ) : (
+          <View style={[bookStyles.coverPlaceholder, { backgroundColor: cc + '22' }]}>
+            <Ionicons name="book" size={36} color={cc} />
+            <Text style={[bookStyles.coverCat, { color: cc }]} numberOfLines={2}>{livro.categoria}</Text>
+          </View>
+        )}
+        {/* Availability badge */}
+        <View style={[bookStyles.availBadge, { backgroundColor: dispColor }]}>
+          <Text style={bookStyles.availText}>{livro.quantidadeDisponivel}/{livro.quantidadeTotal}</Text>
         </View>
-        {livro.localizacao ? <Text style={bStyles.cardLoc}><Ionicons name="location-outline" size={11} color="#888" /> {livro.localizacao}</Text> : null}
       </View>
-      <View style={bStyles.cardRight}>
-        <View style={[bStyles.dispBox, { borderColor: dispColor + '66' }]}>
-          <Text style={[bStyles.dispNum, { color: dispColor }]}>{livro.quantidadeDisponivel}</Text>
-          <Text style={bStyles.dispLabel}>/{livro.quantidadeTotal}</Text>
-        </View>
-        <Text style={[bStyles.dispTag, { color: dispColor }]}>{livro.quantidadeDisponivel === 0 ? 'Esgotado' : 'Dispon.'}</Text>
-        {!isReadOnly && (
-          <TouchableOpacity style={bStyles.editBtn} onPress={onEdit}>
-            <Ionicons name="pencil" size={14} color="#5E6AD2" />
+
+      {/* Info */}
+      <View style={bookStyles.info}>
+        <Text style={bookStyles.titulo} numberOfLines={2}>{livro.titulo}</Text>
+        <Text style={bookStyles.autor} numberOfLines={1}>{livro.autor}</Text>
+        {livro.editora ? <Text style={bookStyles.editora} numberOfLines={1}>{livro.editora}</Text> : null}
+      </View>
+
+      {/* Actions */}
+      <View style={bookStyles.actions}>
+        {canManage ? (
+          <TouchableOpacity style={bookStyles.editBtn} onPress={onEdit}>
+            <Ionicons name="pencil" size={13} color="#5E6AD2" />
+            <Text style={bookStyles.editBtnText}>Editar</Text>
           </TouchableOpacity>
+        ) : available ? (
+          <TouchableOpacity style={bookStyles.solicitarBtn} onPress={onSolicitar}>
+            <Ionicons name="hand-right-outline" size={13} color="#fff" />
+            <Text style={bookStyles.solicitarBtnText}>Solicitar</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={bookStyles.esgotadoBtn}>
+            <Text style={bookStyles.esgotadoText}>Esgotado</Text>
+          </View>
         )}
       </View>
     </View>
   );
 }
 
-function catColor(cat: string) {
-  const map: Record<string, string> = {
-    'Matemática': '#5E6AD2', 'Ciências': '#26A69A', 'Língua Portuguesa': '#FF7043',
-    'História': '#AB47BC', 'Geografia': '#42A5F5', 'Física': '#FFA726',
-    'Química': '#EF5350', 'Biologia': '#66BB6A', 'Literatura': '#EC407A',
-    'Filosofia': '#7E57C2', 'Informática': '#29B6F6', 'Inglês': '#FF7139',
+// ─── Solicitar Empréstimo Modal ───────────────────────────────────────────────
+function SolicitarModal({ visible, livro, user, onClose, onSaved }: {
+  visible: boolean;
+  livro: Livro | null;
+  user: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const [dias, setDias] = useState('14');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => { if (visible) setDias('14'); }, [visible]);
+
+  const dayOptions = [7, 14, 21, 30];
+
+  const save = async () => {
+    if (!livro) return;
+    const d = parseInt(dias);
+    if (!d || d < 1 || d > 60) { showToast('Indique um número de dias válido (1–60).', 'error'); return; }
+    setSaving(true);
+    try {
+      const nomeLeitor = user?.nome || 'Aluno';
+      await req('/api/solicitacoes-emprestimo', {
+        method: 'POST',
+        body: JSON.stringify({
+          livroId: livro.id,
+          alunoId: user?.id || null,
+          nomeLeitor,
+          tipoLeitor: user?.role === 'professor' ? 'professor' : 'aluno',
+          diasSolicitados: d,
+          registadoPor: nomeLeitor,
+        }),
+      });
+      onSaved();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
   };
-  return map[cat] || '#888';
+
+  if (!livro) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={mStyles.overlay}>
+        <View style={[mStyles.sheet, { maxHeight: 480 }]}>
+          <View style={mStyles.header}>
+            <Text style={mStyles.headerTitle}>Solicitar Empréstimo</Text>
+            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+          </View>
+
+          <View style={{ padding: 20, gap: 16 }}>
+            {/* Book preview */}
+            <View style={solStyles.bookPreview}>
+              {livro.capaUrl ? (
+                <Image source={{ uri: livro.capaUrl }} style={solStyles.previewImg} resizeMode="cover" />
+              ) : (
+                <View style={[solStyles.previewPlaceholder, { backgroundColor: catColor(livro.categoria) + '33' }]}>
+                  <Ionicons name="book" size={28} color={catColor(livro.categoria)} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={solStyles.previewTitulo} numberOfLines={2}>{livro.titulo}</Text>
+                <Text style={solStyles.previewAutor}>{livro.autor}</Text>
+                <Text style={solStyles.previewDisp}>{livro.quantidadeDisponivel} exemplar(es) disponível(is)</Text>
+              </View>
+            </View>
+
+            {/* Days picker */}
+            <View>
+              <Text style={solStyles.daysLabel}>Quantos dias precisa?</Text>
+              <View style={solStyles.dayBtns}>
+                {dayOptions.map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[solStyles.dayBtn, dias === String(d) && solStyles.dayBtnActive]}
+                    onPress={() => setDias(String(d))}
+                  >
+                    <Text style={[solStyles.dayBtnText, dias === String(d) && { color: '#fff' }]}>{d}d</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput
+                style={solStyles.daysInput}
+                value={dias}
+                onChangeText={setDias}
+                placeholder="Outro número de dias"
+                placeholderTextColor="#555"
+                keyboardType="numeric"
+                maxLength={2}
+              />
+            </View>
+
+            <View style={solStyles.infoBox}>
+              <Ionicons name="information-circle-outline" size={16} color="#5E6AD2" />
+              <Text style={solStyles.infoText}>
+                O pedido será enviado à biblioteca para aprovação. Será notificado quando estiver pronto.
+              </Text>
+            </View>
+          </View>
+
+          <View style={mStyles.footer}>
+            <TouchableOpacity style={mStyles.cancelBtn} onPress={onClose}>
+              <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={mStyles.saveBtn} onPress={save} disabled={saving}>
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={{ color: '#fff', fontWeight: '700' }}>Enviar Pedido</Text>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 }
 
 // ─── Livro Modal ──────────────────────────────────────────────────────────────
@@ -322,8 +509,12 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '',
-    anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '',
+    anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '',
   });
+
+  const CATS = ['Geral', 'Matemática', 'Ciências', 'Língua Portuguesa', 'História', 'Geografia',
+    'Física', 'Química', 'Biologia', 'Literatura', 'Filosofia', 'Informática',
+    'Inglês', 'Francês', 'Educação Física', 'Artes', 'Religião', 'Outros'];
 
   useEffect(() => {
     if (livro) {
@@ -333,9 +524,10 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         anoPublicacao: livro.anoPublicacao?.toString() || '',
         quantidadeTotal: livro.quantidadeTotal.toString(),
         localizacao: livro.localizacao, descricao: livro.descricao,
+        capaUrl: livro.capaUrl || '',
       });
     } else {
-      setForm({ titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '', anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '' });
+      setForm({ titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '', anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '' });
     }
   }, [livro, visible]);
 
@@ -352,8 +544,10 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         titulo: form.titulo.trim(), autor: form.autor.trim(), isbn: form.isbn.trim(),
         categoria: form.categoria, editora: form.editora.trim(),
         anoPublicacao: form.anoPublicacao ? parseInt(form.anoPublicacao) : null,
-        quantidadeTotal: qty, quantidadeDisponivel: livro ? undefined : qty,
+        quantidadeTotal: qty,
+        quantidadeDisponivel: livro ? undefined : qty,
         localizacao: form.localizacao.trim(), descricao: form.descricao.trim(),
+        capaUrl: form.capaUrl.trim(),
       };
       if (livro) {
         await req(`/api/livros/${livro.id}`, { method: 'PUT', body: JSON.stringify(payload) });
@@ -383,6 +577,18 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
             <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do livro" />
             <MLabel>Autor *</MLabel>
             <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome do autor" />
+
+            {/* Cover image URL */}
+            <MLabel>URL da Capa (imagem)</MLabel>
+            <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://…" />
+            {form.capaUrl ? (
+              <View style={mStyles.capaPreview}>
+                <Image source={{ uri: form.capaUrl }} style={mStyles.capaImg} resizeMode="cover"
+                  onError={() => {}} />
+                <Text style={mStyles.capaHint}>Pré-visualização da capa</Text>
+              </View>
+            ) : null}
+
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>ISBN</MLabel>
@@ -393,14 +599,16 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 <MInput value={form.anoPublicacao} onChangeText={upd('anoPublicacao')} placeholder="Ex: 2018" keyboardType="numeric" />
               </View>
             </View>
+
             <MLabel>Categoria</MLabel>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
-              {CATEGORIAS.filter(c => c !== 'Todas').map(c => (
+              {CATS.map(c => (
                 <TouchableOpacity key={c} style={[mStyles.chip, form.categoria === c && mStyles.chipActive]} onPress={() => upd('categoria')(c)}>
                   <Text style={[mStyles.chipText, form.categoria === c && { color: '#fff' }]}>{c}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
+
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>Editora</MLabel>
@@ -411,6 +619,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 <MInput value={form.quantidadeTotal} onChangeText={upd('quantidadeTotal')} placeholder="1" keyboardType="numeric" />
               </View>
             </View>
+
             <MLabel>Localização / Prateleira</MLabel>
             <MInput value={form.localizacao} onChangeText={upd('localizacao')} placeholder="Ex: Estante A, Prateleira 3" />
             <MLabel>Descrição / Sinopse</MLabel>
@@ -431,14 +640,18 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
 }
 
 // ─── Empréstimos Tab ──────────────────────────────────────────────────────────
-function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing, onRefresh }: {
-  emprestimos: Emprestimo[]; livros: Livro[]; isReadOnly: boolean;
+function EmprestimosTab({ emprestimos, livros, solicitacoes, canManage, user, onReload, refreshing, onRefresh }: {
+  emprestimos: Emprestimo[]; livros: Livro[]; solicitacoes: Solicitacao[];
+  canManage: boolean; user: any;
   onReload: () => void; refreshing: boolean; onRefresh: () => void;
 }) {
+  const { showToast } = useToast();
   const [filtro, setFiltro] = useState<'todos' | 'ativos' | 'atrasados' | 'devolvidos'>('ativos');
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState('');
-  const { showToast } = useToast();
+  const [rejectId, setRejectId] = useState<string | null>(null);
+  const [rejectMotivo, setRejectMotivo] = useState('');
+  const [processing, setProcessing] = useState<string | null>(null);
 
   const filtered = emprestimos.filter(e => {
     const matchFiltro =
@@ -464,8 +677,96 @@ function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing,
     }
   };
 
+  const aprovar = async (sol: Solicitacao) => {
+    setProcessing(sol.id);
+    try {
+      await req(`/api/solicitacoes-emprestimo/${sol.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'aprovado', aprovadoPor: user?.nome || 'Biblioteca' }),
+      });
+      showToast(`Empréstimo aprovado para ${sol.nomeLeitor}.`, 'success');
+      onReload();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const rejeitar = async () => {
+    if (!rejectId) return;
+    setProcessing(rejectId);
+    try {
+      await req(`/api/solicitacoes-emprestimo/${rejectId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'rejeitado', motivoRejeicao: rejectMotivo || null }),
+      });
+      showToast('Pedido rejeitado.', 'info');
+      setRejectId(null);
+      setRejectMotivo('');
+      onReload();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
   return (
-    <View style={styles.flex}>
+    <ScrollView
+      style={styles.flex}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
+      keyboardShouldPersistTaps="handled"
+    >
+      {/* ── Pedidos Pendentes (staff only) ── */}
+      {canManage && solicitacoes.length > 0 && (
+        <View style={empStyles.pendentesSection}>
+          <View style={empStyles.pendenteHeader}>
+            <Ionicons name="time" size={16} color="#FFA726" />
+            <Text style={empStyles.pendenteTitle}>Pedidos Pendentes de Aprovação</Text>
+            <View style={empStyles.pendenteCount}>
+              <Text style={empStyles.pendenteCountText}>{solicitacoes.length}</Text>
+            </View>
+          </View>
+          {solicitacoes.map(sol => (
+            <View key={sol.id} style={empStyles.pedidoCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={empStyles.pedidoTitulo} numberOfLines={1}>{sol.livroTitulo}</Text>
+                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginTop: 3 }}>
+                  <Ionicons name="person-outline" size={12} color="#888" />
+                  <Text style={empStyles.pedidoLeitor}>{sol.nomeLeitor}</Text>
+                  <View style={empStyles.diasChip}>
+                    <Ionicons name="calendar-outline" size={10} color="#5E6AD2" />
+                    <Text style={empStyles.diasChipText}>{sol.diasSolicitados} dias</Text>
+                  </View>
+                </View>
+                <Text style={empStyles.pedidoData}>Solicitado em {fmtDate(sol.createdAt)}</Text>
+              </View>
+              <View style={empStyles.pedidoBtns}>
+                <TouchableOpacity
+                  style={[empStyles.aprovarBtn, processing === sol.id && { opacity: 0.5 }]}
+                  onPress={() => aprovar(sol)}
+                  disabled={!!processing}
+                >
+                  {processing === sol.id
+                    ? <ActivityIndicator size="small" color="#fff" />
+                    : <Ionicons name="checkmark" size={16} color="#fff" />
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[empStyles.rejeitarBtn, processing === sol.id && { opacity: 0.5 }]}
+                  onPress={() => setRejectId(sol.id)}
+                  disabled={!!processing}
+                >
+                  <Ionicons name="close" size={16} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* ── Empréstimos List ── */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
           <Ionicons name="search" size={16} color="#888" />
@@ -478,14 +779,13 @@ function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing,
           />
           {!!search && <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={16} color="#888" /></TouchableOpacity>}
         </View>
-        {!isReadOnly && (
+        {canManage && (
           <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
             <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Status filter */}
       <View style={styles.filterRow}>
         {([
           { key: 'ativos', label: 'Ativos' },
@@ -503,37 +803,68 @@ function EmprestimosTab({ emprestimos, livros, isReadOnly, onReload, refreshing,
         ))}
       </View>
 
-      <FlatList
-        data={filtered}
-        keyExtractor={i => i.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-        contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 120 }}
-        ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <Ionicons name="swap-horizontal-outline" size={48} color="#444" />
-            <Text style={styles.emptyText}>Nenhum empréstimo encontrado</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <EmprestimoCard emp={item} isReadOnly={isReadOnly} onDevolver={() => devolver(item)} />
-        )}
-      />
+      {filtered.length === 0 ? (
+        <View style={[styles.emptyBox, { marginTop: 24 }]}>
+          <Ionicons name="swap-horizontal-outline" size={48} color="#444" />
+          <Text style={styles.emptyText}>Nenhum empréstimo encontrado</Text>
+        </View>
+      ) : (
+        <View style={{ padding: 16, gap: 10, paddingBottom: 120 }}>
+          {filtered.map(item => (
+            <EmprestimoCard key={item.id} emp={item} canManage={canManage} onDevolver={() => devolver(item)} />
+          ))}
+        </View>
+      )}
 
-      <NovoEmprestimoModal
-        visible={showModal}
-        livros={livros}
-        onClose={() => setShowModal(false)}
-        onSaved={() => { setShowModal(false); onReload(); }}
-      />
-    </View>
+      {canManage && (
+        <NovoEmprestimoModal
+          visible={showModal}
+          livros={livros}
+          user={user}
+          onClose={() => setShowModal(false)}
+          onSaved={() => { setShowModal(false); onReload(); }}
+        />
+      )}
+
+      {/* Reject reason modal */}
+      <Modal visible={!!rejectId} transparent animationType="fade" onRequestClose={() => setRejectId(null)}>
+        <View style={mStyles.overlay}>
+          <View style={[mStyles.sheet, { maxHeight: 320 }]}>
+            <View style={mStyles.header}>
+              <Text style={mStyles.headerTitle}>Rejeitar Pedido</Text>
+              <TouchableOpacity onPress={() => setRejectId(null)}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            </View>
+            <View style={{ padding: 20, gap: 12 }}>
+              <Text style={{ color: '#aaa', fontSize: 13 }}>Indique o motivo da rejeição (opcional):</Text>
+              <TextInput
+                style={[mStyles.input, { height: 80, textAlignVertical: 'top' }]}
+                value={rejectMotivo}
+                onChangeText={setRejectMotivo}
+                placeholder="Ex: Livro reservado, exemplar danificado…"
+                placeholderTextColor="#555"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+            <View style={mStyles.footer}>
+              <TouchableOpacity style={mStyles.cancelBtn} onPress={() => setRejectId(null)}>
+                <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[mStyles.saveBtn, { backgroundColor: '#EF5350' }]} onPress={rejeitar} disabled={!!processing}>
+                {processing ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>Rejeitar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 }
 
-function EmprestimoCard({ emp, isReadOnly, onDevolver }: { emp: Emprestimo; isReadOnly: boolean; onDevolver: () => void }) {
+function EmprestimoCard({ emp, canManage, onDevolver }: { emp: Emprestimo; canManage: boolean; onDevolver: () => void }) {
   const isAtrasado = emp.status === 'atrasado';
   const isDevolvido = emp.status === 'devolvido';
   const dias = !isDevolvido ? diasAtraso(emp.dataPrevistaDevolucao) : 0;
-
   const statusColor = isAtrasado ? '#EF5350' : isDevolvido ? '#66BB6A' : '#5E6AD2';
   const statusLabel = isAtrasado ? 'Atrasado' : isDevolvido ? 'Devolvido' : 'Emprestado';
 
@@ -565,7 +896,7 @@ function EmprestimoCard({ emp, isReadOnly, onDevolver }: { emp: Emprestimo; isRe
           <Text style={eStyles.atrasoText}>{dias} dia{dias !== 1 ? 's' : ''} de atraso</Text>
         </View>
       )}
-      {!isDevolvido && !isReadOnly && (
+      {!isDevolvido && canManage && (
         <TouchableOpacity style={eStyles.devolverBtn} onPress={onDevolver}>
           <Ionicons name="return-down-back" size={14} color="#fff" />
           <Text style={eStyles.devolverText}>Registar Devolução</Text>
@@ -593,12 +924,11 @@ function tipoColor(tipo: string) {
   return m[tipo] || '#888';
 }
 
-// ─── Novo Empréstimo Modal ────────────────────────────────────────────────────
-function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
-  visible: boolean; livros: Livro[]; onClose: () => void; onSaved: () => void;
+// ─── Novo Empréstimo Modal (direct, staff only) ────────────────────────────────────────────────────
+function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
+  visible: boolean; livros: Livro[]; user: any; onClose: () => void; onSaved: () => void;
 }) {
   const { showToast } = useToast();
-  const { user } = useAuth();
   const [saving, setSaving] = useState(false);
   const [livroSearch, setLivroSearch] = useState('');
   const [livroSel, setLivroSel] = useState<Livro | null>(null);
@@ -651,7 +981,7 @@ function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
       <View style={mStyles.overlay}>
         <View style={mStyles.sheet}>
           <View style={mStyles.header}>
-            <Text style={mStyles.headerTitle}>Novo Empréstimo</Text>
+            <Text style={mStyles.headerTitle}>Registar Empréstimo</Text>
             <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
           </View>
           <ScrollView style={mStyles.body} keyboardShouldPersistTaps="handled">
@@ -682,10 +1012,8 @@ function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
                 )}
               </>
             )}
-
             <MLabel>Nome do Leitor *</MLabel>
             <MInput value={form.nomeLeitor} onChangeText={upd('nomeLeitor')} placeholder="Nome completo" />
-
             <MLabel>Tipo de Leitor</MLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
               {TIPOS_LEITOR.map(t => (
@@ -694,18 +1022,16 @@ function NovoEmprestimoModal({ visible, livros, onClose, onSaved }: {
                 </TouchableOpacity>
               ))}
             </View>
-
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>Data de Empréstimo</MLabel>
                 <MInput value={form.dataEmprestimo} onChangeText={upd('dataEmprestimo')} placeholder="AAAA-MM-DD" />
               </View>
               <View style={{ flex: 1 }}>
-                <MLabel>Data de Devolução Prevista</MLabel>
+                <MLabel>Data Prevista de Devolução</MLabel>
                 <MInput value={form.dataPrevistaDevolucao} onChangeText={upd('dataPrevistaDevolucao')} placeholder="AAAA-MM-DD" />
               </View>
             </View>
-
             <MLabel>Observações</MLabel>
             <MInput value={form.observacao} onChangeText={upd('observacao')} placeholder="Observações opcionais" multiline style={{ height: 60, textAlignVertical: 'top' }} />
           </ScrollView>
@@ -742,7 +1068,6 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
       contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 120 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
     >
-      {/* KPI Grid */}
       <View style={sStyles.kpiGrid}>
         <KpiCard icon="library" label="Títulos" value={livros.length.toString()} color="#5E6AD2" />
         <KpiCard icon="albums" label="Exemplares" value={totalLivros.toString()} color="#26A69A" />
@@ -752,7 +1077,6 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         <KpiCard icon="return-down-back" label="Devolvidos" value={devolvidos.length.toString()} color="#42A5F5" />
       </View>
 
-      {/* Taxa de ocupação */}
       <View style={sStyles.section}>
         <Text style={sStyles.sectionTitle}>Taxa de Ocupação</Text>
         <View style={sStyles.progressRow}>
@@ -764,7 +1088,6 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         <Text style={sStyles.progressSub}>{totalEmprestados} de {totalLivros} exemplares emprestados</Text>
       </View>
 
-      {/* Categorias */}
       {topCats.length > 0 && (
         <View style={sStyles.section}>
           <Text style={sStyles.sectionTitle}>Livros por Categoria</Text>
@@ -781,10 +1104,9 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         </View>
       )}
 
-      {/* Atrasados */}
       {atrasados.length > 0 && (
         <View style={sStyles.section}>
-          <Text style={[sStyles.sectionTitle, { color: '#EF5350' }]}>Empréstimos em Atraso ({atrasados.length})</Text>
+          <Text style={[sStyles.sectionTitle, { color: '#EF5350' }]}>Em Atraso ({atrasados.length})</Text>
           {atrasados.map(e => {
             const dias = diasAtraso(e.dataPrevistaDevolucao);
             return (
@@ -817,7 +1139,6 @@ function KpiCard({ icon, label, value, color }: { icon: string; label: string; v
   );
 }
 
-// ─── Shared Form Components ────────────────────────────────────────────────────
 function MLabel({ children }: { children: string }) {
   return <Text style={mStyles.label}>{children}</Text>;
 }
@@ -840,101 +1161,148 @@ const styles = StyleSheet.create({
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   searchInput: { flex: 1, color: '#fff', fontSize: 14 },
   addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
-  filterScroll: { maxHeight: 44 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
-  chipText: { color: '#aaa', fontSize: 12, fontWeight: '600' },
+  catScroll: { maxHeight: 36, marginBottom: 4 },
+  catChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
+  catChipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  catChipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
   filterRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   filterChipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   filterChipText: { color: '#aaa', fontSize: 12, fontWeight: '600' },
-  emptyBox: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyText: { color: '#666', fontSize: 16, fontWeight: '600' },
+  emptyBox: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 10 },
+  emptyText: { color: '#555', fontSize: 15, fontWeight: '600' },
   emptySub: { color: '#444', fontSize: 13 },
 });
 
-const bStyles = StyleSheet.create({
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#12122a', borderRadius: 12, padding: 12, gap: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  catBadge: { width: 42, height: 42, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  cardInfo: { flex: 1, gap: 2 },
-  cardTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  cardAutor: { color: '#aaa', fontSize: 12 },
-  cardCat: { color: '#5E6AD2', fontSize: 11, fontWeight: '600', backgroundColor: 'rgba(94,106,210,0.12)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
-  cardIsbn: { color: '#666', fontSize: 11 },
-  cardLoc: { color: '#888', fontSize: 11, marginTop: 2 },
-  cardRight: { alignItems: 'center', gap: 4 },
-  dispBox: { borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, flexDirection: 'row', alignItems: 'baseline', gap: 1 },
-  dispNum: { fontSize: 16, fontWeight: '800' },
-  dispLabel: { fontSize: 10, color: '#666' },
-  dispTag: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
-  editBtn: { marginTop: 4, width: 28, height: 28, borderRadius: 8, backgroundColor: 'rgba(94,106,210,0.15)', alignItems: 'center', justifyContent: 'center' },
+// Book card styles
+const bookStyles = StyleSheet.create({
+  card: { flex: 1, backgroundColor: '#13131f', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  coverWrap: { width: '100%', aspectRatio: 2 / 3, position: 'relative' },
+  coverImg: { width: '100%', height: '100%' },
+  coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10 },
+  coverCat: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  availBadge: { position: 'absolute', top: 6, right: 6, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  availText: { color: '#fff', fontSize: 10, fontWeight: '800' },
+  info: { padding: 10, gap: 3, flex: 1 },
+  titulo: { color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 16 },
+  autor: { color: '#aaa', fontSize: 11 },
+  editora: { color: '#666', fontSize: 10 },
+  actions: { paddingHorizontal: 10, paddingBottom: 10 },
+  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#5E6AD222', borderWidth: 1, borderColor: '#5E6AD244' },
+  editBtnText: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
+  solicitarBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#5E6AD2' },
+  solicitarBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  esgotadoBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EF535022', borderWidth: 1, borderColor: '#EF535044', alignItems: 'center' },
+  esgotadoText: { color: '#EF5350', fontSize: 11, fontWeight: '700' },
 });
 
+// Solicitar modal styles
+const solStyles = StyleSheet.create({
+  bookPreview: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', backgroundColor: '#0d1120', borderRadius: 12, padding: 12 },
+  previewImg: { width: 56, height: 80, borderRadius: 6 },
+  previewPlaceholder: { width: 56, height: 80, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  previewTitulo: { color: '#fff', fontSize: 14, fontWeight: '700', lineHeight: 18 },
+  previewAutor: { color: '#aaa', fontSize: 12, marginTop: 3 },
+  previewDisp: { color: '#66BB6A', fontSize: 11, marginTop: 6 },
+  daysLabel: { color: '#aaa', fontSize: 13, fontWeight: '600', marginBottom: 10 },
+  dayBtns: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  dayBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, backgroundColor: '#1a2040', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', alignItems: 'center' },
+  dayBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  dayBtnText: { color: '#aaa', fontSize: 13, fontWeight: '700' },
+  daysInput: { backgroundColor: '#1a1a2e', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 14 },
+  infoBox: { flexDirection: 'row', gap: 8, backgroundColor: '#5E6AD211', borderRadius: 10, padding: 12 },
+  infoText: { color: '#888', fontSize: 12, flex: 1, lineHeight: 17 },
+});
+
+// Emprestimos styles
+const empStyles = StyleSheet.create({
+  pendentesSection: { margin: 12, backgroundColor: '#FFA72611', borderRadius: 14, borderWidth: 1, borderColor: '#FFA72633', overflow: 'hidden' },
+  pendenteHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderBottomWidth: 1, borderBottomColor: '#FFA72633' },
+  pendenteTitle: { color: '#FFA726', fontSize: 13, fontWeight: '700', flex: 1 },
+  pendenteCount: { backgroundColor: '#FFA726', borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+  pendenteCountText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  pedidoCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  pedidoTitulo: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  pedidoLeitor: { color: '#aaa', fontSize: 12 },
+  pedidoData: { color: '#555', fontSize: 11, marginTop: 2 },
+  diasChip: { flexDirection: 'row', gap: 3, alignItems: 'center', backgroundColor: '#5E6AD222', borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  diasChipText: { color: '#5E6AD2', fontSize: 10, fontWeight: '700' },
+  pedidoBtns: { flexDirection: 'row', gap: 6 },
+  aprovarBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#66BB6A', alignItems: 'center', justifyContent: 'center' },
+  rejeitarBtn: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#EF5350', alignItems: 'center', justifyContent: 'center' },
+});
+
+// Emprestimo card styles
 const eStyles = StyleSheet.create({
-  card: { backgroundColor: '#12122a', borderRadius: 12, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  cardAtrasado: { borderColor: 'rgba(239,83,80,0.3)' },
-  cardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  livroInfo: { flex: 1, gap: 4 },
+  card: { backgroundColor: '#13131f', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  cardAtrasado: { borderColor: '#EF535044', backgroundColor: '#EF535011' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  livroInfo: { flex: 1, marginRight: 10 },
   livroTitulo: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  leitorRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  leitorNome: { color: '#aaa', fontSize: 12, flex: 1 },
-  tipoBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  leitorRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  leitorNome: { color: '#aaa', fontSize: 12 },
+  tipoBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
   tipoText: { fontSize: 10, fontWeight: '700' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  datesRow: { flexDirection: 'row', gap: 12 },
-  datePill: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  dateLabel: { fontSize: 9, fontWeight: '600', letterSpacing: 0.5 },
-  dateVal: { fontSize: 11, fontWeight: '700' },
-  atrasoAlert: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(239,83,80,0.1)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
-  atrasoText: { color: '#EF5350', fontSize: 12, fontWeight: '700' },
-  devolverBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#5E6AD2', borderRadius: 8, paddingVertical: 8 },
+  datesRow: { flexDirection: 'row', gap: 14, marginBottom: 8 },
+  datePill: { flexDirection: 'row', gap: 5, alignItems: 'flex-start' },
+  dateLabel: { fontSize: 10 },
+  dateVal: { fontSize: 12, fontWeight: '600' },
+  atrasoAlert: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
+  atrasoText: { color: '#EF5350', fontSize: 12, fontWeight: '600' },
+  devolverBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#26A69A', borderRadius: 8, paddingVertical: 8 },
   devolverText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
 
+// Modal styles
+const mStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: '#0f1423', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  body: { maxHeight: 480 },
+  footer: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  cancelBtn: { flex: 1, paddingVertical: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#1a1a2e' },
+  saveBtn: { flex: 2, paddingVertical: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#5E6AD2' },
+  label: { color: '#aaa', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  input: { backgroundColor: '#13131f', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 14, marginBottom: 4 },
+  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  chipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
+  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 4, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+  livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  livroOptionSub: { color: '#888', fontSize: 11, marginTop: 2 },
+  capaPreview: { alignItems: 'center', gap: 6, marginVertical: 8 },
+  capaImg: { width: 80, height: 112, borderRadius: 8 },
+  capaHint: { color: '#555', fontSize: 11 },
+});
+
+// Stats styles
 const sStyles = StyleSheet.create({
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  kpiCard: { flex: 1, minWidth: 90, backgroundColor: '#12122a', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6, borderWidth: 1 },
-  kpiIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  kpiCard: { width: '31%', backgroundColor: '#13131f', borderRadius: 12, padding: 12, alignItems: 'center', gap: 6, borderWidth: 1 },
+  kpiIcon: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   kpiValue: { fontSize: 20, fontWeight: '800' },
-  kpiLabel: { color: '#888', fontSize: 10, fontWeight: '600', textAlign: 'center' },
-  section: { backgroundColor: '#12122a', borderRadius: 12, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  sectionTitle: { color: '#aaa', fontSize: 11, fontWeight: '800', letterSpacing: 1, marginBottom: 2 },
+  kpiLabel: { color: '#666', fontSize: 11, fontWeight: '600' },
+  section: { backgroundColor: '#13131f', borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  progressBg: { flex: 1, height: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 4, overflow: 'hidden' },
+  progressBg: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#1a1a2e', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
-  progressLabel: { color: '#fff', fontSize: 14, fontWeight: '800', width: 40, textAlign: 'right' },
+  progressLabel: { color: '#fff', fontSize: 14, fontWeight: '700', minWidth: 36, textAlign: 'right' },
   progressSub: { color: '#666', fontSize: 12 },
   catRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   catDot: { width: 8, height: 8, borderRadius: 4 },
-  catName: { width: 110, color: '#ccc', fontSize: 12 },
-  catBarBg: { flex: 1, height: 6, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden' },
+  catName: { color: '#aaa', fontSize: 12, width: 100 },
+  catBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#1a1a2e', overflow: 'hidden' },
   catBarFill: { height: '100%', borderRadius: 3 },
-  catCount: { color: '#aaa', fontSize: 12, fontWeight: '700', width: 24, textAlign: 'right' },
-  atrasoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  catCount: { color: '#666', fontSize: 12, minWidth: 20, textAlign: 'right' },
+  atrasoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   atrasoTitulo: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  atrasoLeitor: { color: '#888', fontSize: 11 },
-  atrasoChip: { backgroundColor: 'rgba(239,83,80,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(239,83,80,0.3)' },
-  atrasoChipText: { color: '#EF5350', fontSize: 11, fontWeight: '800' },
-});
-
-const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  sheet: { backgroundColor: '#0f0f22', borderRadius: 16, width: '100%', maxWidth: 500, maxHeight: '90%', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  body: { padding: 16 },
-  footer: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.1)' },
-  label: { color: '#aaa', fontSize: 11, fontWeight: '700', letterSpacing: 0.5, marginBottom: 6 },
-  input: { backgroundColor: '#1a1a2e', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10, color: '#fff', fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', marginBottom: 14 },
-  chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
-  chipText: { color: '#aaa', fontSize: 12, fontWeight: '600' },
-  cancelBtn: { flex: 1, height: 44, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
-  saveBtn: { flex: 2, height: 44, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
-  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(94,106,210,0.15)', borderRadius: 8, padding: 10, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(94,106,210,0.3)', gap: 8 },
-  livroDropdown: { backgroundColor: '#1a1a2e', borderRadius: 8, marginTop: -8, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
-  livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  livroOptionSub: { color: '#888', fontSize: 11 },
+  atrasoLeitor: { color: '#888', fontSize: 11, marginTop: 2 },
+  atrasoChip: { backgroundColor: '#EF535022', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#EF535044' },
+  atrasoChipText: { color: '#EF5350', fontSize: 12, fontWeight: '700' },
 });

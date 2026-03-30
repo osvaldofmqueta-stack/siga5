@@ -44,6 +44,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // MED (Ministério da Educação) integration routes
   registerMEDRoutes(app);
 
+  // ─── DB MIGRATIONS ──────────────────────────────────────────────────────────
+  try {
+    await query(`ALTER TABLE public.livros ADD COLUMN IF NOT EXISTS "capaUrl" text NOT NULL DEFAULT ''`, []);
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.solicitacoes_emprestimo (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "livroId" varchar NOT NULL,
+        "livroTitulo" text NOT NULL,
+        "alunoId" varchar,
+        "nomeLeitor" text NOT NULL,
+        "tipoLeitor" text NOT NULL DEFAULT 'aluno',
+        "diasSolicitados" integer NOT NULL DEFAULT 14,
+        status text NOT NULL DEFAULT 'pendente',
+        "motivoRejeicao" text,
+        "registadoPor" text NOT NULL DEFAULT 'Sistema',
+        "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+      )
+    `, []);
+  } catch (migErr) {
+    console.warn('[migration] biblioteca migration warning:', (migErr as Error).message);
+  }
+
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
   });
@@ -3752,10 +3774,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const b = req.body as Record<string, unknown>;
       const rows = await query<JsonObject>(
-        `INSERT INTO public.livros (titulo, autor, isbn, categoria, editora, "anoPublicacao", "quantidadeTotal", "quantidadeDisponivel", localizacao, descricao)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9) RETURNING *`,
+        `INSERT INTO public.livros (titulo, autor, isbn, categoria, editora, "anoPublicacao", "quantidadeTotal", "quantidadeDisponivel", localizacao, descricao, "capaUrl")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$7,$8,$9,$10) RETURNING *`,
         [b.titulo, b.autor, b.isbn || '', b.categoria || 'Geral', b.editora || '', b.anoPublicacao || null,
-         b.quantidadeTotal || 1, b.localizacao || '', b.descricao || '']
+         b.quantidadeTotal || 1, b.localizacao || '', b.descricao || '', b.capaUrl || '']
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
@@ -3765,7 +3787,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = req.body as Record<string, unknown>;
-      const allowed = ['titulo', 'autor', 'isbn', 'categoria', 'editora', 'anoPublicacao', 'quantidadeTotal', 'quantidadeDisponivel', 'localizacao', 'descricao', 'ativo'];
+      const allowed = ['titulo', 'autor', 'isbn', 'categoria', 'editora', 'anoPublicacao', 'quantidadeTotal', 'quantidadeDisponivel', 'localizacao', 'descricao', 'ativo', 'capaUrl'];
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         if (key in b) { values.push(b[key]); setParts.push(`"${key}"=$${values.length}`); }
@@ -3843,6 +3865,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [today]
       );
       json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // ─── SOLICITAÇÕES DE EMPRÉSTIMO ──────────────────────────────────────────────
+  app.get('/api/solicitacoes-emprestimo', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const { status } = req.query;
+      let sql = `SELECT * FROM public.solicitacoes_emprestimo`;
+      const params: unknown[] = [];
+      if (status) { sql += ` WHERE status=$1`; params.push(status); }
+      sql += ` ORDER BY "createdAt" DESC`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/solicitacoes-emprestimo', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      const livro = await query<JsonObject>(`SELECT * FROM public.livros WHERE id=$1 AND ativo=true`, [b.livroId]);
+      if (!livro[0]) return json(res, 404, { error: 'Livro não encontrado.' });
+      if (Number(livro[0].quantidadeDisponivel) < 1) return json(res, 400, { error: 'Livro sem exemplares disponíveis.' });
+
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.solicitacoes_emprestimo ("livroId","livroTitulo","alunoId","nomeLeitor","tipoLeitor","diasSolicitados",status,"registadoPor")
+         VALUES ($1,$2,$3,$4,$5,$6,'pendente',$7) RETURNING *`,
+        [b.livroId, livro[0].titulo, b.alunoId || null, b.nomeLeitor, b.tipoLeitor || 'aluno',
+         b.diasSolicitados || 14, b.registadoPor || 'Aluno']
+      );
+
+      const today = new Date().toISOString().slice(0, 10);
+      await query(
+        `INSERT INTO public.notificacoes (titulo, mensagem, tipo, data, lida)
+         VALUES ($1,$2,'info',$3,false)`,
+        [`Pedido de Empréstimo`, `${b.nomeLeitor} solicitou o livro "${livro[0].titulo}" por ${b.diasSolicitados || 14} dias.`, today]
+      ).catch(() => {});
+
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/solicitacoes-emprestimo/:id', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = req.body as Record<string, unknown>;
+      const sol = await query<JsonObject>(`SELECT * FROM public.solicitacoes_emprestimo WHERE id=$1`, [id]);
+      if (!sol[0]) return json(res, 404, { error: 'Solicitação não encontrada.' });
+      if (sol[0].status !== 'pendente') return json(res, 400, { error: 'Solicitação já processada.' });
+
+      if (b.status === 'aprovado') {
+        const livro = await query<JsonObject>(`SELECT * FROM public.livros WHERE id=$1`, [sol[0].livroId]);
+        if (!livro[0] || Number(livro[0].quantidadeDisponivel) < 1) return json(res, 400, { error: 'Livro sem exemplares disponíveis.' });
+
+        const hoje = new Date().toISOString().slice(0, 10);
+        const devolucao = new Date(Date.now() + Number(sol[0].diasSolicitados) * 86400000).toISOString().slice(0, 10);
+        await query(
+          `INSERT INTO public.emprestimos ("livroId","livroTitulo","alunoId","nomeLeitor","tipoLeitor","dataEmprestimo","dataPrevistaDevolucao",status,"registadoPor")
+           VALUES ($1,$2,$3,$4,$5,$6,$7,'emprestado',$8)`,
+          [sol[0].livroId, sol[0].livroTitulo, sol[0].alunoId, sol[0].nomeLeitor, sol[0].tipoLeitor, hoje, devolucao, b.aprovadoPor || 'Biblioteca']
+        );
+        await query(`UPDATE public.livros SET "quantidadeDisponivel"="quantidadeDisponivel"-1 WHERE id=$1`, [sol[0].livroId]);
+        await query(`UPDATE public.solicitacoes_emprestimo SET status='aprovado' WHERE id=$1`, [id]);
+        json(res, 200, { ok: true, status: 'aprovado' });
+      } else if (b.status === 'rejeitado') {
+        await query(
+          `UPDATE public.solicitacoes_emprestimo SET status='rejeitado', "motivoRejeicao"=$1 WHERE id=$2`,
+          [b.motivoRejeicao || null, id]
+        );
+        json(res, 200, { ok: true, status: 'rejeitado' });
+      } else {
+        json(res, 400, { error: 'Status inválido. Use "aprovado" ou "rejeitado".' });
+      }
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
