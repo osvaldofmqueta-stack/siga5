@@ -104,6 +104,14 @@ export default function MainLayout() {
           <Stack.Screen name="documentos-hub" />
           <Stack.Screen name="exclusoes-faltas" />
           <Stack.Screen name="quadro-honra" />
+          <Stack.Screen name="disciplinas" />
+          <Stack.Screen name="trabalhos-finais" />
+          <Stack.Screen name="transferencias" />
+          <Stack.Screen name="desempenho" />
+          <Stack.Screen name="extrato-propinas" />
+          <Stack.Screen name="professor-plano-aula" />
+          <Stack.Screen name="gerar-documento" />
+          <Stack.Screen name="presencas" options={{}} />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>

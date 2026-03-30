@@ -294,6 +294,7 @@ export default function DrawerLeft() {
       items: [
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },
         { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
+        { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={20} color="inherit" />, permKey: 'disciplinas' },
         { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'grelha' },
         { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={20} color="inherit" />, permKey: 'pedagogico' },
         { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={20} color="inherit" />, permKey: 'pedagogico' },
