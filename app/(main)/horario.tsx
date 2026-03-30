@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInputDimensions, ActivityIndicator } from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  Dimensions,
+  ActivityIndicator
+} from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';

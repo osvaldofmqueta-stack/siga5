@@ -1,4 +1,6 @@
-import { Platform} from 'react-native';
+import {
+  Platform
+} from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { webAlert } from '@/utils/webAlert';
 

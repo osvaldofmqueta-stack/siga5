@@ -1,7 +1,18 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, Modal, TextInput, Platform, LinkingActivityIndicator, RefreshControl } from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  FlatList,
+  Modal,
+  TextInput,
+  Platform,
+  Linking,
+  ActivityIndicator,
+  RefreshControl
+} from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';

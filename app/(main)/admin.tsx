@@ -1,8 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useLocalSearchParams } from 'expo-router';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInputModal, Platform, Switch } from 'react-native';
+  useLocalSearchParams } from 'expo-router';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Modal,
+  Platform,
+  Switch
+} from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';

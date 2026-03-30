@@ -1,7 +1,16 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInputFlatList, Platform, RefreshControl } from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  FlatList,
+  Platform,
+  RefreshControl
+} from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { DonutChart, BarChart } from '@/components/Charts';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

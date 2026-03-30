@@ -1,8 +1,17 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, PlatformModal, FlatList, ActivityIndicator,
-  BackHandler } from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  Modal,
+  FlatList,
+  ActivityIndicator,
+  BackHandler
+} from 'react-native';
 import * as XLSX from 'xlsx';
 import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';

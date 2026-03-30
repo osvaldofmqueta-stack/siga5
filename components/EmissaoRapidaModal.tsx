@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity,
-  TextInput, Platform, ActivityIndicator} from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  Modal,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Platform,
+  ActivityIndicator
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { api } from '@/lib/api';

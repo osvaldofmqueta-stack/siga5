@@ -2,8 +2,16 @@ import React, { useState, useMemo } from 'react';
 import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import MapaAproveitamentoModal from '@/components/MapaAproveitamentoModal';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Modal, TextInput, Platform, Dimensions} from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  Platform,
+  Dimensions
+} from 'react-native';
 import * as XLSX from 'xlsx';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

@@ -1,7 +1,19 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView,
-  Platform, Dimensions, FlatList, ImageAnimated, ActivityIndicator, Modal } from 'react-native';
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  Platform,
+  Dimensions,
+  FlatList,
+  Image,
+  Animated,
+  ActivityIndicator,
+  Modal
+} from 'react-native';
 import { Editor } from '@tinymce/tinymce-react';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as XLSX from 'xlsx';
