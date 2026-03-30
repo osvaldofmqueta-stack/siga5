@@ -4420,7 +4420,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // TRABALHOS FINAIS DE CURSO
   // -----------------------
-  app.get('/api/trabalhos-finais', requireAuth, async (req: Request, res: Response) => {
+  app.get('/api/trabalhos-finais', async (_req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(
         `SELECT * FROM public.trabalhos_finais WHERE ativo=true ORDER BY "anoConclusao" DESC, autor ASC`
@@ -4483,7 +4483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/trabalhos-finais/:id/visita', requireAuth, async (req: Request, res: Response) => {
+  app.post('/api/trabalhos-finais/:id/visita', async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const rows = await query<JsonObject>(

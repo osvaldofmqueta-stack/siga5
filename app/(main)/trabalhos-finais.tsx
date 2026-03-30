@@ -7,7 +7,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, getAuthToken } from '@/context/AuthContext';
 
 interface TrabalhoFinal {
   id: string;
@@ -56,16 +56,17 @@ function cursoColor(curso: string) {
   return CURSO_COLORS[curso] || '#888';
 }
 
-function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
-  return fetch(url, {
+async function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
+  const token = await getAuthToken();
+  const authHeader: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+  const res = await fetch(url, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: { 'Content-Type': 'application/json', ...authHeader, ...opts?.headers },
     credentials: 'include',
-  }).then(async r => {
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error || 'Erro de servidor');
-    return data as T;
   });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error || 'Erro de servidor');
+  return data as T;
 }
 
 export default function TrabalhosFinals() {
@@ -471,10 +472,12 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
         try {
           const fd = new FormData();
           fd.append('file', file);
+          const tok = await getAuthToken();
           const res = await fetch('/api/upload', {
             method: 'POST',
             body: fd,
             credentials: 'include',
+            headers: tok ? { Authorization: `Bearer ${tok}` } : undefined,
           });
           const data = await res.json();
           if (!res.ok) throw new Error(data?.error || 'Erro ao carregar imagem');
