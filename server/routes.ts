@@ -46,6 +46,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── DB MIGRATIONS ──────────────────────────────────────────────────────────
   try {
+    await query(`ALTER TABLE public.disciplinas ADD COLUMN IF NOT EXISTS componente TEXT NOT NULL DEFAULT ''`, []);
+  } catch (migErr) {
+    console.warn('[migration] disciplinas componente:', (migErr as Error).message);
+  }
+  try {
     await query(`ALTER TABLE public.livros ADD COLUMN IF NOT EXISTS "capaUrl" text NOT NULL DEFAULT ''`, []);
     await query(`
       CREATE TABLE IF NOT EXISTS public.solicitacoes_emprestimo (
@@ -3167,10 +3172,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const b = requireBodyObject(req);
       if (!b.nome) return json(res, 400, { error: 'Nome é obrigatório.' });
       const tipo = (b.tipo === 'terminal' || b.tipo === 'continuidade') ? b.tipo : 'continuidade';
+      const COMPS = ['Sócio-Cultural', 'Científica', 'Técnica, Tecnológica e Prática'];
+      const componente = COMPS.includes(String(b.componente)) ? String(b.componente) : '';
       const rows = await query<JsonObject>(
-        `INSERT INTO public.disciplinas (nome, codigo, area, descricao, ativo, tipo, "classeInicio", "classeFim")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true, tipo, b.classeInicio || '', b.classeFim || '']
+        `INSERT INTO public.disciplinas (nome, codigo, area, descricao, ativo, tipo, "classeInicio", "classeFim", componente)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true, tipo, b.classeInicio || '', b.classeFim || '', componente]
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
@@ -3181,9 +3188,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const b = requireBodyObject(req);
       const tipo = (b.tipo === 'terminal' || b.tipo === 'continuidade') ? b.tipo : 'continuidade';
+      const COMPS = ['Sócio-Cultural', 'Científica', 'Técnica, Tecnológica e Prática'];
+      const componente = COMPS.includes(String(b.componente)) ? String(b.componente) : '';
       const rows = await query<JsonObject>(
-        `UPDATE public.disciplinas SET nome=$1, codigo=$2, area=$3, descricao=$4, ativo=$5, tipo=$6, "classeInicio"=$7, "classeFim"=$8 WHERE id=$9 RETURNING *`,
-        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true, tipo, b.classeInicio || '', b.classeFim || '', id]
+        `UPDATE public.disciplinas SET nome=$1, codigo=$2, area=$3, descricao=$4, ativo=$5, tipo=$6, "classeInicio"=$7, "classeFim"=$8, componente=$9 WHERE id=$10 RETURNING *`,
+        [b.nome, b.codigo || '', b.area || '', b.descricao || '', b.ativo ?? true, tipo, b.classeInicio || '', b.classeFim || '', componente, id]
       );
       if (!rows.length) return json(res, 404, { error: 'Disciplina não encontrada.' });
       json(res, 200, rows[0]);

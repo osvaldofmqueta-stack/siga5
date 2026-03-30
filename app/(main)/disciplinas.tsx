@@ -21,6 +21,33 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
 
+// ─── Constantes ─────────────────────────────────────────────────────────────
+
+const COMPONENTES = [
+  'Sócio-Cultural',
+  'Científica',
+  'Técnica, Tecnológica e Prática',
+] as const;
+type Componente = typeof COMPONENTES[number] | '';
+
+const COMPONENTE_COLORS: Record<string, string> = {
+  'Sócio-Cultural':                   '#8B5CF6',
+  'Científica':                        '#3B82F6',
+  'Técnica, Tecnológica e Prática':   '#F59E0B',
+};
+
+const COMPONENTE_ICONS: Record<string, string> = {
+  'Sócio-Cultural':                   'account-group',
+  'Científica':                        'atom',
+  'Técnica, Tecnológica e Prática':   'wrench',
+};
+
+const COMPONENTE_SHORT: Record<string, string> = {
+  'Sócio-Cultural':                   'Sócio-Cultural',
+  'Científica':                        'Científica',
+  'Técnica, Tecnológica e Prática':   'Técnica / Prática',
+};
+
 const AREAS_DEFAULT = [
   'Ciências Exactas',
   'Ciências Naturais',
@@ -40,6 +67,8 @@ const CLASSES_DEFAULT = [
   '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe',
 ];
 
+// ─── Tipos ───────────────────────────────────────────────────────────────────
+
 interface Disciplina {
   id: string;
   nome: string;
@@ -50,6 +79,7 @@ interface Disciplina {
   tipo: string;
   classeInicio: string;
   classeFim: string;
+  componente: string;
   createdAt: string;
 }
 
@@ -62,6 +92,7 @@ interface FormState {
   tipo: string;
   classeInicio: string;
   classeFim: string;
+  componente: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -73,9 +104,12 @@ const EMPTY_FORM: FormState = {
   tipo: 'continuidade',
   classeInicio: '',
   classeFim: '',
+  componente: '',
 };
 
 type PickerField = 'area' | 'classeInicio' | 'classeFim' | null;
+
+// ─── Modal de Formulário ──────────────────────────────────────────────────────
 
 function DisciplinaFormModal({
   visible, onClose, onSave, disciplina,
@@ -104,6 +138,7 @@ function DisciplinaFormModal({
         tipo: disciplina.tipo || 'continuidade',
         classeInicio: disciplina.classeInicio || '',
         classeFim: disciplina.classeFim || '',
+        componente: disciplina.componente || '',
       });
     } else {
       setForm({ ...EMPTY_FORM, area: areas[0] || AREAS_DEFAULT[0] });
@@ -111,10 +146,6 @@ function DisciplinaFormModal({
   }, [disciplina, visible, areas]);
 
   const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
-
-  function handleTipoChange(t: string) {
-    set('tipo', t);
-  }
 
   async function handleSave() {
     if (!form.nome.trim()) {
@@ -154,6 +185,8 @@ function DisciplinaFormModal({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+            {/* Nome */}
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Nome da Disciplina *</Text>
               <TextInput
@@ -166,6 +199,7 @@ function DisciplinaFormModal({
               />
             </View>
 
+            {/* Código */}
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Código</Text>
               <TextInput
@@ -179,6 +213,37 @@ function DisciplinaFormModal({
               />
             </View>
 
+            {/* Componente — específico para cursos técnico-profissionais */}
+            <View style={mStyles.field}>
+              <Text style={mStyles.fieldLabel}>Componente Curricular</Text>
+              <Text style={mStyles.fieldHint}>
+                Para cursos técnico-profissionais. Deixe em branco para disciplinas do ensino geral.
+              </Text>
+              <View style={mStyles.compRow}>
+                {COMPONENTES.map(c => {
+                  const active = form.componente === c;
+                  const color = COMPONENTE_COLORS[c];
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={[mStyles.compBtn, active && { backgroundColor: color + '22', borderColor: color + '70' }]}
+                      onPress={() => set('componente', active ? '' : c)}
+                    >
+                      <MaterialCommunityIcons
+                        name={COMPONENTE_ICONS[c] as any}
+                        size={15}
+                        color={active ? color : Colors.textMuted}
+                      />
+                      <Text style={[mStyles.compBtnText, active && { color, fontFamily: 'Inter_600SemiBold' }]}>
+                        {COMPONENTE_SHORT[c]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Área */}
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Área de Conhecimento</Text>
               <TouchableOpacity
@@ -192,13 +257,13 @@ function DisciplinaFormModal({
               </TouchableOpacity>
             </View>
 
-            {/* Tipo: Terminal ou Continuidade */}
+            {/* Tipo */}
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Tipo de Disciplina</Text>
               <View style={mStyles.tipoRow}>
                 <TouchableOpacity
                   style={[mStyles.tipoBtn, form.tipo === 'continuidade' && mStyles.tipoBtnActive]}
-                  onPress={() => handleTipoChange('continuidade')}
+                  onPress={() => set('tipo', 'continuidade')}
                 >
                   <MaterialCommunityIcons
                     name="arrow-right-bold-circle"
@@ -211,7 +276,7 @@ function DisciplinaFormModal({
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[mStyles.tipoBtn, form.tipo === 'terminal' && mStyles.tipoBtnTerminal]}
-                  onPress={() => handleTipoChange('terminal')}
+                  onPress={() => set('tipo', 'terminal')}
                 >
                   <MaterialCommunityIcons
                     name="flag-checkered"
@@ -225,7 +290,7 @@ function DisciplinaFormModal({
               </View>
               <Text style={mStyles.tipoHint}>
                 {form.tipo === 'terminal'
-                  ? 'Disciplina terminal: leccionada num intervalo específico de classes (ex: só na 10ª ou 10ª–11ª).'
+                  ? 'Disciplina terminal: leccionada num intervalo específico de classes.'
                   : 'Disciplina de continuidade: leccionada ao longo de vários anos consecutivos.'}
               </Text>
             </View>
@@ -244,11 +309,9 @@ function DisciplinaFormModal({
                   <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
                 </TouchableOpacity>
               </View>
-
               <View style={mStyles.classeSep}>
                 <Ionicons name="arrow-forward" size={16} color={Colors.textMuted} />
               </View>
-
               <View style={[mStyles.field, { flex: 1 }]}>
                 <Text style={mStyles.fieldLabel}>Classe de Fim</Text>
                 <TouchableOpacity
@@ -263,6 +326,7 @@ function DisciplinaFormModal({
               </View>
             </View>
 
+            {/* Descrição */}
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Descrição</Text>
               <TextInput
@@ -276,6 +340,7 @@ function DisciplinaFormModal({
               />
             </View>
 
+            {/* Activa */}
             <View style={mStyles.switchRow}>
               <Text style={mStyles.fieldLabel}>Disciplina activa</Text>
               <TouchableOpacity
@@ -287,6 +352,7 @@ function DisciplinaFormModal({
                 </Text>
               </TouchableOpacity>
             </View>
+
           </ScrollView>
 
           <TouchableOpacity style={mStyles.saveBtn} onPress={handleSave} disabled={saving}>
@@ -327,6 +393,8 @@ function DisciplinaFormModal({
   );
 }
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 const AREA_COLORS: Record<string, string> = {
   'Ciências Exactas': '#3B82F6',
   'Ciências Naturais': '#10B981',
@@ -351,6 +419,8 @@ function tipoBadge(tipo: string, classeInicio: string, classeFim: string) {
   return { isTerminal, range };
 }
 
+// ─── Ecrã Principal ───────────────────────────────────────────────────────────
+
 export default function DisciplinasScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
@@ -361,10 +431,12 @@ export default function DisciplinasScreen() {
   const [search, setSearch] = useState('');
   const [filterArea, setFilterArea] = useState<string>('Todas');
   const [filterTipo, setFilterTipo] = useState<string>('Todos');
+  const [filterComp, setFilterComp] = useState<string>('Todas');
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Disciplina | null>(null);
   const [showAreaFilter, setShowAreaFilter] = useState(false);
   const [showTipoFilter, setShowTipoFilter] = useState(false);
+  const [showCompFilter, setShowCompFilter] = useState(false);
 
   const { values: areasFromDB } = useLookup('areas_conhecimento', AREAS_DEFAULT);
 
@@ -386,6 +458,7 @@ export default function DisciplinasScreen() {
 
   const areas = ['Todas', ...areasFromDB];
   const tiposFilter = ['Todos', 'Continuidade', 'Terminal'];
+  const compFilter = ['Todas', ...COMPONENTES, 'Sem componente'];
 
   const filtered = disciplinas.filter(d => {
     const matchSearch = d.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -395,11 +468,17 @@ export default function DisciplinasScreen() {
     const matchTipo = filterTipo === 'Todos' ||
       (filterTipo === 'Terminal' && d.tipo === 'terminal') ||
       (filterTipo === 'Continuidade' && d.tipo !== 'terminal');
-    return matchSearch && matchArea && matchTipo;
+    const matchComp = filterComp === 'Todas' ||
+      (filterComp === 'Sem componente' && !d.componente) ||
+      d.componente === filterComp;
+    return matchSearch && matchArea && matchTipo && matchComp;
   });
 
-  const contTerminal = disciplinas.filter(d => d.tipo === 'terminal').length;
-  const contContinuidade = disciplinas.filter(d => d.tipo !== 'terminal').length;
+  // Contagens por componente
+  const cSocio    = disciplinas.filter(d => d.componente === 'Sócio-Cultural').length;
+  const cCiencia  = disciplinas.filter(d => d.componente === 'Científica').length;
+  const cTec      = disciplinas.filter(d => d.componente === 'Técnica, Tecnológica e Prática').length;
+  const cGeral    = disciplinas.filter(d => !d.componente).length;
 
   async function handleSave(form: FormState) {
     try {
@@ -454,6 +533,7 @@ export default function DisciplinasScreen() {
   const renderItem = ({ item }: { item: Disciplina }) => {
     const color = areaColor(item.area);
     const { isTerminal, range } = tipoBadge(item.tipo, item.classeInicio, item.classeFim);
+    const compColor = item.componente ? COMPONENTE_COLORS[item.componente] : null;
     return (
       <View style={[styles.card, !item.ativo && styles.cardInactive]}>
         <View style={[styles.cardLeft, { backgroundColor: color + '18', borderColor: color + '30' }]}>
@@ -467,7 +547,6 @@ export default function DisciplinasScreen() {
                 <Text style={[styles.codeText, { color }]}>{item.codigo}</Text>
               </View>
             ) : null}
-            {/* Tipo badge */}
             <View style={[styles.tipoBadge, isTerminal ? styles.tipoBadgeTerminal : styles.tipoBadgeCont]}>
               <MaterialCommunityIcons
                 name={isTerminal ? 'flag-checkered' : 'arrow-right-bold-circle'}
@@ -484,6 +563,21 @@ export default function DisciplinasScreen() {
               </View>
             )}
           </View>
+
+          {/* Componente badge */}
+          {item.componente ? (
+            <View style={[styles.compBadge, { backgroundColor: compColor! + '18', borderColor: compColor! + '40' }]}>
+              <MaterialCommunityIcons
+                name={COMPONENTE_ICONS[item.componente] as any}
+                size={10}
+                color={compColor!}
+              />
+              <Text style={[styles.compBadgeText, { color: compColor! }]}>
+                {COMPONENTE_SHORT[item.componente]}
+              </Text>
+            </View>
+          ) : null}
+
           {item.area ? (
             <View style={styles.areaRow}>
               <View style={[styles.areaDot, { backgroundColor: color }]} />
@@ -517,6 +611,8 @@ export default function DisciplinasScreen() {
     );
   };
 
+  const hasActiveFilter = filterTipo !== 'Todos' || filterArea !== 'Todas' || filterComp !== 'Todas';
+
   return (
     <View style={styles.screen}>
       <TopBar
@@ -525,7 +621,27 @@ export default function DisciplinasScreen() {
         rightAction={canEdit ? { icon: 'add-circle', onPress: () => { setEditItem(null); setShowForm(true); } } : undefined}
       />
 
+      {/* Hero — estatísticas por componente */}
       <LinearGradient colors={['#0D1B3E', '#112257']} style={styles.hero}>
+        <Text style={styles.heroLabel}>Cursos Técnico-Profissionais</Text>
+        <View style={styles.heroComps}>
+          {COMPONENTES.map(c => {
+            const count = c === 'Sócio-Cultural' ? cSocio : c === 'Científica' ? cCiencia : cTec;
+            const col = COMPONENTE_COLORS[c];
+            return (
+              <TouchableOpacity
+                key={c}
+                style={[styles.heroCompItem, filterComp === c && { backgroundColor: col + '25' }]}
+                onPress={() => setFilterComp(filterComp === c ? 'Todas' : c)}
+              >
+                <MaterialCommunityIcons name={COMPONENTE_ICONS[c] as any} size={16} color={col} />
+                <Text style={[styles.heroCompCount, { color: col }]}>{count}</Text>
+                <Text style={styles.heroCompLabel} numberOfLines={2}>{COMPONENTE_SHORT[c]}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        <View style={styles.heroDividerH} />
         <View style={styles.heroStats}>
           <View style={styles.heroStat}>
             <Text style={[styles.heroVal, { color: Colors.gold }]}>{disciplinas.length}</Text>
@@ -533,22 +649,23 @@ export default function DisciplinasScreen() {
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
-            <Text style={[styles.heroVal, { color: Colors.info }]}>{contContinuidade}</Text>
+            <Text style={[styles.heroVal, { color: Colors.info }]}>{disciplinas.filter(d => d.tipo !== 'terminal').length}</Text>
             <Text style={styles.heroLbl}>Continuidade</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
-            <Text style={[styles.heroVal, { color: Colors.warning }]}>{contTerminal}</Text>
+            <Text style={[styles.heroVal, { color: Colors.warning }]}>{disciplinas.filter(d => d.tipo === 'terminal').length}</Text>
             <Text style={styles.heroLbl}>Terminais</Text>
           </View>
           <View style={styles.heroDivider} />
           <View style={styles.heroStat}>
-            <Text style={[styles.heroVal, { color: Colors.textMuted }]}>{disciplinas.filter(d => !d.ativo).length}</Text>
-            <Text style={styles.heroLbl}>Inactivas</Text>
+            <Text style={[styles.heroVal, { color: '#84CC16' }]}>{cGeral}</Text>
+            <Text style={styles.heroLbl}>Ensino Geral</Text>
           </View>
         </View>
       </LinearGradient>
 
+      {/* Barra de pesquisa e filtros */}
       <View style={styles.filterRow}>
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
@@ -565,6 +682,16 @@ export default function DisciplinasScreen() {
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity
+          style={[styles.filterBtn, filterComp !== 'Todas' && { borderColor: COMPONENTE_COLORS[filterComp] + '70', backgroundColor: COMPONENTE_COLORS[filterComp] + '15' }]}
+          onPress={() => setShowCompFilter(true)}
+        >
+          <MaterialCommunityIcons
+            name="layers-triple"
+            size={14}
+            color={filterComp !== 'Todas' ? COMPONENTE_COLORS[filterComp] || Colors.gold : Colors.textMuted}
+          />
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.filterBtn, filterTipo !== 'Todos' && styles.filterBtnActive]}
           onPress={() => setShowTipoFilter(true)}
@@ -583,8 +710,20 @@ export default function DisciplinasScreen() {
         </TouchableOpacity>
       </View>
 
-      {(filterTipo !== 'Todos' || filterArea !== 'Todas') && (
+      {/* Chips de filtros activos */}
+      {hasActiveFilter && (
         <View style={styles.activeFiltersRow}>
+          {filterComp !== 'Todas' && (
+            <TouchableOpacity
+              style={[styles.activeFilterChip, { backgroundColor: (COMPONENTE_COLORS[filterComp] || Colors.textMuted) + '18', borderColor: (COMPONENTE_COLORS[filterComp] || Colors.textMuted) + '40' }]}
+              onPress={() => setFilterComp('Todas')}
+            >
+              <Text style={[styles.activeFilterText, { color: COMPONENTE_COLORS[filterComp] || Colors.textMuted }]}>
+                {COMPONENTE_SHORT[filterComp] || filterComp}
+              </Text>
+              <Ionicons name="close" size={11} color={COMPONENTE_COLORS[filterComp] || Colors.textMuted} />
+            </TouchableOpacity>
+          )}
           {filterTipo !== 'Todos' && (
             <TouchableOpacity style={styles.activeFilterChip} onPress={() => setFilterTipo('Todos')}>
               <Text style={styles.activeFilterText}>{filterTipo}</Text>
@@ -597,6 +736,9 @@ export default function DisciplinasScreen() {
               <Ionicons name="close" size={11} color={Colors.gold} />
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={styles.clearAllBtn} onPress={() => { setFilterComp('Todas'); setFilterTipo('Todos'); setFilterArea('Todas'); }}>
+            <Text style={styles.clearAllText}>Limpar tudo</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -617,12 +759,12 @@ export default function DisciplinasScreen() {
             <View style={styles.empty}>
               <MaterialCommunityIcons name="book-open-page-variant-outline" size={44} color={Colors.textMuted} />
               <Text style={styles.emptyTitle}>
-                {search || filterArea !== 'Todas' || filterTipo !== 'Todos'
+                {search || hasActiveFilter
                   ? 'Nenhuma disciplina encontrada'
                   : 'Sem disciplinas no catálogo'}
               </Text>
               <Text style={styles.emptyDesc}>
-                {canEdit && !search && filterArea === 'Todas' && filterTipo === 'Todos'
+                {canEdit && !search && !hasActiveFilter
                   ? 'Clique em "+" para adicionar a primeira disciplina ao catálogo da escola.'
                   : 'Tente ajustar os filtros de pesquisa.'}
               </Text>
@@ -637,6 +779,35 @@ export default function DisciplinasScreen() {
         onSave={handleSave}
         disciplina={editItem}
       />
+
+      {/* Filtro por Componente */}
+      <Modal visible={showCompFilter} transparent animationType="fade" onRequestClose={() => setShowCompFilter(false)}>
+        <TouchableOpacity style={mStyles.pickerOverlay} onPress={() => setShowCompFilter(false)} activeOpacity={1}>
+          <View style={mStyles.pickerList}>
+            <Text style={mStyles.pickerTitle}>Filtrar por Componente</Text>
+            {compFilter.map(c => {
+              const col = COMPONENTE_COLORS[c] || Colors.textMuted;
+              const isNone = c === 'Sem componente';
+              return (
+                <TouchableOpacity
+                  key={c}
+                  style={[mStyles.pickerItem, filterComp === c && mStyles.pickerItemActive]}
+                  onPress={() => { setFilterComp(c); setShowCompFilter(false); }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    {c !== 'Todas' && !isNone && (
+                      <MaterialCommunityIcons name={COMPONENTE_ICONS[c] as any} size={14} color={col} />
+                    )}
+                    {isNone && <Ionicons name="remove-circle-outline" size={14} color={Colors.textMuted} />}
+                    <Text style={[mStyles.pickerItemText, filterComp === c && mStyles.pickerItemTextActive, !isNone && c !== 'Todas' && { color: col }]}>{c}</Text>
+                  </View>
+                  {filterComp === c && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Filtro por Tipo */}
       <Modal visible={showTipoFilter} transparent animationType="fade" onRequestClose={() => setShowTipoFilter(false)}>
@@ -686,6 +857,8 @@ export default function DisciplinasScreen() {
   );
 }
 
+// ─── Estilos do Modal ─────────────────────────────────────────────────────────
+
 const mStyles = StyleSheet.create({
   overlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
@@ -707,6 +880,10 @@ const mStyles = StyleSheet.create({
     fontSize: 12, fontFamily: 'Inter_600SemiBold',
     color: Colors.textSecondary, marginBottom: 6,
   },
+  fieldHint: {
+    fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
+    marginBottom: 8, lineHeight: 15,
+  },
   input: {
     backgroundColor: Colors.surface, borderRadius: 10,
     borderWidth: 1, borderColor: Colors.border,
@@ -715,6 +892,14 @@ const mStyles = StyleSheet.create({
   },
   textarea: { minHeight: 70, textAlignVertical: 'top' },
   pickerBtn: { flexDirection: 'row', alignItems: 'center' },
+  // Componente selector
+  compRow: { gap: 8 },
+  compBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10,
+    backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border,
+  },
+  compBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted, flex: 1 },
   // Tipo selector
   tipoRow: { flexDirection: 'row', gap: 10 },
   tipoBtn: {
@@ -735,11 +920,8 @@ const mStyles = StyleSheet.create({
     fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
     marginTop: 6, lineHeight: 16,
   },
-  // Classe row
   classeRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginBottom: 14 },
-  classeSep: {
-    paddingBottom: 14, alignItems: 'center', justifyContent: 'center',
-  },
+  classeSep: { paddingBottom: 14, alignItems: 'center', justifyContent: 'center' },
   switchRow: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 16,
@@ -779,17 +961,36 @@ const mStyles = StyleSheet.create({
   pickerItemTextActive: { fontFamily: 'Inter_600SemiBold', color: Colors.gold },
 });
 
+// ─── Estilos da Lista ─────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   hero: {
     marginHorizontal: 16, marginTop: 12, borderRadius: 18,
-    padding: 18,
+    padding: 16,
   },
+  heroLabel: {
+    fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10,
+  },
+  heroComps: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  heroCompItem: {
+    flex: 1, alignItems: 'center', gap: 4,
+    borderRadius: 12, padding: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)',
+  },
+  heroCompCount: { fontSize: 18, fontFamily: 'Inter_700Bold' },
+  heroCompLabel: {
+    fontSize: 9, fontFamily: 'Inter_500Medium', color: Colors.textMuted,
+    textAlign: 'center', lineHeight: 12,
+  },
+  heroDividerH: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginBottom: 12 },
   heroStats: { flexDirection: 'row', alignItems: 'center' },
   heroStat: { flex: 1, alignItems: 'center' },
-  heroDivider: { width: 1, height: 32, backgroundColor: 'rgba(255,255,255,0.10)' },
-  heroVal: { fontSize: 22, fontFamily: 'Inter_700Bold' },
-  heroLbl: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  heroDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.10)' },
+  heroVal: { fontSize: 20, fontFamily: 'Inter_700Bold' },
+  heroLbl: { fontSize: 9, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
 
   filterRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -809,7 +1010,7 @@ const styles = StyleSheet.create({
   filterBtnAreaActive: { borderColor: Colors.gold + '60', backgroundColor: Colors.gold + '10' },
 
   activeFiltersRow: {
-    flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 4, flexWrap: 'wrap',
+    flexDirection: 'row', gap: 8, paddingHorizontal: 16, marginBottom: 4, flexWrap: 'wrap', alignItems: 'center',
   },
   activeFilterChip: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
@@ -823,6 +1024,8 @@ const styles = StyleSheet.create({
   activeFilterText: {
     fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.warning,
   },
+  clearAllBtn: { paddingHorizontal: 8, paddingVertical: 4 },
+  clearAllText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
 
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
   loadingText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
@@ -853,6 +1056,14 @@ const styles = StyleSheet.create({
   tipoBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   inactiveBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: Colors.textMuted + '20' },
   inactiveText: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  // Componente badge na lista
+  compBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6,
+    borderWidth: 1, marginTop: 5,
+  },
+  compBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
   areaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
   areaDot: { width: 6, height: 6, borderRadius: 3 },
   areaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
