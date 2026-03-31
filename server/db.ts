@@ -4,8 +4,8 @@ import { Pool } from "pg";
 dotenv.config();
 
 const databaseUrl =
-  process.env.DATABASE_URL ||
-  process.env.NEON_DATABASE_URL;
+  process.env.NEON_DATABASE_URL ||
+  process.env.DATABASE_URL;
 
 export const pool = new Pool({
   connectionString: databaseUrl,
