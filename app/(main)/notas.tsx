@@ -148,7 +148,10 @@ function NotaFormModal({
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  const isEditingExisting = nota !== null;
   const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
+
+  const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
 
   const makeEmpty = (): Partial<Nota> => ({
     alunoId: alunos[0]?.id || '',
@@ -196,11 +199,19 @@ function NotaFormModal({
 
   React.useEffect(() => {
     if (nota) {
+      setSelectedTurmaId(nota.turmaId || turmas[0]?.id || '');
       setForm({ ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() });
     } else {
-      setForm({ ...makeEmpty(), trimestre });
+      const defaultTurmaId = turmas[0]?.id || '';
+      setSelectedTurmaId(defaultTurmaId);
+      const firstAluno = alunos.find(a => !defaultTurmaId || a.turmaId === defaultTurmaId);
+      setForm({ ...makeEmpty(), trimestre, alunoId: firstAluno?.id || alunos[0]?.id || '' });
     }
   }, [nota, visible, trimestre]);
+
+  const alunosDaTurma = selectedTurmaId
+    ? alunos.filter((a: any) => a.turmaId === selectedTurmaId)
+    : alunos;
 
   const lanc = form.lancamentos || buildEmptyLanc();
 
@@ -273,6 +284,16 @@ function NotaFormModal({
             </TouchableOpacity>
           </View>
 
+          {/* Locked fields notice */}
+          {isEditingExisting && Object.values(lanc).some(Boolean) && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: Colors.warning + '40' }}>
+              <Ionicons name="lock-closed-outline" size={14} color={Colors.warning} />
+              <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 16 }}>
+                Campos já lançados estão bloqueados. Toque num campo bloqueado para mais informação.
+              </Text>
+            </View>
+          )}
+
           {/* Progress indicator */}
           <View style={mS.progressRow}>
             {activeAvalKeys.map((k) => (
@@ -291,12 +312,36 @@ function NotaFormModal({
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            {/* Turma */}
+            {turmas.length > 0 && (
+              <View style={mS.field}>
+                <Text style={mS.fieldLabel}>Turma / Classe</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={mS.chips}>
+                    {turmas.map((t: any) => (
+                      <TouchableOpacity
+                        key={t.id}
+                        style={[mS.chip, selectedTurmaId === t.id && mS.chipActive]}
+                        onPress={() => {
+                          setSelectedTurmaId(t.id);
+                          const first = alunos.find((a: any) => a.turmaId === t.id);
+                          if (first) set('alunoId', first.id);
+                        }}
+                      >
+                        <Text style={[mS.chipText, selectedTurmaId === t.id && mS.chipTextActive]}>{t.nome}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
+
             {/* Aluno */}
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Aluno</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={mS.chips}>
-                  {alunos.map((a: any) => (
+                  {alunosDaTurma.map((a: any) => (
                     <TouchableOpacity
                       key={a.id}
                       style={[mS.chip, form.alunoId === a.id && mS.chipActive]}
@@ -307,6 +352,9 @@ function NotaFormModal({
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  {alunosDaTurma.length === 0 && (
+                    <Text style={[mS.chipText, { paddingHorizontal: 4 }]}>Nenhum aluno nesta turma</Text>
+                  )}
                 </View>
               </ScrollView>
             </View>
@@ -342,16 +390,26 @@ function NotaFormModal({
                 </View>
               </View>
               <View style={mS.gradesGrid}>
-                {activeAvalKeys.map((key, i) => (
-                  <GradeInput
-                    key={key}
-                    label={`AVAL ${i + 1}`}
-                    value={(form[key as keyof Nota] as number) || 0}
-                    onChange={v => set(key as keyof Nota, v)}
-                    registered={!!(lanc[key as keyof NotaLancamentos])}
-                    max={5}
-                  />
-                ))}
+                {activeAvalKeys.map((key, i) => {
+                  const isLocked = isEditingExisting && !!(lanc[key as keyof NotaLancamentos]);
+                  return (
+                    <TouchableOpacity
+                      key={key}
+                      activeOpacity={isLocked ? 0.7 : 1}
+                      onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta avaliação já foi lançada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                      style={{ flex: 1 }}
+                    >
+                      <GradeInput
+                        label={`AVAL ${i + 1}`}
+                        value={(form[key as keyof Nota] as number) || 0}
+                        onChange={isLocked ? undefined : v => set(key as keyof Nota, v)}
+                        registered={!!(lanc[key as keyof NotaLancamentos])}
+                        readonly={isLocked}
+                        max={5}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {!avaisCompletas && avaisRegistadas > 0 && (
@@ -388,12 +446,30 @@ function NotaFormModal({
                   <Text style={mS.blockSub}>Escala 0–20</Text>
                 </View>
                 <View style={mS.gradesGrid}>
-                  {pp1Habilitado && (
-                    <GradeInput label="PP" value={form.pp1 || 0} onChange={v => set('pp1', v)} registered={lanc.pp1} />
-                  )}
-                  {pptHabilitado && (
-                    <GradeInput label="PT" value={form.ppt || 0} onChange={v => set('ppt', v)} registered={lanc.ppt} />
-                  )}
+                  {pp1Habilitado && (() => {
+                    const isLocked = isEditingExisting && lanc.pp1;
+                    return (
+                      <TouchableOpacity
+                        activeOpacity={isLocked ? 0.7 : 1}
+                        onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta prova já foi registada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                        style={{ flex: 1 }}
+                      >
+                        <GradeInput label="PP" value={form.pp1 || 0} onChange={isLocked ? undefined : v => set('pp1', v)} registered={lanc.pp1} readonly={isLocked} />
+                      </TouchableOpacity>
+                    );
+                  })()}
+                  {pptHabilitado && (() => {
+                    const isLocked = isEditingExisting && lanc.ppt;
+                    return (
+                      <TouchableOpacity
+                        activeOpacity={isLocked ? 0.7 : 1}
+                        onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta prova já foi registada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                        style={{ flex: 1 }}
+                      >
+                        <GradeInput label="PT" value={form.ppt || 0} onChange={isLocked ? undefined : v => set('ppt', v)} registered={lanc.ppt} readonly={isLocked} />
+                      </TouchableOpacity>
+                    );
+                  })()}
                 </View>
               </View>
             )}
@@ -498,21 +574,28 @@ export default function NotasScreen() {
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const isProfessor = user?.role === 'professor';
+  const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'].includes(user.role);
 
   const professorActual = useMemo(() => {
     if (!isProfessor || !user) return null;
-    return professores.find(p => p.id === user.id) || null;
+    return professores.find(p => p.id === user.id || p.email === user.email) || null;
   }, [isProfessor, user, professores]);
 
   const turmasDoProf = useMemo(() => {
-    if (!isProfessor || !professorActual) return turmas;
+    if (isPrivilegedRole) return turmas.filter(t => t.ativo !== false);
+    if (!isProfessor || !professorActual) return turmas.filter(t => t.ativo !== false);
     return turmas.filter(t => professorActual.turmasIds.includes(t.id));
-  }, [isProfessor, professorActual, turmas]);
+  }, [isProfessor, professorActual, turmas, isPrivilegedRole]);
 
-  const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
+  const { items: disciplinasLookupItems } = useLookup('disciplinas_fallback', [
     'Matemática', 'Português', 'Física', 'Química', 'Biologia',
     'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
   ]);
+  // Stable reference — items from useState is stable; .map() creates new refs every render so we memo it
+  const disciplinasFallback = useMemo(
+    () => disciplinasLookupItems.map(i => i.valor),
+    [disciplinasLookupItems]
+  );
 
   const [disciplinasDisponiveis, setDisciplinasDisponiveis] = useState<string[]>([
     'Matemática', 'Português', 'Física', 'Química', 'Biologia',
@@ -549,10 +632,11 @@ export default function NotasScreen() {
   }, [filterTurma, turmasDoProf, isProfessor, professorActual, disciplinasFallback]);
 
   const alunosDisponiveis = useMemo(() => {
+    if (isPrivilegedRole) return alunos.filter(a => a.ativo);
     if (!isProfessor || !professorActual) return alunos.filter(a => a.ativo);
     const turmaIds = new Set(professorActual.turmasIds);
     return alunos.filter(a => a.ativo && turmaIds.has(a.turmaId));
-  }, [isProfessor, professorActual, alunos]);
+  }, [isProfessor, professorActual, alunos, isPrivilegedRole]);
 
   const filtered = useMemo(() => {
     return notas.filter(n => {
