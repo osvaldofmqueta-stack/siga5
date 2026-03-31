@@ -27,7 +27,28 @@ interface Curso { id: string; nome: string; codigo: string; areaFormacao: string
 
 const NIVEIS_FALLBACK = ['Primário', 'I Ciclo', 'II Ciclo'];
 const TURNOS_FALLBACK = ['Manhã', 'Tarde', 'Noite'];
-const CLASSES_FALLBACK = ['1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
+const CLASSES_FALLBACK = ['Iniciação', '1ª Classe', '2ª Classe', '3ª Classe', '4ª Classe', '5ª Classe', '6ª Classe', '7ª Classe', '8ª Classe', '9ª Classe', '10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
+
+function classeNumero(c: string): number {
+  return parseInt(c.replace(/[^0-9]/g, ''), 10) || 0;
+}
+
+function classesPorNivel(nivel: string, allClasses: string[]): string[] {
+  const n = nivel?.toLowerCase() || '';
+  if (n.includes('primário') || n.includes('primario')) {
+    return allClasses.filter(c => {
+      const num = classeNumero(c);
+      return c.toLowerCase().includes('iniciação') || c.toLowerCase().includes('iniciacao') || (num >= 1 && num <= 6);
+    });
+  }
+  if (n.includes('ii ciclo') || n === 'ii ciclo') {
+    return allClasses.filter(c => { const num = classeNumero(c); return num >= 10 && num <= 13; });
+  }
+  if (n.includes('i ciclo') || n === 'i ciclo') {
+    return allClasses.filter(c => { const num = classeNumero(c); return num >= 7 && num <= 9; });
+  }
+  return allClasses;
+}
 
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
   const { anoSelecionado } = useAnoAcademico();
@@ -35,17 +56,27 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
   const { values: niveis } = useLookup('niveis', NIVEIS_FALLBACK);
   const { values: turnos } = useLookup('turnos', TURNOS_FALLBACK);
   const { values: classes } = useLookup('classes', CLASSES_FALLBACK);
-  const defaultClasse = classes[6] || classes[0] || '7ª Classe';
-  const defaultTurno = turnos[0] || 'Manhã';
-  const defaultNivel = niveis[1] || niveis[0] || 'I Ciclo';
+  const defaultNivel = turma?.nivel || niveis[1] || niveis[0] || 'I Ciclo';
+  const defaultTurno = turma?.turno || turnos[0] || 'Manhã';
+  const defaultClassesPorNivel = classesPorNivel(defaultNivel, classes);
+  const defaultClasse = turma?.classe || defaultClassesPorNivel[0] || classes[0] || '7ª Classe';
   const [form, setForm] = useState<Partial<Turma>>(turma || {
     nome: '', classe: defaultClasse, turno: defaultTurno, anoLetivo: anoAtual,
-    nivel: defaultNivel, professorId: professores[0]?.id || '', sala: '', capacidade: 35, ativo: true,
+    nivel: defaultNivel, professorId: '', sala: '', capacidade: 35, ativo: true,
   });
   const [cursos, setCursos] = useState<Curso[]>([]);
   const set = (k: keyof Turma, v: any) => setForm(f => ({ ...f, [k]: v }));
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const classesDoNivel = classesPorNivel(form.nivel || defaultNivel, classes);
+  const isIICiclo = (form.nivel || '').toLowerCase().includes('ii ciclo');
+
+  function handleNivelChange(n: string) {
+    const classesNivel = classesPorNivel(n, classes);
+    const primeiraClasse = classesNivel[0] || classes[0] || '';
+    setForm(f => ({ ...f, nivel: n, classe: primeiraClasse }));
+  }
 
   useEffect(() => {
     if (visible) {
@@ -128,12 +159,31 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
               <Text style={mS.fieldLabel}>Nível</Text>
               <View style={mS.toggleRow}>
                 {niveis.map(n => (
-                  <TouchableOpacity key={n} style={[mS.toggleBtn, form.nivel === n && mS.toggleActive]} onPress={() => set('nivel', n)}>
+                  <TouchableOpacity key={n} style={[mS.toggleBtn, form.nivel === n && mS.toggleActive]} onPress={() => handleNivelChange(n)}>
                     <Text style={[mS.toggleText, form.nivel === n && mS.toggleTextActive]}>{n}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+
+            <View style={mS.field}>
+              <Text style={mS.fieldLabel}>Classe</Text>
+              {classesDoNivel.length === 0 ? (
+                <View style={mS.emptyRoomHint}>
+                  <Ionicons name="alert-circle-outline" size={15} color={Colors.warning} />
+                  <Text style={mS.emptyRoomText}>Seleccione um nível para ver as classes disponíveis.</Text>
+                </View>
+              ) : (
+                <View style={mS.toggleRow}>
+                  {classesDoNivel.map(c => (
+                    <TouchableOpacity key={c} style={[mS.toggleBtn, form.classe === c && mS.toggleActive]} onPress={() => set('classe', c)}>
+                      <Text style={[mS.toggleText, form.classe === c && mS.toggleTextActive]}>{c}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Turno</Text>
               <View style={mS.toggleRow}>
@@ -144,34 +194,33 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
                 ))}
               </View>
             </View>
+
             <View style={mS.field}>
-              <Text style={mS.fieldLabel}>Classe</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={mS.toggleRow}>
-                  {classes.map(c => (
-                    <TouchableOpacity key={c} style={[mS.toggleBtn, form.classe === c && mS.toggleActive]} onPress={() => set('classe', c)}>
-                      <Text style={[mS.toggleText, form.classe === c && mS.toggleTextActive]}>{c}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <Text style={mS.fieldLabel}>Director de Turma <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text></Text>
+              {professores.length === 0 ? (
+                <View style={mS.emptyRoomHint}>
+                  <Ionicons name="person-outline" size={15} color={Colors.warning} />
+                  <Text style={mS.emptyRoomText}>Nenhum professor registado.</Text>
                 </View>
-              </ScrollView>
-            </View>
-            <View style={mS.field}>
-              <Text style={mS.fieldLabel}>Director de Turma</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={mS.toggleRow}>
-                  {professores.map((p: any) => (
-                    <TouchableOpacity key={p.id} style={[mS.toggleBtn, form.professorId === p.id && mS.toggleActive]} onPress={() => set('professorId', p.id)}>
-                      <Text style={[mS.toggleText, form.professorId === p.id && mS.toggleTextActive]}>{p.nome}</Text>
+              ) : (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={mS.toggleRow}>
+                    <TouchableOpacity style={[mS.toggleBtn, !form.professorId && mS.toggleActive]} onPress={() => set('professorId', '')}>
+                      <Text style={[mS.toggleText, !form.professorId && mS.toggleTextActive]}>Nenhum</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+                    {professores.map((p: any) => (
+                      <TouchableOpacity key={p.id} style={[mS.toggleBtn, form.professorId === p.id && mS.toggleActive]} onPress={() => set('professorId', p.id)}>
+                        <Text style={[mS.toggleText, form.professorId === p.id && mS.toggleTextActive]}>{p.nome} {p.apelido}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </View>
 
-            {cursos.length > 0 && (
+            {isIICiclo && cursos.length > 0 && (
               <View style={mS.field}>
-                <Text style={mS.fieldLabel}>Curso (II Ciclo — opcional)</Text>
+                <Text style={mS.fieldLabel}>Curso <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text></Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={mS.toggleRow}>
                     <TouchableOpacity style={[mS.toggleBtn, !form.cursoId && mS.toggleActive]} onPress={() => set('cursoId', undefined)}>
