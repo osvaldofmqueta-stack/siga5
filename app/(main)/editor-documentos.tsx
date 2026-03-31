@@ -1858,7 +1858,10 @@ Ao clicar em "Emitir", poderá filtrar por:
 • Estado: Admitidos | Matriculados | Ambos
 • Classe: Todas as classes ou uma classe específica
 
-Para a 10ª Classe com cursos / áreas de formação definidos, a lista é automaticamente organizada por curso, facilitando a distribuição em turmas.
+Organização automática da lista:
+• Ensino Primário (1ª–6ª Classe): separado por classe
+• I Ciclo (7ª–9ª Classe): separado por classe
+• II Ciclo (10ª–13ª Classe): separado por classe e, dentro de cada classe, por curso / área de formação
 
 Dados incluídos em cada linha:
 • Nome completo do estudante
@@ -1886,7 +1889,7 @@ Este modelo gera a lista oficial de resultados do processo de admissão, dividid
   ✓ ADMITIDOS — Estudantes aprovados e admitidos por classe/curso
   ✗ NÃO ADMITIDOS — Estudantes que não foram admitidos por classe/curso
 
-Para a 10ª Classe com cursos / áreas de formação definidos, cada secção é organizada automaticamente por curso.
+Para o II Ciclo (10ª–13ª Classe) com cursos / áreas de formação definidos, cada secção é organizada automaticamente por classe e curso.
 
 Conteúdo de cada linha:
   • Posição (1.º, 2.º, 3.º …)

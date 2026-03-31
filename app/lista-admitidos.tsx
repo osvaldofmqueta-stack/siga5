@@ -74,17 +74,23 @@ function buildListaHTML(
 
   const classesSorted = Object.keys(byClasse).sort((a, b) => a.localeCompare(b));
 
+  // II Ciclo = 10ª–13ª Classe (separado por classe E curso)
+  // I Ciclo (7ª–9ª) e Primária (1ª–6ª) = separado apenas por classe
+  const II_CICLO_NUMS = ['10', '11', '12', '13'];
+  function isIICiclo(classe: string) {
+    return II_CICLO_NUMS.some(n => classe.includes(`${n}ª`) || classe.includes(`${n}a`));
+  }
+
   let tablesHtml = '';
   let globalOrder = 1;
 
   for (const classe of classesSorted) {
     const cursosObj = byClasse[classe];
     const cursoKeys = Object.keys(cursosObj).sort();
-    const is10 = classe.includes('10ª') || classe.includes('10a');
     const hasCourses = cursoKeys.length > 1 || (cursoKeys.length === 1 && cursoKeys[0] !== 'Geral');
 
-    if (is10 && hasCourses) {
-      // Header for the class
+    if (isIICiclo(classe) && hasCourses) {
+      // II Ciclo: header por classe, sub-tabela por curso
       tablesHtml += `
         <div class="classe-header">${classe} — Distribuição por Curso / Área de Formação</div>
       `;
@@ -96,6 +102,7 @@ function buildListaHTML(
         globalOrder += alunos.length;
       }
     } else {
+      // Primária e I Ciclo: agrupado apenas por classe
       const alunos = Object.values(cursosObj).flat().sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
       const masc = alunos.filter(a => a.genero === 'M').length;
       const fem = alunos.filter(a => a.genero === 'F').length;
@@ -406,9 +413,6 @@ export default function ListaAdmitidosScreen() {
           </View>
         ) : (
           filtrados.slice(0, 20).map((r, idx) => {
-            const sBg = r.status === 'matriculado' ? Colors.gold + '22' : Colors.success + '22';
-            const sCol = r.status === 'matriculado' ? Colors.gold : Colors.success;
-            const sLabel = r.status === 'matriculado' ? 'Matriculado' : 'Admitido';
             return (
               <View key={r.id} style={styles.regRow}>
                 <Text style={styles.regNum}>{idx + 1}</Text>
@@ -419,9 +423,11 @@ export default function ListaAdmitidosScreen() {
                     {r.notaAdmissao !== undefined && r.notaAdmissao !== null ? ` · Nota: ${r.notaAdmissao}/20` : ''}
                   </Text>
                 </View>
-                <View style={[styles.badge, { backgroundColor: sBg }]}>
-                  <Text style={[styles.badgeText, { color: sCol }]}>{sLabel}</Text>
-                </View>
+                {r.status === 'matriculado' && (
+                  <View style={[styles.badge, { backgroundColor: Colors.gold + '22' }]}>
+                    <Text style={[styles.badgeText, { color: Colors.gold }]}>Matriculado</Text>
+                  </View>
+                )}
               </View>
             );
           })
