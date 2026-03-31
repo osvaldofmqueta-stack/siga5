@@ -132,7 +132,7 @@ export default function PortalEstudanteScreen() {
   const { user, updateUser } = useAuth();
   const { alunos, turmas, notas, presencas, eventos, updateAluno } = useData();
   const {
-    taxas, pagamentos, addPagamento, getPagamentosAluno, getTaxasByNivel,
+    taxas, pagamentos, addPagamento, addPagamentoSelf, getPagamentosAluno, getTaxasByNivel,
     isAlunoBloqueado, getMensagensAluno, marcarMensagemLida: marcarMsgFinLida,
     getRUPEsAluno, getMesesEmAtraso, calcularMulta, multaConfig,
   } = useFinanceiro();
@@ -164,7 +164,10 @@ export default function PortalEstudanteScreen() {
   const [taxaParaPagar, setTaxaParaPagar] = useState<any>(null);
   const [metodoPagarTaxa, setMetodoPagarTaxa] = useState<'rupe' | 'multicaixa'>('rupe');
   const [showPagarCartao, setShowPagarCartao] = useState(false);
-  const [cartaoMetodo, setCartaoMetodo] = useState<'rupe' | 'multicaixa'>('rupe');
+  const [cartaoPayStep, setCartaoPayStep] = useState<'metodos' | 'form' | 'done'>('metodos');
+  const [cartaoMetodoExt, setCartaoMetodoExt] = useState<'referencia_atm' | 'multicaixa_express' | 'rupe'>('multicaixa_express');
+  const [cartaoPhone, setCartaoPhone] = useState('');
+  const [cartaoRefGerada, setCartaoRefGerada] = useState<string | null>(null);
   const [documentosEmitidos, setDocumentosEmitidos] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
@@ -408,24 +411,42 @@ export default function PortalEstudanteScreen() {
     : null;
   const cartaoValido = !!pagamentoCartaoAtual;
 
+  function abrirModalPagarCartao() {
+    setCartaoPayStep('metodos');
+    setCartaoMetodoExt('multicaixa_express');
+    setCartaoPhone('');
+    setCartaoRefGerada(null);
+    setShowPagarCartao(true);
+  }
+
   async function handlePagarCartao() {
     if (!aluno) return;
     setIsLoading(true);
     try {
       const ref = `CE-${anoLetivo}-${aluno.numeroMatricula}-${Date.now().toString(36).toUpperCase()}`;
-      await addPagamento({
+      const metodoMap: Record<typeof cartaoMetodoExt, string> = {
+        referencia_atm: 'multicaixa',
+        multicaixa_express: 'multicaixa',
+        rupe: 'transferencia',
+      };
+      const observacaoMap: Record<typeof cartaoMetodoExt, string> = {
+        referencia_atm: 'Cartão de Estudante Virtual — Pagamento por Referência ATM',
+        multicaixa_express: `Cartão de Estudante Virtual — MULTICAIXA Express (${cartaoPhone})`,
+        rupe: 'Cartão de Estudante Virtual — RUPE',
+      };
+      await addPagamentoSelf({
         alunoId: aluno.id,
         taxaId: CARTAO_TAXA_ID,
         valor: CARTAO_VALOR,
         data: new Date().toISOString().split('T')[0],
         ano: anoLetivo,
-        status: 'pago',
-        metodoPagamento: cartaoMetodo === 'rupe' ? 'transferencia' : 'multicaixa',
+        status: 'pendente',
+        metodoPagamento: metodoMap[cartaoMetodoExt] as any,
         referencia: ref,
-        observacao: 'Cartão de Estudante Virtual',
+        observacao: observacaoMap[cartaoMetodoExt],
       });
-      setShowPagarCartao(false);
-      webAlert('Cartão Activado!', `O seu cartão de estudante está agora válido para ${anoLetivo}.\nReferência: ${ref}`);
+      setCartaoRefGerada(ref);
+      setCartaoPayStep('done');
     } finally {
       setIsLoading(false);
     }
@@ -683,7 +704,7 @@ export default function PortalEstudanteScreen() {
             <Text style={styles.cartaoPagoText}>Cartão pago e válido para {anoLetivo}</Text>
           </View>
         ) : (
-          <TouchableOpacity style={styles.cartaoPagarBtn} onPress={() => setShowPagarCartao(true)}>
+          <TouchableOpacity style={styles.cartaoPagarBtn} onPress={abrirModalPagarCartao}>
             <Ionicons name="card" size={18} color="#fff" />
             <Text style={styles.cartaoPagarBtnText}>Pagar Cartão de Estudante — {formatAOA(CARTAO_VALOR)}</Text>
           </TouchableOpacity>
@@ -692,61 +713,166 @@ export default function PortalEstudanteScreen() {
         {/* ── Payment modal ── */}
         <Modal visible={showPagarCartao} transparent animationType="slide" onRequestClose={() => setShowPagarCartao(false)}>
           <View style={styles.modalOverlay}>
-            <View style={styles.modalBox}>
-              <View style={styles.modalHeader}>
-                <Ionicons name="card" size={20} color={Colors.gold} />
-                <Text style={styles.modalTitle}>Pagar Cartão de Estudante</Text>
-                <TouchableOpacity onPress={() => setShowPagarCartao(false)}>
-                  <Ionicons name="close" size={22} color={Colors.textMuted} />
-                </TouchableOpacity>
-              </View>
+            <View style={[styles.modalBox, { paddingHorizontal: 0, paddingBottom: 0, overflow: 'hidden' }]}>
 
-              <View style={styles.infoCard}>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Descrição</Text>
-                  <Text style={styles.infoVal}>Cartão de Estudante Virtual</Text>
-                </View>
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Ano Lectivo</Text>
-                  <Text style={styles.infoVal}>{anoLetivo}</Text>
-                </View>
-                <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
-                  <Text style={styles.infoLabel}>Valor</Text>
-                  <Text style={[styles.infoVal, { color: Colors.gold, fontFamily: 'Inter_700Bold', fontSize: 16 }]}>{formatAOA(CARTAO_VALOR)}</Text>
-                </View>
-              </View>
+              {/* ─── STEP 1: Selecção do método ─── */}
+              {cartaoPayStep === 'metodos' && (
+                <>
+                  {/* Header colorido com valor */}
+                  <View style={styles.pagHeaderBg}>
+                    <Text style={styles.pagHeaderLabel}>Valor a pagar</Text>
+                    <Text style={styles.pagHeaderValor}>Kz {CARTAO_VALOR.toLocaleString('pt-AO')}</Text>
+                    <Text style={styles.pagHeaderSub}>Cartão de Estudante Virtual · {anoLetivo}</Text>
+                  </View>
 
-              <Text style={styles.formLabel}>Método de Pagamento</Text>
-              <View style={styles.trimestreSelector}>
-                {(['rupe', 'multicaixa'] as const).map(m => (
-                  <TouchableOpacity
-                    key={m}
-                    style={[styles.trimBtn, cartaoMetodo === m && styles.trimBtnActive]}
-                    onPress={() => setCartaoMetodo(m)}
-                  >
-                    <Ionicons name={m === 'rupe' ? 'swap-horizontal' : 'card'} size={14} color={cartaoMetodo === m ? Colors.gold : Colors.textMuted} />
-                    <Text style={[styles.trimBtnText, cartaoMetodo === m && styles.trimBtnTextActive]}>
-                      {m === 'rupe' ? 'RUPE' : 'Multicaixa'}
+                  <View style={{ paddingHorizontal: 20, paddingTop: 16 }}>
+                    {/* Prazo */}
+                    <View style={styles.pagPrazoRow}>
+                      <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
+                      <Text style={styles.pagPrazoText}>Devido em {new Date().toLocaleDateString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric' })}</Text>
+                    </View>
+
+                    {/* Opções de pagamento */}
+                    {([
+                      { key: 'referencia_atm', label: 'Pagamento por Referência', sub: 'ATM / Caixas Multicaixa', icon: 'business-outline' },
+                      { key: 'multicaixa_express', label: 'Pague com MULTICAIXA Express', sub: 'Pagamento imediato via app', icon: 'phone-portrait-outline' },
+                      { key: 'rupe', label: 'Pagamento por Referência (RUPE)', sub: 'Referência Única de Pagamento', icon: 'receipt-outline' },
+                    ] as const).map(opt => (
+                      <TouchableOpacity
+                        key={opt.key}
+                        style={styles.pagMetodoRow}
+                        onPress={() => setCartaoMetodoExt(opt.key)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.pagMetodoLabel}>{opt.label}</Text>
+                          <Text style={styles.pagMetodoSub}>{opt.sub}</Text>
+                        </View>
+                        <View style={[styles.pagRadio, cartaoMetodoExt === opt.key && styles.pagRadioActive]}>
+                          {cartaoMetodoExt === opt.key && <View style={styles.pagRadioDot} />}
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+
+                    <TouchableOpacity
+                      style={[styles.pagBtnTeal, { marginTop: 20, marginBottom: 16 }]}
+                      onPress={() => setCartaoPayStep('form')}
+                    >
+                      <Text style={styles.pagBtnTealText}>Continuar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ alignItems: 'center', paddingBottom: 16 }} onPress={() => setShowPagarCartao(false)}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 14 }}>Cancelar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {/* ─── STEP 2: Formulário do método escolhido ─── */}
+              {cartaoPayStep === 'form' && (
+                <>
+                  <View style={{ paddingHorizontal: 20, paddingTop: 20, alignItems: 'center' }}>
+                    {/* Ícone */}
+                    <View style={styles.pagFormIconWrap}>
+                      <Ionicons
+                        name={cartaoMetodoExt === 'multicaixa_express' ? 'phone-portrait-outline' : cartaoMetodoExt === 'rupe' ? 'receipt-outline' : 'business-outline'}
+                        size={36}
+                        color={Colors.primary}
+                      />
+                    </View>
+
+                    <Text style={styles.pagFormTitle}>
+                      {cartaoMetodoExt === 'multicaixa_express' ? 'Pague com MULTICAIXA Express' :
+                       cartaoMetodoExt === 'rupe' ? 'Pagamento por Referência RUPE' :
+                       'Pagamento por Referência ATM'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
 
-              <TouchableOpacity
-                style={[styles.submitBtn, { flexDirection: 'row', gap: 8 }, isLoading && { opacity: 0.6 }]}
-                onPress={handlePagarCartao}
-                disabled={isLoading}
-              >
-                {isLoading ? <ActivityIndicator color="#fff" /> : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                    <Text style={styles.submitBtnText}>Confirmar Pagamento</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.closeBtn} onPress={() => setShowPagarCartao(false)}>
-                <Text style={styles.closeBtnText}>Cancelar</Text>
-              </TouchableOpacity>
+                    <View style={styles.pagFormAmountRow}>
+                      <Text style={styles.pagFormAmountLabel}>Valor a pagar:</Text>
+                      <Text style={styles.pagFormAmount}>Kz {CARTAO_VALOR.toLocaleString('pt-AO')}</Text>
+                    </View>
+
+                    {/* MULTICAIXA Express: campo de telefone */}
+                    {cartaoMetodoExt === 'multicaixa_express' && (
+                      <View style={styles.pagPhoneWrap}>
+                        <Text style={styles.pagPhoneLabel}>Número de telefone</Text>
+                        <View style={styles.pagPhoneRow}>
+                          <Text style={styles.pagPhonePrefix}>+244</Text>
+                          <TextInput
+                            style={styles.pagPhoneInput}
+                            placeholder="9XX XXX XXX"
+                            placeholderTextColor={Colors.textMuted}
+                            keyboardType="phone-pad"
+                            value={cartaoPhone}
+                            onChangeText={setCartaoPhone}
+                            maxLength={9}
+                          />
+                        </View>
+                        <Text style={styles.pagPhoneHint}>Receberá uma notificação na app MULTICAIXA Express para aprovar o pagamento.</Text>
+                      </View>
+                    )}
+
+                    {/* Referência ATM / RUPE: mostrar instruções */}
+                    {cartaoMetodoExt !== 'multicaixa_express' && (
+                      <View style={styles.pagRefInfoBox}>
+                        <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
+                        <Text style={styles.pagRefInfoText}>
+                          {cartaoMetodoExt === 'referencia_atm'
+                            ? 'Será gerada uma referência de pagamento. Dirija-se a qualquer caixa ATM Multicaixa para efectuar o pagamento.'
+                            : 'Será gerada uma referência RUPE. Efectue o pagamento em qualquer balcão bancário ou ATM.'}
+                        </Text>
+                      </View>
+                    )}
+
+                    <TouchableOpacity
+                      style={[styles.pagBtnTeal, { marginTop: 20, marginBottom: 10, width: '100%' }, isLoading && { opacity: 0.6 }]}
+                      onPress={handlePagarCartao}
+                      disabled={isLoading || (cartaoMetodoExt === 'multicaixa_express' && cartaoPhone.replace(/\s/g, '').length < 9)}
+                    >
+                      {isLoading
+                        ? <ActivityIndicator color="#fff" />
+                        : <Text style={styles.pagBtnTealText}>
+                            {cartaoMetodoExt === 'multicaixa_express' ? 'Iniciar Pagamento' : 'Gerar Referência'}
+                          </Text>
+                      }
+                    </TouchableOpacity>
+                    <TouchableOpacity style={{ alignItems: 'center', paddingBottom: 20 }} onPress={() => setCartaoPayStep('metodos')}>
+                      <Text style={{ color: Colors.textMuted, fontSize: 14 }}>← Voltar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+
+              {/* ─── STEP 3: Confirmação ─── */}
+              {cartaoPayStep === 'done' && (
+                <View style={{ paddingHorizontal: 20, paddingTop: 24, paddingBottom: 20, alignItems: 'center' }}>
+                  <View style={[styles.pagFormIconWrap, { backgroundColor: '#e8f8f0' }]}>
+                    <Ionicons name="checkmark-circle" size={40} color={Colors.success} />
+                  </View>
+                  <Text style={[styles.pagFormTitle, { marginTop: 12 }]}>Pedido Registado!</Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 6 }}>
+                    {cartaoMetodoExt === 'multicaixa_express'
+                      ? `Foi enviado um pedido de pagamento para +244 ${cartaoPhone}.\nAprove na app MULTICAIXA Express para concluir.`
+                      : 'A sua referência de pagamento foi gerada. Efectue o pagamento e aguarde a confirmação da secretaria.'}
+                  </Text>
+                  {cartaoRefGerada && (
+                    <View style={styles.pagRefBox}>
+                      <Text style={styles.pagRefBoxLabel}>Referência</Text>
+                      <Text style={styles.pagRefBoxVal}>{cartaoRefGerada}</Text>
+                    </View>
+                  )}
+                  <View style={styles.pagRefInfoBox}>
+                    <Ionicons name="time-outline" size={16} color={Colors.warning} />
+                    <Text style={styles.pagRefInfoText}>O pagamento ficará pendente até ser confirmado pelo departamento financeiro.</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.pagBtnTeal, { marginTop: 20, width: '100%' }]}
+                    onPress={() => setShowPagarCartao(false)}
+                  >
+                    <Text style={styles.pagBtnTealText}>Fechar</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
             </View>
           </View>
         </Modal>
@@ -2251,4 +2377,36 @@ const styles = StyleSheet.create({
 
   docCountBadge: { backgroundColor: Colors.gold, borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2 },
   docCountText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#000' },
+
+  // ── Payment modal styles ──
+  pagHeaderBg: { backgroundColor: Colors.primary, paddingTop: 28, paddingBottom: 24, paddingHorizontal: 20, alignItems: 'center', borderRadius: 0 },
+  pagHeaderLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: 'rgba(255,255,255,0.7)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.8 },
+  pagHeaderValor: { fontSize: 38, fontFamily: 'Inter_700Bold', color: '#fff', letterSpacing: -1 },
+  pagHeaderSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.65)', marginTop: 4 },
+  pagPrazoRow: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.backgroundCard, borderRadius: 10, padding: 10, marginBottom: 16 },
+  pagPrazoText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  pagMetodoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  pagMetodoLabel: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
+  pagMetodoSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  pagRadio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center' },
+  pagRadioActive: { borderColor: '#0bbfaa' },
+  pagRadioDot: { width: 11, height: 11, borderRadius: 6, backgroundColor: '#0bbfaa' },
+  pagBtnTeal: { backgroundColor: '#0bbfaa', borderRadius: 30, paddingVertical: 16, alignItems: 'center', justifyContent: 'center' },
+  pagBtnTealText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#fff' },
+  pagFormIconWrap: { width: 80, height: 80, borderRadius: 40, backgroundColor: Colors.primary + '18', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  pagFormTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text, textAlign: 'center', marginBottom: 8 },
+  pagFormAmountRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
+  pagFormAmountLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  pagFormAmount: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.primary },
+  pagPhoneWrap: { width: '100%', marginBottom: 8 },
+  pagPhoneLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  pagPhoneRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderColor: Colors.border, borderRadius: 12, backgroundColor: Colors.backgroundCard, overflow: 'hidden' },
+  pagPhonePrefix: { paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.text, borderRightWidth: 1, borderRightColor: Colors.border },
+  pagPhoneInput: { flex: 1, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15, fontFamily: 'Inter_500Medium', color: Colors.text },
+  pagPhoneHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, lineHeight: 16 },
+  pagRefInfoBox: { flexDirection: 'row', gap: 8, backgroundColor: Colors.info + '12', borderRadius: 10, padding: 12, marginTop: 12, width: '100%' },
+  pagRefInfoText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18 },
+  pagRefBox: { backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 16, marginTop: 16, width: '100%', alignItems: 'center' },
+  pagRefBoxLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 6 },
+  pagRefBoxVal: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.primary, letterSpacing: 1 },
 });

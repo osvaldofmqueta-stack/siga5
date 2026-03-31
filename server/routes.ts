@@ -1599,6 +1599,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // PAGAMENTOS
   // -----------------------
+
+  // Rota pública para estudantes registarem o seu próprio pedido de pagamento (status sempre 'pendente')
+  app.post("/api/pagamentos/self", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.jwtUser) return json(res, 401, { error: "Não autenticado." });
+      const [userRow] = await query<JsonObject>(
+        `SELECT "alunoId" FROM public.utilizadores WHERE id=$1`,
+        [req.jwtUser.userId]
+      );
+      if (!userRow || !userRow.alunoId) {
+        return json(res, 403, { error: "Utilizador não está associado a nenhum aluno." });
+      }
+      const b = requireBodyObject(req);
+      if (String(b.alunoId) !== String(userRow.alunoId)) {
+        return json(res, 403, { error: "Não pode registar pagamentos para outro aluno." });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.pagamentos (id,"alunoId","taxaId","valor","data","mes","trimestre","ano","status","metodoPagamento","referencia","observacao")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendente',$9,$10,$11) RETURNING *`,
+        [b.id ?? null, b.alunoId, b.taxaId, b.valor, b.data, b.mes ?? null, b.trimestre ?? null, b.ano, b.metodoPagamento, b.referencia ?? null, b.observacao ?? null],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   app.get("/api/pagamentos", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.pagamentos ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);

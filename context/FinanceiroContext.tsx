@@ -96,6 +96,7 @@ interface FinanceiroContextValue {
   updateTaxa: (id: string, t: Partial<Taxa>) => Promise<void>;
   deleteTaxa: (id: string) => Promise<void>;
   addPagamento: (p: Omit<Pagamento, 'id' | 'createdAt'>) => Promise<void>;
+  addPagamentoSelf: (p: Omit<Pagamento, 'id' | 'createdAt'>) => Promise<Pagamento>;
   updatePagamento: (id: string, p: Partial<Pagamento>) => Promise<void>;
   deletePagamento: (id: string) => Promise<void>;
   transferirPagamento: (pagamentoId: string, destino: 'saldo' | string, criadoPor?: string) => Promise<void>;
@@ -197,6 +198,12 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   async function addPagamento(p: Omit<Pagamento, 'id' | 'createdAt'>) {
     const novo = await api.post<Pagamento>('/api/pagamentos', p);
     setPagamentos(prev => [novo, ...prev]);
+  }
+
+  async function addPagamentoSelf(p: Omit<Pagamento, 'id' | 'createdAt'>): Promise<Pagamento> {
+    const novo = await api.post<Pagamento>('/api/pagamentos/self', p);
+    setPagamentos(prev => [novo, ...prev]);
+    return novo;
   }
 
   async function updatePagamento(id: string, p: Partial<Pagamento>) {
@@ -372,7 +379,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const value = useMemo<FinanceiroContextValue>(() => ({
     taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
-    addPagamento, updatePagamento, deletePagamento, transferirPagamento,
+    addPagamento, addPagamentoSelf, updatePagamento, deletePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente, getPagamentosAluno, getTaxasByNivel,
     updateMultaConfig,
     bloquearAluno, desbloquearAluno, isAlunoBloqueado,
