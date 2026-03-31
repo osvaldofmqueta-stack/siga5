@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -130,7 +130,7 @@ function buildEmptyLanc(): NotaLancamentos {
 
 function NotaFormModal({
   visible, onClose, onSave, alunos, turmas, nota, trimestre, disciplinas, professorId,
-  pp1Habilitado, pptHabilitado, numAvaliacoes,
+  pp1Habilitado, pptHabilitado, numAvaliacoes, allNotas,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -144,11 +144,17 @@ function NotaFormModal({
   pp1Habilitado: boolean;
   pptHabilitado: boolean;
   numAvaliacoes: number;
+  allNotas: Nota[];
 }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const isEditingExisting = nota !== null;
+  // auto-detected existing nota when selecting aluno+disciplina in new-launch mode
+  const [autoNota, setAutoNota] = useState<Nota | null>(null);
+  const autoKeyRef = useRef<string>('');
+
+  const effectiveNota = nota ?? autoNota;
+  const isEditingExisting = effectiveNota !== null;
   const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
 
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
@@ -198,6 +204,8 @@ function NotaFormModal({
   const selectedAluno = alunos.find((a: any) => a.id === form.alunoId);
 
   React.useEffect(() => {
+    autoKeyRef.current = '';
+    setAutoNota(null);
     if (nota) {
       setSelectedTurmaId(nota.turmaId || turmas[0]?.id || '');
       setForm({ ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() });
@@ -208,6 +216,31 @@ function NotaFormModal({
       setForm({ ...makeEmpty(), trimestre, alunoId: firstAluno?.id || alunos[0]?.id || '' });
     }
   }, [nota, visible, trimestre]);
+
+  // Auto-detect existing nota when selecting aluno+disciplina in new-launch mode
+  useEffect(() => {
+    if (nota) return; // already editing a specific nota — skip
+    const key = `${form.alunoId}|${form.disciplina}|${trimestre}`;
+    if (autoKeyRef.current === key) return;
+    autoKeyRef.current = key;
+    if (!form.alunoId || !form.disciplina) { setAutoNota(null); return; }
+    const found = allNotas.find(
+      n => n.alunoId === form.alunoId && n.disciplina === form.disciplina && n.trimestre === trimestre
+    ) ?? null;
+    setAutoNota(found);
+    if (found) {
+      setForm({ ...found, lancamentos: found.lancamentos || buildEmptyLanc() });
+    }
+  }, [form.alunoId, form.disciplina, trimestre, nota, allNotas]);
+
+  // Students who already have a nota for the selected disciplina+trimestre
+  const alunosComNota = useMemo(() => {
+    const s = new Set<string>();
+    allNotas.forEach(n => {
+      if (n.disciplina === form.disciplina && n.trimestre === trimestre) s.add(n.alunoId);
+    });
+    return s;
+  }, [allNotas, form.disciplina, trimestre]);
 
   const alunosDaTurma = selectedTurmaId
     ? alunos.filter((a: any) => a.turmaId === selectedTurmaId)
@@ -269,11 +302,11 @@ function NotaFormModal({
         <View style={[mS.sheet, { paddingBottom: bottomPad + 16 }]}>
           <View style={mS.header}>
             <View style={mS.headerLeft}>
-              <Text style={mS.title}>{nota ? 'Editar Nota' : 'Lançar Nota'}</Text>
+              <Text style={mS.title}>{effectiveNota ? 'Editar Nota' : 'Lançar Nota'}</Text>
               <View style={mS.trimBadge}>
                 <Text style={mS.trimBadgeText}>{trimestre}º Trim.</Text>
               </View>
-              {nota && !completo && (
+              {effectiveNota && !completo && (
                 <View style={mS.parcialBadge}>
                   <Text style={mS.parcialBadgeText}>Em curso</Text>
                 </View>
@@ -283,6 +316,16 @@ function NotaFormModal({
               <Ionicons name="close" size={22} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
+
+          {/* Auto-detected existing nota banner */}
+          {autoNota && !nota && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.info + '18', borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.info + '40' }}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.info} />
+              <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 16 }}>
+                Este aluno já tem nota lançada para esta disciplina. O formulário foi pré-preenchido com os dados existentes.
+              </Text>
+            </View>
+          )}
 
           {/* Locked fields notice */}
           {isEditingExisting && Object.values(lanc).some(Boolean) && (
@@ -341,17 +384,41 @@ function NotaFormModal({
               <Text style={mS.fieldLabel}>Aluno</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={mS.chips}>
-                  {alunosDaTurma.map((a: any) => (
-                    <TouchableOpacity
-                      key={a.id}
-                      style={[mS.chip, form.alunoId === a.id && mS.chipActive]}
-                      onPress={() => set('alunoId', a.id)}
-                    >
-                      <Text style={[mS.chipText, form.alunoId === a.id && mS.chipTextActive]}>
-                        {a.nome} {a.apelido}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {alunosDaTurma.map((a: any) => {
+                    const jaLancado = alunosComNota.has(a.id);
+                    const isSelected = form.alunoId === a.id;
+                    return (
+                      <TouchableOpacity
+                        key={a.id}
+                        style={[
+                          mS.chip,
+                          isSelected && mS.chipActive,
+                          jaLancado && !isSelected && mS.chipLancado,
+                        ]}
+                        onPress={() => {
+                          autoKeyRef.current = '';
+                          set('alunoId', a.id);
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          {jaLancado && (
+                            <Ionicons
+                              name="checkmark-circle"
+                              size={13}
+                              color={isSelected ? Colors.goldLight : Colors.success}
+                            />
+                          )}
+                          <Text style={[
+                            mS.chipText,
+                            isSelected && mS.chipTextActive,
+                            jaLancado && !isSelected && { color: Colors.textMuted },
+                          ]}>
+                            {a.nome} {a.apelido}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
                   {alunosDaTurma.length === 0 && (
                     <Text style={[mS.chipText, { paddingHorizontal: 4 }]}>Nenhum aluno nesta turma</Text>
                   )}
@@ -542,7 +609,7 @@ function NotaFormModal({
             >
               <Ionicons name="checkmark-circle" size={20} color="#fff" />
               <Text style={mS.saveBtnText}>
-                {nota
+                {effectiveNota
                   ? completo ? 'Actualizar Nota' : 'Actualizar'
                   : completo ? 'Lançar Nota' : 'Guardar'}
               </Text>
@@ -654,8 +721,9 @@ export default function NotasScreen() {
   }, [notas, trimestreActivo, filterTurma, alunos, isProfessor, professorActual]);
 
   async function handleSave(form: Partial<Nota>, parcial: boolean) {
-    if (editNota) {
-      await updateNota(editNota.id, form);
+    const notaId = editNota?.id ?? form.id;
+    if (notaId) {
+      await updateNota(notaId, form);
     } else {
       await addNota(form as any);
     }
@@ -904,6 +972,7 @@ export default function NotasScreen() {
           pp1Habilitado={config.pp1Habilitado}
           pptHabilitado={config.pptHabilitado}
           numAvaliacoes={config.numAvaliacoes ?? 4}
+          allNotas={notas}
         />
       )}
 
@@ -952,6 +1021,7 @@ const mS = StyleSheet.create({
   chips: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   chipActive: { backgroundColor: Colors.gold + '20', borderColor: Colors.gold },
+  chipLancado: { borderColor: Colors.success + '60', backgroundColor: Colors.success + '0A' },
   chipText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   chipTextActive: { color: Colors.goldLight, fontFamily: 'Inter_600SemiBold' },
   blockCard: { backgroundColor: Colors.surface, borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
