@@ -520,20 +520,45 @@ export default function ListaInscritosScreen() {
               <Text style={styles.configLabel}>Sala de Exame</Text>
               <TextInput style={styles.configInput} value={sala} onChangeText={setSala} placeholderTextColor={Colors.textMuted} placeholder="Ex: Sala A1 — Bloco 2" />
             </View>
-            <View style={[styles.configField, { marginTop: 12 }]}>
+            <View style={styles.disciplinasSection}>
               <Text style={[styles.configLabel, { marginBottom: 8 }]}>Disciplinas e Datas dos Exames</Text>
               {disciplinas.map((d, i) => (
-                <View key={i} style={styles.disciplinaRow}>
-                  <TextInput style={[styles.configInput, { flex: 2 }]} value={d.nome} onChangeText={v => updateDisciplina(i, 'nome', v)} placeholder={`Disciplina ${i + 1}`} placeholderTextColor={Colors.textMuted} />
-                  <TextInput style={[styles.configInput, { flex: 1 }]} value={d.diaSemana} onChangeText={v => updateDisciplina(i, 'diaSemana', v)} placeholder="Dia" placeholderTextColor={Colors.textMuted} />
-                  <TextInput style={[styles.configInput, { flex: 1.5 }]} value={d.data} onChangeText={v => updateDisciplina(i, 'data', v)} placeholder="Ex: 07 Mar 2026" placeholderTextColor={Colors.textMuted} />
-                  <TouchableOpacity onPress={() => removeDisciplina(i)} style={styles.removeBtn}>
-                    <Ionicons name="close-circle" size={18} color={Colors.danger} />
-                  </TouchableOpacity>
+                <View key={i} style={styles.disciplinaCard}>
+                  <View style={styles.disciplinaCardHeader}>
+                    <Text style={styles.disciplinaNum}>Disciplina {i + 1}</Text>
+                    {disciplinas.length > 1 && (
+                      <TouchableOpacity onPress={() => removeDisciplina(i)} style={styles.removeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Ionicons name="close-circle" size={18} color={Colors.danger} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <TextInput
+                    style={[styles.configInput, styles.disciplinaNomeInput]}
+                    value={d.nome}
+                    onChangeText={v => updateDisciplina(i, 'nome', v)}
+                    placeholder={`Ex: Língua Portuguesa`}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <View style={styles.disciplinaDateRow}>
+                    <TextInput
+                      style={[styles.configInput, styles.disciplinaDiaInput]}
+                      value={d.diaSemana}
+                      onChangeText={v => updateDisciplina(i, 'diaSemana', v)}
+                      placeholder="Dia da semana"
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                    <TextInput
+                      style={[styles.configInput, styles.disciplinaDataInput]}
+                      value={d.data}
+                      onChangeText={v => updateDisciplina(i, 'data', v)}
+                      placeholder="Ex: 07 Mar 2026"
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
                 </View>
               ))}
-              <TouchableOpacity style={styles.addDisciplinaBtn} onPress={addDisciplina}>
-                <Ionicons name="add-circle-outline" size={15} color={Colors.gold} />
+              <TouchableOpacity style={styles.addDisciplinaBtn} onPress={addDisciplina} activeOpacity={0.7}>
+                <Ionicons name="add-circle-outline" size={17} color={Colors.gold} />
                 <Text style={styles.addDisciplinaTxt}>Adicionar Disciplina</Text>
               </TouchableOpacity>
             </View>
@@ -668,10 +693,17 @@ const styles = StyleSheet.create({
   configField: { flex: 1, gap: 4 },
   configLabel: { fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_500Medium' },
   configInput: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 8, color: Colors.text, fontSize: 12 },
-  disciplinaRow: { flexDirection: 'row', gap: 6, marginBottom: 6, alignItems: 'center' },
-  removeBtn: { padding: 4 },
-  addDisciplinaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
-  addDisciplinaTxt: { fontSize: 12, color: Colors.gold },
+  disciplinasSection: { marginTop: 12, gap: 8 },
+  disciplinaCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 6 },
+  disciplinaCardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  disciplinaNum: { fontSize: 10, color: Colors.gold, fontFamily: 'Inter_600SemiBold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  disciplinaNomeInput: { width: '100%' },
+  disciplinaDateRow: { flexDirection: 'row', gap: 8 },
+  disciplinaDiaInput: { flex: 1, minWidth: 0 },
+  disciplinaDataInput: { flex: 1.5, minWidth: 0 },
+  removeBtn: { padding: 2 },
+  addDisciplinaBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(234,179,8,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(234,179,8,0.25)', paddingHorizontal: 14, paddingVertical: 10, marginTop: 2 },
+  addDisciplinaTxt: { fontSize: 13, color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
 
   summaryCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-around' },
