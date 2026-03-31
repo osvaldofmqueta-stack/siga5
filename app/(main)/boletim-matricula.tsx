@@ -53,6 +53,7 @@ function generateBoletimHTML(
   turma: Turma | undefined,
   nomeEscola: string,
   qrDataUrl: string,
+  origin = '',
 ): string {
   const nomeCompleto = `${aluno.nome} ${aluno.apelido}`;
   const classe = turma?.classe ?? '___';
@@ -227,6 +228,7 @@ function generateBoletimHTML(
   <div class="header-row">
     <div style="width:50px;flex-shrink:0;"></div>
     <div class="header-text">
+      <img src="${origin}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
       <p>REPÚBLICA DE ANGOLA</p>
       <p>MINISTÉRIO DA EDUCAÇÃO</p>
       <p class="bold">${nomeEscola}</p>
@@ -502,7 +504,7 @@ export default function BoletimMatriculaScreen() {
 
     if (qrSvgRef.current && typeof qrSvgRef.current.toDataURL === 'function') {
       qrSvgRef.current.toDataURL((dataUrl: string) => {
-        const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, dataUrl);
+        const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, dataUrl, window.location.origin);
         const win = window.open('', '_blank');
         if (win) {
           win.document.write(html);
@@ -514,7 +516,7 @@ export default function BoletimMatriculaScreen() {
         setPrinting(false);
       });
     } else {
-      const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, '');
+      const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, '', window.location.origin);
       const win = window.open('', '_blank');
       if (win) {
         win.document.write(html);
