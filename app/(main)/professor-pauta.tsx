@@ -99,9 +99,19 @@ export default function ProfessorPautaScreen() {
   const [papForms, setPapForms] = useState<PapForm[]>([]);
   const [papSaving, setPapSaving] = useState(false);
 
+  // Tracks which fields are already saved/locked per student (alunoId → Set of field names)
+  const [savedFields, setSavedFields] = useState<Record<string, Set<string>>>({});
+
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
-  const minhasTurmas = useMemo(() => prof ? turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo) : [], [prof, turmas]);
-  const turmaAtual = minhasTurmas.find(t => t.id === turmaId);
+
+  const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'].includes(user.role);
+
+  const minhasTurmas = useMemo(() => {
+    if (isPrivilegedRole) return turmas.filter(t => t.ativo);
+    return prof ? turmas.filter(t => prof.turmasIds.includes(t.id) && t.ativo) : [];
+  }, [prof, turmas, isPrivilegedRole]);
+
+  const turmaAtual = turmas.find(t => t.id === turmaId);
 
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
   useEffect(() => {
@@ -286,14 +296,28 @@ export default function ProfessorPautaScreen() {
   );
 
   function iniciarPauta() {
-    if (!turmaId || !disciplina || !prof) return;
+    if (!turmaId || !disciplina || (!prof && !isPrivilegedRole)) return;
 
     const notasExistentes = notas.filter(n =>
       n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre
     );
 
+    const newSavedFields: Record<string, Set<string>> = {};
+
     const forms: NotaForm[] = alunosDaTurma.map(aluno => {
       const nota = notasExistentes.find(n => n.alunoId === aluno.id);
+
+      if (nota) {
+        const locked = new Set<string>();
+        ALL_AVAL_KEYS.forEach(k => {
+          const v = nota[k as keyof typeof nota] as number | null | undefined;
+          if (v !== null && v !== undefined && v > 0) locked.add(k);
+        });
+        if (nota.pp1 !== null && nota.pp1 !== undefined && nota.pp1 > 0) locked.add('pp1');
+        if (nota.ppt !== null && nota.ppt !== undefined && nota.ppt > 0) locked.add('ppt');
+        newSavedFields[aluno.id] = locked;
+      }
+
       return {
         alunoId: aluno.id,
         aval1: nota ? String(nota.aval1 ?? '') : '',
@@ -309,6 +333,7 @@ export default function ProfessorPautaScreen() {
       };
     });
 
+    setSavedFields(newSavedFields);
     setNotasForms(forms);
     setStep('pauta');
   }
@@ -318,7 +343,8 @@ export default function ProfessorPautaScreen() {
   }
 
   async function guardarNotas() {
-    if (!prof || !turmaAtual) return;
+    const lancadorId = prof?.id || user?.id || '';
+    if (!lancadorId || !turmaAtual) return;
     setSaving(true);
     try {
       const notasExistentes = notas.filter(n =>
@@ -329,9 +355,20 @@ export default function ProfessorPautaScreen() {
       const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvais);
 
       for (const form of notasForms) {
-        const avalValues = activeAvalKeys.map(k => parseNum(form[k]));
-        const pp = parseNum(form.pp1);
-        const ppt = parseNum(form.ppt);
+        const alunoSaved = savedFields[form.alunoId] || new Set<string>();
+        const avalValues = activeAvalKeys.map(k => {
+          if (alunoSaved.has(k)) {
+            const notaExist = notasExistentes.find(n => n.alunoId === form.alunoId);
+            return notaExist ? (notaExist[k as keyof typeof notaExist] as number ?? 0) : parseNum(form[k]);
+          }
+          return parseNum(form[k]);
+        });
+        const pp = alunoSaved.has('pp1')
+          ? (notasExistentes.find(n => n.alunoId === form.alunoId)?.pp1 ?? parseNum(form.pp1))
+          : parseNum(form.pp1);
+        const ppt = alunoSaved.has('ppt')
+          ? (notasExistentes.find(n => n.alunoId === form.alunoId)?.ppt ?? parseNum(form.ppt))
+          : parseNum(form.ppt);
         const mac = calcMac(avalValues);
         const mt1 = calcMt1(mac, pp);
         const nf = calcNF(mt1, ppt);
@@ -344,7 +381,7 @@ export default function ProfessorPautaScreen() {
           trimestre,
           pp1: pp, ppt, mac1: mac, mt1, nf, mac,
           anoLetivo: anoSelecionado?.ano || '2025',
-          professorId: prof.id,
+          professorId: lancadorId,
           data: new Date().toISOString().split('T')[0],
         };
         ALL_AVAL_KEYS.forEach((k, i) => {
@@ -363,7 +400,7 @@ export default function ProfessorPautaScreen() {
           turmaId,
           disciplina,
           trimestre,
-          professorId: prof.id,
+          professorId: lancadorId,
           status: 'aberta',
           anoLetivo: anoSelecionado?.ano || '2025',
         });
@@ -409,7 +446,10 @@ export default function ProfessorPautaScreen() {
   }
 
   async function solicitarReabertura() {
-    if (!pautaAtual || !prof) return;
+    if (!pautaAtual) return;
+    const solicitanteId = prof?.id || user?.id || '';
+    const solicitanteNome = prof ? `${prof.nome} ${prof.apelido}` : (user?.nome || 'Utilizador');
+    if (!solicitanteId) return;
     if (!motivoSolicidade.trim()) {
       webAlert('Obrigatório', 'Indique o motivo do pedido de reabertura.');
       return;
@@ -420,8 +460,8 @@ export default function ProfessorPautaScreen() {
       turmaNome: turmaAtual?.nome || '',
       disciplina,
       trimestre,
-      professorId: prof.id,
-      professorNome: `${prof.nome} ${prof.apelido}`,
+      professorId: solicitanteId,
+      professorNome: solicitanteNome,
       motivo: motivoSolicidade,
       status: 'pendente',
     });
@@ -673,7 +713,9 @@ export default function ProfessorPautaScreen() {
                   onPress={() => { setTurmaId(t.id); setShowTurmaList(false); }}
                 >
                   <Text style={[styles.dropdownText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
-                  <Text style={styles.dropdownSub}>{t.nivel} · {t.turno}</Text>
+                  <Text style={styles.dropdownSub}>
+                    {t.classe} · {t.turno}{t.sala ? ` · Sala ${t.sala}` : ''}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -765,10 +807,10 @@ export default function ProfessorPautaScreen() {
           )}
 
           {/* My Pautas History */}
-          {prof && pautas.filter(p => p.professorId === prof.id).length > 0 && (
+          {(isPrivilegedRole ? pautas : pautas.filter(p => p.professorId === prof?.id)).length > 0 && (
             <>
-              <Text style={styles.histTitle}>Minhas Pautas</Text>
-              {pautas.filter(p => p.professorId === prof.id).map(p => {
+              <Text style={styles.histTitle}>{isPrivilegedRole ? 'Todas as Pautas' : 'Minhas Pautas'}</Text>
+              {(isPrivilegedRole ? pautas : pautas.filter(p => p.professorId === prof?.id)).map(p => {
                 const turma = turmas.find(t => t.id === p.turmaId);
                 const sc = p.status === 'fechada' ? Colors.danger : p.status === 'pendente_abertura' ? Colors.warning : Colors.success;
                 return (
@@ -1054,10 +1096,16 @@ export default function ProfessorPautaScreen() {
           const isEditing = editingAlunoId === aluno.id;
           const editFields = [...activeKeys, 'pp1' as const, 'ppt' as const] as Array<keyof NotaForm>;
           const displayValues = [...activeKeys.map(k => form[k]), form.pp1, form.ppt];
+          const alunoSavedFields = savedFields[aluno.id] || new Set<string>();
+          const hasAnySavedField = alunoSavedFields.size > 0;
 
           return (
             <TouchableOpacity
-              style={[styles.alunoRow, isEditing && styles.alunoRowEditing]}
+              style={[
+                styles.alunoRow,
+                isEditing && styles.alunoRowEditing,
+                hasAnySavedField && !isEditing && styles.alunoRowSubmitted,
+              ]}
               onPress={() => setEditingAlunoId(isEditing ? null : aluno.id)}
               activeOpacity={0.85}
             >
@@ -1065,33 +1113,64 @@ export default function ProfessorPautaScreen() {
                 <Text style={styles.rowNum}>{String(index + 1).padStart(2, '0')}</Text>
               </View>
               <View style={styles.rowFlex}>
-                <Text style={styles.rowNome} numberOfLines={1}>{aluno.nome} {aluno.apelido}</Text>
+                <Text style={[styles.rowNome, hasAnySavedField && !isEditing && { color: Colors.textMuted }]} numberOfLines={1}>
+                  {aluno.nome} {aluno.apelido}
+                </Text>
                 {isEditing && (
                   <Text style={styles.rowMac}>MAC={mac > 0 ? mac.toFixed(1) : '—'} · MT1={mt1 > 0 ? mt1.toFixed(1) : '—'}</Text>
+                )}
+                {hasAnySavedField && !isEditing && (
+                  <View style={styles.lancadoBadge}>
+                    <Ionicons name="checkmark-circle" size={10} color={Colors.success} />
+                    <Text style={styles.lancadoBadgeText}>Lançado</Text>
+                  </View>
                 )}
               </View>
               {isEditing && !isPautaFechada ? (
                 <>
-                  {editFields.map(field => (
-                    <TextInput
-                      key={field}
-                      style={styles.gradeInput}
-                      value={form[field]}
-                      onChangeText={v => updateNotaForm(aluno.id, field, v)}
-                      keyboardType="decimal-pad"
-                      placeholder="—"
-                      placeholderTextColor={Colors.textMuted}
-                      editable={!isPautaFechada}
-                    />
-                  ))}
+                  {editFields.map(field => {
+                    const isFieldLocked = alunoSavedFields.has(field);
+                    if (isFieldLocked) {
+                      return (
+                        <TouchableOpacity
+                          key={field}
+                          style={styles.gradeLocked}
+                          onPress={() => webAlert(
+                            'Avaliação Bloqueada',
+                            'Esta avaliação já foi lançada e está bloqueada. Para corrigir, solicite a reabertura da pauta à direcção.',
+                            [{ text: 'OK', style: 'cancel' }]
+                          )}
+                        >
+                          <Ionicons name="lock-closed" size={9} color={Colors.textMuted} style={{ marginBottom: 1 }} />
+                          <Text style={styles.gradeLockedText}>{form[field] || '—'}</Text>
+                        </TouchableOpacity>
+                      );
+                    }
+                    return (
+                      <TextInput
+                        key={field}
+                        style={styles.gradeInput}
+                        value={form[field]}
+                        onChangeText={v => updateNotaForm(aluno.id, field, v)}
+                        keyboardType="decimal-pad"
+                        placeholder="—"
+                        placeholderTextColor={Colors.textMuted}
+                        editable={!isPautaFechada}
+                      />
+                    );
+                  })}
                 </>
               ) : (
                 <>
-                  {displayValues.map((v, i) => (
-                    <View key={i} style={styles.gradeCell}>
-                      <Text style={styles.gradeCellText}>{v || '—'}</Text>
-                    </View>
-                  ))}
+                  {displayValues.map((v, i) => {
+                    const fieldKey = editFields[i];
+                    const isFieldLocked = alunoSavedFields.has(fieldKey);
+                    return (
+                      <View key={i} style={[styles.gradeCell, isFieldLocked && styles.gradeCellLocked]}>
+                        <Text style={[styles.gradeCellText, isFieldLocked && styles.gradeCellLockedText]}>{v || '—'}</Text>
+                      </View>
+                    );
+                  })}
                 </>
               )}
               <View style={styles.nfCell}>
@@ -1211,6 +1290,13 @@ const styles = StyleSheet.create({
   legendaCol: { width: CELL_W, fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textAlign: 'center' },
   alunoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   alunoRowEditing: { backgroundColor: Colors.gold + '0D' },
+  alunoRowSubmitted: { backgroundColor: Colors.success + '08', borderLeftWidth: 2, borderLeftColor: Colors.success + '44' },
+  lancadoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  lancadoBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success },
+  gradeLocked: { width: CELL_W, height: 32, backgroundColor: Colors.border + '55', borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
+  gradeLockedText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
+  gradeCellLocked: { backgroundColor: Colors.success + '0A', borderRadius: 4 },
+  gradeCellLockedText: { color: Colors.success, fontFamily: 'Inter_600SemiBold' },
   rowCell44: { width: 44, alignItems: 'center' },
   rowNum: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
   rowFlex: { flex: 1 },
