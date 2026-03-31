@@ -42,143 +42,205 @@ function formatDate(val: string | undefined): string {
 function gerarListaResultadosPDF(registros: Registro[], nomeEscola: string) {
   if (Platform.OS !== 'web') return;
 
-  const CLASSES_10_MAIS = ['10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
+  const II_CICLO = ['10ª Classe', '11ª Classe', '12ª Classe', '13ª Classe'];
 
-  const admitidos = registros
-    .filter(r => r.status === 'admitido' || r.status === 'matriculado')
-    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
-
-  const naoAdmitidos = registros
-    .filter(r => r.status === 'reprovado_admissao')
-    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
-
-  function groupByCurso(lista: Registro[], classe: string): Record<string, Registro[]> {
-    const isTecnico = CLASSES_10_MAIS.some(c => classe.includes(c.replace('ª Classe', '').trim()));
-    const groups: Record<string, Registro[]> = {};
-    for (const r of lista) {
-      const key = isTecnico && r.cursoNome ? r.cursoNome : 'Geral';
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(r);
-    }
-    return groups;
+  function classeSort(a: string, b: string) {
+    const n = (s: string) => parseInt(s.replace(/[^0-9]/g, ''), 10) || 0;
+    return n(a) - n(b);
   }
 
-  function buildSection(lista: Registro[], titulo: string, corHeader: string): string {
-    if (lista.length === 0) return `<div class="sec-header" style="background:${corHeader};">${titulo} — Nenhum estudante</div>`;
+  function numCand(r: Registro, idx: number): string {
+    if (r.rupeInscricao) {
+      const p = r.rupeInscricao.split('-');
+      if (p.length >= 4) return p[3];
+    }
+    return String(10000 + idx);
+  }
+
+  function buildSection(lista: Registro[], titulo: string, corFaixa: string, corBorda: string): string {
+    if (lista.length === 0) {
+      return `<div class="sec-header" style="background:${corFaixa};border-left:5px solid ${corBorda};">${titulo} — Nenhum candidato</div>`;
+    }
+
     const byClasse: Record<string, Registro[]> = {};
     for (const r of lista) {
-      const cl = r.classe || 'Sem Classe';
+      const cl = r.classe?.trim() || 'Sem Classe';
       if (!byClasse[cl]) byClasse[cl] = [];
       byClasse[cl].push(r);
     }
-    const classes = Object.keys(byClasse).sort();
-    let html = `<div class="sec-header" style="background:${corHeader};">${titulo} — ${lista.length} estudante(s)</div>`;
-    let ordem = 1;
-    for (const classe of classes) {
-      const gruposPorCurso = groupByCurso(byClasse[classe], classe);
-      const cursos = Object.keys(gruposPorCurso).sort();
-      for (const curso of cursos) {
-        const alunos = gruposPorCurso[curso];
-        const tituloGrupo = cursos.length > 1 || cursos[0] !== 'Geral' ? `${classe} — ${curso}` : classe;
-        const masc = alunos.filter(a => a.genero === 'M').length;
-        const fem = alunos.filter(a => a.genero === 'F').length;
-        html += `<div class="grupo-header">${tituloGrupo} · Total: ${alunos.length} (M: ${masc} · F: ${fem})</div>
+    const classes = Object.keys(byClasse).sort(classeSort);
+
+    let html = `<div class="sec-header" style="background:${corFaixa};border-left:5px solid ${corBorda};">${titulo} &nbsp;·&nbsp; ${lista.length} candidato(s)</div>`;
+    let globalOrd = 1;
+
+    for (const cls of classes) {
+      const alunosClasse = byClasse[cls].sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' }));
+      const isIICiclo = II_CICLO.includes(cls);
+
+      if (isIICiclo) {
+        const byCurso: Record<string, Registro[]> = {};
+        for (const r of alunosClasse) {
+          const k = r.cursoNome?.trim() || 'Sem Curso';
+          if (!byCurso[k]) byCurso[k] = [];
+          byCurso[k].push(r);
+        }
+        const cursos = Object.keys(byCurso).sort((a, b) => a.localeCompare(b, 'pt'));
+        const masc = alunosClasse.filter(a => a.genero === 'M').length;
+        const fem = alunosClasse.filter(a => a.genero === 'F').length;
+        html += `<div class="classe-header">${cls} &nbsp;·&nbsp; ${alunosClasse.length} candidatos (M: ${masc} · F: ${fem}) &nbsp;·&nbsp; ${cursos.length} curso(s)</div>`;
+
+        for (const curso of cursos) {
+          const alunos = byCurso[curso];
+          html += `<div class="curso-header">CURSO: ${curso.toUpperCase()} &nbsp;·&nbsp; ${alunos.length} candidato(s)</div>
+          <table><thead><tr>
+            <th class="col-ord">Ord.</th>
+            <th class="col-nome">Nome Completo</th>
+            <th class="col-cand">NºCand</th>
+            <th class="col-sex">Sexo</th>
+            <th class="col-nota">Nota</th>
+          </tr></thead><tbody>`;
+          alunos.forEach((a, i) => {
+            const nota = a.notaAdmissao !== null && a.notaAdmissao !== undefined ? `${a.notaAdmissao}/20` : '—';
+            const bg = i % 2 === 0 ? '#fff' : '#f7fff7';
+            html += `<tr style="background:${bg}">
+              <td class="col-ord" style="text-align:center;font-weight:bold">${globalOrd + i}</td>
+              <td class="col-nome">${a.nomeCompleto.toUpperCase()}</td>
+              <td class="col-cand" style="text-align:center;font-family:monospace">${numCand(a, globalOrd + i)}</td>
+              <td class="col-sex" style="text-align:center">${a.genero || '—'}</td>
+              <td class="col-nota" style="text-align:center;font-weight:bold;color:${a.notaAdmissao !== null && a.notaAdmissao !== undefined && a.notaAdmissao >= 10 ? '#1a7a2e' : '#c0392b'}">${nota}</td>
+            </tr>`;
+          });
+          html += `</tbody></table>`;
+          globalOrd += alunos.length;
+        }
+      } else {
+        const masc = alunosClasse.filter(a => a.genero === 'M').length;
+        const fem = alunosClasse.filter(a => a.genero === 'F').length;
+        html += `<div class="classe-header">${cls} &nbsp;·&nbsp; ${alunosClasse.length} candidatos (M: ${masc} · F: ${fem})</div>
         <table><thead><tr>
-          <th style="width:32px">Ord.</th>
-          <th>Nome Completo</th>
-          <th style="width:40px">Sexo</th>
-          <th style="width:60px">Nota Adm.</th>
-          <th style="width:90px">Telefone</th>
+          <th class="col-ord">Ord.</th>
+          <th class="col-nome">Nome Completo</th>
+          <th class="col-cand">NºCand</th>
+          <th class="col-sex">Sexo</th>
+          <th class="col-nota">Nota</th>
         </tr></thead><tbody>`;
-        alunos.forEach((a, idx) => {
-          const nota = a.notaAdmissao !== undefined && a.notaAdmissao !== null ? `${a.notaAdmissao}/20` : '—';
-          const bg = idx % 2 === 0 ? '#fff' : '#f5f5f5';
+        alunosClasse.forEach((a, i) => {
+          const nota = a.notaAdmissao !== null && a.notaAdmissao !== undefined ? `${a.notaAdmissao}/20` : '—';
+          const bg = i % 2 === 0 ? '#fff' : '#f7fff7';
           html += `<tr style="background:${bg}">
-            <td style="text-align:center;font-weight:bold">${ordem + idx}</td>
-            <td style="padding-left:6px">${a.nomeCompleto.toUpperCase()}</td>
-            <td style="text-align:center">${a.genero || '—'}</td>
-            <td style="text-align:center">${nota}</td>
-            <td style="text-align:center">${a.telefone || '—'}</td>
+            <td class="col-ord" style="text-align:center;font-weight:bold">${globalOrd + i}</td>
+            <td class="col-nome">${a.nomeCompleto.toUpperCase()}</td>
+            <td class="col-cand" style="text-align:center;font-family:monospace">${numCand(a, globalOrd + i)}</td>
+            <td class="col-sex" style="text-align:center">${a.genero || '—'}</td>
+            <td class="col-nota" style="text-align:center;font-weight:bold;color:${a.notaAdmissao !== null && a.notaAdmissao !== undefined && a.notaAdmissao >= 10 ? '#1a7a2e' : '#c0392b'}">${nota}</td>
           </tr>`;
         });
         html += `</tbody></table>`;
-        ordem += alunos.length;
+        globalOrd += alunosClasse.length;
       }
     }
     return html;
   }
 
-  const totalAdm = admitidos.length;
-  const totalNaoAdm = naoAdmitidos.length;
-  const total = totalAdm + totalNaoAdm;
+  const admitidos = registros
+    .filter(r => r.status === 'admitido' || r.status === 'matriculado')
+    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' }));
+
+  const naoAdmitidos = registros
+    .filter(r => r.status === 'reprovado_admissao')
+    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' }));
+
+  const total = admitidos.length + naoAdmitidos.length;
+  const logoUrl = `${window.location.origin}/escola-logo.png`;
 
   const html = `<!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Resultado de Admissão — ${nomeEscola}</title>
+<title>Resultados de Admissão — ${nomeEscola}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 10px; color: #000; background: #fff; }
-  @page { size: A4 portrait; margin: 12mm 15mm; }
-  .doc-header { text-align: center; margin-bottom: 14px; }
-  .doc-header p { font-size: 10px; line-height: 1.6; }
-  .doc-header .escola { font-size: 12px; font-weight: bold; text-transform: uppercase; }
-  .doc-title { font-size: 14px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; margin: 8px 0 3px; text-decoration: underline; }
-  .doc-meta { font-size: 9px; color: #444; margin-bottom: 10px; }
-  .totais-box { display: flex; gap: 20px; background: #f0f4ff; border: 1px solid #ccc; border-radius: 4px; padding: 8px 14px; margin-bottom: 14px; font-size: 10px; }
-  .totais-box b { font-size: 12px; }
-  .sec-header { color: #fff; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 6px 10px; margin: 14px 0 4px; letter-spacing: 0.8px; }
-  .grupo-header { font-weight: bold; font-size: 10px; padding: 4px 8px; margin: 8px 0 2px; background: #e8e8e8; border-left: 3px solid #555; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 9px; }
-  th { background: #1A2B5F; color: #fff; font-weight: bold; border: 1px solid #999; padding: 3px 5px; text-align: center; }
-  td { border: 1px solid #ccc; padding: 2px 4px; }
-  .sig-row { display: flex; justify-content: space-between; margin-top: 28px; font-size: 10px; }
+  body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; background: #f5f5f5; }
+  .doc-page { background: #fff; max-width: 210mm; margin: 0 auto; padding: 14mm 18mm 12mm; min-height: 297mm; }
+
+  .doc-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 12px; }
+  .logo-img { width: 70px; height: 70px; object-fit: contain; border: 1px solid #ccc; border-radius: 50%; flex-shrink: 0; }
+  .header-text { flex: 1; text-align: center; }
+  .escola-nome { font-size: 13px; font-weight: bold; text-transform: uppercase; margin-bottom: 5px; }
+  .doc-titulo { font-size: 13px; font-weight: bold; text-decoration: underline; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  .doc-meta { font-size: 9.5px; color: #444; }
+
+  .totais { display: flex; gap: 20px; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 4px; padding: 8px 14px; margin: 10px 0 14px; flex-wrap: wrap; }
+  .totais div { font-size: 10px; }
+  .totais b { font-size: 13px; }
+
+  .sec-header { color: #000; font-weight: bold; font-size: 11.5px; text-transform: uppercase; padding: 7px 12px; margin: 16px 0 6px; letter-spacing: 0.6px; border-radius: 3px; }
+  .classe-header { font-weight: bold; font-size: 10.5px; padding: 4px 10px; margin: 10px 0 3px; background: #f0f0f0; border-left: 3px solid #555; }
+  .curso-header { font-size: 10px; font-weight: bold; padding: 3px 8px; margin: 6px 0 2px; background: #eef2ff; border-left: 3px solid #6366f1; }
+
+  table { border-collapse: collapse; width: 100%; margin-bottom: 4px; font-size: 9.5px; }
+  th { background: #1A2B5F; color: #fff; font-weight: bold; padding: 4px 6px; text-align: left; border: none; }
+  td { border-bottom: 1px solid #e0e0e0; padding: 3px 6px; vertical-align: middle; }
+  .col-ord { width: 34px; }
+  .col-nome { }
+  .col-cand { width: 72px; }
+  .col-sex { width: 38px; }
+  .col-nota { width: 54px; }
+
+  hr.div { border: none; border-top: 2px solid #000; margin: 10px 0 6px; }
+
+  .sig-row { display: flex; justify-content: space-between; margin-top: 32px; font-size: 10px; }
   .sig-block { text-align: center; }
-  .sig-line { width: 170px; border-top: 1px solid #000; margin: 30px auto 4px; }
-  .footer { margin-top: 16px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
-  .print-btn { position: fixed; bottom: 16px; right: 16px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999; }
-  @media print { .print-btn { display: none !important; } }
+  .sig-line { width: 170px; border-top: 1px solid #000; margin: 28px auto 4px; }
+  .footer { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
+  .print-btn { position: fixed; bottom: 16px; right: 16px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 11px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999; }
+  @media print {
+    .print-btn { display: none !important; }
+    body { background: #fff; }
+    .doc-page { margin: 0; padding: 10mm 15mm 8mm; }
+    @page { size: A4 portrait; margin: 0; }
+  }
 </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">🖨 Imprimir / PDF</button>
-  <div class="doc-header">
-    <img src="${window.location.origin}/angola-brasao.png" style="width:60px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia" onerror="this.style.display='none'" />
-    <p>REPÚBLICA DE ANGOLA</p>
-    <p>MINISTÉRIO DA EDUCAÇÃO</p>
-    <p class="escola">${nomeEscola}</p>
-    <p class="doc-title">Lista de Resultados de Admissão ${anoAtual()}</p>
-    <p class="doc-meta">Emitido em: ${hoje()} &nbsp;|&nbsp; Ano Lectivo: ${anoAtual()}</p>
-  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / PDF</button>
+  <div class="doc-page">
+    <div class="doc-header">
+      <img src="${logoUrl}" class="logo-img" alt="Logo" onerror="this.style.display='none'" />
+      <div class="header-text">
+        <div class="escola-nome">${nomeEscola.toUpperCase()}</div>
+        <div class="doc-titulo">Lista de Resultados de Admissão — ${anoAtual()}</div>
+        <div class="doc-meta">Emitido em: ${hoje()} &nbsp;|&nbsp; Ano Lectivo: ${anoAtual()}</div>
+      </div>
+    </div>
+    <hr class="div" />
 
-  <div class="totais-box">
-    <div>Total de Candidatos com resultado: <b>${total}</b></div>
-    <div>Admitidos: <b style="color:#1a7a2e">${totalAdm}</b></div>
-    <div>Não Admitidos: <b style="color:#c0392b">${totalNaoAdm}</b></div>
-  </div>
+    <div class="totais">
+      <div>Total com resultado: <b>${total}</b></div>
+      <div>Admitidos: <b style="color:#1a7a2e">${admitidos.length}</b></div>
+      <div>Não Admitidos: <b style="color:#c0392b">${naoAdmitidos.length}</b></div>
+      <div>Taxa de Aprovação: <b>${total > 0 ? Math.round((admitidos.length / total) * 100) : 0}%</b></div>
+    </div>
 
-  ${buildSection(admitidos, '✓ ADMITIDOS', '#1a7a2e')}
-  ${buildSection(naoAdmitidos, '✗ NÃO ADMITIDOS', '#c0392b')}
+    ${buildSection(admitidos, '✓ ADMITIDOS', '#e8f5e9', '#1a7a2e')}
+    ${admitidos.length > 0 && naoAdmitidos.length > 0 ? '<div style="page-break-before:auto;margin-top:16px;"></div>' : ''}
+    ${buildSection(naoAdmitidos, '✗ NÃO ADMITIDOS', '#fdecea', '#c0392b')}
 
-  <div class="sig-row">
-    <div class="sig-block"><div class="sig-line"></div><div>O Secretário(a)</div></div>
-    <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
-  </div>
-
-  <div class="footer">
-    <span>${nomeEscola} — Sistema SIGA v3</span>
-    <span>Resultado Admissão ${anoAtual()}</span>
-    <span>Emitido: ${hoje()}</span>
+    <div class="sig-row">
+      <div class="sig-block"><div class="sig-line"></div><div>O Secretário(a)</div></div>
+      <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
+    </div>
+    <div class="footer">
+      <span>${nomeEscola} — Sistema SIGA v3</span>
+      <span>Resultados de Admissão ${anoAtual()}</span>
+      <span>Emitido: ${hoje()}</span>
+    </div>
   </div>
 </body>
 </html>`;
 
   const win = window.open('', '_blank');
-  if (win) {
-    win.document.write(html);
-    win.document.close();
-  }
+  if (win) { win.document.write(html); win.document.close(); }
 }
 
 async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
@@ -700,13 +762,23 @@ export default function AdmissaoScreen() {
         />
       </View>
 
+      {activeTab === 'aprovados' && Platform.OS === 'web' && (
+        <TouchableOpacity
+          style={[styles.listaBtn, { backgroundColor: '#1A4B2F' }]}
+          onPress={() => router.push('/lista-inscritos' as any)}
+        >
+          <Ionicons name="list-outline" size={15} color="#fff" />
+          <Text style={styles.listaBtnText}>Gerar Lista de Candidatos por Sala de Exame</Text>
+        </TouchableOpacity>
+      )}
+
       {activeTab === 'resultado' && Platform.OS === 'web' && (
         <TouchableOpacity
           style={styles.listaBtn}
           onPress={() => gerarListaResultadosPDF(registros, nomeEscola)}
         >
           <Ionicons name="newspaper-outline" size={15} color="#fff" />
-          <Text style={styles.listaBtnText}>Gerar Lista para Vitrine (PDF)</Text>
+          <Text style={styles.listaBtnText}>Gerar Lista de Resultados para Vitrine (PDF)</Text>
         </TouchableOpacity>
       )}
 

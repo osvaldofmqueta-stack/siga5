@@ -317,7 +317,7 @@ function buildFullHTML(body: string, titulo: string): string {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-const STATUSES_INSCRITOS = ['pendente', 'pendente_pagamento', 'aguardando_prova', 'aguardando prova', 'em_processamento', 'inscrito'];
+const STATUSES_INSCRITOS = ['pendente', 'pendente_pagamento', 'aprovado', 'aguardando_prova', 'aguardando prova', 'em_processamento', 'inscrito'];
 
 export default function ListaInscritosScreen() {
   const insets = useSafeAreaInsets();
