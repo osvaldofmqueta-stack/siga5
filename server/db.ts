@@ -3,12 +3,9 @@ import { Pool } from "pg";
 
 dotenv.config();
 
-const NEON_URL =
-  "postgresql://neondb_owner:npg_v2qroExba0tH@ep-dawn-hat-an0e6ord-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require";
-
 const databaseUrl =
-  process.env.NEON_DATABASE_URL ||
-  NEON_URL;
+  process.env.DATABASE_URL ||
+  process.env.NEON_DATABASE_URL;
 
 export const pool = new Pool({
   connectionString: databaseUrl,
