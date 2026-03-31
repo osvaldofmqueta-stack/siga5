@@ -104,14 +104,11 @@ function GradeInput({
           ]}
           value={value === 0 ? '' : String(value)}
           onChangeText={t => {
-            if (t === '' || t === '0') { onChange?.(0); return; }
-            const n = parseFloat(t);
-            if (!isNaN(n) && n >= 0) {
-              if (n > max) {
-                onChange?.(max);
-              } else {
-                onChange?.(n);
-              }
+            const cleaned = t.replace(/[^0-9.]/g, '');
+            if (cleaned === '' || cleaned === '0') { onChange?.(0); return; }
+            const n = parseFloat(cleaned);
+            if (!isNaN(n)) {
+              onChange?.(Math.min(max, Math.max(min, n)));
             }
           }}
           keyboardType="decimal-pad"
