@@ -50,7 +50,7 @@ function calcAge(dataNasc: string): number {
 function statusLabel(status: string): string {
   if (status === 'admitido') return 'ADMITIDO';
   if (status === 'matriculado') return 'MATRICULADO';
-  if (status === 'nao_admitido' || status === 'não_admitido') return 'NÃO ADMITIDO';
+  if (status === 'nao_admitido' || status === 'não_admitido' || status === 'reprovado_admissao') return 'NÃO ADMITIDO';
   return status.toUpperCase();
 }
 
@@ -61,7 +61,7 @@ function statusBadgeHtml(status: string): string {
   if (status === 'matriculado') {
     return `<span style="background:#fff3cd;color:#856404;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;white-space:nowrap;">MATRICULADO</span>`;
   }
-  if (status === 'nao_admitido' || status === 'não_admitido') {
+  if (status === 'nao_admitido' || status === 'não_admitido' || status === 'reprovado_admissao') {
     return `<span style="background:#f8d7da;color:#721c24;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;white-space:nowrap;">NÃO ADMITIDO</span>`;
   }
   return `<span style="background:#e2e3e5;color:#383d41;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;">${status.toUpperCase()}</span>`;
@@ -91,7 +91,7 @@ function buildTabelaGrupo(
 
   const total = alunos.length;
   const admitidos = alunos.filter(a => a.status === 'admitido' || a.status === 'matriculado').length;
-  const naoAdmitidos = alunos.filter(a => a.status === 'nao_admitido' || a.status === 'não_admitido').length;
+  const naoAdmitidos = alunos.filter(a => a.status === 'nao_admitido' || a.status === 'não_admitido' || a.status === 'reprovado_admissao').length;
 
   return `
     <div class="grupo-header">${titulo} — ${total} estudante(s) · M: ${masc} · F: ${fem}${admitidos > 0 ? ` · Admitidos: ${admitidos}` : ''}${naoAdmitidos > 0 ? ` · Não Admitidos: ${naoAdmitidos}` : ''}</div>
@@ -127,9 +127,9 @@ function buildListaHTML(
 ): string {
   const lista = registros
     .filter(r => {
-      if (filtroStatus === 'todos') return r.status === 'admitido' || r.status === 'matriculado' || r.status === 'nao_admitido' || r.status === 'não_admitido';
+      if (filtroStatus === 'todos') return r.status === 'admitido' || r.status === 'matriculado' || r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao';
       if (filtroStatus === 'admitido') return r.status === 'admitido' || r.status === 'matriculado';
-      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido';
+      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao';
       return r.status === filtroStatus;
     })
     .filter(r => filtroClasse === 'todas' || r.classe === filtroClasse)
@@ -184,7 +184,7 @@ function buildListaHTML(
   const totalMasc = lista.filter(r => r.genero === 'M').length;
   const totalFem = lista.filter(r => r.genero === 'F').length;
   const totalAdmitidos = lista.filter(r => r.status === 'admitido' || r.status === 'matriculado').length;
-  const totalNaoAdmitidos = lista.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido').length;
+  const totalNaoAdmitidos = lista.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao').length;
 
   const statusTitle = filtroStatus === 'nao_admitido' ? 'Estudantes Não Admitidos'
     : filtroStatus === 'matriculado' ? 'Estudantes Matriculados'
@@ -298,7 +298,7 @@ export default function ListaAdmitidosScreen() {
 
   const comResultado = registros.filter(r =>
     r.status === 'admitido' || r.status === 'matriculado' ||
-    r.status === 'nao_admitido' || r.status === 'não_admitido'
+    r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao'
   );
 
   const classes = Array.from(new Set(comResultado.map(r => r.classe))).sort((a, b) => a.localeCompare(b));
@@ -307,7 +307,7 @@ export default function ListaAdmitidosScreen() {
     .filter(r => {
       if (filtroStatus === 'todos') return true;
       if (filtroStatus === 'admitido') return r.status === 'admitido' || r.status === 'matriculado';
-      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido';
+      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao';
       return r.status === filtroStatus;
     })
     .filter(r => filtroClasse === 'todas' || r.classe === filtroClasse);
@@ -336,7 +336,7 @@ export default function ListaAdmitidosScreen() {
   }
 
   const totalAdmitidos = comResultado.filter(r => r.status === 'admitido' || r.status === 'matriculado').length;
-  const totalNaoAdm = comResultado.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido').length;
+  const totalNaoAdm = comResultado.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao').length;
 
   return (
     <View style={styles.container}>
@@ -443,7 +443,7 @@ export default function ListaAdmitidosScreen() {
         ) : (
           filtrados.slice(0, 20).map((r) => {
             const isAdm = r.status === 'admitido' || r.status === 'matriculado';
-            const isNaoAdm = r.status === 'nao_admitido' || r.status === 'não_admitido';
+            const isNaoAdm = r.status === 'nao_admitido' || r.status === 'não_admitido' || r.status === 'reprovado_admissao';
             const badgeBg = isAdm ? '#d4edda' : isNaoAdm ? '#f8d7da' : '#e2e3e5';
             const badgeColor = isAdm ? '#155724' : isNaoAdm ? '#721c24' : '#383d41';
             return (
