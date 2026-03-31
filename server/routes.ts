@@ -624,7 +624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.turno,
           b.anoLetivo,
           b.nivel,
-          b.professorId,
+          b.professorId || null,
           b.sala,
           b.capacidade,
           b.ativo,
@@ -659,8 +659,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const values: unknown[] = [];
 
       for (const key of allowed) {
-        const v = b[key as keyof typeof b];
+        let v = b[key as keyof typeof b];
         if (v === undefined) continue;
+        if (key === 'professorId' && v === '') v = null;
         values.push(v);
         setParts.push(`"${key}" = $${values.length}`);
       }

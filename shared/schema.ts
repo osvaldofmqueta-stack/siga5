@@ -225,10 +225,8 @@ export const turmas = pgTable("turmas", {
   nivel: text("nivel").notNull(), // "Primário" | "I Ciclo" | "II Ciclo"
 
   professorId: varchar("professorId")
-    .notNull()
     .references(() => professores.id),
 
-  // Curso ao qual esta turma pertence
   cursoId: varchar("cursoId").references(() => cursos.id),
 
   sala: text("sala").notNull(),

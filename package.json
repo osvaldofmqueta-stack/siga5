@@ -19,6 +19,7 @@
     "lint:fix": "npx expo lint --fix",
     "deploy:prod": "echo \"Deploy via GitHub Actions - push to main branch\"",
     "db:seed": "node scripts/seed-utilizadores.js",
+    "db:seed:sistema": "node scripts/seed-sistema.js",
     "neon:test": "node -e \"console.log(\\\"DATABASE_URL:\\\", process.env.DATABASE_URL)\""
   },
   "dependencies": {
