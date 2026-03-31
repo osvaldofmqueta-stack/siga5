@@ -22,7 +22,6 @@ interface Registro {
   classe: string;
   cursoNome?: string;
   cursoId?: string;
-  notaAdmissao?: number;
   status: string;
   criadoEm: string;
   nomeEncarregado: string;
@@ -47,27 +46,7 @@ function calcAge(dataNasc: string): number {
   return age;
 }
 
-function statusLabel(status: string): string {
-  if (status === 'admitido') return 'ADMITIDO';
-  if (status === 'matriculado') return 'MATRICULADO';
-  if (status === 'nao_admitido' || status === 'não_admitido') return 'NÃO ADMITIDO';
-  return status.toUpperCase();
-}
-
-function statusBadgeHtml(status: string): string {
-  if (status === 'admitido') {
-    return `<span style="background:#d4edda;color:#155724;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;white-space:nowrap;">ADMITIDO</span>`;
-  }
-  if (status === 'matriculado') {
-    return `<span style="background:#fff3cd;color:#856404;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;white-space:nowrap;">MATRICULADO</span>`;
-  }
-  if (status === 'nao_admitido' || status === 'não_admitido') {
-    return `<span style="background:#f8d7da;color:#721c24;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;white-space:nowrap;">NÃO ADMITIDO</span>`;
-  }
-  return `<span style="background:#e2e3e5;color:#383d41;padding:2px 7px;border-radius:4px;font-weight:bold;font-size:9px;">${status.toUpperCase()}</span>`;
-}
-
-function buildTabelaGrupo(
+function buildTabelaGrupoInscritos(
   alunos: Registro[],
   titulo: string,
   startNum: number,
@@ -76,25 +55,22 @@ function buildTabelaGrupo(
 ): string {
   const rows = alunos.map((a, idx) => {
     const age = calcAge(a.dataNascimento);
-    const nota = a.notaAdmissao !== undefined && a.notaAdmissao !== null ? `${a.notaAdmissao}/20` : '—';
     const bg = idx % 2 === 0 ? '#fff' : '#f0faff';
     return `<tr style="background:${bg}">
       <td class="num">${startNum + idx}</td>
       <td class="nome">${a.nomeCompleto.toUpperCase()}</td>
       <td class="centro">${a.genero || '—'}</td>
       <td class="centro">${age > 0 ? age : '—'}</td>
-      <td class="centro"><b>${nota}</b></td>
-      <td class="centro">${statusBadgeHtml(a.status)}</td>
+      <td class="centro">${a.provincia || '—'}</td>
       <td class="centro">${a.telefone || '—'}</td>
+      <td class="centro">${a.nomeEncarregado || '—'}</td>
     </tr>`;
   }).join('');
 
   const total = alunos.length;
-  const admitidos = alunos.filter(a => a.status === 'admitido' || a.status === 'matriculado').length;
-  const naoAdmitidos = alunos.filter(a => a.status === 'nao_admitido' || a.status === 'não_admitido').length;
 
   return `
-    <div class="grupo-header">${titulo} — ${total} estudante(s) · M: ${masc} · F: ${fem}${admitidos > 0 ? ` · Admitidos: ${admitidos}` : ''}${naoAdmitidos > 0 ? ` · Não Admitidos: ${naoAdmitidos}` : ''}</div>
+    <div class="grupo-header">${titulo} — ${total} inscrito(s) · M: ${masc} · F: ${fem}</div>
     <table>
       <thead>
         <tr>
@@ -102,9 +78,9 @@ function buildTabelaGrupo(
           <th>Nome do Estudante</th>
           <th style="width:40px;">Sexo</th>
           <th style="width:40px;">Idade</th>
-          <th style="width:52px;">Nota Adm.</th>
-          <th style="width:92px;">Estado</th>
+          <th style="width:80px;">Província</th>
           <th style="width:90px;">Telefone</th>
+          <th style="width:120px;">Encarregado</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
@@ -113,29 +89,23 @@ function buildTabelaGrupo(
       <div>Total: <span>${total}</span></div>
       <div>Masculino: <span>${masc}</span></div>
       <div>Feminino: <span>${fem}</span></div>
-      ${admitidos > 0 ? `<div>Admitidos: <span style="color:#155724">${admitidos}</span></div>` : ''}
-      ${naoAdmitidos > 0 ? `<div>Não Admitidos: <span style="color:#721c24">${naoAdmitidos}</span></div>` : ''}
     </div>
   `;
 }
 
-function buildListaHTML(
+function buildListaInscritosHTML(
   registros: Registro[],
   nomeEscola: string,
   filtroClasse: string,
-  filtroStatus: string,
+  anoLectivo: string,
 ): string {
+  const INSCRITOS_STATUS = ['inscrito', 'pendente', 'em_processamento', 'em processamento', 'aguardando_prova', 'aguardando prova'];
   const lista = registros
-    .filter(r => {
-      if (filtroStatus === 'todos') return r.status === 'admitido' || r.status === 'matriculado' || r.status === 'nao_admitido' || r.status === 'não_admitido';
-      if (filtroStatus === 'admitido') return r.status === 'admitido' || r.status === 'matriculado';
-      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido';
-      return r.status === filtroStatus;
-    })
+    .filter(r => INSCRITOS_STATUS.includes(r.status?.toLowerCase?.() ?? ''))
     .filter(r => filtroClasse === 'todas' || r.classe === filtroClasse)
     .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
 
-  if (lista.length === 0) return '<p>Nenhum estudante encontrado com os critérios seleccionados.</p>';
+  if (lista.length === 0) return '<p style="padding:20px;text-align:center;">Nenhum estudante inscrito encontrado com os critérios seleccionados.</p>';
 
   const byClasse: Record<string, Record<string, Registro[]>> = {};
   for (const r of lista) {
@@ -168,14 +138,14 @@ function buildListaHTML(
         const alunos = cursosObj[curso].sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
         const masc = alunos.filter(a => a.genero === 'M').length;
         const fem = alunos.filter(a => a.genero === 'F').length;
-        tablesHtml += buildTabelaGrupo(alunos, `${classe} — ${curso}`, globalOrder, masc, fem);
+        tablesHtml += buildTabelaGrupoInscritos(alunos, `${classe} — ${curso}`, globalOrder, masc, fem);
         globalOrder += alunos.length;
       }
     } else {
       const alunos = Object.values(cursosObj).flat().sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
       const masc = alunos.filter(a => a.genero === 'M').length;
       const fem = alunos.filter(a => a.genero === 'F').length;
-      tablesHtml += buildTabelaGrupo(alunos, classe, globalOrder, masc, fem);
+      tablesHtml += buildTabelaGrupoInscritos(alunos, classe, globalOrder, masc, fem);
       globalOrder += alunos.length;
     }
   }
@@ -183,19 +153,12 @@ function buildListaHTML(
   const totalGeral = lista.length;
   const totalMasc = lista.filter(r => r.genero === 'M').length;
   const totalFem = lista.filter(r => r.genero === 'F').length;
-  const totalAdmitidos = lista.filter(r => r.status === 'admitido' || r.status === 'matriculado').length;
-  const totalNaoAdmitidos = lista.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido').length;
-
-  const statusTitle = filtroStatus === 'nao_admitido' ? 'Estudantes Não Admitidos'
-    : filtroStatus === 'matriculado' ? 'Estudantes Matriculados'
-    : filtroStatus === 'todos' ? 'Lista de Resultados de Admissão (Todos)'
-    : 'Estudantes Admitidos';
 
   return `<!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>${statusTitle} — ${nomeEscola}</title>
+<title>Lista de Estudantes Inscritos — ${nomeEscola}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; padding: 15mm 18mm; }
@@ -204,6 +167,7 @@ function buildListaHTML(
   .doc-header .escola { font-size: 12px; font-weight: bold; text-transform: uppercase; }
   .doc-title { font-size: 14px; font-weight: bold; text-transform: uppercase; text-decoration: underline; letter-spacing: 1px; margin: 10px 0 4px; }
   .doc-meta { font-size: 10px; color: #333; margin-bottom: 14px; }
+  .aviso { background: #fff8e1; border: 1px solid #f59e0b; border-radius: 4px; padding: 6px 10px; font-size: 10px; color: #78350f; margin-bottom: 14px; text-align: center; font-style: italic; }
   .classe-header { background: #1A2B5F; color: #fff; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 5px 8px; margin: 16px 0 4px; letter-spacing: 0.5px; }
   .grupo-header { background: #0369a1; color: #fff; font-weight: bold; font-size: 10px; padding: 4px 8px; margin: 10px 0 3px; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 10px; }
@@ -233,18 +197,18 @@ function buildListaHTML(
     <p>MINISTÉRIO DA EDUCAÇÃO</p>
     <p>ENSINO GERAL</p>
     <p class="escola">${nomeEscola}</p>
-    <p class="doc-title">${statusTitle}</p>
-    <p class="doc-meta">Ano Lectivo: ${anoAtual()} &nbsp;|&nbsp; Emitido em: ${hoje()} &nbsp;|&nbsp; Total: ${totalGeral} estudante(s)</p>
+    <p class="doc-title">Lista de Estudantes Inscritos — Processo de Admissão ${anoLectivo}</p>
+    <p class="doc-meta">Ano Lectivo: ${anoLectivo} &nbsp;|&nbsp; Emitido em: ${hoje()} &nbsp;|&nbsp; Total de Inscritos: ${totalGeral}</p>
   </div>
+
+  <div class="aviso">Documento emitido antes do lançamento dos resultados — lista de candidatos inscritos ainda sem classificação final.</div>
 
   ${tablesHtml}
 
   <div class="total-box">
-    <div>Total Geral: <b>${totalGeral}</b></div>
+    <div>Total de Inscritos: <b>${totalGeral}</b></div>
     <div>Masculino: <b>${totalMasc}</b></div>
     <div>Feminino: <b>${totalFem}</b></div>
-    ${totalAdmitidos > 0 ? `<div>Admitidos/Matriculados: <b style="color:#155724">${totalAdmitidos}</b></div>` : ''}
-    ${totalNaoAdmitidos > 0 ? `<div>Não Admitidos: <b style="color:#721c24">${totalNaoAdmitidos}</b></div>` : ''}
   </div>
 
   <div class="sig-row">
@@ -260,7 +224,7 @@ function buildListaHTML(
 </html>`;
 }
 
-export default function ListaAdmitidosScreen() {
+export default function ListaInscritosScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
@@ -270,10 +234,13 @@ export default function ListaAdmitidosScreen() {
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [filtroClasse, setFiltroClasse] = useState('todas');
-  const [filtroStatus, setFiltroStatus] = useState('admitido');
 
   const topPad = Platform.OS === 'web' ? 0 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
+
+  const anoLectivo = anoAtual();
+
+  const INSCRITOS_STATUS = ['inscrito', 'pendente', 'em_processamento', 'em processamento', 'aguardando_prova', 'aguardando prova'];
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -296,26 +263,16 @@ export default function ListaAdmitidosScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const comResultado = registros.filter(r =>
-    r.status === 'admitido' || r.status === 'matriculado' ||
-    r.status === 'nao_admitido' || r.status === 'não_admitido'
-  );
+  const inscritos = registros.filter(r => INSCRITOS_STATUS.includes(r.status?.toLowerCase?.() ?? ''));
 
-  const classes = Array.from(new Set(comResultado.map(r => r.classe))).sort((a, b) => a.localeCompare(b));
+  const classes = Array.from(new Set(inscritos.map(r => r.classe))).sort((a, b) => a.localeCompare(b));
 
-  const filtrados = comResultado
-    .filter(r => {
-      if (filtroStatus === 'todos') return true;
-      if (filtroStatus === 'admitido') return r.status === 'admitido' || r.status === 'matriculado';
-      if (filtroStatus === 'nao_admitido') return r.status === 'nao_admitido' || r.status === 'não_admitido';
-      return r.status === filtroStatus;
-    })
-    .filter(r => filtroClasse === 'todas' || r.classe === filtroClasse);
+  const filtrados = inscritos.filter(r => filtroClasse === 'todas' || r.classe === filtroClasse);
 
   function handleGerar() {
     if (Platform.OS !== 'web') return;
     setIsGenerating(true);
-    const html = buildListaHTML(registros, nomeEscola, filtroClasse, filtroStatus);
+    const html = buildListaInscritosHTML(registros, nomeEscola, filtroClasse, anoLectivo);
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(html);
@@ -335,9 +292,6 @@ export default function ListaAdmitidosScreen() {
     );
   }
 
-  const totalAdmitidos = comResultado.filter(r => r.status === 'admitido' || r.status === 'matriculado').length;
-  const totalNaoAdm = comResultado.filter(r => r.status === 'nao_admitido' || r.status === 'não_admitido').length;
-
   return (
     <View style={styles.container}>
       <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
@@ -348,8 +302,8 @@ export default function ListaAdmitidosScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Lista de Resultados de Admissão</Text>
-            <Text style={styles.headerSub}>{filtrados.length} estudante(s) com os filtros actuais</Text>
+            <Text style={styles.headerTitle}>Lista de Estudantes Inscritos</Text>
+            <Text style={styles.headerSub}>{filtrados.length} inscrito(s) · antes do lançamento das notas</Text>
           </View>
         </View>
       </LinearGradient>
@@ -358,27 +312,15 @@ export default function ListaAdmitidosScreen() {
         contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.infoCard}>
+          <Ionicons name="information-circle-outline" size={16} color={Colors.gold} />
+          <Text style={styles.infoText}>
+            Esta lista inclui todos os candidatos inscritos no processo de admissão ainda sem resultado atribuído.
+          </Text>
+        </View>
+
         <View style={styles.filtersCard}>
           <Text style={styles.filtersTitle}>Filtros</Text>
-
-          <Text style={styles.filterLabel}>Estado / Resultado</Text>
-          <View style={styles.chipRow}>
-            {[
-              { v: 'admitido', label: 'Admitidos', color: '#155724' },
-              { v: 'nao_admitido', label: 'Não Admitidos', color: '#721c24' },
-              { v: 'todos', label: 'Todos os Resultados', color: Colors.gold },
-            ].map(opt => (
-              <TouchableOpacity
-                key={opt.v}
-                style={[styles.chip, filtroStatus === opt.v && { ...styles.chipActive, borderColor: opt.color + '99' }]}
-                onPress={() => setFiltroStatus(opt.v)}
-              >
-                <Text style={[styles.chipText, filtroStatus === opt.v && { ...styles.chipTextActive, color: opt.color }]}>
-                  {opt.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           <Text style={styles.filterLabel}>Classe</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
@@ -425,12 +367,10 @@ export default function ListaAdmitidosScreen() {
               <Text style={styles.summaryLabel}>Feminino</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNum, { color: Colors.success }]}>{totalAdmitidos}</Text>
-              <Text style={styles.summaryLabel}>Admitidos</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNum, { color: Colors.danger }]}>{totalNaoAdm}</Text>
-              <Text style={styles.summaryLabel}>Não Adm.</Text>
+              <Text style={[styles.summaryNum, { color: Colors.warning }]}>
+                {classes.length}
+              </Text>
+              <Text style={styles.summaryLabel}>Classes</Text>
             </View>
           </View>
         </View>
@@ -438,29 +378,24 @@ export default function ListaAdmitidosScreen() {
         {filtrados.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="people-outline" size={36} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>Nenhum estudante com estes filtros</Text>
+            <Text style={styles.emptyText}>Nenhum estudante inscrito com estes filtros</Text>
+            <Text style={styles.emptySubText}>Candidatos com resultado já atribuído não aparecem aqui</Text>
           </View>
         ) : (
-          filtrados.slice(0, 20).map((r) => {
-            const isAdm = r.status === 'admitido' || r.status === 'matriculado';
-            const isNaoAdm = r.status === 'nao_admitido' || r.status === 'não_admitido';
-            const badgeBg = isAdm ? '#d4edda' : isNaoAdm ? '#f8d7da' : '#e2e3e5';
-            const badgeColor = isAdm ? '#155724' : isNaoAdm ? '#721c24' : '#383d41';
-            return (
-              <View key={r.id} style={styles.regRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.regNome}>{r.nomeCompleto}</Text>
-                  <Text style={styles.regSub}>
-                    {r.classe}{r.cursoNome ? ` · ${r.cursoNome}` : ''} · {r.genero}
-                    {r.notaAdmissao !== undefined && r.notaAdmissao !== null ? ` · Nota: ${r.notaAdmissao}/20` : ''}
-                  </Text>
-                </View>
-                <View style={[styles.badge, { backgroundColor: badgeBg }]}>
-                  <Text style={[styles.badgeText, { color: badgeColor }]}>{statusLabel(r.status)}</Text>
-                </View>
+          filtrados.slice(0, 20).map((r) => (
+            <View key={r.id} style={styles.regRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.regNome}>{r.nomeCompleto}</Text>
+                <Text style={styles.regSub}>
+                  {r.classe}{r.cursoNome ? ` · ${r.cursoNome}` : ''} · {r.genero}
+                  {r.provincia ? ` · ${r.provincia}` : ''}
+                </Text>
               </View>
-            );
-          })
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>INSCRITO</Text>
+              </View>
+            </View>
+          ))
         )}
 
         {filtrados.length > 20 && (
@@ -481,7 +416,7 @@ export default function ListaAdmitidosScreen() {
               : <>
                 <Ionicons name="print-outline" size={20} color="#fff" />
                 <Text style={styles.gerarBtnText}>
-                  Gerar Lista para Impressão ({filtrados.length} estudantes)
+                  Gerar Lista para Impressão ({filtrados.length} inscritos)
                 </Text>
               </>
             }
@@ -501,6 +436,8 @@ const styles = StyleSheet.create({
   headerSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
   loadingText: { color: Colors.textMuted, marginTop: 12, fontSize: 14 },
   scroll: { padding: 16, gap: 14 },
+  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.gold + '15', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.gold + '40' },
+  infoText: { fontSize: 12, color: Colors.gold, flex: 1, lineHeight: 17 },
   filtersCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   filtersTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
   filterLabel: { fontSize: 11, color: Colors.textMuted, marginBottom: 6, marginTop: 8 },
@@ -517,11 +454,12 @@ const styles = StyleSheet.create({
   regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   regNome: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   regSub: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-  badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
-  badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', textTransform: 'uppercase' },
+  badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: Colors.info + '25' },
+  badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', textTransform: 'uppercase', color: Colors.info },
   moreText: { textAlign: 'center', color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' },
-  emptyWrap: { alignItems: 'center', gap: 8, paddingVertical: 32 },
+  emptyWrap: { alignItems: 'center', gap: 6, paddingVertical: 32 },
   emptyText: { color: Colors.textMuted, fontSize: 14 },
+  emptySubText: { color: Colors.textMuted, fontSize: 12, fontStyle: 'italic', textAlign: 'center' },
   gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A2B5F', borderRadius: 12, paddingVertical: 16, marginTop: 8 },
   gerarBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });

@@ -1,6 +1,25 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Validação Formulário Inscrição & Fluxo Pagamento Boletim)
+## Recent Changes (Latest Session — Listas de Admissão: Resultados e Inscritos)
+- **app/lista-admitidos.tsx**: Redesenhado como "Lista de Resultados de Admissão" com:
+  - Nova coluna "Estado" com badges coloridos (ADMITIDO = verde, MATRICULADO = dourado, NÃO ADMITIDO = vermelho)
+  - Filtros actualizados: Admitidos | Não Admitidos | Todos os Resultados
+  - Organização automática: Primária/I Ciclo = por classe; II Ciclo = por classe e curso
+  - Totais de admitidos vs. não admitidos no footer
+  - Sumário com contadores separados no ecrã de prévisualização
+- **app/lista-inscritos.tsx** *(new)*: Nova lista de candidatos inscritos antes do lançamento das notas:
+  - Mostra candidatos com status: inscrito, pendente, em_processamento (sem resultado atribuído)
+  - Agrupamento automático: Primária/I Ciclo = por classe; II Ciclo = por classe e curso
+  - Colunas: Nº, Nome, Sexo, Idade, Província, Telefone, Encarregado
+  - Aviso no documento impresso: "emitido antes do lançamento de resultados"
+- **app/(main)/editor-documentos.tsx**: Actualizado com o novo tipo de documento:
+  - `lista_inscritos` adicionado ao DocTipo
+  - SEED_LISTA_INSCRITOS com variáveis: `{{NOME_ESCOLA}}`, `{{ANO_LECTIVO}}`, `{{NOME_DIRECTOR}}`
+  - SEED_LISTA_ADMITIDOS actualizado com variáveis: `{{NOME_ESCOLA}}`, `{{ANO_LECTIVO}}`, `{{NOTA_ADMISSAO}}`
+  - Botão "Emitir" encaminha para `/lista-inscritos` (novo ecrã)
+  - Ambos os modelos visíveis e editáveis no Editor de Documentos
+
+## Recent Changes (Previous Session — Validação Formulário Inscrição & Fluxo Pagamento Boletim)
 - **app/registro.tsx**: Corrigida validação do formulário de inscrição de exame de acesso:
   - Todos os erros de campo agora são inline (sob o campo) usando `fieldErrors`, não banner genérico
   - `validateStep1`: `dataNascimento`, `provincia`, `municipio` usam `fieldErrors` em vez de `showError()`
