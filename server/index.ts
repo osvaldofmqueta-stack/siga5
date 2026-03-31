@@ -56,13 +56,21 @@ const SW_SCRIPT = `
 
 function injectPwaTags(html: string): string {
   let result = html;
+
   if (!html.includes("Inter_400Regular")) {
     result = result.replace("</head>", `${FONT_STYLE}\n</head>`);
   }
-  if (!html.includes('rel="manifest"')) {
-    result = result.replace("</head>", `${PWA_TAGS}\n</head>`);
+
+  // Always remove any Expo-generated manifest link and replace with ours
+  result = result.replace(/<link[^>]*rel=["']manifest["'][^>]*>/gi, "");
+
+  // Always inject our PWA tags and service worker script
+  result = result.replace("</head>", `${PWA_TAGS}\n</head>`);
+
+  if (!result.includes("serviceWorker.register")) {
     result = result.replace("</body>", `${SW_SCRIPT}\n</body>`);
   }
+
   return result;
 }
 
