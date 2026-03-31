@@ -54,6 +54,7 @@ function gradeLabel(val: number) {
 
 function GradeInput({
   label, value, onChange, highlight = false, readonly = false, registered = false,
+  min = 0, max = 20,
 }: {
   label: string;
   value: number;
@@ -61,14 +62,31 @@ function GradeInput({
   highlight?: boolean;
   readonly?: boolean;
   registered?: boolean;
+  min?: number;
+  max?: number;
 }) {
   const color = gradeColor(value);
+  const isOverMax = !readonly && value > max && value > 0;
+  const inputBorderColor = isOverMax
+    ? Colors.danger
+    : registered
+    ? Colors.success + '70'
+    : highlight
+    ? Colors.gold + '80'
+    : undefined;
+  const inputBg = isOverMax
+    ? Colors.danger + '10'
+    : registered
+    ? Colors.success + '08'
+    : undefined;
+
   return (
     <View style={gS.gradeBox}>
       <View style={gS.gradeLabelRow}>
         <Text style={gS.gradeLabel}>{label}</Text>
-        {registered && (
-          <View style={gS.registeredDot} />
+        {registered && !isOverMax && <View style={gS.registeredDot} />}
+        {isOverMax && (
+          <Ionicons name="alert-circle" size={10} color={Colors.danger} />
         )}
       </View>
       {readonly ? (
@@ -79,17 +97,27 @@ function GradeInput({
         </View>
       ) : (
         <TextInput
-          style={[gS.gradeInput, highlight && { borderColor: Colors.gold + '80' }, registered && { borderColor: Colors.success + '70', backgroundColor: Colors.success + '08' }]}
+          style={[
+            gS.gradeInput,
+            inputBorderColor ? { borderColor: inputBorderColor } : undefined,
+            inputBg ? { backgroundColor: inputBg } : undefined,
+          ]}
           value={value === 0 ? '' : String(value)}
           onChangeText={t => {
+            if (t === '' || t === '0') { onChange?.(0); return; }
             const n = parseFloat(t);
-            if (!isNaN(n) && n >= 0 && n <= 20) onChange?.(n);
-            else if (t === '' || t === '0') onChange?.(0);
+            if (!isNaN(n) && n >= 0) {
+              if (n > max) {
+                onChange?.(max);
+              } else {
+                onChange?.(n);
+              }
+            }
           }}
           keyboardType="decimal-pad"
           placeholder="—"
           placeholderTextColor={Colors.textMuted}
-          maxLength={4}
+          maxLength={max <= 5 ? 1 : 4}
           selectTextOnFocus
         />
       )}
@@ -184,9 +212,14 @@ function NotaFormModal({
       webAlert('Campos obrigatórios', 'Seleccione aluno e disciplina.');
       return;
     }
-    const vals = [...activeAvalKeys.map(k => (form[k as keyof Nota] as number) || 0), form.pp1, form.ppt];
-    if (vals.some(v => (v || 0) > 20)) {
-      webAlert('Nota inválida', 'Nenhuma nota pode exceder 20 valores.');
+    const avalVals = activeAvalKeys.map(k => (form[k as keyof Nota] as number) || 0);
+    if (avalVals.some(v => v > 5)) {
+      webAlert('Nota inválida', 'As avaliações contínuas (AVAL) têm escala de 1 a 5. Corrija os valores antes de guardar.');
+      return;
+    }
+    const provaVals = [form.pp1 || 0, form.ppt || 0];
+    if (provaVals.some(v => v > 20)) {
+      webAlert('Nota inválida', 'As provas (PP / PT) têm escala de 0 a 20. Corrija os valores antes de guardar.');
       return;
     }
     const hasAny = Object.values(lanc).some(Boolean);
@@ -304,7 +337,12 @@ function NotaFormModal({
               <View style={mS.blockHeader}>
                 <View style={mS.blockDot} />
                 <Text style={mS.blockTitle}>Avaliações Contínuas</Text>
-                <Text style={mS.blockSub}>{avaisRegistadas}/{numAvaliacoes} registadas</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <View style={{ backgroundColor: Colors.gold + '22', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: Colors.gold + '44' }}>
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.goldLight }}>Escala 1–5</Text>
+                  </View>
+                  <Text style={mS.blockSub}>{avaisRegistadas}/{numAvaliacoes} registadas</Text>
+                </View>
               </View>
               <View style={mS.gradesGrid}>
                 {activeAvalKeys.map((key, i) => (
@@ -314,6 +352,7 @@ function NotaFormModal({
                     value={(form[key as keyof Nota] as number) || 0}
                     onChange={v => set(key as keyof Nota, v)}
                     registered={!!(lanc[key as keyof NotaLancamentos])}
+                    max={5}
                   />
                 ))}
               </View>

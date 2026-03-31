@@ -705,6 +705,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/notas", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      const AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
+      for (const k of AVAL_KEYS) {
+        const v = Number(b[k] ?? 0);
+        if (v > 5) return json(res, 400, { error: `O campo ${k} não pode ser superior a 5. Escala das avaliações contínuas: 1–5.` });
+      }
+      if (Number(b.pp1 ?? 0) > 20 || Number(b.ppt ?? 0) > 20) {
+        return json(res, 400, { error: 'PP e PT não podem ser superiores a 20. Escala: 0–20.' });
+      }
       const rows = await query<JsonObject>(
         `INSERT INTO public.notas (
           id, "alunoId", "turmaId", "disciplina", "trimestre",
