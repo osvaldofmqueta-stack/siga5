@@ -794,9 +794,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "professorId",
         "data",
         "lancamentos",
+        "camposAbertos",
+        "pedidosReabertura",
       ] as const;
 
-      const jsonbKeys = new Set(["lancamentos"]);
+      const jsonbKeys = new Set(["lancamentos", "camposAbertos", "pedidosReabertura"]);
       const setParts: string[] = [];
       const values: unknown[] = [];
 
@@ -835,6 +837,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // Solicitar reabertura de campo bloqueado numa nota (qualquer professor autenticado)
+  app.post("/api/notas/:id/solicitar-reabertura", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { campo, motivo, professorId, professorNome } = b as any;
+      if (!campo || !motivo) return json(res, 400, { error: 'campo e motivo são obrigatórios.' });
+
+      const existing = await query<JsonObject>(`SELECT "pedidosReabertura" FROM public.notas WHERE id=$1`, [id]);
+      if (!existing[0]) return json(res, 404, { error: 'Nota não encontrada.' });
+
+      const pedidos: any[] = (existing[0].pedidosReabertura as any[]) ?? [];
+      const pendente = pedidos.find((p: any) => p.campo === campo && p.status === 'pendente');
+      if (pendente) return json(res, 409, { error: 'Já existe um pedido pendente para este campo.' });
+
+      const novoPedido = {
+        id: `pr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        campo,
+        motivo,
+        professorId: professorId || null,
+        professorNome: professorNome || null,
+        status: 'pendente',
+        criadoEm: new Date().toISOString(),
+        respondidoEm: null,
+        observacao: null,
+      };
+      pedidos.push(novoPedido);
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.notas SET "pedidosReabertura"=$1::jsonb WHERE id=$2 RETURNING *`,
+        [jsonbParam(pedidos), id],
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Responder a pedido de reabertura (privilegiado: admin, director, pca, ceo, chefe_secretaria)
+  app.put("/api/notas/:id/responder-reabertura", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).user as { role: string };
+      const PRIV = ['ceo','pca','admin','director','chefe_secretaria'];
+      if (!user || !PRIV.includes(user.role)) return json(res, 403, { error: 'Sem permissão.' });
+
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { pedidoId, decisao, observacao } = b as any; // decisao: 'aprovada' | 'rejeitada'
+      if (!pedidoId || !decisao) return json(res, 400, { error: 'pedidoId e decisao são obrigatórios.' });
+
+      const existing = await query<JsonObject>(
+        `SELECT "pedidosReabertura","camposAbertos","lancamentos" FROM public.notas WHERE id=$1`, [id]
+      );
+      if (!existing[0]) return json(res, 404, { error: 'Nota não encontrada.' });
+
+      const pedidos: any[] = (existing[0].pedidosReabertura as any[]) ?? [];
+      const pedido = pedidos.find((p: any) => p.id === pedidoId);
+      if (!pedido) return json(res, 404, { error: 'Pedido não encontrado.' });
+
+      pedido.status = decisao;
+      pedido.respondidoEm = new Date().toISOString();
+      pedido.observacao = observacao ?? null;
+
+      const camposAbertos: string[] = (existing[0].camposAbertos as string[]) ?? [];
+      if (decisao === 'aprovada' && !camposAbertos.includes(pedido.campo)) {
+        camposAbertos.push(pedido.campo);
+      }
+
+      // Also clear lancamento flag for approved campo so value can be re-entered
+      let lancamentos: any = existing[0].lancamentos ?? {};
+      if (decisao === 'aprovada' && pedido.campo in lancamentos) {
+        lancamentos = { ...lancamentos, [pedido.campo]: false };
+      }
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.notas SET "pedidosReabertura"=$1::jsonb,"camposAbertos"=$2::jsonb,"lancamentos"=$3::jsonb WHERE id=$4 RETURNING *`,
+        [jsonbParam(pedidos), jsonbParam(camposAbertos), jsonbParam(lancamentos), id],
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Listar notas com pedidos de reabertura pendentes (privilegiado)
+  app.get("/api/notas/reabertura-pendentes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT n.*, a.nome as "alunoNome", a.apelido as "alunoApelido", t.nome as "turmaNome"
+         FROM public.notas n
+         LEFT JOIN public.alunos a ON a.id = n."alunoId"
+         LEFT JOIN public.turmas t ON t.id = n."turmaId"
+         WHERE n."pedidosReabertura"::text != '[]' AND n."pedidosReabertura"::text != 'null'
+         AND n."pedidosReabertura"::jsonb @> '[{"status":"pendente"}]'
+         ORDER BY n."data" DESC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   // -----------------------

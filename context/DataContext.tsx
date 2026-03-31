@@ -63,6 +63,18 @@ export interface NotaLancamentos {
   ppt: boolean;
 }
 
+export interface PedidoReabertura {
+  id: string;
+  campo: string;
+  motivo: string;
+  professorId?: string;
+  professorNome?: string;
+  status: 'pendente' | 'aprovada' | 'rejeitada';
+  criadoEm: string;
+  respondidoEm?: string;
+  observacao?: string;
+}
+
 export interface Nota {
   id: string;
   alunoId: string;
@@ -87,6 +99,8 @@ export interface Nota {
   professorId: string;
   data: string;
   lancamentos?: NotaLancamentos;
+  camposAbertos?: string[];
+  pedidosReabertura?: PedidoReabertura[];
 }
 
 export interface Presenca {

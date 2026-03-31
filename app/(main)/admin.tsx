@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   useLocalSearchParams, useRouter } from 'expo-router';
 import {
@@ -28,6 +28,7 @@ import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
+import { api } from '@/lib/api';
 
 const ESCOLA_STORAGE = '@sgaa_escola_config';
 
@@ -83,6 +84,7 @@ const SECTION_COLORS: Record<string, string> = {
   config: Colors.success,
   comunicacoes: Colors.accent,
   seguranca: Colors.danger,
+  reabertura: Colors.warning,
 };
 
 const GROUPS = [
@@ -91,7 +93,7 @@ const GROUPS = [
     label: 'Académico',
     icon: 'school' as const,
     color: Colors.warning,
-    sections: ['matriculas', 'cursos', 'disciplinas', 'anos'],
+    sections: ['matriculas', 'cursos', 'disciplinas', 'anos', 'reabertura'],
   },
   {
     key: 'pessoal',
@@ -160,6 +162,47 @@ export default function AdminScreen() {
   const { solicitacoes, pendentes, aprovadas, rejeitadas, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao } = useRegistro();
   const { config, updateConfig, updateFlashScreen } = useConfig();
   const { values: areasFormacao } = useLookup('areas_curso', AREAS_FORMACAO_DEFAULT);
+
+  // ── Reabertura de Campos de Notas ─────────────────────────
+  interface ReaNotaRow {
+    id: string; alunoId: string; turmaId: string; disciplina: string; trimestre: number;
+    pedidosReabertura: any[]; alunoNome?: string; alunoApelido?: string; turmaNome?: string;
+  }
+  const [reaNotas, setReaNotas] = useState<ReaNotaRow[]>([]);
+  const [reaLoading, setReaLoading] = useState(false);
+  const [reaResponding, setReaResponding] = useState<string | null>(null);
+  const [reaObsModal, setReaObsModal] = useState<{ notaId: string; pedidoId: string; decisao: 'aprovada' | 'rejeitada'; label: string } | null>(null);
+  const [reaObs, setReaObs] = useState('');
+
+  const reaPendentes = useMemo(() =>
+    reaNotas.flatMap(n => (n.pedidosReabertura || []).filter((p: any) => p.status === 'pendente').map((p: any) => ({ ...p, _notaId: n.id, _nota: n }))),
+    [reaNotas]
+  );
+
+  useEffect(() => {
+    if (activeSection === 'reabertura') fetchReabertura();
+  }, [activeSection]);
+
+  async function fetchReabertura() {
+    setReaLoading(true);
+    try {
+      const list = await api.get<ReaNotaRow[]>('/api/notas/reabertura-pendentes');
+      setReaNotas(list);
+    } catch { setReaNotas([]); }
+    finally { setReaLoading(false); }
+  }
+
+  async function responderReabertura(notaId: string, pedidoId: string, decisao: 'aprovada' | 'rejeitada', observacao: string) {
+    setReaResponding(pedidoId);
+    try {
+      await api.put(`/api/notas/${notaId}/responder-reabertura`, { pedidoId, decisao, observacao });
+      alertSucesso(decisao === 'aprovada' ? 'Aprovado' : 'Rejeitado', `O pedido foi ${decisao === 'aprovada' ? 'aprovado' : 'rejeitado'} com sucesso.`);
+      setReaObsModal(null);
+      setReaObs('');
+      await fetchReabertura();
+    } catch { webAlert('Erro', 'Não foi possível responder ao pedido.'); }
+    finally { setReaResponding(null); }
+  }
 
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
   const [editEscola, setEditEscola] = useState(false);
@@ -494,6 +537,7 @@ export default function AdminScreen() {
     { key: 'disciplinas', label: 'Disciplinas', icon: 'book' },
     { key: 'escola', label: 'Escola', icon: 'school' },
     { key: 'anos', label: 'Ano Académico', icon: 'calendar' },
+    { key: 'reabertura', label: 'Reabertura Notas', icon: 'lock-open', badge: reaPendentes.length > 0 ? reaPendentes.length : undefined },
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
     { key: 'acessos', label: 'Acessos', icon: 'key' },
     { key: 'config', label: 'Configurações', icon: 'settings' },
@@ -1930,8 +1974,115 @@ export default function AdminScreen() {
           </View>
         )}
 
+        {/* REABERTURA DE CAMPOS DE NOTAS */}
+        {activeSection === 'reabertura' && (
+          <View style={[styles.card, { gap: 12 }]}>
+            <View style={styles.cardHeaderRow}>
+              <SectionHeader title="Pedidos de Reabertura de Notas" icon="lock-open" color={Colors.warning} />
+              <TouchableOpacity onPress={fetchReabertura} style={{ padding: 6 }}>
+                <Ionicons name="refresh" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {reaLoading ? (
+              <Text style={{ textAlign: 'center', color: Colors.textMuted, paddingVertical: 24, fontFamily: 'Inter_400Regular' }}>A carregar pedidos...</Text>
+            ) : reaPendentes.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 32 }}>
+                <Ionicons name="checkmark-circle-outline" size={40} color={Colors.success} />
+                <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text, fontSize: 15, marginTop: 10 }}>Sem pedidos pendentes</Text>
+                <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 13, marginTop: 4 }}>Todos os pedidos foram tratados.</Text>
+              </View>
+            ) : (
+              reaPendentes.map((p: any) => {
+                const nota: any = p._nota;
+                const alunoNome = `${nota.alunoNome || ''} ${nota.alunoApelido || ''}`.trim() || nota.alunoId;
+                const isRes = reaResponding === p.id;
+                const campoLabel = p.campo.startsWith('aval') ? `AVAL ${p.campo.replace('aval', '')}` : p.campo === 'pp1' ? 'PP' : p.campo === 'ppt' ? 'PT' : p.campo;
+                const dt = p.criadoEm ? new Date(p.criadoEm).toLocaleDateString('pt-PT') : '';
+                return (
+                  <View key={p.id} style={{ backgroundColor: Colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.warning + '44', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                      <Ionicons name="lock-closed" size={14} color={Colors.warning} />
+                      <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 14, flex: 1 }}>{alunoNome}</Text>
+                      <View style={{ backgroundColor: Colors.warning + '25', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+                        <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.warning, fontSize: 11 }}>{campoLabel}</Text>
+                      </View>
+                    </View>
+                    <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 12 }}>
+                      {nota.disciplina} · T{nota.trimestre} · {nota.turmaNome || nota.turmaId} {dt ? `· ${dt}` : ''}
+                    </Text>
+                    {p.professorNome && (
+                      <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textSecondary, fontSize: 12 }}>Professor: {p.professorNome}</Text>
+                    )}
+                    <View style={{ backgroundColor: Colors.background, borderRadius: 8, padding: 10 }}>
+                      <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, fontSize: 10, marginBottom: 4 }}>MOTIVO</Text>
+                      <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.text, fontSize: 13 }}>{p.motivo}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
+                      <TouchableOpacity
+                        style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.success + '20', borderWidth: 1, borderColor: Colors.success + '60' }, isRes && { opacity: 0.5 }]}
+                        onPress={() => setReaObsModal({ notaId: p._notaId, pedidoId: p.id, decisao: 'aprovada', label: `${alunoNome} — ${campoLabel}` })}
+                        disabled={isRes}
+                      >
+                        <Ionicons name="checkmark-circle" size={15} color={Colors.success} />
+                        <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.success, fontSize: 13 }}>Aprovar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.danger + '15', borderWidth: 1, borderColor: Colors.danger + '55' }, isRes && { opacity: 0.5 }]}
+                        onPress={() => setReaObsModal({ notaId: p._notaId, pedidoId: p.id, decisao: 'rejeitada', label: `${alunoNome} — ${campoLabel}` })}
+                        disabled={isRes}
+                      >
+                        <Ionicons name="close-circle" size={15} color={Colors.danger} />
+                        <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.danger, fontSize: 13 }}>Rejeitar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
+
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Modal Observação Reabertura */}
+      <Modal visible={!!reaObsModal} transparent animationType="fade" onRequestClose={() => setReaObsModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxWidth: 400, width: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Ionicons name={reaObsModal?.decisao === 'aprovada' ? 'checkmark-circle' : 'close-circle'} size={20} color={reaObsModal?.decisao === 'aprovada' ? Colors.success : Colors.danger} />
+              <Text style={[styles.modalTitle, { flex: 1 }]}>{reaObsModal?.decisao === 'aprovada' ? 'Aprovar Reabertura' : 'Rejeitar Reabertura'}</Text>
+              <TouchableOpacity onPress={() => setReaObsModal(null)}>
+                <Ionicons name="close" size={20} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text, fontSize: 13, marginBottom: 6 }}>{reaObsModal?.label}</Text>
+            <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 12, marginBottom: 12 }}>Observação opcional (para comunicar ao professor):</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Observação..."
+              placeholderTextColor={Colors.textMuted}
+              value={reaObs}
+              onChangeText={setReaObs}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+              <TouchableOpacity style={[styles.cancelBtn, { flex: 1 }]} onPress={() => setReaObsModal(null)}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 2, backgroundColor: reaObsModal?.decisao === 'aprovada' ? Colors.success : Colors.danger }]}
+                onPress={() => reaObsModal && responderReabertura(reaObsModal.notaId, reaObsModal.pedidoId, reaObsModal.decisao, reaObs)}
+                disabled={reaResponding !== null}
+              >
+                <Text style={styles.saveBtnText}>{reaResponding ? 'A processar...' : reaObsModal?.decisao === 'aprovada' ? 'Confirmar Aprovação' : 'Confirmar Rejeição'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Editar Escola */}
       <Modal visible={editEscola} transparent animationType="slide">

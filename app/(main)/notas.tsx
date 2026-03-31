@@ -14,7 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
-import { useData, Nota, NotaLancamentos } from '@/context/DataContext';
+import { useData, Nota, NotaLancamentos, PedidoReabertura } from '@/context/DataContext';
+import { api } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
@@ -54,7 +55,7 @@ function gradeLabel(val: number) {
 
 function GradeInput({
   label, value, onChange, highlight = false, readonly = false, registered = false,
-  min = 0, max = 20,
+  pending = false, min = 0, max = 20,
 }: {
   label: string;
   value: number;
@@ -62,6 +63,7 @@ function GradeInput({
   highlight?: boolean;
   readonly?: boolean;
   registered?: boolean;
+  pending?: boolean;
   min?: number;
   max?: number;
 }) {
@@ -84,16 +86,22 @@ function GradeInput({
     <View style={gS.gradeBox}>
       <View style={gS.gradeLabelRow}>
         <Text style={gS.gradeLabel}>{label}</Text>
-        {registered && !isOverMax && <View style={gS.registeredDot} />}
+        {registered && !isOverMax && !pending && <View style={gS.registeredDot} />}
+        {pending && <Ionicons name="time-outline" size={10} color={Colors.warning} />}
         {isOverMax && (
           <Ionicons name="alert-circle" size={10} color={Colors.danger} />
         )}
       </View>
       {readonly ? (
-        <View style={[gS.gradeReadonly, highlight && { borderColor: color + '80', backgroundColor: color + '12' }]}>
+        <View style={[
+          gS.gradeReadonly,
+          highlight && { borderColor: color + '80', backgroundColor: color + '12' },
+          pending && { borderColor: Colors.warning + '80', backgroundColor: Colors.warning + '10' },
+        ]}>
           <Text style={[gS.gradeReadonlyVal, { color: highlight ? color : Colors.text }]}>
             {value > 0 ? value.toFixed(1) : '—'}
           </Text>
+          {pending && <Ionicons name="time" size={10} color={Colors.warning} style={{ marginLeft: 2 }} />}
         </View>
       ) : (
         <TextInput
@@ -156,6 +164,56 @@ function NotaFormModal({
   const effectiveNota = nota ?? autoNota;
   const isEditingExisting = effectiveNota !== null;
   const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
+
+  // Reabertura de campos bloqueados
+  const [reaberturaModal, setReaberturaModal] = useState<{ campo: string; label: string } | null>(null);
+  const [reaberturaMotivo, setReaberturaMotivo] = useState('');
+  const [isSubmittingRea, setIsSubmittingRea] = useState(false);
+
+  const camposAbertos: string[] = (form.camposAbertos as string[]) ?? [];
+  const pedidosReabertura: PedidoReabertura[] = (form.pedidosReabertura as PedidoReabertura[]) ?? [];
+
+  function hasPendingRequest(campo: string) {
+    return pedidosReabertura.some(p => p.campo === campo && p.status === 'pendente');
+  }
+
+  async function openLockedField(campo: string, label: string) {
+    if (hasPendingRequest(campo)) {
+      webAlert('Pedido em Análise', 'Já existe um pedido de reabertura pendente para este campo. Aguarde a resposta da direcção.');
+      return;
+    }
+    setReaberturaMotivo('');
+    setReaberturaModal({ campo, label });
+  }
+
+  async function submitReabertura() {
+    if (!reaberturaMotivo.trim()) {
+      webAlert('Motivo necessário', 'Indique o motivo pelo qual necessita de corrigir este campo.');
+      return;
+    }
+    const notaId = effectiveNota?.id ?? (form as any).id;
+    if (!notaId) {
+      webAlert('Erro', 'Guarde a nota antes de solicitar a reabertura.');
+      return;
+    }
+    setIsSubmittingRea(true);
+    try {
+      const updated = await api.post<Nota>(`/api/notas/${notaId}/solicitar-reabertura`, {
+        campo: reaberturaModal!.campo,
+        motivo: reaberturaMotivo.trim(),
+        professorId,
+      });
+      setForm(f => ({ ...f, pedidosReabertura: updated.pedidosReabertura }));
+      setReaberturaModal(null);
+      setReaberturaMotivo('');
+      alertSucesso('Pedido enviado', 'O pedido de reabertura foi enviado à direcção para análise.');
+    } catch (e: any) {
+      const msg = e?.message?.includes('pendente') ? 'Já existe um pedido pendente para este campo.' : 'Não foi possível enviar o pedido.';
+      webAlert('Erro', msg);
+    } finally {
+      setIsSubmittingRea(false);
+    }
+  }
 
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
 
@@ -458,20 +516,23 @@ function NotaFormModal({
               </View>
               <View style={mS.gradesGrid}>
                 {activeAvalKeys.map((key, i) => {
-                  const isLocked = isEditingExisting && !!(lanc[key as keyof NotaLancamentos]);
+                  const wasLanc = !!(lanc[key as keyof NotaLancamentos]);
+                  const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes(key);
+                  const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest(key);
                   return (
                     <TouchableOpacity
                       key={key}
                       activeOpacity={isLocked ? 0.7 : 1}
-                      onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta avaliação já foi lançada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                      onPress={isLocked ? () => openLockedField(key, `AVAL ${i + 1}`) : undefined}
                       style={{ flex: 1 }}
                     >
                       <GradeInput
                         label={`AVAL ${i + 1}`}
                         value={(form[key as keyof Nota] as number) || 0}
                         onChange={isLocked ? undefined : v => set(key as keyof Nota, v)}
-                        registered={!!(lanc[key as keyof NotaLancamentos])}
+                        registered={wasLanc}
                         readonly={isLocked}
+                        pending={isPending}
                         max={5}
                       />
                     </TouchableOpacity>
@@ -514,26 +575,30 @@ function NotaFormModal({
                 </View>
                 <View style={mS.gradesGrid}>
                   {pp1Habilitado && (() => {
-                    const isLocked = isEditingExisting && lanc.pp1;
+                    const wasLanc = lanc.pp1;
+                    const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes('pp1');
+                    const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest('pp1');
                     return (
                       <TouchableOpacity
                         activeOpacity={isLocked ? 0.7 : 1}
-                        onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta prova já foi registada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                        onPress={isLocked ? () => openLockedField('pp1', 'PP (Prova do Professor)') : undefined}
                         style={{ flex: 1 }}
                       >
-                        <GradeInput label="PP" value={form.pp1 || 0} onChange={isLocked ? undefined : v => set('pp1', v)} registered={lanc.pp1} readonly={isLocked} />
+                        <GradeInput label="PP" value={form.pp1 || 0} onChange={isLocked ? undefined : v => set('pp1', v)} registered={wasLanc} readonly={isLocked} pending={isPending} />
                       </TouchableOpacity>
                     );
                   })()}
                   {pptHabilitado && (() => {
-                    const isLocked = isEditingExisting && lanc.ppt;
+                    const wasLanc = lanc.ppt;
+                    const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes('ppt');
+                    const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest('ppt');
                     return (
                       <TouchableOpacity
                         activeOpacity={isLocked ? 0.7 : 1}
-                        onPress={isLocked ? () => webAlert('Campo Bloqueado', 'Esta prova já foi registada. Para efectuar correcções, solicite a reabertura à direcção.') : undefined}
+                        onPress={isLocked ? () => openLockedField('ppt', 'PT (Prova de Trimestre)') : undefined}
                         style={{ flex: 1 }}
                       >
-                        <GradeInput label="PT" value={form.ppt || 0} onChange={isLocked ? undefined : v => set('ppt', v)} registered={lanc.ppt} readonly={isLocked} />
+                        <GradeInput label="PT" value={form.ppt || 0} onChange={isLocked ? undefined : v => set('ppt', v)} registered={wasLanc} readonly={isLocked} pending={isPending} />
                       </TouchableOpacity>
                     );
                   })()}
@@ -617,6 +682,43 @@ function NotaFormModal({
           </View>
         </View>
       </View>
+
+      {/* Modal de Solicitação de Reabertura */}
+      <Modal visible={!!reaberturaModal} transparent animationType="fade" onRequestClose={() => setReaberturaModal(null)}>
+        <View style={mS.reaOverlay}>
+          <View style={mS.reaCard}>
+            <View style={mS.reaHeader}>
+              <Ionicons name="lock-closed" size={20} color={Colors.warning} />
+              <Text style={mS.reaTitle}>Solicitar Reabertura</Text>
+            </View>
+            <Text style={mS.reaSubtitle}>Campo: <Text style={{ fontWeight: '700' }}>{reaberturaModal?.label}</Text></Text>
+            <Text style={mS.reaDesc}>
+              Este campo já foi lançado e está bloqueado. Para efectuar correcções, indique o motivo abaixo.
+              O pedido será enviado à direcção para aprovação.
+            </Text>
+            <TextInput
+              style={mS.reaInput}
+              placeholder="Motivo da reabertura..."
+              placeholderTextColor={Colors.textMuted}
+              value={reaberturaMotivo}
+              onChangeText={setReaberturaMotivo}
+              multiline
+              numberOfLines={3}
+              maxLength={300}
+            />
+            <Text style={mS.reaCount}>{reaberturaMotivo.length}/300</Text>
+            <View style={mS.reaActions}>
+              <TouchableOpacity style={mS.reaCancelBtn} onPress={() => setReaberturaModal(null)}>
+                <Text style={mS.reaCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[mS.reaSubmitBtn, isSubmittingRea && { opacity: 0.6 }]} onPress={submitReabertura} disabled={isSubmittingRea}>
+                <Ionicons name="send" size={15} color="#fff" />
+                <Text style={mS.reaSubmitText}>{isSubmittingRea ? 'A enviar...' : 'Enviar Pedido'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 }
@@ -1080,6 +1182,38 @@ const mS = StyleSheet.create({
     gap: 8, paddingVertical: 16,
   },
   saveBtnText: { fontSize: 16, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  reaOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  reaCard: {
+    backgroundColor: Colors.backgroundCard, borderRadius: 16,
+    padding: 20, width: '100%', maxWidth: 420,
+    borderWidth: 1, borderColor: Colors.border,
+  },
+  reaHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  reaTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
+  reaSubtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 8 },
+  reaDesc: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, lineHeight: 18, marginBottom: 14 },
+  reaInput: {
+    backgroundColor: Colors.surface, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border,
+    padding: 12, color: Colors.text, fontSize: 14,
+    fontFamily: 'Inter_400Regular', minHeight: 80, textAlignVertical: 'top',
+  },
+  reaCount: { fontSize: 10, color: Colors.textMuted, textAlign: 'right', marginTop: 4, marginBottom: 14 },
+  reaActions: { flexDirection: 'row', gap: 10 },
+  reaCancelBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 12,
+    borderRadius: 10, borderWidth: 1, borderColor: Colors.border,
+  },
+  reaCancelText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  reaSubmitBtn: {
+    flex: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.warning,
+  },
+  reaSubmitText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
 });
 
 const styles = StyleSheet.create({

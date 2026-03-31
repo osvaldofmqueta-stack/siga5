@@ -276,6 +276,8 @@ export const notas = pgTable("notas", {
   data: text("data").notNull(),
 
   lancamentos: jsonb("lancamentos"),
+  camposAbertos: jsonb("camposAbertos").default(sql`'[]'::jsonb`),
+  pedidosReabertura: jsonb("pedidosReabertura").default(sql`'[]'::jsonb`),
 });
 
 // -----------------------
