@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 export interface LookupItem {
   id: number;
@@ -58,12 +58,19 @@ export function useLookup(categoria: string, fallback: string[] = []) {
     return () => { cancelled = true; };
   }, [categoria]);
 
+  const values = useMemo(() => items.map(i => i.valor), [items]);
+  const labels = useMemo(() => items.map(i => i.label), [items]);
+  const valueToLabel = useCallback(
+    (val: string) => items.find(i => i.valor === val)?.label ?? val,
+    [items]
+  );
+
   return {
     items,
     isLoading,
-    values: items.map(i => i.valor),
-    labels: items.map(i => i.label),
-    valueToLabel: (val: string) => items.find(i => i.valor === val)?.label ?? val,
+    values,
+    labels,
+    valueToLabel,
   };
 }
 
