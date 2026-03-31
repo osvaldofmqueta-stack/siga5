@@ -302,12 +302,17 @@ export default function ProfessorPautaScreen() {
       n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre
     );
 
+    // If the pauta was officially reopened (approved solicitation exists), unlock all fields
+    const wasReopened = pautaAtual && solicitacoes.some(
+      s => s.pautaId === pautaAtual.id && s.status === 'aprovada'
+    );
+
     const newSavedFields: Record<string, Set<string>> = {};
 
     const forms: NotaForm[] = alunosDaTurma.map(aluno => {
       const nota = notasExistentes.find(n => n.alunoId === aluno.id);
 
-      if (nota) {
+      if (nota && !wasReopened) {
         const locked = new Set<string>();
         ALL_AVAL_KEYS.forEach(k => {
           const v = nota[k as keyof typeof nota] as number | null | undefined;
