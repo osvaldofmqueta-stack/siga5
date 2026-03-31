@@ -188,8 +188,39 @@ function setupMobileManifest(app: express.Application) {
 
 function setupPwaAssets(app: express.Application) {
   const publicPath = path.resolve(process.cwd(), "public");
+
+  // Dedicated route for manifest.json — always accessible with open CORS
+  app.get("/manifest.json", (_req: Request, res: Response) => {
+    const manifestPath = path.join(publicPath, "manifest.json");
+    if (!fs.existsSync(manifestPath)) {
+      return res.status(404).json({ error: "manifest.json not found" });
+    }
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.send(fs.readFileSync(manifestPath, "utf-8"));
+  });
+
+  // Dedicated route for service worker — must be served from root scope
+  app.get("/sw.js", (_req: Request, res: Response) => {
+    const swPath = path.join(publicPath, "sw.js");
+    if (!fs.existsSync(swPath)) {
+      return res.status(404).send("// sw not found");
+    }
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Service-Worker-Allowed", "/");
+    res.setHeader("Cache-Control", "no-cache");
+    return res.send(fs.readFileSync(swPath, "utf-8"));
+  });
+
   if (fs.existsSync(publicPath)) {
-    app.use(express.static(publicPath));
+    app.use(express.static(publicPath, { setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".png") || filePath.endsWith(".jpg") || filePath.endsWith(".ico")) {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    }}));
     log("PWA assets served from /public");
   }
 }
