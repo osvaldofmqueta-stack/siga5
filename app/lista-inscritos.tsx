@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Platform, ActivityIndicator,
+  Platform, ActivityIndicator, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,8 +24,15 @@ interface Registro {
   cursoId?: string;
   status: string;
   criadoEm: string;
+  rupeInscricao?: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
+}
+
+interface DisciplinaExame {
+  nome: string;
+  diaSemana: string;
+  data: string;
 }
 
 function hoje(): string {
@@ -35,212 +42,255 @@ function hoje(): string {
 
 function anoAtual(): string { return String(new Date().getFullYear()); }
 
-function calcAge(dataNasc: string): number {
-  if (!dataNasc) return 0;
-  const now = new Date();
-  const birth = new Date(dataNasc);
-  if (isNaN(birth.getTime())) return 0;
-  let age = now.getFullYear() - birth.getFullYear();
-  const m = now.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) age--;
-  return age;
+function extrairNumInscricao(r: Registro, globalIdx: number): string {
+  if (r.rupeInscricao) {
+    const partes = r.rupeInscricao.split('-');
+    if (partes.length >= 4) return partes[3];
+  }
+  return String(10000 + globalIdx);
 }
 
-function buildTabelaGrupoInscritos(
+function buildDocumentoCursoHTML(
+  curso: string,
   alunos: Registro[],
-  titulo: string,
   startNum: number,
-  masc: number,
-  fem: number,
+  config: {
+    nomeEscola: string;
+    anoExame: string;
+    local: string;
+    campus: string;
+    sala: string;
+    hora: string;
+    disciplinas: DisciplinaExame[];
+    logoUrl: string;
+  },
+  isFirst: boolean,
 ): string {
+  const disciplinasTxt = config.disciplinas
+    .filter(d => d.nome.trim())
+    .map(d => {
+      const parts = [d.nome.trim()];
+      if (d.diaSemana.trim() || d.data.trim()) {
+        parts.push(`(${[d.diaSemana.trim(), d.data.trim()].filter(Boolean).join(', ')}`);
+        parts[parts.length - 1] += ')';
+      }
+      return parts.join(' ');
+    })
+    .join(' &nbsp;|&nbsp; ');
+
   const rows = alunos.map((a, idx) => {
-    const age = calcAge(a.dataNascimento);
-    const bg = idx % 2 === 0 ? '#fff' : '#f0faff';
+    const numInscricao = extrairNumInscricao(a, startNum + idx);
+    const bg = idx % 2 === 0 ? '#ffffff' : '#eef6ff';
     return `<tr style="background:${bg}">
       <td class="num">${startNum + idx}</td>
       <td class="nome">${a.nomeCompleto.toUpperCase()}</td>
-      <td class="centro">${a.genero || '—'}</td>
-      <td class="centro">${age > 0 ? age : '—'}</td>
-      <td class="centro">${a.provincia || '—'}</td>
-      <td class="centro">${a.telefone || '—'}</td>
-      <td class="centro">${a.nomeEncarregado || '—'}</td>
+      <td class="cand">${numInscricao}</td>
+      <td class="curso-td">${curso !== 'Geral' ? curso : (a.cursoNome || '—')}</td>
     </tr>`;
   }).join('');
 
-  const total = alunos.length;
+  const pageBreak = isFirst ? '' : '<div style="page-break-before:always;"></div>';
 
   return `
-    <div class="grupo-header">${titulo} — ${total} inscrito(s) · M: ${masc} · F: ${fem}</div>
-    <table>
-      <thead>
-        <tr>
-          <th style="width:30px;">Nº</th>
-          <th>Nome do Estudante</th>
-          <th style="width:40px;">Sexo</th>
-          <th style="width:40px;">Idade</th>
-          <th style="width:80px;">Província</th>
-          <th style="width:90px;">Telefone</th>
-          <th style="width:120px;">Encarregado</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>
-    <div class="stats-row">
-      <div>Total: <span>${total}</span></div>
-      <div>Masculino: <span>${masc}</span></div>
-      <div>Feminino: <span>${fem}</span></div>
+${pageBreak}
+<div class="doc-page">
+  <div class="doc-header">
+    <div class="header-logo-col">
+      <img src="${config.logoUrl}" class="logo-img" alt="Insígnia" onerror="this.style.display='none'" />
     </div>
-  `;
+    <div class="header-text-col">
+      <div class="escola-nome">${config.nomeEscola.toUpperCase()}</div>
+      <div class="doc-titulo">EXAMES DE ADMISSÃO — ${config.anoExame}</div>
+      <div class="doc-subtitulo">LISTA DE CANDIDATOS POR SALAS DE EXAME</div>
+      ${disciplinasTxt ? `<div class="disciplinas-line"><b>${disciplinasTxt}</b></div>` : ''}
+    </div>
+  </div>
+
+  <div class="local-row">
+    <div class="local-item"><span class="local-label">LOCAL:</span> <u><b>${config.local || '___________'}</b></u></div>
+    <div class="local-sep"></div>
+    <div class="local-item"><u><b>${config.campus || '___________'}</b></u> — SALA: <u><b>${config.sala || '___________'}</b></u></div>
+    <div class="hora-box"><span class="local-label">Hora:</span> <b>${config.hora || '07:30:00'}</b></div>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="curso-bloco-titulo">
+    CURSO: <b>${curso !== 'Geral' ? curso.toUpperCase() : 'TODOS OS CURSOS'}</b>
+    &nbsp;&nbsp;·&nbsp;&nbsp; Total de Candidatos: <b>${alunos.length}</b>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th class="th-num"><u>Ord</u></th>
+        <th class="th-nome"><u>Nome</u></th>
+        <th class="th-cand"><u>NºCand</u></th>
+        <th class="th-curso"><u>Curso</u></th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+
+  <div class="assinaturas">
+    <div class="ass-col">
+      <div class="ass-line"></div>
+      <div>O Secretário(a)</div>
+    </div>
+    <div class="ass-col">
+      <div class="ass-line"></div>
+      <div>O Director(a)</div>
+    </div>
+  </div>
+
+  <div class="rodape">
+    <span>${config.nomeEscola} — Sistema SIGA v3</span>
+    <span>Emitido em: ${hoje()}</span>
+  </div>
+</div>`;
 }
 
-function buildListaInscritosHTML(
+function buildListaAdmissaoHTML(
   registros: Registro[],
-  nomeEscola: string,
-  filtroClasse: string,
-  anoLectivo: string,
+  config: {
+    nomeEscola: string;
+    anoExame: string;
+    local: string;
+    campus: string;
+    sala: string;
+    hora: string;
+    disciplinas: DisciplinaExame[];
+    logoUrl: string;
+    filtroClasse: string;
+    filtroStatus: string[];
+  },
 ): string {
-  const INSCRITOS_STATUS = ['inscrito', 'pendente', 'em_processamento', 'em processamento', 'aguardando_prova', 'aguardando prova'];
   const lista = registros
-    .filter(r => INSCRITOS_STATUS.includes(r.status?.toLowerCase?.() ?? ''))
-    .filter(r => filtroClasse === 'todas' || r.classe === filtroClasse)
-    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
+    .filter(r => {
+      const s = r.status?.toLowerCase() ?? '';
+      return config.filtroStatus.some(fs => s.includes(fs));
+    })
+    .filter(r => config.filtroClasse === 'todas' || r.classe === config.filtroClasse)
+    .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' }));
 
-  if (lista.length === 0) return '<p style="padding:20px;text-align:center;">Nenhum estudante inscrito encontrado com os critérios seleccionados.</p>';
+  if (lista.length === 0) {
+    return '<p style="padding:20px;text-align:center;font-family:Arial,sans-serif;">Nenhum candidato encontrado com os critérios seleccionados.</p>';
+  }
 
-  const byClasse: Record<string, Record<string, Registro[]>> = {};
+  const byCurso: Record<string, Registro[]> = {};
   for (const r of lista) {
-    if (!byClasse[r.classe]) byClasse[r.classe] = {};
-    const cursoKey = r.cursoNome || 'Geral';
-    if (!byClasse[r.classe][cursoKey]) byClasse[r.classe][cursoKey] = [];
-    byClasse[r.classe][cursoKey].push(r);
+    const key = r.cursoNome?.trim() || 'Geral';
+    if (!byCurso[key]) byCurso[key] = [];
+    byCurso[key].push(r);
   }
 
-  const classesSorted = Object.keys(byClasse).sort((a, b) => a.localeCompare(b));
+  const cursosOrdenados = Object.keys(byCurso).sort((a, b) => a.localeCompare(b, 'pt'));
 
-  const II_CICLO_NUMS = ['10', '11', '12', '13'];
-  function isIICiclo(classe: string) {
-    return II_CICLO_NUMS.some(n => classe.includes(`${n}ª`) || classe.includes(`${n}a`));
-  }
-
-  let tablesHtml = '';
-  let globalOrder = 1;
-
-  for (const classe of classesSorted) {
-    const cursosObj = byClasse[classe];
-    const cursoKeys = Object.keys(cursosObj).sort();
-    const hasCourses = cursoKeys.length > 1 || (cursoKeys.length === 1 && cursoKeys[0] !== 'Geral');
-
-    if (isIICiclo(classe) && hasCourses) {
-      tablesHtml += `
-        <div class="classe-header">${classe} — Distribuição por Curso / Área de Formação</div>
-      `;
-      for (const curso of cursoKeys) {
-        const alunos = cursosObj[curso].sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
-        const masc = alunos.filter(a => a.genero === 'M').length;
-        const fem = alunos.filter(a => a.genero === 'F').length;
-        tablesHtml += buildTabelaGrupoInscritos(alunos, `${classe} — ${curso}`, globalOrder, masc, fem);
-        globalOrder += alunos.length;
-      }
-    } else {
-      const alunos = Object.values(cursosObj).flat().sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto));
-      const masc = alunos.filter(a => a.genero === 'M').length;
-      const fem = alunos.filter(a => a.genero === 'F').length;
-      tablesHtml += buildTabelaGrupoInscritos(alunos, classe, globalOrder, masc, fem);
-      globalOrder += alunos.length;
-    }
-  }
-
-  const totalGeral = lista.length;
-  const totalMasc = lista.filter(r => r.genero === 'M').length;
-  const totalFem = lista.filter(r => r.genero === 'F').length;
+  let globalIdx = 1;
+  const blocos = cursosOrdenados.map((curso, ci) => {
+    const alunos = byCurso[curso].sort((a, b) =>
+      a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' })
+    );
+    const html = buildDocumentoCursoHTML(curso, alunos, globalIdx, config, ci === 0);
+    globalIdx += alunos.length;
+    return html;
+  }).join('\n');
 
   return `<!DOCTYPE html>
 <html lang="pt">
 <head>
 <meta charset="UTF-8">
-<title>Lista de Estudantes Inscritos — ${nomeEscola}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lista de Admissão — ${config.nomeEscola}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #fff; padding: 15mm 18mm; }
-  .doc-header { text-align: center; margin-bottom: 14px; }
-  .doc-header p { font-size: 11px; line-height: 1.6; }
-  .doc-header .escola { font-size: 12px; font-weight: bold; text-transform: uppercase; }
-  .doc-title { font-size: 14px; font-weight: bold; text-transform: uppercase; text-decoration: underline; letter-spacing: 1px; margin: 10px 0 4px; }
-  .doc-meta { font-size: 10px; color: #333; margin-bottom: 14px; }
-  .aviso { background: #fff8e1; border: 1px solid #f59e0b; border-radius: 4px; padding: 6px 10px; font-size: 10px; color: #78350f; margin-bottom: 14px; text-align: center; font-style: italic; }
-  .classe-header { background: #1A2B5F; color: #fff; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 5px 8px; margin: 16px 0 4px; letter-spacing: 0.5px; }
-  .grupo-header { background: #0369a1; color: #fff; font-weight: bold; font-size: 10px; padding: 4px 8px; margin: 10px 0 3px; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 10px; }
-  th { background: #00BCD4; color: #fff; font-weight: bold; border: 1px solid #000; padding: 4px 6px; text-align: center; }
-  td { border: 1px solid #000; padding: 3px 5px; }
-  tr:nth-child(even) { background: #f0faff; }
-  .num { text-align: center; font-weight: bold; width: 30px; }
-  .nome { text-align: left; padding-left: 6px; }
-  .centro { text-align: center; }
-  .stats-row { display: flex; gap: 16px; font-size: 10px; padding: 4px 0; border-top: 1px solid #ccc; margin-bottom: 12px; flex-wrap: wrap; }
-  .stats-row span { font-weight: bold; }
-  .total-box { background: #e8f5e9; border: 1px solid #ccc; border-radius: 4px; padding: 8px 12px; margin-top: 16px; display: flex; gap: 20px; font-size: 11px; flex-wrap: wrap; }
-  .total-box b { font-size: 12px; }
-  .sig-row { display: flex; justify-content: space-between; margin-top: 28px; font-size: 10px; }
-  .sig-block { text-align: center; }
-  .sig-line { width: 160px; border-top: 1px solid #000; margin: 30px auto 4px; }
-  .footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
-  .print-btn { position: fixed; bottom: 18px; right: 18px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999; }
-  @media print { .print-btn { display: none !important; } @page { size: A4 portrait; margin: 12mm; } body { padding: 0; } }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background: #f5f5f5; }
+  .doc-page { background: #fff; max-width: 210mm; margin: 0 auto 20px; padding: 15mm 18mm 12mm; min-height: 297mm; }
+
+  /* Header */
+  .doc-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 10px; }
+  .header-logo-col { flex-shrink: 0; }
+  .logo-img { width: 72px; height: 72px; object-fit: contain; border: 1px solid #ccc; border-radius: 50%; }
+  .header-text-col { flex: 1; text-align: center; }
+  .escola-nome { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .doc-titulo { font-size: 12px; font-weight: bold; margin-bottom: 4px; }
+  .doc-subtitulo { font-size: 11px; font-weight: bold; text-decoration: underline; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .disciplinas-line { font-size: 10px; font-weight: bold; background: #f0f4ff; border: 1px solid #c7d2fe; border-radius: 3px; padding: 4px 8px; display: inline-block; }
+
+  /* Local row */
+  .local-row { display: flex; align-items: center; gap: 8px; margin: 8px 0 6px; font-size: 11px; flex-wrap: wrap; }
+  .local-label { font-weight: bold; }
+  .local-sep { flex: 1; }
+  .hora-box { margin-left: auto; font-size: 14px; }
+
+  .divider { border: none; border-top: 2px solid #000; margin: 8px 0; }
+
+  /* Curso header */
+  .curso-bloco-titulo { font-size: 11px; margin-bottom: 6px; padding: 4px 6px; background: #f8f8f8; border-left: 4px solid #1A2B5F; }
+
+  /* Table */
+  table { border-collapse: collapse; width: 100%; margin-bottom: 8px; font-size: 10.5px; }
+  th { background: #fff; color: #000; font-weight: bold; border-bottom: 2px solid #000; border-top: 1px solid #000; padding: 5px 7px; text-align: left; }
+  td { border-bottom: 1px solid #ddd; padding: 4px 7px; vertical-align: middle; }
+  .th-num, .num { width: 36px; text-align: center; font-weight: bold; }
+  .th-nome, .nome { min-width: 200px; }
+  .th-cand, .cand { width: 80px; text-align: center; font-weight: bold; font-family: monospace; }
+  .th-curso, .curso-td { min-width: 140px; }
+
+  /* Signatures */
+  .assinaturas { display: flex; justify-content: space-between; margin-top: 32px; font-size: 10px; }
+  .ass-col { text-align: center; }
+  .ass-line { width: 160px; border-top: 1px solid #000; margin: 0 auto 4px; margin-top: 26px; }
+
+  /* Footer */
+  .rodape { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
+
+  .print-btn { position: fixed; bottom: 18px; right: 18px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 12px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 999; }
+
+  @media print {
+    .print-btn { display: none !important; }
+    body { background: #fff; }
+    .doc-page { margin: 0; padding: 10mm 14mm 8mm; box-shadow: none; min-height: auto; }
+    @page { size: A4 portrait; margin: 0; }
+  }
 </style>
 </head>
 <body>
-  <button class="print-btn" onclick="window.print()">Imprimir / PDF</button>
-  <div class="doc-header">
-    <img src="${typeof window !== 'undefined' ? window.location.origin : ''}/angola-brasao.png" style="width:62px;height:auto;display:block;margin:0 auto 4px;" alt="Insígnia da República de Angola" onerror="this.style.display='none'" />
-    <p>REPÚBLICA DE ANGOLA</p>
-    <p>MINISTÉRIO DA EDUCAÇÃO</p>
-    <p>ENSINO GERAL</p>
-    <p class="escola">${nomeEscola}</p>
-    <p class="doc-title">Lista de Estudantes Inscritos — Processo de Admissão ${anoLectivo}</p>
-    <p class="doc-meta">Ano Lectivo: ${anoLectivo} &nbsp;|&nbsp; Emitido em: ${hoje()} &nbsp;|&nbsp; Total de Inscritos: ${totalGeral}</p>
-  </div>
-
-  <div class="aviso">Documento emitido antes do lançamento dos resultados — lista de candidatos inscritos ainda sem classificação final.</div>
-
-  ${tablesHtml}
-
-  <div class="total-box">
-    <div>Total de Inscritos: <b>${totalGeral}</b></div>
-    <div>Masculino: <b>${totalMasc}</b></div>
-    <div>Feminino: <b>${totalFem}</b></div>
-  </div>
-
-  <div class="sig-row">
-    <div class="sig-block"><div class="sig-line"></div><div>O Secretário(a)</div></div>
-    <div class="sig-block"><div class="sig-line"></div><div>O Director(a)</div></div>
-  </div>
-
-  <div class="footer">
-    <span>${nomeEscola} — Sistema SIGA v3</span>
-    <span>Emitido em: ${hoje()}</span>
-  </div>
+  <button class="print-btn" onclick="window.print()">🖨️ Imprimir / Exportar PDF</button>
+  ${blocos}
 </body>
 </html>`;
 }
+
+const STATUSES_INSCRITOS = ['pendente', 'pendente_pagamento', 'aguardando_prova', 'aguardando prova', 'em_processamento', 'inscrito'];
 
 export default function ListaInscritosScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const [registros, setRegistros] = useState<Registro[]>([]);
-  const [nomeEscola, setNomeEscola] = useState('ESCOLA — SIGA');
+  const [nomeEscola, setNomeEscola] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const [filtroClasse, setFiltroClasse] = useState('todas');
+  const [filtroStatus, setFiltroStatus] = useState<string[]>(STATUSES_INSCRITOS);
+
+  const [anoExame, setAnoExame] = useState(anoAtual());
+  const [local, setLocal] = useState('');
+  const [campus, setCampus] = useState('');
+  const [sala, setSala] = useState('');
+  const [hora, setHora] = useState('07:30:00');
+  const [disciplinas, setDisciplinas] = useState<DisciplinaExame[]>([
+    { nome: 'Língua Portuguesa', diaSemana: '', data: '' },
+    { nome: 'Matemática', diaSemana: '', data: '' },
+    { nome: '', diaSemana: '', data: '' },
+  ]);
+
+  const [showConfig, setShowConfig] = useState(true);
 
   const topPad = Platform.OS === 'web' ? 0 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
-
-  const anoLectivo = anoAtual();
-
-  const INSCRITOS_STATUS = ['inscrito', 'pendente', 'em_processamento', 'em processamento', 'aguardando_prova', 'aguardando prova'];
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -256,6 +306,7 @@ export default function ListaInscritosScreen() {
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
         setNomeEscola(cfg.nomeEscola || 'ESCOLA — SIGA');
+        if (cfg.localEscola) setLocal(cfg.localEscola);
       }
     } catch {}
     finally { setIsLoading(false); }
@@ -263,21 +314,49 @@ export default function ListaInscritosScreen() {
 
   useEffect(() => { load(); }, [load]);
 
-  const inscritos = registros.filter(r => INSCRITOS_STATUS.includes(r.status?.toLowerCase?.() ?? ''));
+  const inscritos = registros.filter(r => {
+    const s = r.status?.toLowerCase() ?? '';
+    return filtroStatus.some(fs => s.includes(fs));
+  });
 
   const classes = Array.from(new Set(inscritos.map(r => r.classe))).sort((a, b) => a.localeCompare(b));
-
   const filtrados = inscritos.filter(r => filtroClasse === 'todas' || r.classe === filtroClasse);
+
+  const cursos = Array.from(new Set(filtrados.map(r => r.cursoNome?.trim() || 'Geral'))).sort();
+
+  function updateDisciplina(idx: number, field: keyof DisciplinaExame, val: string) {
+    setDisciplinas(prev => prev.map((d, i) => i === idx ? { ...d, [field]: val } : d));
+  }
+
+  function addDisciplina() {
+    setDisciplinas(prev => [...prev, { nome: '', diaSemana: '', data: '' }]);
+  }
+
+  function removeDisciplina(idx: number) {
+    setDisciplinas(prev => prev.filter((_, i) => i !== idx));
+  }
 
   function handleGerar() {
     if (Platform.OS !== 'web') return;
+    if (filtrados.length === 0) return;
     setIsGenerating(true);
-    const html = buildListaInscritosHTML(registros, nomeEscola, filtroClasse, anoLectivo);
+    const logoUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/escola-logo.png`;
+    const html = buildListaAdmissaoHTML(filtrados, {
+      nomeEscola,
+      anoExame,
+      local,
+      campus,
+      sala,
+      hora,
+      disciplinas,
+      logoUrl,
+      filtroClasse,
+      filtroStatus,
+    });
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(html);
       win.document.close();
-      setTimeout(() => { win.print(); }, 600);
     }
     setIsGenerating(false);
   }
@@ -302,36 +381,119 @@ export default function ListaInscritosScreen() {
             <Ionicons name="arrow-back" size={20} color={Colors.text} />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Lista de Estudantes Inscritos</Text>
-            <Text style={styles.headerSub}>{filtrados.length} inscrito(s) · antes do lançamento das notas</Text>
+            <Text style={styles.headerTitle}>Lista de Admissão por Curso</Text>
+            <Text style={styles.headerSub}>{filtrados.length} candidato(s) · {cursos.length} curso(s)</Text>
           </View>
+          {Platform.OS === 'web' && filtrados.length > 0 && (
+            <TouchableOpacity
+              style={[styles.printBtn, isGenerating && { opacity: 0.6 }]}
+              onPress={handleGerar}
+              disabled={isGenerating}
+            >
+              {isGenerating
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                  <Ionicons name="print-outline" size={16} color="#fff" />
+                  <Text style={styles.printBtnText}>Gerar & Imprimir</Text>
+                </>
+              }
+            </TouchableOpacity>
+          )}
         </View>
       </LinearGradient>
 
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 24 }]}
+        contentContainerStyle={[styles.scroll, { paddingBottom: bottomPad + 32 }]}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.infoCard}>
-          <Ionicons name="information-circle-outline" size={16} color={Colors.gold} />
-          <Text style={styles.infoText}>
-            Esta lista inclui todos os candidatos inscritos no processo de admissão ainda sem resultado atribuído.
-          </Text>
-        </View>
+        <TouchableOpacity
+          style={styles.sectionToggle}
+          onPress={() => setShowConfig(v => !v)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="settings-outline" size={15} color={Colors.gold} />
+          <Text style={styles.sectionToggleText}>Configurações do Documento</Text>
+          <Ionicons name={showConfig ? 'chevron-up' : 'chevron-down'} size={15} color={Colors.textMuted} />
+        </TouchableOpacity>
+
+        {showConfig && (
+          <View style={styles.configCard}>
+            <View style={styles.configRow}>
+              <View style={styles.configField}>
+                <Text style={styles.configLabel}>Ano do Exame</Text>
+                <TextInput style={styles.configInput} value={anoExame} onChangeText={setAnoExame} placeholderTextColor={Colors.textMuted} placeholder="2026" keyboardType="numeric" />
+              </View>
+              <View style={styles.configField}>
+                <Text style={styles.configLabel}>Hora</Text>
+                <TextInput style={styles.configInput} value={hora} onChangeText={setHora} placeholderTextColor={Colors.textMuted} placeholder="07:30:00" />
+              </View>
+            </View>
+
+            <View style={styles.configRow}>
+              <View style={styles.configField}>
+                <Text style={styles.configLabel}>Local</Text>
+                <TextInput style={styles.configInput} value={local} onChangeText={setLocal} placeholderTextColor={Colors.textMuted} placeholder="Ex: Luanda" />
+              </View>
+              <View style={styles.configField}>
+                <Text style={styles.configLabel}>Campus / Instituto</Text>
+                <TextInput style={styles.configInput} value={campus} onChangeText={setCampus} placeholderTextColor={Colors.textMuted} placeholder="Ex: Campus Principal" />
+              </View>
+            </View>
+
+            <View style={[styles.configField, { marginTop: 4 }]}>
+              <Text style={styles.configLabel}>Sala de Exame</Text>
+              <TextInput style={styles.configInput} value={sala} onChangeText={setSala} placeholderTextColor={Colors.textMuted} placeholder="Ex: Sala A1 — Bloco 2" />
+            </View>
+
+            <View style={[styles.configField, { marginTop: 12 }]}>
+              <Text style={[styles.configLabel, { marginBottom: 8 }]}>Disciplinas e Datas dos Exames</Text>
+              {disciplinas.map((d, i) => (
+                <View key={i} style={styles.disciplinaRow}>
+                  <TextInput
+                    style={[styles.configInput, { flex: 2 }]}
+                    value={d.nome}
+                    onChangeText={v => updateDisciplina(i, 'nome', v)}
+                    placeholder={`Disciplina ${i + 1}`}
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={[styles.configInput, { flex: 1 }]}
+                    value={d.diaSemana}
+                    onChangeText={v => updateDisciplina(i, 'diaSemana', v)}
+                    placeholder="Dia"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <TextInput
+                    style={[styles.configInput, { flex: 1.5 }]}
+                    value={d.data}
+                    onChangeText={v => updateDisciplina(i, 'data', v)}
+                    placeholder="Ex: 07 Mar 2026"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                  <TouchableOpacity onPress={() => removeDisciplina(i)} style={styles.removeBtn}>
+                    <Ionicons name="close-circle" size={18} color={Colors.danger} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.addDisciplinaBtn} onPress={addDisciplina}>
+                <Ionicons name="add-circle-outline" size={15} color={Colors.gold} />
+                <Text style={styles.addDisciplinaTxt}>Adicionar Disciplina</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         <View style={styles.filtersCard}>
           <Text style={styles.filtersTitle}>Filtros</Text>
 
           <Text style={styles.filterLabel}>Classe</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 4 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.chipRow}>
               <TouchableOpacity
                 style={[styles.chip, filtroClasse === 'todas' && styles.chipActive]}
                 onPress={() => setFiltroClasse('todas')}
               >
-                <Text style={[styles.chipText, filtroClasse === 'todas' && styles.chipTextActive]}>
-                  Todas as Classes
-                </Text>
+                <Text style={[styles.chipText, filtroClasse === 'todas' && styles.chipTextActive]}>Todas</Text>
               </TouchableOpacity>
               {classes.map(cls => (
                 <TouchableOpacity
@@ -339,9 +501,7 @@ export default function ListaInscritosScreen() {
                   style={[styles.chip, filtroClasse === cls && styles.chipActive]}
                   onPress={() => setFiltroClasse(cls)}
                 >
-                  <Text style={[styles.chipText, filtroClasse === cls && styles.chipTextActive]}>
-                    {cls}
-                  </Text>
+                  <Text style={[styles.chipText, filtroClasse === cls && styles.chipTextActive]}>{cls}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -350,58 +510,59 @@ export default function ListaInscritosScreen() {
 
         <View style={styles.summaryCard}>
           <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryNum}>{filtrados.length}</Text>
-              <Text style={styles.summaryLabel}>Total</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNum, { color: Colors.info }]}>
-                {filtrados.filter(r => r.genero === 'M').length}
-              </Text>
-              <Text style={styles.summaryLabel}>Masculino</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNum, { color: '#ec4899' }]}>
-                {filtrados.filter(r => r.genero === 'F').length}
-              </Text>
-              <Text style={styles.summaryLabel}>Feminino</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Text style={[styles.summaryNum, { color: Colors.warning }]}>
-                {classes.length}
-              </Text>
-              <Text style={styles.summaryLabel}>Classes</Text>
-            </View>
+            {cursos.map(curso => {
+              const ct = filtrados.filter(r => (r.cursoNome?.trim() || 'Geral') === curso).length;
+              return (
+                <View key={curso} style={styles.cursoSummary}>
+                  <Text style={styles.cursoSummaryNum}>{ct}</Text>
+                  <Text style={styles.cursoSummaryLabel} numberOfLines={2}>{curso}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
         {filtrados.length === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="people-outline" size={36} color={Colors.textMuted} />
-            <Text style={styles.emptyText}>Nenhum estudante inscrito com estes filtros</Text>
-            <Text style={styles.emptySubText}>Candidatos com resultado já atribuído não aparecem aqui</Text>
+            <Text style={styles.emptyText}>Nenhum candidato inscrito</Text>
           </View>
         ) : (
-          filtrados.slice(0, 20).map((r) => (
-            <View key={r.id} style={styles.regRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.regNome}>{r.nomeCompleto}</Text>
-                <Text style={styles.regSub}>
-                  {r.classe}{r.cursoNome ? ` · ${r.cursoNome}` : ''} · {r.genero}
-                  {r.provincia ? ` · ${r.provincia}` : ''}
-                </Text>
+          cursos.map(curso => {
+            const alunosCurso = filtrados
+              .filter(r => (r.cursoNome?.trim() || 'Geral') === curso)
+              .sort((a, b) => a.nomeCompleto.localeCompare(b.nomeCompleto, 'pt', { sensitivity: 'base' }));
+            return (
+              <View key={curso} style={styles.cursoGroup}>
+                <View style={styles.cursoGroupHeader}>
+                  <Ionicons name="book-outline" size={13} color={Colors.gold} />
+                  <Text style={styles.cursoGroupTitle}>{curso}</Text>
+                  <View style={styles.cursoGroupBadge}>
+                    <Text style={styles.cursoGroupBadgeText}>{alunosCurso.length}</Text>
+                  </View>
+                </View>
+                {alunosCurso.slice(0, 8).map((r, idx) => (
+                  <View key={r.id} style={styles.regRow}>
+                    <Text style={styles.regNum}>{idx + 1}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.regNome}>{r.nomeCompleto}</Text>
+                      <Text style={styles.regSub}>
+                        {r.classe}{r.cursoNome ? ` · ${r.cursoNome}` : ''} · {r.genero || '—'}
+                      </Text>
+                    </View>
+                    <Text style={styles.regCand}>
+                      {r.rupeInscricao?.split('-')[3] || '—'}
+                    </Text>
+                  </View>
+                ))}
+                {alunosCurso.length > 8 && (
+                  <Text style={styles.moreText}>
+                    + {alunosCurso.length - 8} candidatos adicionais na impressão
+                  </Text>
+                )}
               </View>
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>INSCRITO</Text>
-              </View>
-            </View>
-          ))
-        )}
-
-        {filtrados.length > 20 && (
-          <Text style={styles.moreText}>
-            + {filtrados.length - 20} estudantes adicionais serão incluídos na impressão
-          </Text>
+            );
+          })
         )}
 
         {Platform.OS === 'web' && filtrados.length > 0 && (
@@ -416,7 +577,7 @@ export default function ListaInscritosScreen() {
               : <>
                 <Ionicons name="print-outline" size={20} color="#fff" />
                 <Text style={styles.gerarBtnText}>
-                  Gerar Lista para Impressão ({filtrados.length} inscritos)
+                  Gerar Lista por Curso ({filtrados.length} candidatos · {cursos.length} cursos)
                 </Text>
               </>
             }
@@ -434,32 +595,56 @@ const styles = StyleSheet.create({
   backBtn: { padding: 6 },
   headerTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text },
   headerSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  printBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A2B5F', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  printBtnText: { color: '#fff', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   loadingText: { color: Colors.textMuted, marginTop: 12, fontSize: 14 },
-  scroll: { padding: 16, gap: 14 },
-  infoCard: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.gold + '15', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.gold + '40' },
-  infoText: { fontSize: 12, color: Colors.gold, flex: 1, lineHeight: 17 },
-  filtersCard: { backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  filtersTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 10 },
-  filterLabel: { fontSize: 11, color: Colors.textMuted, marginBottom: 6, marginTop: 8 },
+  scroll: { padding: 16, gap: 12 },
+
+  sectionToggle: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  sectionToggleText: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+
+  configCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', gap: 8 },
+  configRow: { flexDirection: 'row', gap: 10 },
+  configField: { flex: 1, gap: 4 },
+  configLabel: { fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_500Medium' },
+  configInput: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 8, color: Colors.text, fontSize: 12 },
+
+  disciplinaRow: { flexDirection: 'row', gap: 6, marginBottom: 6, alignItems: 'center' },
+  removeBtn: { padding: 4 },
+  addDisciplinaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  addDisciplinaTxt: { fontSize: 12, color: Colors.gold },
+
+  filtersCard: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  filtersTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  filterLabel: { fontSize: 11, color: Colors.textMuted, marginBottom: 6 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   chip: { backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' },
   chipActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold + '60' },
   chipText: { fontSize: 12, color: Colors.textMuted, fontFamily: 'Inter_500Medium' },
   chipTextActive: { color: Colors.gold, fontFamily: 'Inter_600SemiBold' },
-  summaryCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-around' },
-  summaryItem: { alignItems: 'center' },
-  summaryNum: { fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text },
-  summaryLabel: { fontSize: 10, color: Colors.textMuted, marginTop: 2 },
-  regRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+
+  summaryCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  summaryRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'space-around' },
+  cursoSummary: { alignItems: 'center', minWidth: 70, padding: 6 },
+  cursoSummaryNum: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.gold },
+  cursoSummaryLabel: { fontSize: 9, color: Colors.textMuted, textAlign: 'center', marginTop: 2, maxWidth: 80 },
+
+  cursoGroup: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  cursoGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(26,43,95,0.6)', paddingHorizontal: 12, paddingVertical: 10 },
+  cursoGroupTitle: { flex: 1, fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
+  cursoGroupBadge: { backgroundColor: Colors.gold, borderRadius: 12, minWidth: 24, paddingHorizontal: 8, paddingVertical: 2, alignItems: 'center' },
+  cursoGroupBadgeText: { fontSize: 11, fontFamily: 'Inter_700Bold', color: '#000' },
+
+  regRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+  regNum: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted, width: 22, textAlign: 'center' },
   regNome: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
-  regSub: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
-  badge: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3, backgroundColor: Colors.info + '25' },
-  badgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', textTransform: 'uppercase', color: Colors.info },
-  moreText: { textAlign: 'center', color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' },
-  emptyWrap: { alignItems: 'center', gap: 6, paddingVertical: 32 },
+  regSub: { fontSize: 10, color: Colors.textMuted, marginTop: 1 },
+  regCand: { fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.gold, minWidth: 44, textAlign: 'right' },
+
+  moreText: { textAlign: 'center', color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', padding: 8 },
+  emptyWrap: { alignItems: 'center', gap: 8, paddingVertical: 40 },
   emptyText: { color: Colors.textMuted, fontSize: 14 },
-  emptySubText: { color: Colors.textMuted, fontSize: 12, fontStyle: 'italic', textAlign: 'center' },
-  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A2B5F', borderRadius: 12, paddingVertical: 16, marginTop: 8 },
-  gerarBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+
+  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#1A2B5F', borderRadius: 14, paddingVertical: 16, marginTop: 4 },
+  gerarBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
 });

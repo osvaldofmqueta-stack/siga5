@@ -1880,39 +1880,45 @@ A lista inclui totais por grupo (M/F, admitidos, não admitidos) e espaço para 
 
 // ─── Seed: Lista de Estudantes Inscritos ──────────────────────────────────────
 
-const SEED_LISTA_INSCRITOS_ID = 'tpl_seed_lista_inscritos_v1';
+const SEED_LISTA_INSCRITOS_ID = 'tpl_seed_lista_inscritos_v2';
 
 const SEED_LISTA_INSCRITOS: DocTemplate = {
   id: SEED_LISTA_INSCRITOS_ID,
-  nome: 'Lista de Estudantes Inscritos',
+  nome: 'Lista de Candidatos por Sala de Exame',
   tipo: 'lista_inscritos',
   criadoEm: '2026-01-01T00:00:00.000Z',
   atualizadoEm: '2026-01-01T00:00:00.000Z',
-  conteudo: `LISTA DE ESTUDANTES INSCRITOS — Antes do Lançamento de Notas
+  conteudo: `LISTA DE CANDIDATOS POR SALA DE EXAME — Agrupada por Curso
 
 Escola: {{NOME_ESCOLA}}
-Ano Lectivo: {{ANO_LECTIVO}}
-Director(a): {{NOME_DIRECTOR}}
+Ano: {{ANO_LECTIVO}}
 
-Este modelo gera a lista de todos os candidatos inscritos no processo de admissão, emitida ANTES do lançamento dos resultados.
+Este modelo gera a lista oficial de candidatos inscritos no processo de admissão, organizada por curso/área de formação, com o formato oficial de sala de exame.
 
-Organização automática:
-• Ensino Primário (1ª–6ª Classe): separado por classe
-• I Ciclo (7ª–9ª Classe): separado por classe
-• II Ciclo (10ª–13ª Classe): separado por classe e, dentro de cada classe, por curso / área de formação
+Formato do documento (idêntico ao modelo oficial):
+  • Cabeçalho com insígnia da escola, nome da instituição
+  • Título: EXAMES DE ADMISSÃO — [ANO]
+  • Subtítulo: LISTA DE CANDIDATOS POR SALAS DE EXAME
+  • Linha com disciplinas e datas dos exames
+  • LOCAL · Campus / Instituto · SALA · HORA
 
-Dados incluídos em cada linha:
-• Nº de ordem
-• Nome completo do estudante
-• Sexo
-• Idade
-• Província de origem
-• Telefone de contacto
-• Nome do encarregado
+Organização automática por curso:
+  • Uma secção completa por cada curso / área de formação
+  • Cada secção tem o cabeçalho completo (escola, sala, hora, disciplinas)
+  • Dentro de cada curso: candidatos ordenados ALFABETICAMENTE
 
-A lista inclui um aviso de "documento emitido antes do lançamento de resultados", totais por grupo (M/F) e espaço para assinaturas do Secretário(a) e Director(a).
+Dados de cada candidato:
+  • Nº de Ordem (sequencial, reinicia em cada curso)
+  • Nome completo (em maiúsculas)
+  • NºCand — número de inscrição gerado automaticamente pelo sistema
+  • Curso / Área de Formação
 
-Nota: Após a publicação dos resultados, utilize o modelo "Lista de Resultados de Admissão" para gerar a lista definitiva com aprovado/não aprovado e notas.`,
+Configuração antes de gerar:
+  • Ano do exame
+  • Local, Campus/Instituto, Sala de exame, Hora
+  • Disciplinas com dia da semana e data (ex: Língua Portuguesa — 3ª-Feira, 07 Mar 2026)
+
+Ao clicar em "Emitir", será aberto o módulo de geração da lista onde poderá configurar todos os detalhes e gerar o PDF.`,
 };
 
 // ─── Seed: Lista de Resultados de Admissão (vitrine) ─────────────────────────
