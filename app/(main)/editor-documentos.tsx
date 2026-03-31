@@ -28,7 +28,7 @@ import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'recibo_salario' | 'extrato_propina' | 'historico_academico' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'lista_resultados_admissao' | 'recibo_salario' | 'extrato_propina' | 'historico_academico' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -318,6 +318,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   ficha_inscricao: 'Boletim de Inscrição',
   boletim_matricula: 'Boletim de Matrícula',
   lista_admitidos: 'Lista de Admitidos',
+  lista_resultados_admissao: 'Lista de Resultados de Admissão',
   recibo_salario: 'Recibo de Vencimento',
   extrato_propina: 'Extracto de Propinas',
   historico_academico: 'Histórico Académico',
@@ -338,6 +339,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   ficha_inscricao: '#CC1A1A',
   boletim_matricula: '#0a5e14',
   lista_admitidos: '#1A2B5F',
+  lista_resultados_admissao: '#0f3460',
   recibo_salario: '#10b981',
   extrato_propina: '#0d9488',
   historico_academico: '#4f46e5',
@@ -1867,6 +1869,37 @@ Dados incluídos em cada linha:
 A lista é emitida em formato A4 com totais por grupo (masculino/feminino) e assinaturas do secretário e director.`,
 };
 
+// ─── Seed: Lista de Resultados de Admissão (vitrine) ─────────────────────────
+
+const SEED_LISTA_RESULTADOS_ADMISSAO_ID = 'tpl_seed_lista_resultados_admissao_v1';
+
+const SEED_LISTA_RESULTADOS_ADMISSAO: DocTemplate = {
+  id: SEED_LISTA_RESULTADOS_ADMISSAO_ID,
+  nome: 'Lista de Resultados de Admissão (Vitrine)',
+  tipo: 'lista_resultados_admissao',
+  criadoEm: '2026-01-01T00:00:00.000Z',
+  atualizadoEm: '2026-01-01T00:00:00.000Z',
+  conteudo: `LISTA DE RESULTADOS DE ADMISSÃO — Para Publicação em Vitrine
+
+Este modelo gera a lista oficial de resultados do processo de admissão, dividida em duas secções:
+
+  ✓ ADMITIDOS — Estudantes aprovados e admitidos por classe/curso
+  ✗ NÃO ADMITIDOS — Estudantes que não foram admitidos por classe/curso
+
+Para a 10ª Classe com cursos / áreas de formação definidos, cada secção é organizada automaticamente por curso.
+
+Conteúdo de cada linha:
+  • Posição (1.º, 2.º, 3.º …)
+  • Nome completo do estudante
+  • Sexo
+  • Nota do exame de admissão
+  • Telefone de contacto
+
+A lista inclui totais de masculinos/femininos por grupo e espaço para assinaturas do Secretário(a) e Director(a).
+
+Ao clicar em "Emitir", irá para o módulo de Admissão → separador "Resultado" onde pode gerar e imprimir a lista em PDF.`,
+};
+
 // ─── Seed: Extracto de Propinas do Estudante ─────────────────────────────────
 
 const SEED_EXTRATO_PROPINA_ID = 'tpl_seed_extrato_propina_v1';
@@ -2348,7 +2381,7 @@ export default function EditorDocumentos() {
         let list: DocTemplate[] = fetched ?? [];
 
         // Inject seed templates if not yet present in the database
-        const seeds = [SEED_BOLETIM_MATRICULA, SEED_LISTA_ADMITIDOS, SEED_EXTRATO_PROPINA, SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
+        const seeds = [SEED_BOLETIM_MATRICULA, SEED_LISTA_ADMITIDOS, SEED_LISTA_RESULTADOS_ADMISSAO, SEED_EXTRATO_PROPINA, SEED_RECIBO_SALARIO, SEED_BOLETIM_INSCRICAO, SEED_CERT_HAB_I_CICLO, SEED_CERT_TECNICO_PROF, SEED_CERT_HAB_LIT, SEED_CERT_PRIMARIO, SEED_LISTA_TURMA, SEED_MAPA_FREQUENCIAS, SEED_MAPA_POR_CURSO_CLASSE, SEED_MAPA_TURMA_DETALHADO, SEED_MAPA_APROVEITAMENTO, SEED_CERT_II_CICLO, SEED_CERT_ITAQ_13, SEED_CERT_HAB_13, SEED_CERT_HAB_12, SEED_CERT_HAB_11, SEED_FICHA_MATRICULA, SEED_PAUTA_FINAL, SEED_DECL_NOTA_10, SEED_DECL_NOTA_11, SEED_DECL_NOTA_12, SEED_DECL_NOTA_13, SEED_MINI_PAUTA, SEED_DECLARACAO_COM_NOTA, SEED_CERTIFICADO_I_CICLO, SEED_DECLARACAO_HABILITACOES_PRIMARIO, SEED_DECLARACAO_HABILITACOES, SEED_GUIA_TRANSFERENCIA];
         const existingIds = new Set(list.map(t => t.id));
         const toInsert = seeds.filter(s => !existingIds.has(s.id));
         for (const seed of toInsert) {
@@ -6936,6 +6969,7 @@ export default function EditorDocumentos() {
     const isBoletimInscricao = template.id === SEED_BOLETIM_INSCRICAO_ID;
     const isBoletimMatricula = template.tipo === 'boletim_matricula';
     const isListaAdmitidos = template.tipo === 'lista_admitidos';
+    const isListaResultadosAdmissao = template.tipo === 'lista_resultados_admissao';
     const isExtratoPropina = template.tipo === 'extrato_propina';
 
     function handleEmitir() {
@@ -6946,6 +6980,8 @@ export default function EditorDocumentos() {
         router.push('/boletim-matricula' as any);
       } else if (isListaAdmitidos) {
         router.push('/lista-admitidos' as any);
+      } else if (isListaResultadosAdmissao) {
+        router.push('/(main)/admissao' as any);
       } else {
         openEmit(template);
       }
