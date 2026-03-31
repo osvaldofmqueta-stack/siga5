@@ -145,7 +145,11 @@ function DisciplinaFormModal({
     }
   }, [disciplina, visible, areas]);
 
-  const set = (k: keyof FormState, v: any) => setForm(f => ({ ...f, [k]: v }));
+  const set = (k: keyof FormState, v: any) => setForm(f => ({
+    ...f,
+    [k]: v,
+    ...(k === 'area' && v !== 'Formação Profissional' ? { componente: '' } : {}),
+  }));
 
   async function handleSave() {
     if (!form.nome.trim()) {
@@ -213,35 +217,37 @@ function DisciplinaFormModal({
               />
             </View>
 
-            {/* Componente — específico para cursos técnico-profissionais */}
-            <View style={mStyles.field}>
-              <Text style={mStyles.fieldLabel}>Componente Curricular</Text>
-              <Text style={mStyles.fieldHint}>
-                Para cursos técnico-profissionais. Deixe em branco para disciplinas do ensino geral.
-              </Text>
-              <View style={mStyles.compRow}>
-                {COMPONENTES.map(c => {
-                  const active = form.componente === c;
-                  const color = COMPONENTE_COLORS[c];
-                  return (
-                    <TouchableOpacity
-                      key={c}
-                      style={[mStyles.compBtn, active && { backgroundColor: color + '22', borderColor: color + '70' }]}
-                      onPress={() => set('componente', active ? '' : c)}
-                    >
-                      <MaterialCommunityIcons
-                        name={COMPONENTE_ICONS[c] as any}
-                        size={15}
-                        color={active ? color : Colors.textMuted}
-                      />
-                      <Text style={[mStyles.compBtnText, active && { color, fontFamily: 'Inter_600SemiBold' }]}>
-                        {COMPONENTE_SHORT[c]}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+            {/* Componente — apenas para Formação Profissional (cursos técnico-profissionais) */}
+            {form.area === 'Formação Profissional' && (
+              <View style={mStyles.field}>
+                <Text style={mStyles.fieldLabel}>Componente Curricular</Text>
+                <Text style={mStyles.fieldHint}>
+                  Seleccione a componente curricular deste curso técnico-profissional.
+                </Text>
+                <View style={mStyles.compRow}>
+                  {COMPONENTES.map(c => {
+                    const active = form.componente === c;
+                    const color = COMPONENTE_COLORS[c];
+                    return (
+                      <TouchableOpacity
+                        key={c}
+                        style={[mStyles.compBtn, active && { backgroundColor: color + '22', borderColor: color + '70' }]}
+                        onPress={() => set('componente', active ? '' : c)}
+                      >
+                        <MaterialCommunityIcons
+                          name={COMPONENTE_ICONS[c] as any}
+                          size={15}
+                          color={active ? color : Colors.textMuted}
+                        />
+                        <Text style={[mStyles.compBtnText, active && { color, fontFamily: 'Inter_600SemiBold' }]}>
+                          {COMPONENTE_SHORT[c]}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Área */}
             <View style={mStyles.field}>

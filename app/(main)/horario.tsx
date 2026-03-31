@@ -190,6 +190,11 @@ export default function HorarioScreen() {
     const periodo = PERIODOS[selectedCell.periodo - 1];
 
     if (modalMode === 'add') {
+      const duplicada = horariosTurma.find(h => h.disciplina === form.disciplina);
+      if (duplicada) {
+        alertErro('Disciplina duplicada', `"${form.disciplina}" já está no horário desta turma (${DIAS_FULL[duplicada.diaSemana - 1]}, período ${duplicada.periodo}).`);
+        return;
+      }
       const nova: AulaHorario = {
         id: genId(),
         turmaId: turmaAtual.id,
