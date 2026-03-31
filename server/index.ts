@@ -80,6 +80,16 @@ function setupCors(app: express.Application) {
       });
     }
 
+    if (process.env.RENDER_EXTERNAL_URL) {
+      origins.add(process.env.RENDER_EXTERNAL_URL);
+    }
+
+    if (process.env.ALLOWED_ORIGINS) {
+      process.env.ALLOWED_ORIGINS.split(",").forEach((o) => {
+        origins.add(o.trim());
+      });
+    }
+
     const origin = req.header("origin");
 
     const isLocalhost =
@@ -92,7 +102,7 @@ function setupCors(app: express.Application) {
         "Access-Control-Allow-Methods",
         "GET, POST, PUT, DELETE, OPTIONS",
       );
-      res.header("Access-Control-Allow-Headers", "Content-Type");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.header("Access-Control-Allow-Credentials", "true");
     }
 

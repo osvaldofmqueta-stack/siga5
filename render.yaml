@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: siga-v3
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm install && npx expo export -p web && npm run server:build
+    startCommand: node server_dist/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEON_DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: VAPID_PUBLIC_KEY
+        value: BCgpPBzjV-anmdQl9jMbX2JWEpLNW_izqrh_rsZliZvYMKEpYdFsBzsCRhqbNTBvEXH3RfSnCLh4IHDNS6j8TFE
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:sige@escola.ao
