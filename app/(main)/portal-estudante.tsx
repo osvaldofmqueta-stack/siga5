@@ -322,7 +322,7 @@ export default function PortalEstudanteScreen() {
     const ref = pagForm.metodo === 'rupe'
       ? `RUPE-${Math.floor(Math.random() * 900000 + 100000)}`
       : `MCX-${Math.floor(Math.random() * 900000 + 100000)}`;
-    await addPagamento({
+    await addPagamentoSelf({
       alunoId: aluno.id,
       taxaId: rubrica.id,
       valor: rubrica.valor,
@@ -343,7 +343,7 @@ export default function PortalEstudanteScreen() {
     const ref = propMetodo === 'rupe'
       ? `RUPE-PROP-${Math.floor(Math.random() * 900000 + 100000)}`
       : `MCX-PROP-${Math.floor(Math.random() * 900000 + 100000)}`;
-    await addPagamento({
+    await addPagamentoSelf({
       alunoId: aluno.id,
       taxaId: taxa.id,
       valor: taxa.valor,
@@ -364,7 +364,7 @@ export default function PortalEstudanteScreen() {
     if (!aluno || !taxaParaPagar) return;
     const prefix = metodoPagarTaxa === 'rupe' ? 'RUPE' : 'MCX';
     const ref = `${prefix}-${Math.floor(Math.random() * 900000 + 100000)}`;
-    await addPagamento({
+    await addPagamentoSelf({
       alunoId: aluno.id,
       taxaId: taxaParaPagar.id,
       valor: taxaParaPagar.valor,
