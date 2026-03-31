@@ -2163,6 +2163,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log("POST /api/registros", req.body);
     try {
       const b = requireBodyObject(req);
+
+      // ── Validação de email ─────────────────────────────────────────
+      const emailRaw = String(b.email || '').trim().toLowerCase();
+      const emailRegex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+      const BLOCKED_DOMAINS = [
+        'mailinator.com','guerrillamail.com','guerrillamailblock.com','tempmail.com',
+        'temp-mail.org','throwam.com','yopmail.com','sharklasers.com','guerrillamail.info',
+        'grr.la','guerrillamail.biz','guerrillamail.de','guerrillamail.net','guerrillamail.org',
+        'spam4.me','trashmail.com','trashmail.me','trashmail.net','dispostable.com',
+        'mailnull.com','spamgourmet.com','maildrop.cc','fakeinbox.com','getairmail.com',
+        'filzmail.com','throwam.com','discard.email','mailnesia.com','mailnull.com',
+        'spamhereplease.com','10minutemail.com','10minutemail.net','10minutemail.org',
+        'tempr.email','tempail.com','crazymailing.com','getnada.com','mytemp.email',
+        'mail-temporaire.fr','jetable.fr.nf','moncourrier.fr.nf','monemail.fr.nf',
+        'speed.1s.fr','sofimail.com','mailzilla.com','moakt.com','emailtemporario.com.br',
+      ];
+      if (!emailRaw) {
+        return json(res, 400, { error: 'O email de contacto é obrigatório.' });
+      }
+      if (!emailRegex.test(emailRaw)) {
+        return json(res, 400, { error: 'Formato de email inválido.' });
+      }
+      const emailDomain = emailRaw.split('@')[1];
+      if (BLOCKED_DOMAINS.includes(emailDomain)) {
+        return json(res, 400, { error: 'Não é permitido usar endereços de email temporário ou descartável. Por favor, use um email real.' });
+      }
+      // ──────────────────────────────────────────────────────────────
+
       const senha = gerarSenhaProvisoria(String(b.nomeCompleto||''), String(b.dataNascimento||''));
       const id = b.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
       const rupeInscricao = gerarReferenciaRUPE();

@@ -246,6 +246,31 @@ export default function RegistroScreen() {
     return /^9\d{8}$/.test(digits);
   }
 
+  const BLOCKED_EMAIL_DOMAINS = [
+    'mailinator.com','guerrillamail.com','guerrillamailblock.com','tempmail.com',
+    'temp-mail.org','throwam.com','yopmail.com','sharklasers.com','guerrillamail.info',
+    'grr.la','guerrillamail.biz','guerrillamail.de','guerrillamail.net','guerrillamail.org',
+    'spam4.me','trashmail.com','trashmail.me','trashmail.net','dispostable.com',
+    'mailnull.com','spamgourmet.com','maildrop.cc','fakeinbox.com','getairmail.com',
+    'filzmail.com','discard.email','mailnesia.com','spamhereplease.com',
+    '10minutemail.com','10minutemail.net','10minutemail.org',
+    'tempr.email','tempail.com','crazymailing.com','getnada.com','mytemp.email',
+    'mail-temporaire.fr','jetable.fr.nf','moncourrier.fr.nf','monemail.fr.nf',
+    'speed.1s.fr','sofimail.com','mailzilla.com','moakt.com','emailtemporario.com.br',
+  ];
+
+  function validarEmail(email: string): { valid: boolean; erro: string } {
+    const e = email.trim().toLowerCase();
+    if (!e) return { valid: false, erro: 'O email de contacto é obrigatório.' };
+    const regex = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+    if (!regex.test(e)) return { valid: false, erro: 'Introduza um email válido (ex: nome@dominio.ao).' };
+    const domain = e.split('@')[1];
+    if (BLOCKED_EMAIL_DOMAINS.includes(domain)) {
+      return { valid: false, erro: 'Não é permitido usar email temporário ou descartável. Use um email real.' };
+    }
+    return { valid: true, erro: '' };
+  }
+
   function validateStep1() {
     clearErrors();
     const erros: Record<string, string> = {};
@@ -298,11 +323,9 @@ export default function RegistroScreen() {
       ok = false;
     }
 
-    if (!form.email.trim()) {
-      erros.email = 'O email de contacto é obrigatório.';
-      ok = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(form.email.trim())) {
-      erros.email = 'Introduza um email válido (ex: nome@dominio.ao).';
+    const emailCheck = validarEmail(form.email);
+    if (!emailCheck.valid) {
+      erros.email = emailCheck.erro;
       ok = false;
     }
 

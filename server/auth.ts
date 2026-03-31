@@ -65,12 +65,16 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "transferencias","biblioteca","boletim_matricula","boletim_propina",
                      "quadro_honra","trabalhos_finais","exclusoes_faltas","plano_aula",
                      "eventos","gestao_academica","grelha","historico","salas","dashboard",
-                     "avaliacao_professores","admin"],
+                     "avaliacao_professores","admin",
+                     "professor_hub","professor_turmas","professor_pauta","professor_sumario",
+                     "professor_mensagens","professor_materiais","portal_estudante","pagamentos_hub"],
   // admin: configuração técnica, gestão de utilizadores, auditoria — sem finanças nem RH operacional
   admin:            ["dashboard","alunos","professores","turmas","salas","notas","presencas",
                      "horario","historico","disciplinas","grelha","admissao","transferencias",
                      "gestao_academica","editor_documentos","boletim_matricula","documentos_hub",
-                     "secretaria_hub","pedagogico","relatorios","biblioteca","eventos",
+                     "secretaria_hub","pedagogico","avaliacao_professores","desempenho",
+                     "visao_geral","relatorios","quadro_honra","trabalhos_finais",
+                     "exclusoes_faltas","biblioteca","eventos","plano_aula",
                      "notificacoes","chat_interno","calendario_academico","admin",
                      "gestao_acessos","controlo_supervisao","auditoria"],
   // director: supervisão estratégica — vê tudo, não opera finanças nem configura o sistema
@@ -92,9 +96,10 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
   // NÃO tem gestão financeira (é do financeiro) nem configurações de sistema (é do admin)
   secretaria:       ["secretaria_hub","alunos","turmas","salas","notas","presencas",
                      "horario","historico","admissao","transferencias","gestao_academica",
+                     "disciplinas","grelha",
                      "editor_documentos","boletim_matricula","boletim_propina","documentos_hub",
-                     "biblioteca","quadro_honra","trabalhos_finais","notificacoes",
-                     "chat_interno","eventos","calendario_academico"],
+                     "extrato_propinas","biblioteca","quadro_honra","trabalhos_finais",
+                     "notificacoes","chat_interno","eventos","calendario_academico"],
   // professor: actividade lectiva própria — lança notas, sumários e materiais das suas turmas
   professor:        ["professor_hub","professor_turmas","professor_pauta","professor_sumario",
                      "professor_mensagens","professor_materiais","horario","plano_aula",

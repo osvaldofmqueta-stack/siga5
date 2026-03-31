@@ -210,11 +210,11 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
     // Financeiro (supervisão — ver relatórios, não operar)
     'financeiro_relatorios', 'extrato_propinas',
-    // RH (supervisão)
+    // RH (supervisão estratégica — ver relatórios e controlo, não operar folhas de salário)
     'rh_hub', 'rh_controle',
     // Documentos (director assina e revê documentos oficiais)
     'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
-  ],
+  ] as PermKey[],
 
   // ── Admin: configuração do sistema e gestão de utilizadores ──────
   // Responsabilidade técnica: configurar o sistema, gerir utilizadores
