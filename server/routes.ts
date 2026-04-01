@@ -1258,7 +1258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
-      const allowed = ["nome","email","senha","role","escola","ativo","alunoId"] as const;
+      const allowed = ["nome","email","senha","role","escola","ativo","alunoId","departamento","cargo"] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -1275,6 +1275,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const rows = await query<JsonObject>(`DELETE FROM public.utilizadores WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // -----------------------
+  // FUNCIONÁRIOS — Registo Central de Pessoal
+  // -----------------------
+  app.get("/api/funcionarios", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const { departamento, ativo } = req.query as Record<string, string>;
+    let sql = `SELECT * FROM public.funcionarios WHERE 1=1`;
+    const params: unknown[] = [];
+    if (departamento) { params.push(departamento); sql += ` AND departamento=$${params.length}`; }
+    if (ativo !== undefined) { params.push(ativo === 'true'); sql += ` AND ativo=$${params.length}`; }
+    sql += ` ORDER BY "createdAt" DESC`;
+    const rows = await query<JsonObject>(sql, params);
+    json(res, 200, rows);
+  });
+
+  app.get("/api/funcionarios/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.funcionarios WHERE id=$1`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Funcionário não encontrado." });
+    json(res, 200, rows[0]);
+  });
+
+  app.post("/api/funcionarios", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.funcionarios (
+          id, nome, apelido, "dataNascimento", genero, bi, nif, telefone, email, foto,
+          provincia, municipio, morada, departamento, cargo, especialidade,
+          "tipoContrato", "dataContratacao", "dataFimContrato", habilitacoes,
+          "salarioBase", "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao", "outrosSubsidios",
+          "utilizadorId", "professorId", ativo, observacoes, "createdAt", "updatedAt"
+        ) VALUES (
+          gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,
+          $10,$11,$12,$13,$14,$15,
+          $16,$17,$18,$19,
+          $20,$21,$22,$23,$24,
+          $25,$26,$27,$28,NOW(),NOW()
+        ) RETURNING *`,
+        [
+          b.nome, b.apelido ?? '', b.dataNascimento ?? '', b.genero ?? '', b.bi ?? '', b.nif ?? '',
+          b.telefone ?? '', b.email ?? '', b.foto ?? null,
+          b.provincia ?? '', b.municipio ?? '', b.morada ?? '',
+          b.departamento, b.cargo, b.especialidade ?? '',
+          b.tipoContrato ?? 'efectivo', b.dataContratacao ?? '', b.dataFimContrato ?? null, b.habilitacoes ?? '',
+          b.salarioBase ?? 0, b.subsidioAlimentacao ?? 0, b.subsidioTransporte ?? 0, b.subsidioHabitacao ?? 0, b.outrosSubsidios ?? 0,
+          b.utilizadorId ?? null, b.professorId ?? null, b.ativo ?? true, b.observacoes ?? '',
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.put("/api/funcionarios/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = [
+        "nome","apelido","dataNascimento","genero","bi","nif","telefone","email","foto",
+        "provincia","municipio","morada","departamento","cargo","especialidade",
+        "tipoContrato","dataContratacao","dataFimContrato","habilitacoes",
+        "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios",
+        "utilizadorId","professorId","ativo","observacoes",
+      ] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}" = $${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "No fields." });
+      values.push(new Date().toISOString()); setParts.push(`"updatedAt" = $${values.length}`);
+      const rows = await query<JsonObject>(
+        `UPDATE public.funcionarios SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`,
+        [...values, id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/funcionarios/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`DELETE FROM public.funcionarios WHERE id=$1 RETURNING *`, [req.params.id]);
+    if (!rows[0]) return json(res, 404, { error: "Not found." });
+    json(res, 200, rows[0]);
+  });
+
+  // Ligar funcionário a utilizador do sistema
+  app.post("/api/funcionarios/:id/criar-acesso", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      // b.email, b.senha (hashed), b.role
+      const funcRows = await query<JsonObject>(`SELECT * FROM public.funcionarios WHERE id=$1`, [id]);
+      if (!funcRows[0]) return json(res, 404, { error: "Funcionário não encontrado." });
+      const func = funcRows[0] as any;
+
+      const bcrypt = await import('bcrypt');
+      const senhaHash = await bcrypt.hash(b.senha as string, 10);
+
+      const userRows = await query<JsonObject>(
+        `INSERT INTO public.utilizadores (id,nome,email,senha,role,escola,ativo,departamento,cargo,"criadoEm")
+         VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,true,$6,$7,NOW()) RETURNING *`,
+        [func.nome + ' ' + func.apelido, b.email || func.email, senhaHash, b.role || func.cargo, b.escola ?? '', func.departamento, func.cargo]
+      );
+      const newUser = userRows[0] as any;
+
+      // Link the funcionario to this user
+      await query(`UPDATE public.funcionarios SET "utilizadorId"=$1,"updatedAt"=NOW() WHERE id=$2`, [newUser.id, id]);
+      json(res, 201, { utilizador: newUser });
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
   });
 
   // -----------------------

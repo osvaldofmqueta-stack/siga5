@@ -1,6 +1,28 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Listas de Admissão: Resultados e Inscritos)
+## Recent Changes (Latest Session — Registo Central de Pessoal / RH)
+- **shared/departamentos.ts**: Ficheiro com 7 departamentos e 27+ cargos baseados no Decreto Presidencial n.º 162/23 e Lei n.º 32/20. Exporta `DEPARTAMENTOS`, `CARGOS`, `CARGOS_POR_DEPARTAMENTO`, `getCargoById`, `getDepartamentoByKey`, `getRoleForCargo`.
+- **shared/schema.ts**: Nova tabela `funcionarios` com campos completos de RH (dados pessoais, BI, NIF, departamento, cargo, tipo de contrato, dados salariais, ligação a utilizador/professor). Colunas `departamento` e `cargo` adicionadas a `utilizadores`.
+- **Migração BD (Neon)**: Executada via raw SQL (`ALTER TABLE utilizadores ADD COLUMN IF NOT EXISTS departamento/cargo`, `CREATE TABLE IF NOT EXISTS funcionarios`).
+- **server/routes.ts**:
+  - `GET/POST /api/funcionarios` — listagem e criação de funcionários (filtros: departamento, ativo)
+  - `GET /api/funcionarios/:id` — detalhe de funcionário
+  - `PUT /api/funcionarios/:id` — actualização de funcionário
+  - `DELETE /api/funcionarios/:id` — eliminação de funcionário
+  - `POST /api/funcionarios/:id/criar-acesso` — liga funcionário a conta do sistema (email + senha + role derivado do cargo)
+  - `PUT /api/utilizadores/:id` — actualizado para aceitar campos `departamento` e `cargo`
+- **app/(main)/rh-controle.tsx**: Completamente reescrito com nova tab **"Pessoal"** como primeira tab:
+  - Barra de pesquisa full-text (nome, BI, cargo)
+  - Pills de filtro por departamento com ícones e contadores
+  - Lista de funcionários agrupada por departamento (modo "Todos") ou flat (modo por depto)
+  - Badge de acesso ao sistema: verde se tem utilizador, laranja se elegível mas sem acesso, cinzento se N/A (sem_acesso)
+  - **Formulário em 4 passos**: Pessoal (nome, BI, género, telefone, morada) → Cargo (departamento visual + cargo com badge de nível de acesso) → Contrato (tipo de vínculo, datas) → Salarial (salário base + 4 subsídios com preview de bruto total em AOA)
+  - **Modal de detalhe**: informações completas, badge de departamento/cargo, estado do acesso, botões Editar/Eliminar, botão "Criar Acesso ao Sistema" para cargos operacionais sem conta
+  - **Modal de criação de acesso**: email + senha → chama `POST /api/funcionarios/:id/criar-acesso`
+  - Tabs existentes (Sumários, Solicitações, Calendário de Provas) mantidas sem alterações
+- **context/PermissoesContext.tsx**: Verificado — role `rh` já correctamente configurado com acesso a `rh_hub`, `rh_controle`, `rh_payroll`.
+
+## Recent Changes (Previous Session — Listas de Admissão: Resultados e Inscritos)
 - **app/lista-admitidos.tsx**: Redesenhado como "Lista de Resultados de Admissão" com:
   - Nova coluna "Estado" com badges coloridos (ADMITIDO = verde, MATRICULADO = dourado, NÃO ADMITIDO = vermelho)
   - Filtros actualizados: Admitidos | Não Admitidos | Todos os Resultados

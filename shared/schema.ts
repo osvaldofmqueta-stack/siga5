@@ -49,12 +49,71 @@ export const utilizadores = pgTable("utilizadores", {
   nome: text("nome").notNull(),
   email: text("email").notNull().unique(),
   senha: text("senha").notNull(),
-  role: text("role").notNull(), // 'admin' | 'professor' | 'aluno' | 'financeiro' | 'rh' | 'encarregado'
+  role: text("role").notNull(), // 'admin' | 'professor' | 'aluno' | 'financeiro' | 'rh' | 'encarregado' | 'director' | 'secretaria' | 'pedagogico' | 'chefe_secretaria' | 'ceo' | 'pca'
   escola: text("escola").notNull().default(''),
   ativo: boolean("ativo").notNull().default(true),
   alunoId: varchar("alunoId"), // only for role='encarregado'
+  // Campos de enquadramento organizacional (preenchidos pelo RH)
+  departamento: text("departamento"), // DepartamentoKey
+  cargo: text("cargo"),               // CargoInfo.id
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
+
+// -----------------------
+// FUNCIONÁRIOS (Registo Central de Pessoal — todos os trabalhadores)
+// -----------------------
+export const funcionarios = pgTable("funcionarios", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  // Dados Pessoais
+  nome: text("nome").notNull(),
+  apelido: text("apelido").notNull(),
+  dataNascimento: text("dataNascimento").notNull().default(''),
+  genero: text("genero").notNull().default(''), // 'M' | 'F'
+  bi: text("bi").notNull().default(''),          // Bilhete de Identidade
+  nif: text("nif").notNull().default(''),         // Número de Identificação Fiscal
+  telefone: text("telefone").notNull().default(''),
+  email: text("email").notNull().default(''),
+  foto: text("foto"),
+  provincia: text("provincia").notNull().default(''),
+  municipio: text("municipio").notNull().default(''),
+  morada: text("morada").notNull().default(''),
+
+  // Enquadramento Organizacional (baseado na legislação angolana)
+  departamento: text("departamento").notNull(), // DepartamentoKey
+  cargo: text("cargo").notNull(),               // CargoInfo.id
+  especialidade: text("especialidade").notNull().default(''), // e.g., Matemática, Física, etc.
+
+  // Vínculo Contratual
+  tipoContrato: text("tipoContrato").notNull().default('efectivo'), // 'efectivo' | 'contratado' | 'prestacao_servicos' | 'temporario' | 'bolseiro'
+  dataContratacao: text("dataContratacao").notNull().default(''),
+  dataFimContrato: text("dataFimContrato"),       // null = contrato sem prazo
+  habilitacoes: text("habilitacoes").notNull().default(''), // Licenciatura, Mestrado, etc.
+
+  // Dados Salariais
+  salarioBase: real("salarioBase").notNull().default(0),
+  subsidioAlimentacao: real("subsidioAlimentacao").notNull().default(0),
+  subsidioTransporte: real("subsidioTransporte").notNull().default(0),
+  subsidioHabitacao: real("subsidioHabitacao").notNull().default(0),
+  outrosSubsidios: real("outrosSubsidios").notNull().default(0),
+
+  // Acesso ao Sistema
+  utilizadorId: varchar("utilizadorId"), // link to utilizadores — null if no system access
+  professorId: varchar("professorId"),   // link to professores — null if not a teacher
+
+  // Estado
+  ativo: boolean("ativo").notNull().default(true),
+  observacoes: text("observacoes").notNull().default(''),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertFuncionarioSchema = createInsertSchema(funcionarios).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertFuncionario = z.infer<typeof insertFuncionarioSchema>;
+export type Funcionario = typeof funcionarios.$inferSelect;
 
 // -----------------------
 // ANOS ACADÉMICOS
