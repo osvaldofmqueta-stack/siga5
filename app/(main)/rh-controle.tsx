@@ -270,6 +270,11 @@ export default function RHControleScreen() {
       if (!funcForm.nome?.trim()) erros.nome = 'O nome é obrigatório.';
       if (funcForm.bi?.trim() && !validarNIForBI(funcForm.bi)) erros.bi = 'BI inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 000000000LA000).';
       if (funcForm.nif?.trim() && !validarNIForBI(funcForm.nif)) erros.nif = 'NIF inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 003519344HA042).';
+      const biVal = funcForm.bi?.trim().toUpperCase();
+      const nifVal = funcForm.nif?.trim().toUpperCase();
+      if (biVal && nifVal && biVal !== nifVal && !erros.bi && !erros.nif) {
+        erros.nif = 'O NIF deve ser igual ao número do BI.';
+      }
     } else if (step === 'organizacao') {
       if (!funcForm.departamento) erros.departamento = 'Seleccione o departamento.';
       if (!funcForm.cargo) erros.cargo = 'Seleccione o cargo.';
