@@ -1049,8 +1049,8 @@ export default function DrawerLeft() {
   }
 
   /* ── MOBILE: animated overlay drawer ──────────────────────── */
-  const topInset = Platform.OS === 'web' ? 67 : insets.top;
-  const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+  const topInset = insets.top;
+  const bottomInset = insets.bottom;
 
   return (
     <View style={[StyleSheet.absoluteFill, { pointerEvents: leftOpen ? 'auto' : 'none' } as any]}>

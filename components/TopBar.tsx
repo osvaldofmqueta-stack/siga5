@@ -36,7 +36,7 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
   const { unreadCount } = useNotificacoes();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { isDesktop } = useBreakpoint();
+  const { isDesktop, isMobile } = useBreakpoint();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
     return () => clearInterval(interval);
   }, []);
 
-  const topPad = isDesktop ? 0 : Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = isDesktop ? 0 : insets.top;
 
   const firstName = user?.nome?.trim().split(' ')[0] ?? '';
   const greetingText = subtitle ?? `${getGreeting()}${firstName ? `, ${firstName}` : ''}`;
@@ -64,15 +64,17 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
         <Text style={styles.subtitle} numberOfLines={1}>{greetingText}</Text>
       </View>
 
-      {/* Clock Widget */}
-      <View style={styles.clockWidget}>
-        <View style={styles.clockGlow} />
-        <Ionicons name="time-outline" size={18} color={Colors.gold} />
-        <View style={styles.clockTexts}>
-          <Text style={styles.clockTime}>{timeText}</Text>
-          <Text style={styles.clockDate}>{dateText}</Text>
+      {/* Clock Widget — hidden on narrow mobile screens to avoid overflow */}
+      {!isMobile && (
+        <View style={styles.clockWidget}>
+          <View style={styles.clockGlow} />
+          <Ionicons name="time-outline" size={18} color={Colors.gold} />
+          <View style={styles.clockTexts}>
+            <Text style={styles.clockTime}>{timeText}</Text>
+            <Text style={styles.clockDate}>{dateText}</Text>
+          </View>
         </View>
-      </View>
+      )}
 
       <View style={styles.rightActions}>
         {rightAction && (

@@ -73,8 +73,8 @@ export default function DrawerRight() {
     }).start();
   }, [confirmLogout]);
 
-  const topInset = isDesktop ? 0 : Platform.OS === 'web' ? 67 : insets.top;
-  const bottomInset = isDesktop ? 0 : Platform.OS === 'web' ? 34 : insets.bottom;
+  const topInset = isDesktop ? 0 : insets.top;
+  const bottomInset = isDesktop ? 0 : insets.bottom;
 
   async function toggleBiometric(val: boolean) {
     if (val) {

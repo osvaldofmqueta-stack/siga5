@@ -57,8 +57,32 @@ const SW_SCRIPT = `
 function injectPwaTags(html: string): string {
   let result = html;
 
+  // Always ensure the proper mobile viewport tag is present
+  if (!result.includes('name="viewport"')) {
+    result = result.replace("<head>", `<head>\n  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />`);
+  } else {
+    // Replace any existing viewport meta with our correct one
+    result = result.replace(
+      /<meta[^>]*name=["']viewport["'][^>]*>/gi,
+      `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />`
+    );
+  }
+
   if (!html.includes("Inter_400Regular")) {
     result = result.replace("</head>", `${FONT_STYLE}\n</head>`);
+  }
+
+  // Always inject icon font CSS for mobile web support
+  if (!result.includes("Ionicons")) {
+    const iconFontsCss = `<style>
+    @font-face { font-family: 'Ionicons'; src: url('/icon-fonts/Ionicons.ttf') format('truetype'); font-display: block; }
+    @font-face { font-family: 'MaterialCommunityIcons'; src: url('/icon-fonts/MaterialCommunityIcons.ttf') format('truetype'); font-display: block; }
+    @font-face { font-family: 'MaterialIcons'; src: url('/icon-fonts/MaterialIcons.ttf') format('truetype'); font-display: block; }
+    @font-face { font-family: 'FontAwesome5_Regular'; src: url('/icon-fonts/FontAwesome5_Regular.ttf') format('truetype'); font-display: block; }
+    @font-face { font-family: 'FontAwesome5_Solid'; src: url('/icon-fonts/FontAwesome5_Solid.ttf') format('truetype'); font-display: block; }
+    @font-face { font-family: 'FontAwesome5_Brands'; src: url('/icon-fonts/FontAwesome5_Brands.ttf') format('truetype'); font-display: block; }
+  </style>`;
+    result = result.replace("</head>", `${iconFontsCss}\n</head>`);
   }
 
   // Always remove any Expo-generated manifest link and replace with ours
@@ -338,6 +362,15 @@ function setupErrorHandler(app: express.Application) {
   setupPwaAssets(app);
 
   app.use("/assets", express.static(path.resolve(process.cwd(), "assets")));
+
+  // Serve icon fonts from node_modules for mobile web support
+  const iconFontsPath = path.resolve(process.cwd(), "node_modules/@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts");
+  app.use("/icon-fonts", express.static(iconFontsPath, {
+    setHeaders: (res) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+    }
+  }));
 
   const server = await registerRoutes(app);
   registerMEDRoutes(app);
