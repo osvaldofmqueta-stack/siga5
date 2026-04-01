@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
 import { Colors } from '@/constants/colors';
 
 export interface AlertButton {
@@ -27,7 +27,6 @@ export function webAlert(
     _showAlert({ title, message, buttons: btns });
   } else {
     if (typeof window !== 'undefined') {
-      const hasActions = btns.some(b => b.style !== 'cancel' && b.onPress);
       const ok = btns.length > 1 ? window.confirm(`${title}${message ? '\n\n' + message : ''}`) : true;
       if (ok) {
         const primary = btns.find(b => b.style !== 'cancel');
@@ -35,6 +34,44 @@ export function webAlert(
       }
     }
   }
+}
+
+function AlertContent({
+  config,
+  onButton,
+}: {
+  config: AlertConfig;
+  onButton: (btn: AlertButton) => void;
+}) {
+  const cancelBtn = config.buttons.find(b => b.style === 'cancel');
+  const actionBtns = config.buttons.filter(b => b.style !== 'cancel');
+
+  return (
+    <View style={s.box}>
+      <Text style={s.title}>{config.title}</Text>
+      {!!config.message && (
+        <Text style={s.message}>{config.message}</Text>
+      )}
+      <View style={s.buttons}>
+        {cancelBtn && (
+          <TouchableOpacity style={[s.btn, s.cancelBtn]} onPress={() => onButton(cancelBtn)}>
+            <Text style={[s.btnText, s.cancelText]}>{cancelBtn.text}</Text>
+          </TouchableOpacity>
+        )}
+        {actionBtns.map((btn, i) => (
+          <TouchableOpacity
+            key={i}
+            style={[s.btn, btn.style === 'destructive' ? s.destructiveBtn : s.primaryBtn]}
+            onPress={() => onButton(btn)}
+          >
+            <Text style={[s.btnText, btn.style === 'destructive' ? s.destructiveText : s.primaryText]}>
+              {btn.text}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </View>
+  );
 }
 
 export function WebAlertProvider({ children }: { children: React.ReactNode }) {
@@ -53,45 +90,52 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const cancelBtn = config?.buttons.find(b => b.style === 'cancel');
-  const actionBtns = config?.buttons.filter(b => b.style !== 'cancel') ?? [];
-
   return (
     <>
       {children}
-      <Modal visible={!!config} transparent animationType="fade" statusBarTranslucent>
-        <View style={s.overlay}>
-          <View style={s.box}>
-            <Text style={s.title}>{config?.title}</Text>
-            {!!config?.message && (
-              <Text style={s.message}>{config.message}</Text>
-            )}
-            <View style={s.buttons}>
-              {cancelBtn && (
-                <TouchableOpacity style={[s.btn, s.cancelBtn]} onPress={() => handleButton(cancelBtn)}>
-                  <Text style={[s.btnText, s.cancelText]}>{cancelBtn.text}</Text>
-                </TouchableOpacity>
-              )}
-              {actionBtns.map((btn, i) => (
-                <TouchableOpacity
-                  key={i}
-                  style={[s.btn, btn.style === 'destructive' ? s.destructiveBtn : s.primaryBtn]}
-                  onPress={() => handleButton(btn)}
-                >
-                  <Text style={[s.btnText, btn.style === 'destructive' ? s.destructiveText : s.primaryText]}>
-                    {btn.text}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+
+      {Platform.OS === 'web' ? (
+        config ? (
+          <View
+            style={s.webOverlay}
+            // @ts-ignore — position:'fixed' is web-only
+            pointerEvents="box-none"
+          >
+            <TouchableOpacity
+              style={StyleSheet.absoluteFill}
+              activeOpacity={1}
+              onPress={() => {
+                const cancel = config.buttons.find(b => b.style === 'cancel');
+                if (cancel) handleButton(cancel);
+              }}
+            />
+            <AlertContent config={config} onButton={handleButton} />
           </View>
-        </View>
-      </Modal>
+        ) : null
+      ) : (
+        <Modal visible={!!config} transparent animationType="fade" statusBarTranslucent>
+          <View style={s.overlay}>
+            {config && <AlertContent config={config} onButton={handleButton} />}
+          </View>
+        </Modal>
+      )}
     </>
   );
 }
 
 const s = StyleSheet.create({
+  webOverlay: {
+    position: 'fixed' as any,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999999,
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.72)',

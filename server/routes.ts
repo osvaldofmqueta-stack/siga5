@@ -1448,10 +1448,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "valorPorTempoLectivo","temposSemanais",
         "utilizadorId","professorId","ativo","observacoes",
       ] as const;
+      const JSONB_FIELDS = new Set(["subsidios"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
-        values.push(v); setParts.push(`"${key}" = $${values.length}`);
+        const serialized = JSONB_FIELDS.has(key) ? JSON.stringify(v) : v;
+        values.push(serialized); setParts.push(`"${key}" = $${values.length}`);
       }
       if (!setParts.length) return json(res, 400, { error: "No fields." });
       values.push(new Date().toISOString()); setParts.push(`"updatedAt" = $${values.length}`);
