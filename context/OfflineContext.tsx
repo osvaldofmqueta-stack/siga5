@@ -31,9 +31,11 @@ const OfflineContext = createContext<OfflineContextValue>({
   triggerSync: async () => {},
 });
 
+const TOKEN_KEY = '@sgaa_token';
+
 async function getAuthToken(): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem('@sgaa_token');
+    return await AsyncStorage.getItem(TOKEN_KEY);
   } catch {
     return null;
   }
