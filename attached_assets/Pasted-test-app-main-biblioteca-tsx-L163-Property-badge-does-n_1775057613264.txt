@@ -1,0 +1,66 @@
+test: app/(main)/biblioteca.tsx#L163
+Property 'badge' does not exist on type '{ readonly key: "catalogo"; readonly label: "Catálogo"; readonly icon: "book"; } | { readonly key: "emprestimos"; readonly label: "Empréstimos"; readonly icon: "swap-horizontal"; readonly badge: number; } | { ...; }'.
+test: app/(main)/avaliacao-professores.tsx#L621
+This comparison appears to be unintentional because the types '"rascunho"' and '"aprovada"' have no overlap.
+test: app/(main)/avaliacao-professores.tsx#L531
+Conversion of type '{ professorId: string; profNome: string; periodoLetivo: string; avaliador: string; notaPlaneamento: number; notaPontualidade: number; notaMetodologia: number; notaRelacaoAlunos: number; notaRelacaoColegas: number; ... 6 more ...; recomendacoes: string; }' to type 'Record<string, number>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+test: app/(main)/avaliacao-professores.tsx#L269
+Conversion of type '{ professorId: string; profNome: string; periodoLetivo: string; avaliador: string; notaPlaneamento: number; notaPontualidade: number; notaMetodologia: number; notaRelacaoAlunos: number; notaRelacaoColegas: number; ... 6 more ...; recomendacoes: string; }' to type 'Record<string, number>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+test: app/(main)/avaliacao-professores.tsx#L252
+Type '"rascunho" | "aprovada" | "submetida"' is not assignable to type '"rascunho"'.
+test: app/(main)/auditoria.tsx#L115
+No overload matches this call.
+test: app/(main)/admissao.tsx#L1013
+An object literal cannot have multiple properties with the same name.
+test: app/(main)/admissao.tsx#L83
+Property 'cursoNome' does not exist on type 'Registro'.
+test: app/(main)/admin.tsx#L184
+Variable 'activeSection' is used before being assigned.
+test: app/(main)/admin.tsx#L184
+Block-scoped variable 'activeSection' used before its declaration.
+test: app/(main)/financeiro.tsx#L798
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/documentos-hub.tsx#L355
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/documentos-hub.tsx#L355
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admissao.tsx#L1013
+Duplicate key 'gap'
+test: app/(main)/admin.tsx#L2320
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admin.tsx#L2320
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admin.tsx#L2274
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admin.tsx#L2274
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admin.tsx#L802
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+test: app/(main)/admin.tsx#L802
+`"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`
+deploy-database
+Process completed with exit code 1.
+test
+Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-node@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+test: app/(main)/alunos.tsx#L368
+'err' is defined but never used
+test: app/(main)/alunos.tsx#L20
+'alertErro' is defined but never used
+test: app/(main)/admissao.tsx#L252
+'partes' is assigned a value but never used
+test: app/(main)/admissao.tsx#L17
+'LinearGradient' is defined but never used
+test: app/(main)/admin.tsx#L184
+React Hook useEffect has a missing dependency: 'fetchReabertura'. Either include it or remove the dependency array
+test: app/(main)/admin.tsx#L162
+'solicitacoes' is assigned a value but never used
+test: app/(main)/admin.tsx#L158
+'anoAtivo' is assigned a value but never used
+test: app/(main)/admin.tsx#L12
+'Platform' is defined but never used
+test: app/(main)/_layout.tsx#L40
+React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array
+test: app/(main)/_layout.tsx#L32
+React Hook useEffect has a missing dependency: 'router'. Either include it or remove the dependency array
+deploy-database
+Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-node@v4. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

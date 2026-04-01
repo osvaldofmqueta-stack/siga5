@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
@@ -249,7 +248,7 @@ async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
   const school = schoolRes?.ok ? await schoolRes.json() : {};
   const nomeEscola = school.nomeEscola || 'ESCOLA — SIGA';
 
-  const partes = String(reg.nomeCompleto || '').trim().split(/\s+/);
+  const _partes = String(reg.nomeCompleto || '').trim().split(/\s+/);
   const generoLabel = reg.genero === 'M' ? 'Masculino' : 'Feminino';
   const numeroMatricula = `MAT-${anoAtual()}-${reg.id.slice(0, 6).toUpperCase()}`;
   const qrData = JSON.stringify({ tipo: 'BOLETIM_MATRICULA', id: reg.id, nome: reg.nomeCompleto, classe: reg.classe });
@@ -386,6 +385,7 @@ interface Registro {
   pagamentoMatriculaConfirmado?: boolean;
   pagamentoMatriculaConfirmadoEm?: string;
   pagamentoMatriculaConfirmadoPor?: string;
+  cursoNome?: string;
   criadoEm: string;
   nomeEncarregado: string;
   telefoneEncarregado: string;
@@ -1010,7 +1010,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   tabsRow: { maxHeight: 50, borderBottomWidth: 1, borderBottomColor: Colors.border },
   tabsContent: { paddingHorizontal: 12, gap: 4, alignItems: 'center' },
-  tab: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8, gap: 6 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 8 },
   tabActive: { backgroundColor: 'rgba(240,165,0,0.1)' },
   tabText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
   tabTextActive: { color: Colors.gold, fontFamily: 'Inter_700Bold' },

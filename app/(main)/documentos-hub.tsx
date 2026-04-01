@@ -352,7 +352,7 @@ export default function DocumentosHub() {
             <View style={styles.infoBox}>
               <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
               <Text style={styles.infoText}>
-                Os documentos abrem numa nova aba. Use o botão "Imprimir / Guardar PDF" para exportar.
+                {`Os documentos abrem numa nova aba. Use o botão "Imprimir / Guardar PDF" para exportar.`}
               </Text>
             </View>
           </View>

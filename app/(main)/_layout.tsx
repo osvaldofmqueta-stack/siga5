@@ -31,7 +31,7 @@ export default function MainLayout() {
       firstLoadChecked.current = true;
       setShowWelcome(true);
     }
-  }, [user, authLoading]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (licLoading) return;
@@ -39,7 +39,7 @@ export default function MainLayout() {
     if (!isLicencaValida || diasRestantes < 0) {
       router.replace('/licenca' as any);
     }
-  }, [isLicencaValida, diasRestantes, licLoading, user]);
+  }, [isLicencaValida, diasRestantes, licLoading, user, router]);
 
   const handleSessionLogout = useCallback(async () => {
     await logout();

@@ -182,7 +182,7 @@ export default function AvaliacaoProfessoresScreen() {
     notaPlaneamento: 0, notaPontualidade: 0, notaMetodologia: 0,
     notaRelacaoAlunos: 0, notaRelacaoColegas: 0, notaResultados: 0,
     notaDisciplina: 0, notaDesenvolvimento: 0,
-    status: 'rascunho' as const,
+    status: 'rascunho' as 'rascunho' | 'submetida' | 'aprovada',
     pontosFuertes: '', areasMelhoria: '', recomendacoes: '',
   }), [user]);
 
@@ -266,7 +266,7 @@ export default function AvaliacaoProfessoresScreen() {
       periodoLetivo: form.periodoLetivo,
       avaliador: form.avaliador,
       avaliadorId: user?.id ?? null,
-      ...Object.fromEntries(CRITERIOS.map(c => [c.key, (form as Record<string, number>)[c.key as string] ?? 0])),
+      ...Object.fromEntries(CRITERIOS.map(c => [c.key, (form as unknown as Record<string, number>)[c.key as string] ?? 0])),
       status: statusOverride ?? form.status,
       pontosFuertes: form.pontosFuertes,
       areasMelhoria: form.areasMelhoria,
@@ -528,7 +528,7 @@ export default function AvaliacaoProfessoresScreen() {
               </Text>
 
               {CRITERIOS.map(c => {
-                const nota = (form as Record<string, number>)[c.key as string] ?? 0;
+                const nota = (form as unknown as Record<string, number>)[c.key as string] ?? 0;
                 return (
                   <View key={c.key as string} style={styles.criterioRow}>
                     <View style={[styles.criterioIcon, { backgroundColor: c.color + '22' }]}>

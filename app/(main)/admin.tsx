@@ -9,7 +9,6 @@ import {
   TouchableOpacity,
   TextInput,
   Modal,
-  Platform,
   Switch
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -155,11 +154,11 @@ function StatusBadge({ status }: { status: SolicitacaoRegistro['status'] }) {
 export default function AdminScreen() {
   const router = useRouter();
   const { section: paramSection, group: paramGroup } = useLocalSearchParams<{ section?: string; group?: string }>();
-  const { anos, anoAtivo, addAno, updateAno, ativarAno, deleteAno } = useAnoAcademico();
+  const { anos, addAno, updateAno, ativarAno, deleteAno } = useAnoAcademico();
   const { user } = useAuth();
   const { users, addUser, deleteUser } = useUsers();
   const { addProfessor } = useData();
-  const { solicitacoes, pendentes, aprovadas, rejeitadas, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao } = useRegistro();
+  const { pendentes, aprovadas, rejeitadas, aprovarSolicitacao, rejeitarSolicitacao, deletarSolicitacao } = useRegistro();
   const { config, updateConfig, updateFlashScreen } = useConfig();
   const { values: areasFormacao } = useLookup('areas_curso', AREAS_FORMACAO_DEFAULT);
 
@@ -168,6 +167,8 @@ export default function AdminScreen() {
     id: string; alunoId: string; turmaId: string; disciplina: string; trimestre: number;
     pedidosReabertura: any[]; alunoNome?: string; alunoApelido?: string; turmaNome?: string;
   }
+  const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
+
   const [reaNotas, setReaNotas] = useState<ReaNotaRow[]>([]);
   const [reaLoading, setReaLoading] = useState(false);
   const [reaResponding, setReaResponding] = useState<string | null>(null);
@@ -179,6 +180,7 @@ export default function AdminScreen() {
     [reaNotas]
   );
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (activeSection === 'reabertura') fetchReabertura();
   }, [activeSection]);
@@ -332,7 +334,6 @@ export default function AdminScreen() {
   const [modalAnoDuplicado, setModalAnoDuplicado] = useState<{ visible: boolean; anoExistente: string }>({ visible: false, anoExistente: '' });
   const [confirmDeleteAno, setConfirmDeleteAno] = useState<{ visible: boolean; ano: AnoAcademico | null; loading: boolean; erro: string | null }>({ visible: false, ano: null, loading: false, erro: null });
   const [formUser, setFormUser] = useState({ nome: '', email: '', role: 'professor' as UserRole, senha: '', numeroProfessor: '', telefone: '', habilitacoes: '' });
-  const [activeSection, setActiveSection] = useState<string>(paramSection || 'matriculas');
   const [activeGroup, setActiveGroup] = useState<string>(paramGroup || 'academico');
 
   const initialised = useRef(false);
@@ -799,7 +800,7 @@ export default function AdminScreen() {
                     <Ionicons name="school-outline" size={44} color={Colors.textMuted} />
                     <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary }}>Nenhum curso parametrizado</Text>
                     <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
-                      Toque em "Novo Curso" para adicionar o primeiro curso para a 10ª Classe.
+                      {`Toque em "Novo Curso" para adicionar o primeiro curso para a 10ª Classe.`}
                     </Text>
                   </View>
                 )}
@@ -2271,7 +2272,7 @@ export default function AdminScreen() {
             <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Eliminar Ano Académico</Text>
             <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 4 }}>
               Tem a certeza que pretende eliminar o ano{' '}
-              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text }}>"{confirmDeleteAno.ano?.ano}"</Text>?
+              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text }}>{'"'}{confirmDeleteAno.ano?.ano}{'"'}</Text>?
             </Text>
             <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 18, marginBottom: 20 }}>
               Esta acção é irreversível. O ano só pode ser eliminado se não tiver turmas vinculadas.
@@ -2317,7 +2318,7 @@ export default function AdminScreen() {
             <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>Ano Académico Duplicado</Text>
             <Text style={{ fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 8 }}>
               Já existe um ano académico{' '}
-              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.warning }}>"{modalAnoDuplicado.anoExistente}"</Text>
+              <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.warning }}>{'"'}{modalAnoDuplicado.anoExistente}{'"'}</Text>
               {' '}registado no sistema.
             </Text>
             <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 20, marginBottom: 24 }}>

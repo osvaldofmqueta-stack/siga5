@@ -161,8 +161,8 @@ export default function BibliotecaScreen() {
           >
             <Ionicons name={t.icon as any} size={17} color={tab === t.key ? '#fff' : '#777'} />
             <Text style={[styles.tabLabel, tab === t.key && { color: '#fff' }]}>{t.label}</Text>
-            {!!t.badge && t.badge > 0 && (
-              <View style={styles.badge}><Text style={styles.badgeText}>{t.badge}</Text></View>
+            {'badge' in t && (t as any).badge > 0 && (
+              <View style={styles.badge}><Text style={styles.badgeText}>{(t as any).badge}</Text></View>
             )}
           </TouchableOpacity>
         ))}

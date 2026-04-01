@@ -819,7 +819,7 @@ export default function FinanceiroScreen() {
           <View style={st.empty}>
             <FontAwesome5 name="money-bill-wave" size={48} color={Colors.textMuted} />
             <Text style={st.emptyTitle}>Sem dados financeiros</Text>
-            <Text style={st.emptySub}>Crie rubricas na aba "Rubricas" — elas aparecerão automaticamente no perfil financeiro dos alunos.</Text>
+            <Text style={st.emptySub}>{`Crie rubricas na aba "Rubricas" — elas aparecerão automaticamente no perfil financeiro dos alunos.`}</Text>
           </View>
         )}
       </ScrollView>

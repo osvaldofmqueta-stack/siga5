@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Aluno } from '@/context/DataContext';
 import { useUsers } from '@/context/UsersContext';
-import { alertSucesso, alertErro } from '@/utils/toast';
+import { alertSucesso } from '@/utils/toast';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
@@ -365,7 +365,7 @@ export default function AlunosScreen() {
         });
         setShowCredenciais(true);
       }
-    } catch (err) {
+    } catch {
       webAlert('Erro', 'Não foi possível gerar as credenciais. Tente novamente.');
     } finally {
       setRegenerating(null);

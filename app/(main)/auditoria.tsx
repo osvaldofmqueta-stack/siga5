@@ -112,7 +112,7 @@ function LogRow({ log }: { log: AuditLog }) {
                 <Text style={[styles.expandedValue, { fontSize: 10 }]} numberOfLines={2}>{log.userAgent}</Text>
               </View>
             )}
-            {log.dados && (
+            {!!log.dados && (
               <View style={styles.expandedRow}>
                 <Text style={styles.expandedLabel}>Dados</Text>
                 <Text style={[styles.expandedValue, styles.codeText]} numberOfLines={5}>
