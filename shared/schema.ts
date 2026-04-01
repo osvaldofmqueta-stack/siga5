@@ -98,6 +98,7 @@ export const funcionarios = pgTable("funcionarios", {
   subsidioTransporte: real("subsidioTransporte").notNull().default(0),
   subsidioHabitacao: real("subsidioHabitacao").notNull().default(0),
   outrosSubsidios: real("outrosSubsidios").notNull().default(0),
+  subsidios: jsonb("subsidios").default(sql`'[]'::jsonb`),
 
   // Remuneração por Tempos Lectivos (colaboradores / prestação de serviços)
   // Para efectivos: salário base fixo + desconto por tempos não dados

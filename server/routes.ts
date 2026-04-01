@@ -1350,14 +1350,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id, nome, apelido, "dataNascimento", genero, bi, nif, telefone, email, foto,
           provincia, municipio, morada, departamento, seccao, cargo, especialidade,
           "tipoContrato", "dataContratacao", "dataFimContrato", habilitacoes,
-          "salarioBase", "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao", "outrosSubsidios",
+          "salarioBase", "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao", "outrosSubsidios", subsidios,
           "utilizadorId", "professorId", ativo, observacoes, "createdAt", "updatedAt"
         ) VALUES (
           gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,
           $10,$11,$12,$13,$14,$15,$16,
           $17,$18,$19,$20,
-          $21,$22,$23,$24,$25,
-          $26,$27,$28,$29,NOW(),NOW()
+          $21,$22,$23,$24,$25,$26,
+          $27,$28,$29,$30,NOW(),NOW()
         ) RETURNING *`,
         [
           b.nome, b.apelido ?? '', b.dataNascimento ?? '', b.genero ?? '', b.bi ?? '', b.nif ?? '',
@@ -1366,6 +1366,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.departamento, b.seccao ?? '', b.cargo, b.especialidade ?? '',
           b.tipoContrato ?? 'efectivo', b.dataContratacao ?? '', b.dataFimContrato ?? null, b.habilitacoes ?? '',
           b.salarioBase ?? 0, b.subsidioAlimentacao ?? 0, b.subsidioTransporte ?? 0, b.subsidioHabitacao ?? 0, b.outrosSubsidios ?? 0,
+          JSON.stringify(b.subsidios ?? []),
           b.utilizadorId ?? null, b.professorId ?? null, b.ativo ?? true, b.observacoes ?? '',
         ]
       );
@@ -1385,7 +1386,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "nome","apelido","dataNascimento","genero","bi","nif","telefone","email","foto",
         "provincia","municipio","morada","departamento","seccao","cargo","especialidade",
         "tipoContrato","dataContratacao","dataFimContrato","habilitacoes",
-        "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios",
+        "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios","subsidios",
         "valorPorTempoLectivo","temposSemanais",
         "utilizadorId","professorId","ativo","observacoes",
       ] as const;

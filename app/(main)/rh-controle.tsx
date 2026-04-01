@@ -38,6 +38,12 @@ import DateInput from '@/components/DateInput';
 type Tab = 'pessoal' | 'sumarios' | 'solicitacoes' | 'calendario';
 type SumFiltro = 'todos' | 'pendente' | 'aceite' | 'rejeitado';
 
+interface SubsidioItem {
+  id: string;
+  nome: string;
+  percentagem: number;
+}
+
 interface Funcionario {
   id: string;
   nome: string;
@@ -65,6 +71,7 @@ interface Funcionario {
   subsidioTransporte: number;
   subsidioHabitacao: number;
   outrosSubsidios: number;
+  subsidios?: SubsidioItem[];
   utilizadorId?: string;
   professorId?: string;
   ativo: boolean;
@@ -168,6 +175,7 @@ export default function RHControleScreen() {
   const [formStep, setFormStep] = useState<'pessoal' | 'organizacao' | 'contrato' | 'salarial'>('pessoal');
   const [funcFormErrors, setFuncFormErrors] = useState<Record<string, string>>({});
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
+  const [subsidiosCustom, setSubsidiosCustom] = useState<SubsidioItem[]>([]);
   const [nifLookupLoading, setNifLookupLoading] = useState(false);
   const [nifLookupStatus, setNifLookupStatus] = useState<'idle' | 'found' | 'not_found' | 'error'>('idle');
   const [nifFoundName, setNifFoundName] = useState('');
@@ -290,18 +298,8 @@ export default function RHControleScreen() {
     if (targetIdx < currentIdx) {
       setFormStep(stepId);
       setFuncFormErrors({});
-      return;
     }
-    for (let i = currentIdx; i < targetIdx; i++) {
-      if (!completedSteps.has(FUNC_STEPS[i])) {
-        if (!validateFuncStep(formStep)) return;
-        break;
-      }
-    }
-    if (completedSteps.has(FUNC_STEPS[targetIdx - 1]) || validateFuncStep(formStep)) {
-      setFormStep(stepId);
-      setFuncFormErrors({});
-    }
+    // Forward navigation is blocked — use the "Próximo" button to advance
   }
 
   async function saveFuncionario() {
@@ -319,14 +317,25 @@ export default function RHControleScreen() {
     }
     setFuncSaving(true);
     try {
+      const salBase = funcForm.salarioBase ?? 0;
+      const totalSubsidios = subsidiosCustom.reduce((sum, s) => sum + (salBase * s.percentagem / 100), 0);
+      const payload = {
+        ...funcForm,
+        subsidioAlimentacao: 0,
+        subsidioTransporte: 0,
+        subsidioHabitacao: 0,
+        outrosSubsidios: Math.round(totalSubsidios),
+        subsidios: subsidiosCustom,
+      };
       if (editingFunc) {
-        await api.put(`/api/funcionarios/${editingFunc.id}`, funcForm);
+        await api.put(`/api/funcionarios/${editingFunc.id}`, payload);
       } else {
-        await api.post('/api/funcionarios', funcForm);
+        await api.post('/api/funcionarios', payload);
       }
       setShowFuncForm(false);
       setEditingFunc(null);
       setFuncForm(emptyFuncionario());
+      setSubsidiosCustom([]);
       setFormStep('pessoal');
       await loadFuncionarios();
     } catch (e: any) {
@@ -604,7 +613,7 @@ export default function RHControleScreen() {
           {/* FAB */}
           <TouchableOpacity
             style={styles.fab}
-            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setFormStep('pessoal'); setFuncFormErrors({}); setCompletedSteps(new Set()); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
+            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setSubsidiosCustom([]); setFormStep('pessoal'); setFuncFormErrors({}); setCompletedSteps(new Set()); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
           >
             <Ionicons name="add" size={28} color="#fff" />
           </TouchableOpacity>
@@ -954,33 +963,92 @@ export default function RHControleScreen() {
               )}
 
               {/* ── Step: Salarial ── */}
-              {formStep === 'salarial' && (
-                <>
-                  <Text style={styles.sectionNote}>Os valores são em Kwanzas (AOA). Estes dados alimentam automaticamente o processamento salarial (IRT + INSS).</Text>
-                  <FormRow label="Salário Base (AOA)">
-                    <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.salarioBase?.toString()} onChangeText={v => updateField('salarioBase', parseFloat(v) || 0)} keyboardType="numeric" />
-                  </FormRow>
-                  <FormRow label="Subsídio de Alimentação">
-                    <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.subsidioAlimentacao?.toString()} onChangeText={v => updateField('subsidioAlimentacao', parseFloat(v) || 0)} keyboardType="numeric" />
-                  </FormRow>
-                  <FormRow label="Subsídio de Transporte">
-                    <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.subsidioTransporte?.toString()} onChangeText={v => updateField('subsidioTransporte', parseFloat(v) || 0)} keyboardType="numeric" />
-                  </FormRow>
-                  <FormRow label="Subsídio de Habitação">
-                    <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.subsidioHabitacao?.toString()} onChangeText={v => updateField('subsidioHabitacao', parseFloat(v) || 0)} keyboardType="numeric" />
-                  </FormRow>
-                  <FormRow label="Outros Subsídios">
-                    <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.outrosSubsidios?.toString()} onChangeText={v => updateField('outrosSubsidios', parseFloat(v) || 0)} keyboardType="numeric" />
-                  </FormRow>
-                  {/* Total bruto preview */}
-                  <View style={styles.totalBox}>
-                    <Text style={styles.totalLabel}>Salário Bruto Total</Text>
-                    <Text style={styles.totalValue}>
-                      {((funcForm.salarioBase ?? 0) + (funcForm.subsidioAlimentacao ?? 0) + (funcForm.subsidioTransporte ?? 0) + (funcForm.subsidioHabitacao ?? 0) + (funcForm.outrosSubsidios ?? 0)).toLocaleString('pt-AO')} AOA
-                    </Text>
-                  </View>
-                </>
-              )}
+              {formStep === 'salarial' && (() => {
+                const salBase = funcForm.salarioBase ?? 0;
+                const totalSubsidios = subsidiosCustom.reduce((sum, s) => sum + (salBase * s.percentagem / 100), 0);
+                const salarioBruto = salBase + totalSubsidios;
+                return (
+                  <>
+                    <Text style={styles.sectionNote}>Os valores são em Kwanzas (AOA). Os subsídios são calculados como percentagem do salário base e alimentam automaticamente o processamento salarial (IRT + INSS).</Text>
+                    <FormRow label="Salário Base (AOA)">
+                      <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.salarioBase?.toString()} onChangeText={v => updateField('salarioBase', parseFloat(v) || 0)} keyboardType="numeric" />
+                    </FormRow>
+
+                    {/* ── Dynamic Subsidies ── */}
+                    <View style={styles.subsidioSection}>
+                      <View style={styles.subsidioHeader}>
+                        <Text style={styles.subsidioTitle}>Subsídios</Text>
+                        <TouchableOpacity
+                          style={styles.subsidioAddBtn}
+                          onPress={() => setSubsidiosCustom(prev => [...prev, { id: Date.now().toString(), nome: '', percentagem: 0 }])}
+                        >
+                          <Ionicons name="add-circle" size={20} color={Colors.gold} />
+                          <Text style={styles.subsidioAddText}>Adicionar</Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {subsidiosCustom.length === 0 && (
+                        <Text style={styles.subsidioEmpty}>Nenhum subsídio adicionado. Clique em "Adicionar" para criar subsídios personalizados.</Text>
+                      )}
+
+                      {subsidiosCustom.map((sub, idx) => {
+                        const valor = salBase * sub.percentagem / 100;
+                        return (
+                          <View key={sub.id} style={styles.subsidioRow}>
+                            <View style={styles.subsidioRowTop}>
+                              <TextInput
+                                style={[styles.input, styles.subsidioNomeInput]}
+                                placeholder="Nome do subsídio"
+                                placeholderTextColor={Colors.textMuted}
+                                value={sub.nome}
+                                onChangeText={v => setSubsidiosCustom(prev => prev.map((s, i) => i === idx ? { ...s, nome: v } : s))}
+                              />
+                              <View style={styles.subsidioPercContainer}>
+                                <TextInput
+                                  style={[styles.input, styles.subsidioPercInput]}
+                                  placeholder="0"
+                                  placeholderTextColor={Colors.textMuted}
+                                  value={sub.percentagem === 0 ? '' : sub.percentagem.toString()}
+                                  onChangeText={v => setSubsidiosCustom(prev => prev.map((s, i) => i === idx ? { ...s, percentagem: parseFloat(v) || 0 } : s))}
+                                  keyboardType="numeric"
+                                />
+                                <Text style={styles.subsidioPercSymbol}>%</Text>
+                              </View>
+                              <TouchableOpacity
+                                style={styles.subsidioRemoveBtn}
+                                onPress={() => setSubsidiosCustom(prev => prev.filter((_, i) => i !== idx))}
+                              >
+                                <Ionicons name="trash-outline" size={18} color="#e55" />
+                              </TouchableOpacity>
+                            </View>
+                            {salBase > 0 && (
+                              <Text style={styles.subsidioCalc}>
+                                {sub.percentagem}% × {salBase.toLocaleString('pt-AO')} AOA = <Text style={styles.subsidioCalcVal}>{Math.round(valor).toLocaleString('pt-AO')} AOA</Text>
+                              </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    {/* ── Salary Summary ── */}
+                    <View style={styles.totalBox}>
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Salário Base</Text>
+                        <Text style={styles.totalValue}>{salBase.toLocaleString('pt-AO')} AOA</Text>
+                      </View>
+                      <View style={styles.totalRow}>
+                        <Text style={styles.totalLabel}>Total Subsídios</Text>
+                        <Text style={styles.totalValue}>{Math.round(totalSubsidios).toLocaleString('pt-AO')} AOA</Text>
+                      </View>
+                      <View style={[styles.totalRow, styles.totalRowFinal]}>
+                        <Text style={styles.totalLabelBig}>Salário Bruto</Text>
+                        <Text style={styles.totalValueBig}>{Math.round(salarioBruto).toLocaleString('pt-AO')} AOA</Text>
+                      </View>
+                    </View>
+                  </>
+                );
+              })()}
 
               {/* Nav Buttons */}
               <View style={styles.stepNavRow}>
@@ -1104,6 +1172,20 @@ export default function RHControleScreen() {
                         setFormStep('pessoal');
                         setFuncFormErrors({});
                         setCompletedSteps(new Set(['pessoal', 'organizacao', 'contrato']));
+                        // Populate dynamic subsidies from existing data
+                        const existingSubs = Array.isArray((selectedFunc as any).subsidios) ? (selectedFunc as any).subsidios : [];
+                        if (existingSubs.length > 0) {
+                          setSubsidiosCustom(existingSubs);
+                        } else {
+                          const base = selectedFunc.salarioBase || 0;
+                          const migrated: SubsidioItem[] = [];
+                          const toPerc = (v: number) => base > 0 ? Math.round((v / base) * 10000) / 100 : 0;
+                          if (selectedFunc.subsidioAlimentacao > 0) migrated.push({ id: '1', nome: 'Alimentação', percentagem: toPerc(selectedFunc.subsidioAlimentacao) });
+                          if (selectedFunc.subsidioTransporte > 0) migrated.push({ id: '2', nome: 'Transporte', percentagem: toPerc(selectedFunc.subsidioTransporte) });
+                          if (selectedFunc.subsidioHabitacao > 0) migrated.push({ id: '3', nome: 'Habitação', percentagem: toPerc(selectedFunc.subsidioHabitacao) });
+                          if (selectedFunc.outrosSubsidios > 0) migrated.push({ id: '4', nome: 'Outros', percentagem: toPerc(selectedFunc.outrosSubsidios) });
+                          setSubsidiosCustom(migrated);
+                        }
                         setShowDetailModal(false);
                         setShowFuncForm(true);
                       }}>
@@ -1466,9 +1548,30 @@ const styles = StyleSheet.create({
   stepNavText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
 
   // Salary preview
-  totalBox: { backgroundColor: Colors.primary + '33', borderRadius: 10, padding: 14, marginTop: 8, alignItems: 'center' },
-  totalLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-  totalValue: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.gold, marginTop: 4 },
+  totalBox: { backgroundColor: Colors.primary + '22', borderRadius: 10, padding: 14, marginTop: 8 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  totalRowFinal: { borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 6, paddingTop: 10 },
+  totalLabel: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  totalValue: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  totalLabelBig: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  totalValueBig: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.gold },
+
+  // Dynamic subsidies
+  subsidioSection: { marginTop: 16, marginBottom: 4 },
+  subsidioHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  subsidioTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  subsidioAddBtn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  subsidioAddText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  subsidioEmpty: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic', textAlign: 'center', paddingVertical: 12 },
+  subsidioRow: { backgroundColor: Colors.surface, borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: Colors.border },
+  subsidioRowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  subsidioNomeInput: { flex: 1, marginBottom: 0 },
+  subsidioPercContainer: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  subsidioPercInput: { width: 64, textAlign: 'center', marginBottom: 0 },
+  subsidioPercSymbol: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.textSecondary },
+  subsidioRemoveBtn: { padding: 4 },
+  subsidioCalc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6 },
+  subsidioCalcVal: { fontFamily: 'Inter_600SemiBold', color: Colors.gold },
 
   // Detail modal
   detailDeptBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
