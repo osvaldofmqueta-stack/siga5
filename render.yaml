@@ -4,7 +4,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npx expo export -p web && npm run server:build
+    buildCommand: npm install && npm run server:build
     startCommand: node server_dist/index.js
     healthCheckPath: /api/health
     envVars:

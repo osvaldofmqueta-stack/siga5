@@ -5,9 +5,11 @@ node_modules/
 
 # Expo
 .expo/
-dist/
 web-build/
 expo-env.d.ts
+
+# dist/ is intentionally NOT ignored so the pre-built frontend is committed to git
+# This allows Render to deploy without needing the memory-intensive Expo build step
 
 # Native
 ios/
@@ -40,5 +42,8 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 .vercel
+
+# Server build output (built by Render on deployment)
+server_dist/
 
 .env
