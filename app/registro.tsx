@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Platform, KeyboardAvoidingView, Modal,
+  TextInput, Platform, KeyboardAvoidingView, Modal, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
+import { consultarNIF } from '@/lib/nifLookup';
 
 const NIVEIS = ['Primário', 'I Ciclo', 'II Ciclo'];
 const CLASSES_POR_NIVEL: Record<string, string[]> = {
@@ -24,6 +25,7 @@ const STEP_LABELS = ['Dados Pessoais', 'Contacto', 'Escolaridade'];
 interface CursoOption { id: string; nome: string; codigo: string; areaFormacao: string; }
 
 interface FormData {
+  nif: string;
   nomeCompleto: string;
   dataNascimento: string;
   genero: 'M' | 'F';
@@ -190,8 +192,12 @@ export default function RegistroScreen() {
   const [credenciais, setCredenciais] = useState<{ nomeCompleto: string; email: string; senha: string; rupeInscricao?: string } | null>(null);
   const [cursosDisponiveis, setCursosDisponiveis] = useState<CursoOption[]>([]);
   const [loadingCursos, setLoadingCursos] = useState(false);
+  const [nifLookupLoading, setNifLookupLoading] = useState(false);
+  const [nifLookupStatus, setNifLookupStatus] = useState<'idle' | 'found' | 'not_found' | 'error'>('idle');
+  const [nifFoundName, setNifFoundName] = useState('');
 
   const [form, setForm] = useState<FormData>({
+    nif: '',
     nomeCompleto: '',
     dataNascimento: '',
     genero: 'M',
@@ -213,6 +219,27 @@ export default function RegistroScreen() {
   });
 
   const set = (key: keyof FormData, value: any) => setForm(f => ({ ...f, [key]: value }));
+
+  async function lookupNIF(nif: string) {
+    if (!nif?.trim() || nif.trim().length < 9) return;
+    setNifLookupLoading(true);
+    setNifLookupStatus('idle');
+    setNifFoundName('');
+    try {
+      const data = await consultarNIF(nif);
+      if (data) {
+        set('nomeCompleto', data.nome);
+        setNifFoundName(data.nome);
+        setNifLookupStatus('found');
+      } else {
+        setNifLookupStatus('not_found');
+      }
+    } catch {
+      setNifLookupStatus('error');
+    } finally {
+      setNifLookupLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (form.nivel === 'II Ciclo' && form.classe === '10ª Classe') {
@@ -477,6 +504,49 @@ export default function RegistroScreen() {
                   <Ionicons name="person-outline" size={16} color="#3498DB" />
                 </View>
                 <Text style={styles.stepCardTitle}>Dados do Estudante</Text>
+              </View>
+
+              {/* NIF Lookup */}
+              <View style={styles.fieldGroup}>
+                <View style={styles.fieldLabelRow}>
+                  <Text style={styles.fieldLabel}>NIF (opcional)</Text>
+                </View>
+                <Text style={styles.fieldHint}>Introduza o NIF para preencher automaticamente o nome</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.inputWrap, { flex: 1 }]}>
+                    <TextInput
+                      style={styles.input}
+                      value={form.nif}
+                      onChangeText={v => { set('nif', v); setNifLookupStatus('idle'); setNifFoundName(''); }}
+                      onBlur={() => lookupNIF(form.nif)}
+                      placeholder="Ex: 003519344HA042"
+                      placeholderTextColor={Colors.textMuted}
+                      autoCapitalize="characters"
+                    />
+                  </View>
+                  <TouchableOpacity
+                    style={[nifBtnStyleReg, nifLookupLoading && { opacity: 0.6 }]}
+                    onPress={() => lookupNIF(form.nif)}
+                    disabled={nifLookupLoading}
+                    activeOpacity={0.8}
+                  >
+                    {nifLookupLoading
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="search" size={16} color="#fff" />}
+                  </TouchableOpacity>
+                </View>
+                {nifLookupStatus === 'found' && (
+                  <View style={nifBadgeStyleReg}>
+                    <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                    <Text style={[nifBadgeTxtReg, { color: Colors.success }]}>Nome preenchido: {nifFoundName}</Text>
+                  </View>
+                )}
+                {(nifLookupStatus === 'not_found' || nifLookupStatus === 'error') && (
+                  <View style={nifBadgeStyleReg}>
+                    <Ionicons name="warning-outline" size={14} color="#F39C12" />
+                    <Text style={[nifBadgeTxtReg, { color: '#F39C12' }]}>NIF não encontrado — preencha o nome manualmente</Text>
+                  </View>
+                )}
               </View>
 
               <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => { set('nomeCompleto', v); if (fieldErrors.nomeCompleto) setFieldErrors(e => ({ ...e, nomeCompleto: '' })); }} placeholder="Nome completo do estudante" required error={fieldErrors.nomeCompleto} />
@@ -754,6 +824,19 @@ export default function RegistroScreen() {
     </View>
   );
 }
+
+const nifBtnStyleReg = {
+  width: 44, height: 44, borderRadius: 10, backgroundColor: Colors.accent,
+  alignItems: 'center' as const, justifyContent: 'center' as const,
+};
+const nifBadgeStyleReg = {
+  flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5,
+  marginTop: 6, paddingHorizontal: 10, paddingVertical: 6,
+  borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)',
+};
+const nifBadgeTxtReg = {
+  fontSize: 12, fontFamily: 'Inter_500Medium', flex: 1,
+};
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },

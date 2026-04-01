@@ -18,6 +18,7 @@ import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { webAlert } from '@/utils/webAlert';
+import { consultarNIF } from '@/lib/nifLookup';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -287,6 +288,9 @@ export default function MEDIntegracaoScreen() {
   const [exportCount, setExportCount] = useState(0);
   const [historico, setHistorico] = useState<AuditLog[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [nifEscolaLookupLoading, setNifEscolaLookupLoading] = useState(false);
+  const [nifEscolaLookupStatus, setNifEscolaLookupStatus] = useState<'idle' | 'found' | 'not_found' | 'error'>('idle');
+  const [nifEscolaFoundName, setNifEscolaFoundName] = useState('');
 
   const hasAccess = user && ALLOWED_ROLES.includes(user.role);
 
@@ -341,6 +345,27 @@ export default function MEDIntegracaoScreen() {
   }, [config]);
 
   const onExported = useCallback(() => setExportCount(c => c + 1), []);
+
+  async function lookupNIFEscola(nif: string) {
+    if (!nif?.trim() || nif.trim().length < 9) return;
+    setNifEscolaLookupLoading(true);
+    setNifEscolaLookupStatus('idle');
+    setNifEscolaFoundName('');
+    try {
+      const data = await consultarNIF(nif);
+      if (data) {
+        setConfig(c => ({ ...c, nomeEscola: data.nome }));
+        setNifEscolaFoundName(data.nome);
+        setNifEscolaLookupStatus('found');
+      } else {
+        setNifEscolaLookupStatus('not_found');
+      }
+    } catch {
+      setNifEscolaLookupStatus('error');
+    } finally {
+      setNifEscolaLookupLoading(false);
+    }
+  }
 
   if (!hasAccess) {
     return (
@@ -566,9 +591,41 @@ export default function MEDIntegracaoScreen() {
               <Field label="Código MED" value={config.codigoMED}
                 onChange={v => setConfig(c => ({ ...c, codigoMED: v }))}
                 placeholder="Ex: AO-LDA-2024-001" />
-              <Field label="NIF da Escola" value={config.nifEscola}
-                onChange={v => setConfig(c => ({ ...c, nifEscola: v }))}
-                placeholder="Número de Identificação Fiscal" />
+              <View style={styles.field}>
+                <Text style={styles.fieldLabel}>NIF da Escola</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <TextInput
+                    style={[styles.fieldInput, { flex: 1 }]}
+                    value={config.nifEscola}
+                    onChangeText={v => { setConfig(c => ({ ...c, nifEscola: v })); setNifEscolaLookupStatus('idle'); setNifEscolaFoundName(''); }}
+                    onBlur={() => lookupNIFEscola(config.nifEscola)}
+                    placeholder="Número de Identificação Fiscal"
+                    placeholderTextColor={Colors.textMuted}
+                    autoCapitalize="characters"
+                  />
+                  <TouchableOpacity
+                    style={[nifBtnStyle, nifEscolaLookupLoading && { opacity: 0.6 }]}
+                    onPress={() => lookupNIFEscola(config.nifEscola)}
+                    disabled={nifEscolaLookupLoading}
+                  >
+                    {nifEscolaLookupLoading
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="search" size={16} color="#fff" />}
+                  </TouchableOpacity>
+                </View>
+                {nifEscolaLookupStatus === 'found' && (
+                  <View style={nifBadgeStyle}>
+                    <Ionicons name="checkmark-circle" size={14} color="#2ECC71" />
+                    <Text style={[nifBadgeTextStyle, { color: '#2ECC71' }]}>Nome obtido: {nifEscolaFoundName}</Text>
+                  </View>
+                )}
+                {(nifEscolaLookupStatus === 'not_found' || nifEscolaLookupStatus === 'error') && (
+                  <View style={nifBadgeStyle}>
+                    <Ionicons name="warning-outline" size={14} color="#F39C12" />
+                    <Text style={[nifBadgeTextStyle, { color: '#F39C12' }]}>NIF não encontrado — preencha manualmente</Text>
+                  </View>
+                )}
+              </View>
               <Field label="Nome Oficial da Escola" value={config.nomeEscola}
                 onChange={v => setConfig(c => ({ ...c, nomeEscola: v }))} />
               <Field label="Província" value={config.provinciaEscola}
@@ -618,6 +675,20 @@ export default function MEDIntegracaoScreen() {
     </View>
   );
 }
+
+// ─── NIF lookup inline styles ────────────────────────────────────────────────
+const nifBtnStyle = {
+  width: 38, height: 38, borderRadius: 8, backgroundColor: Colors.accent,
+  alignItems: 'center' as const, justifyContent: 'center' as const,
+};
+const nifBadgeStyle = {
+  flexDirection: 'row' as const, alignItems: 'center' as const, gap: 5,
+  marginTop: 6, paddingHorizontal: 10, paddingVertical: 5,
+  borderRadius: 8, backgroundColor: Colors.surface,
+};
+const nifBadgeTextStyle = {
+  fontSize: 12, fontFamily: 'Inter_500Medium', flex: 1,
+};
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 

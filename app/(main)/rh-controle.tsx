@@ -31,6 +31,7 @@ import {
   getDepartamentoByKey,
 } from '@/shared/departamentos';
 import { api } from '@/lib/api';
+import { consultarNIF } from '@/lib/nifLookup';
 
 type Tab = 'pessoal' | 'sumarios' | 'solicitacoes' | 'calendario';
 type SumFiltro = 'todos' | 'pendente' | 'aceite' | 'rejeitado';
@@ -162,6 +163,9 @@ export default function RHControleScreen() {
   const [acessoSenha, setAcessoSenha] = useState('');
   const [acessoSaving, setAcessoSaving] = useState(false);
   const [formStep, setFormStep] = useState<'pessoal' | 'organizacao' | 'contrato' | 'salarial'>('pessoal');
+  const [nifLookupLoading, setNifLookupLoading] = useState(false);
+  const [nifLookupStatus, setNifLookupStatus] = useState<'idle' | 'found' | 'not_found' | 'error'>('idle');
+  const [nifFoundName, setNifFoundName] = useState('');
 
   const isRH = ['rh', 'admin', 'director', 'ceo', 'pca', 'chefe_secretaria'].includes(user?.role ?? '');
 
@@ -206,10 +210,37 @@ export default function RHControleScreen() {
 
   function updateField(key: keyof Funcionario, value: any) {
     setFuncForm(prev => ({ ...prev, [key]: value }));
-    // When department changes, reset cargo to first option
     if (key === 'departamento') {
       const firstCargo = CARGOS_POR_DEPARTAMENTO[value as DepartamentoKey]?.[0];
       if (firstCargo) setFuncForm(prev => ({ ...prev, [key]: value, cargo: firstCargo.id }));
+    }
+    if (key === 'nif') {
+      setNifLookupStatus('idle');
+      setNifFoundName('');
+    }
+  }
+
+  async function lookupNIFFuncionario(nif: string) {
+    if (!nif?.trim() || nif.trim().length < 9) return;
+    setNifLookupLoading(true);
+    setNifLookupStatus('idle');
+    setNifFoundName('');
+    try {
+      const data = await consultarNIF(nif);
+      if (data) {
+        const parts = data.nome.trim().split(/\s+/);
+        const nome = parts[0] || '';
+        const apelido = parts.slice(1).join(' ') || '';
+        setFuncForm(prev => ({ ...prev, nome, apelido }));
+        setNifFoundName(data.nome);
+        setNifLookupStatus('found');
+      } else {
+        setNifLookupStatus('not_found');
+      }
+    } catch {
+      setNifLookupStatus('error');
+    } finally {
+      setNifLookupLoading(false);
     }
   }
 
@@ -505,7 +536,7 @@ export default function RHControleScreen() {
           {/* FAB */}
           <TouchableOpacity
             style={styles.fab}
-            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setFormStep('pessoal'); setShowFuncForm(true); }}
+            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setFormStep('pessoal'); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
           >
             <Ionicons name="add" size={28} color="#fff" />
           </TouchableOpacity>
@@ -681,7 +712,38 @@ export default function RHControleScreen() {
                     <TextInput style={styles.input} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => updateField('bi', v)} autoCapitalize="characters" />
                   </FormRow>
                   <FormRow label="NIF">
-                    <TextInput style={styles.input} placeholder="NIF" placeholderTextColor={Colors.textMuted} value={funcForm.nif} onChangeText={v => updateField('nif', v)} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <TextInput
+                        style={[styles.input, { flex: 1 }]}
+                        placeholder="Ex: 003519344HA042"
+                        placeholderTextColor={Colors.textMuted}
+                        value={funcForm.nif}
+                        onChangeText={v => updateField('nif', v)}
+                        onBlur={() => lookupNIFFuncionario(funcForm.nif ?? '')}
+                        autoCapitalize="characters"
+                      />
+                      <TouchableOpacity
+                        style={[styles.nifBtn, nifLookupLoading && { opacity: 0.6 }]}
+                        onPress={() => lookupNIFFuncionario(funcForm.nif ?? '')}
+                        disabled={nifLookupLoading}
+                      >
+                        {nifLookupLoading
+                          ? <ActivityIndicator size="small" color="#fff" />
+                          : <Ionicons name="search" size={16} color="#fff" />}
+                      </TouchableOpacity>
+                    </View>
+                    {nifLookupStatus === 'found' && (
+                      <View style={styles.nifBadge}>
+                        <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                        <Text style={[styles.nifBadgeText, { color: Colors.success }]}>Dados obtidos: {nifFoundName}</Text>
+                      </View>
+                    )}
+                    {(nifLookupStatus === 'not_found' || nifLookupStatus === 'error') && (
+                      <View style={styles.nifBadge}>
+                        <Ionicons name="warning-outline" size={14} color={Colors.warning} />
+                        <Text style={[styles.nifBadgeText, { color: Colors.warning }]}>NIF não encontrado — preencha manualmente</Text>
+                      </View>
+                    )}
                   </FormRow>
                   <FormRow label="Telefone">
                     <TextInput style={styles.input} placeholder="+244 9XX XXX XXX" placeholderTextColor={Colors.textMuted} value={funcForm.telefone} onChangeText={v => updateField('telefone', v)} keyboardType="phone-pad" />
@@ -1224,6 +1286,11 @@ const styles = StyleSheet.create({
   funcEmail: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
   acessoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.success + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   acessoBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+
+  // NIF lookup
+  nifBtn: { width: 38, height: 38, borderRadius: 8, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center' },
+  nifBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: Colors.surface },
+  nifBadgeText: { fontSize: 12, fontFamily: 'Inter_500Medium', flex: 1 },
 
   // Card generic
   card: { backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border },
