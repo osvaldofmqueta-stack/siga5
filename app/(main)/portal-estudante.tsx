@@ -132,7 +132,7 @@ export default function PortalEstudanteScreen() {
   const { user, updateUser } = useAuth();
   const { alunos, turmas, notas, presencas, eventos, updateAluno } = useData();
   const {
-    taxas, pagamentos, addPagamento, addPagamentoSelf, getPagamentosAluno, getTaxasByNivel,
+    taxas, pagamentos, addPagamento, addPagamentoSelf, updatePagamento, getPagamentosAluno, getTaxasByNivel,
     isAlunoBloqueado, getMensagensAluno, marcarMensagemLida: marcarMsgFinLida,
     getRUPEsAluno, getMesesEmAtraso, calcularMulta, multaConfig,
   } = useFinanceiro();
@@ -163,6 +163,10 @@ export default function PortalEstudanteScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [taxaParaPagar, setTaxaParaPagar] = useState<any>(null);
   const [metodoPagarTaxa, setMetodoPagarTaxa] = useState<'rupe' | 'multicaixa'>('rupe');
+  const [comprovanteInput, setComprovanteInput] = useState('');
+  const [showComprModal, setShowComprModal] = useState(false);
+  const [comprPagId, setComprPagId] = useState<string | null>(null);
+  const [comprPagText, setComprPagText] = useState('');
   const [showPagarCartao, setShowPagarCartao] = useState(false);
   const [cartaoPayStep, setCartaoPayStep] = useState<'metodos' | 'form' | 'done'>('metodos');
   const [cartaoMetodoExt, setCartaoMetodoExt] = useState<'referencia_atm' | 'multicaixa_express' | 'rupe'>('multicaixa_express');
@@ -364,6 +368,9 @@ export default function PortalEstudanteScreen() {
     if (!aluno || !taxaParaPagar) return;
     const prefix = metodoPagarTaxa === 'rupe' ? 'RUPE' : 'MCX';
     const ref = `${prefix}-${Math.floor(Math.random() * 900000 + 100000)}`;
+    const obs = comprovanteInput.trim()
+      ? `${taxaParaPagar.descricao} | Comprovativo: ${comprovanteInput.trim()}`
+      : taxaParaPagar.descricao;
     await addPagamentoSelf({
       alunoId: aluno.id,
       taxaId: taxaParaPagar.id,
@@ -373,13 +380,28 @@ export default function PortalEstudanteScreen() {
       status: 'pendente',
       metodoPagamento: metodoPagarTaxa === 'multicaixa' ? 'multicaixa' : 'transferencia',
       referencia: ref,
-      observacao: taxaParaPagar.descricao,
+      observacao: obs,
     });
     setTaxaParaPagar(null);
+    setComprovanteInput('');
     webAlert(
       'Referência Gerada',
       `Rubrica: ${taxaParaPagar.descricao}\nMétodo: ${metodoPagarTaxa === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(taxaParaPagar.valor)}\n\nEfetue o pagamento com esta referência.`
     );
+  }
+
+  async function handleSubmitComprovativo() {
+    if (!comprPagId || !comprPagText.trim()) return;
+    const pag = pagamentosAluno.find(p => p.id === comprPagId);
+    if (!pag) return;
+    const novaObs = pag.observacao
+      ? pag.observacao.replace(/\s*\|\s*Comprovativo:.*$/, '') + ` | Comprovativo: ${comprPagText.trim()}`
+      : `Comprovativo: ${comprPagText.trim()}`;
+    await updatePagamento(comprPagId, { observacao: novaObs });
+    setShowComprModal(false);
+    setComprPagId(null);
+    setComprPagText('');
+    webAlert('Comprovativo Enviado', 'O seu comprovativo foi registado. O departamento financeiro irá validar o pagamento.');
   }
 
   async function handleReconfirmacao() {
@@ -1554,12 +1576,19 @@ export default function PortalEstudanteScreen() {
             const taxa = taxas.find(t => t.id === pag.taxaId);
             const statusColor = pag.status === 'pago' ? Colors.success : pag.status === 'pendente' ? Colors.warning : Colors.danger;
             const statusLabel = pag.status === 'pago' ? 'Pago' : pag.status === 'pendente' ? 'Pendente' : 'Cancelado';
+            const comprProof = pag.observacao?.match(/Comprovativo:\s*(.+)/)?.[1];
             return (
               <View key={pag.id} style={styles.pagCard}>
                 <View style={styles.pagTop}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pagDesc}>{taxa?.descricao || pag.observacao || 'Pagamento'}</Text>
                     <Text style={styles.pagMetaText}>{pag.data} {pag.mes ? `· Mês ${pag.mes}` : ''}</Text>
+                    {comprProof && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 }}>
+                        <Ionicons name="document-attach" size={11} color={Colors.success} />
+                        <Text style={{ fontSize: 10, color: Colors.success, fontFamily: 'Inter_600SemiBold' }}>Comprovativo: {comprProof}</Text>
+                      </View>
+                    )}
                   </View>
                   <Badge label={statusLabel} color={statusColor} />
                 </View>
@@ -1578,6 +1607,17 @@ export default function PortalEstudanteScreen() {
                     />
                   )}
                 </View>
+                {pag.status === 'pendente' && (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, padding: 8, backgroundColor: Colors.info + '18', borderRadius: 8, borderWidth: 1, borderColor: Colors.info + '44' }}
+                    onPress={() => { setComprPagId(pag.id); setComprPagText(comprProof || ''); setShowComprModal(true); }}
+                  >
+                    <Ionicons name="document-attach-outline" size={14} color={Colors.info} />
+                    <Text style={{ color: Colors.info, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
+                      {comprProof ? 'Actualizar Comprovativo' : 'Submeter Comprovativo'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             );
           })
@@ -1609,11 +1649,54 @@ export default function PortalEstudanteScreen() {
                       <Text style={[styles.metodoBtnText, metodoPagarTaxa === 'multicaixa' && styles.metodoBtnTextActive]}>Multicaixa Express</Text>
                     </TouchableOpacity>
                   </View>
+                  <Text style={styles.formLabel}>Comprovativo (opcional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="N.º transferência, referência bancária, etc."
+                    placeholderTextColor={Colors.textMuted}
+                    value={comprovanteInput}
+                    onChangeText={setComprovanteInput}
+                  />
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 8, marginTop: -4 }}>
+                    Se já efectuou o pagamento, indique a referência para facilitar a validação.
+                  </Text>
                   <TouchableOpacity style={styles.submitBtn} onPress={handlePagarTaxa}>
                     <Text style={styles.submitBtnText}>Gerar Referência</Text>
                   </TouchableOpacity>
                 </>
               )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Modal Submeter Comprovativo */}
+        <Modal visible={showComprModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Submeter Comprovativo</Text>
+                <TouchableOpacity onPress={() => setShowComprModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 12 }}>
+                Indique a referência bancária, número de transferência ou outra informação que comprove o seu pagamento. O departamento financeiro irá validar e confirmar o pagamento.
+              </Text>
+              <Text style={styles.formLabel}>Referência / Comprovativo</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Ex: TRF-2026-123456 ou REF ATM 998877"
+                placeholderTextColor={Colors.textMuted}
+                value={comprPagText}
+                onChangeText={setComprPagText}
+              />
+              <TouchableOpacity
+                style={[styles.submitBtn, !comprPagText.trim() && { opacity: 0.5 }]}
+                onPress={handleSubmitComprovativo}
+                disabled={!comprPagText.trim()}
+              >
+                <Text style={styles.submitBtnText}>Enviar Comprovativo</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>

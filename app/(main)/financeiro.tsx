@@ -1091,10 +1091,24 @@ export default function FinanceiroScreen() {
                       <Text style={st.pagMetaTxt}>{getTurmaAluno(pag.alunoId)}</Text>
                     </View>
                     {pag.referencia && <Text style={st.pagRef}>Ref: {pag.referencia}</Text>}
+                    {(() => {
+                      const comprProof = pag.observacao?.match(/Comprovativo:\s*(.+)/)?.[1];
+                      return comprProof ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3, backgroundColor: Colors.success + '18', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 3 }}>
+                          <Ionicons name="document-attach" size={11} color={Colors.success} />
+                          <Text style={{ fontSize: 10, color: Colors.success, fontFamily: 'Inter_600SemiBold', flex: 1 }} numberOfLines={1}>Comprv: {comprProof}</Text>
+                        </View>
+                      ) : null;
+                    })()}
                   </View>
                   <View style={{ alignItems: 'flex-end', gap: 6 }}>
                     <Text style={st.pagValor}>{formatAOA(pag.valor)}</Text>
                     <Badge label={sc.label} color={sc.color} />
+                    {pag.status === 'pendente' && pag.observacao?.includes('Comprovativo:') && (
+                      <View style={{ backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 9, color: Colors.success, fontFamily: 'Inter_700Bold' }}>✓ COM PROVA</Text>
+                      </View>
+                    )}
                     <View style={{ flexDirection: 'row', gap: 4 }}>
                       {Platform.OS === 'web' && (
                         <TouchableOpacity
@@ -1108,7 +1122,7 @@ export default function FinanceiroScreen() {
                       {pag.status === 'pendente' && (
                         <TouchableOpacity style={st.confirmarBtn} onPress={() => updatePagamento(pag.id, { status: 'pago' })}>
                           <Ionicons name="checkmark" size={11} color="#fff" />
-                          <Text style={st.confirmarTxt}>Confirmar</Text>
+                          <Text style={st.confirmarTxt}>Validar</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -1246,8 +1260,36 @@ export default function FinanceiroScreen() {
 
     const activeFilters = [relTipo !== 'todos', relNivel !== 'Todos', relMetodo !== 'todos', relTurmaId !== 'todas', relMesInicio !== 'todos', relMesFim !== 'todos'].filter(Boolean).length;
 
+    const mesActual = new Date().getMonth() + 1;
+    const presets = [
+      { label: 'Mês Actual', action: () => { setRelMesInicio(String(mesActual)); setRelMesFim(String(mesActual)); } },
+      { label: '1.º Trim.', action: () => { setRelMesInicio('1'); setRelMesFim('3'); } },
+      { label: '2.º Trim.', action: () => { setRelMesInicio('4'); setRelMesFim('6'); } },
+      { label: '3.º Trim.', action: () => { setRelMesInicio('7'); setRelMesFim('9'); } },
+      { label: '4.º Trim.', action: () => { setRelMesInicio('10'); setRelMesFim('12'); } },
+      { label: 'Ano Inteiro', action: () => { setRelMesInicio('todos'); setRelMesFim('todos'); } },
+    ];
+
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
+
+        {/* Presets rápidos */}
+        <View style={{ marginBottom: 12 }}>
+          <Text style={[st.secLabel, { marginBottom: 8 }]}>PERÍODO RÁPIDO</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
+              {presets.map(p => (
+                <TouchableOpacity
+                  key={p.label}
+                  style={{ backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border }}
+                  onPress={p.action}
+                >
+                  <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{p.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
 
         {/* Filtros Avançados */}
         <View style={st.relFiltrosCard}>
