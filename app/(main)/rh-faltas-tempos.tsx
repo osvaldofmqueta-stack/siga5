@@ -498,8 +498,8 @@ function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes:
       setTempos(Array.isArray(t) ? t : []);
       // Filter by type
       const filtrados = (Array.isArray(funcs) ? funcs : []).filter((f: Funcionario) => {
-        if (tipo === 'professor') return f.tipoContrato === 'contratado' || f.departamento === 'docente';
-        return f.departamento !== 'docente';
+        if (tipo === 'professor') return f.departamento === 'pedagogico';
+        return f.departamento !== 'pedagogico';
       });
       setFuncionarios(filtrados);
       if (cfg) setConfigRH(cfg);

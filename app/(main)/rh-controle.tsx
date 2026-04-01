@@ -225,11 +225,14 @@ export default function RHControleScreen() {
   }, [funcFiltrados]);
 
   function updateField(key: keyof Funcionario, value: any) {
-    setFuncForm(prev => ({ ...prev, [key]: value }));
-    if (key === 'departamento') {
-      const firstCargo = CARGOS_POR_DEPARTAMENTO[value as DepartamentoKey]?.[0];
-      if (firstCargo) setFuncForm(prev => ({ ...prev, [key]: value, cargo: firstCargo.id }));
-    }
+    setFuncForm(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'departamento' && value !== prev.departamento) {
+        const firstCargo = CARGOS_POR_DEPARTAMENTO[value as DepartamentoKey]?.[0];
+        if (firstCargo) next.cargo = firstCargo.id;
+      }
+      return next;
+    });
     if (key === 'nif') {
       setNifLookupStatus('idle');
       setNifFoundName('');
