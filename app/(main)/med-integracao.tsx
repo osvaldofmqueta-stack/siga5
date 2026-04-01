@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, getAuthToken } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
@@ -145,7 +145,7 @@ function ExportCard({
     }
     setLoading(true);
     try {
-      const token = localStorage.getItem('siga_token') ?? '';
+      const token = await getAuthToken() ?? '';
 
       if (format === 'xlsx') {
         const xlsxParams = new URLSearchParams();
@@ -539,7 +539,7 @@ export default function MEDIntegracaoScreen() {
                 onPress={async () => {
                   if (Platform.OS !== 'web') { webAlert('Disponível apenas na versão Web.'); return; }
                   try {
-                    const token = localStorage.getItem('siga_token') ?? '';
+                    const token = await getAuthToken() ?? '';
                     const params = anoLetivo ? `?anoLetivo=${anoLetivo}` : '';
                     const data = await fetch(`/api/med/export/consolidado${params}`, { headers: { Authorization: `Bearer ${token}` } });
                     const json = await data.json();

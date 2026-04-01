@@ -1,6 +1,7 @@
 import { fetch } from "expo/fetch";
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { enqueueOperation, isNetworkError } from "./offlineQueue";
+import { getAuthToken } from "@/context/AuthContext";
 
 const WRITE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 const SKIP_QUEUE_ROUTES = ["/api/login", "/api/logout", "/api/auth", "/api/register", "/api/licenca"];
@@ -54,10 +55,15 @@ export async function apiRequest(
   const baseUrl = getApiUrl();
   const url = new URL(route, baseUrl);
 
+  const token = await getAuthToken();
+  const headers: Record<string, string> = {};
+  if (data) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   try {
     const res = await fetch(url.toString(), {
       method,
-      headers: data ? { "Content-Type": "application/json" } : {},
+      headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });
@@ -85,7 +91,12 @@ export const getQueryFn: <T>(options: {
     const baseUrl = getApiUrl();
     const url = new URL(queryKey.join("/") as string, baseUrl);
 
+    const token = await getAuthToken();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
     const res = await fetch(url.toString(), {
+      headers,
       credentials: "include",
     });
 

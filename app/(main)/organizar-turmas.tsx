@@ -18,6 +18,7 @@ import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { webAlert } from '@/utils/webAlert';
+import { getAuthToken } from '@/context/AuthContext';
 
 interface AlunoSemTurma {
   id: string;
@@ -84,7 +85,7 @@ export default function OrganizarTurmasScreen() {
     setLoading(true);
     try {
       const res = await fetch('/api/alunos/sem-turma', {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        headers: { Authorization: `Bearer ${await getAuthToken() ?? ''}` },
       });
       const data = await res.json();
       setAlunos(Array.isArray(data) ? data : []);
@@ -152,7 +153,7 @@ export default function OrganizarTurmasScreen() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token') || ''}`,
+          Authorization: `Bearer ${await getAuthToken() ?? ''}`,
         },
         body: JSON.stringify({
           atribuicoes: comTurma.map(a => ({ alunoId: a.id, turmaId: a.turmaIdAtribuida! })),

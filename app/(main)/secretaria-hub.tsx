@@ -18,7 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, getAuthToken } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useConfig } from '@/context/ConfigContext';
@@ -471,15 +471,12 @@ export default function SecretariaHubScreen() {
     [eventos]
   );
 
-  function getToken() {
-    try { return localStorage.getItem('siga_token') ?? ''; } catch { return ''; }
-  }
-
   const fetchDocumentos = useCallback(async () => {
     setLoadingDocumentos(true);
     try {
+      const token = await getAuthToken();
       const res = await fetch('/api/documentos-emitidos', {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${token ?? ''}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -494,8 +491,9 @@ export default function SecretariaHubScreen() {
   const fetchProcessos = useCallback(async () => {
     setLoadingProcessos(true);
     try {
+      const token = await getAuthToken();
       const res = await fetch('/api/processos-secretaria', {
-        headers: { Authorization: `Bearer ${getToken()}` },
+        headers: { Authorization: `Bearer ${token ?? ''}` },
       });
       if (res.ok) {
         const data = await res.json();
@@ -514,11 +512,12 @@ export default function SecretariaHubScreen() {
 
   async function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     try {
+      const token = await getAuthToken();
       const res = await fetch('/api/documentos-emitidos', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${token ?? ''}`,
         },
         body: JSON.stringify({
           alunoNome: doc.alunoNome,
@@ -542,11 +541,12 @@ export default function SecretariaHubScreen() {
 
   async function handleNovoProcesso(p: Omit<Processo, 'id' | 'dataAbertura' | 'status'>) {
     try {
+      const token = await getAuthToken();
       const res = await fetch('/api/processos-secretaria', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${token ?? ''}`,
         },
         body: JSON.stringify(p),
       });
@@ -564,11 +564,12 @@ export default function SecretariaHubScreen() {
 
   async function handleUpdateProcesso(id: string, status: ProcessoStatus) {
     try {
+      const token = await getAuthToken();
       const res = await fetch(`/api/processos-secretaria/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+          Authorization: `Bearer ${token ?? ''}`,
         },
         body: JSON.stringify({ status }),
       });
