@@ -6275,12 +6275,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
-        `INSERT INTO public.configuracao_rh (id, "valorPorFalta", "valorMeioDia", "taxaTempoLectivo", "taxaAdminPorDia", observacoes, "atualizadoEm")
-         VALUES (1,$1,$2,$3,$4,$5,NOW())
+        `INSERT INTO public.configuracao_rh (id, "valorPorFalta", "valorMeioDia", "taxaTempoLectivo", "taxaAdminPorDia", "descontoPorTempoNaoDado", "semanasPorMes", observacoes, "atualizadoEm")
+         VALUES (1,$1,$2,$3,$4,$5,$6,$7,NOW())
          ON CONFLICT (id) DO UPDATE SET
-           "valorPorFalta"=$1, "valorMeioDia"=$2, "taxaTempoLectivo"=$3, "taxaAdminPorDia"=$4, observacoes=$5, "atualizadoEm"=NOW()
+           "valorPorFalta"=$1, "valorMeioDia"=$2, "taxaTempoLectivo"=$3, "taxaAdminPorDia"=$4,
+           "descontoPorTempoNaoDado"=$5, "semanasPorMes"=$6, observacoes=$7, "atualizadoEm"=NOW()
          RETURNING *`,
-        [b.valorPorFalta ?? 0, b.valorMeioDia ?? 0, b.taxaTempoLectivo ?? 0, b.taxaAdminPorDia ?? 0, b.observacoes ?? '']
+        [
+          b.valorPorFalta ?? 0, b.valorMeioDia ?? 0, b.taxaTempoLectivo ?? 0, b.taxaAdminPorDia ?? 0,
+          b.descontoPorTempoNaoDado ?? 0, b.semanasPorMes ?? 4, b.observacoes ?? ''
+        ]
       );
       json(res, 200, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
