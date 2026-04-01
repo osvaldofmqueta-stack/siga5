@@ -1440,6 +1440,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Atribuir funcionário como professor no módulo pedagógico
+  app.post("/api/funcionarios/:id/atribuir-professor", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+
+      const funcRows = await query<JsonObject>(`SELECT * FROM public.funcionarios WHERE id=$1`, [id]);
+      if (!funcRows[0]) return json(res, 404, { error: "Funcionário não encontrado." });
+      const func = funcRows[0] as any;
+
+      // If already linked, return existing professor record
+      if (func.professorId) {
+        const profRows = await query<JsonObject>(`SELECT * FROM public.professores WHERE id=$1`, [func.professorId]);
+        if (profRows[0]) return json(res, 200, { professor: profRows[0], already: true });
+      }
+
+      // Generate numeroProfessor
+      const year = new Date().getFullYear();
+      const countRows = await query<JsonObject>(`SELECT COUNT(*) as c FROM public.professores`, []);
+      const count = parseInt((countRows[0] as any).c ?? '0') + 1;
+      const numeroProfessor = `PROF-${year}-${String(count).padStart(4, '0')}`;
+
+      // Create professores record
+      const { v4: uuidv4 } = await import('uuid');
+      const profId = uuidv4();
+      const profRows = await query<JsonObject>(
+        `INSERT INTO public.professores (id,"numeroProfessor","nome","apelido","disciplinas","turmasIds","telefone","email","habilitacoes","ativo","createdAt")
+         VALUES ($1,$2,$3,$4,$5::jsonb,$6::jsonb,$7,$8,$9,$10,NOW()) RETURNING *`,
+        [
+          profId,
+          numeroProfessor,
+          func.nome,
+          func.apelido,
+          '[]',
+          '[]',
+          func.telefone || '',
+          func.email || '',
+          b.habilitacoes || func.habilitacoes || '',
+          true,
+        ]
+      );
+
+      // Link funcionário → professor
+      await query(`UPDATE public.funcionarios SET "professorId"=$1,"updatedAt"=NOW() WHERE id=$2`, [profId, id]);
+
+      // If already has a system user, update their role to professor
+      if (func.utilizadorId) {
+        await query(`UPDATE public.utilizadores SET role='professor',"updatedAt"=NOW() WHERE id=$1`, [func.utilizadorId]);
+      }
+
+      json(res, 201, { professor: profRows[0] });
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
   // -----------------------
   // ANOS ACADÉMICOS
   // -----------------------

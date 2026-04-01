@@ -172,6 +172,9 @@ export default function RHControleScreen() {
   const [acessoEmail, setAcessoEmail] = useState('');
   const [acessoSenha, setAcessoSenha] = useState('');
   const [acessoSaving, setAcessoSaving] = useState(false);
+  const [showProfModal, setShowProfModal] = useState(false);
+  const [profHabilitacoes, setProfHabilitacoes] = useState('');
+  const [profSaving, setProfSaving] = useState(false);
   const [formStep, setFormStep] = useState<'pessoal' | 'organizacao' | 'contrato' | 'salarial'>('pessoal');
   const [funcFormErrors, setFuncFormErrors] = useState<Record<string, string>>({});
   const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
@@ -387,6 +390,30 @@ export default function RHControleScreen() {
       webAlert('Erro', e.message || 'Erro ao criar acesso.');
     } finally {
       setAcessoSaving(false);
+    }
+  }
+
+  async function atribuirComoProfessor() {
+    if (!selectedFunc) return;
+    setProfSaving(true);
+    try {
+      const result = await api.post(`/api/funcionarios/${selectedFunc.id}/atribuir-professor`, {
+        habilitacoes: profHabilitacoes || selectedFunc.habilitacoes || '',
+      });
+      if (result.already) {
+        webAlert('Já registado', `Este funcionário já está registado como professor com o número ${result.professor.numeroProfessor}.`);
+      } else {
+        webAlert('Sucesso', `Professor registado com sucesso!\nNúmero: ${result.professor.numeroProfessor}\n\nO funcionário já pode ser atribuído a turmas e disciplinas no módulo pedagógico.`);
+      }
+      setShowProfModal(false);
+      setProfHabilitacoes('');
+      await loadFuncionarios();
+      // Refresh selectedFunc with updated professorId
+      setSelectedFunc(prev => prev ? { ...prev, professorId: result.professor.id } : prev);
+    } catch (e: any) {
+      webAlert('Erro', e.message || 'Erro ao atribuir como professor.');
+    } finally {
+      setProfSaving(false);
     }
   }
 
@@ -1156,6 +1183,42 @@ export default function RHControleScreen() {
                       </View>
                     )}
 
+                    {/* Módulo Pedagógico — só visível para cargos docentes */}
+                    {getCargoById(selectedFunc.cargo)?.role === 'professor' && (
+                      <View style={styles.acessoCard}>
+                        <View style={styles.acessoTop}>
+                          <MaterialCommunityIcons name="school" size={18} color={selectedFunc.professorId ? Colors.success : Colors.info} />
+                          <Text style={[styles.acessoTitle, { color: selectedFunc.professorId ? Colors.success : Colors.info }]}>
+                            {selectedFunc.professorId ? 'Registado no Módulo Pedagógico' : 'Não registado como Professor'}
+                          </Text>
+                        </View>
+                        {selectedFunc.professorId ? (
+                          <View style={styles.nifBadge}>
+                            <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                            <Text style={[styles.nifBadgeText, { color: Colors.success }]}>
+                              Pode ser atribuído a turmas e disciplinas
+                            </Text>
+                          </View>
+                        ) : (
+                          <>
+                            <Text style={styles.acessoNote}>
+                              O funcionário tem cargo docente mas ainda não está registado no módulo de professores. Ao atribuir, será criado um número de professor e poderá ser associado a turmas.
+                            </Text>
+                            <TouchableOpacity
+                              style={[styles.criarAcessoBtn, { backgroundColor: Colors.info }]}
+                              onPress={() => {
+                                setProfHabilitacoes(selectedFunc.habilitacoes || '');
+                                setShowProfModal(true);
+                              }}
+                            >
+                              <Ionicons name="school" size={14} color="#fff" />
+                              <Text style={styles.criarAcessoText}>Atribuir como Professor</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </View>
+                    )}
+
                     {selectedFunc.observacoes ? (
                       <View style={{ marginTop: 12 }}>
                         <Text style={styles.fieldLabel}>Observações</Text>
@@ -1229,6 +1292,51 @@ export default function RHControleScreen() {
               <TouchableOpacity style={[styles.saveBtn, acessoSaving && { opacity: 0.6 }]} onPress={criarAcesso} disabled={acessoSaving}>
                 {acessoSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="person-add" size={18} color="#fff" />}
                 <Text style={styles.saveBtnText}>Criar Acesso</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ════════════════════════════════════════════════════════════════ */}
+      {/* MODAL — Atribuir como Professor */}
+      {/* ════════════════════════════════════════════════════════════════ */}
+      <Modal visible={showProfModal} transparent animationType="slide" onRequestClose={() => setShowProfModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Atribuir como Professor</Text>
+              <TouchableOpacity onPress={() => setShowProfModal(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={[styles.nifBadge, { marginBottom: 12, backgroundColor: Colors.info + '18' }]}>
+                <MaterialCommunityIcons name="school" size={16} color={Colors.info} />
+                <Text style={[styles.nifBadgeText, { color: Colors.info, flex: 1 }]}>
+                  Será criado um registo de professor para <Text style={{ fontFamily: 'Inter_700Bold' }}>{selectedFunc?.nome} {selectedFunc?.apelido}</Text> com um número único (ex: PROF-2025-0001). Após atribuição, o funcionário pode ser associado a turmas e disciplinas.
+                </Text>
+              </View>
+              <Text style={styles.fieldLabel}>Habilitações Académicas</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ex: Licenciatura em Matemática"
+                placeholderTextColor={Colors.textMuted}
+                value={profHabilitacoes}
+                onChangeText={setProfHabilitacoes}
+              />
+              <Text style={[styles.sectionNote, { marginTop: 8 }]}>
+                As habilitações podem ser editadas posteriormente no módulo de professores.
+              </Text>
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: Colors.info }, profSaving && { opacity: 0.6 }]}
+                onPress={atribuirComoProfessor}
+                disabled={profSaving}
+              >
+                {profSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <MaterialCommunityIcons name="school" size={18} color="#fff" />}
+                <Text style={styles.saveBtnText}>Confirmar Atribuição</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
