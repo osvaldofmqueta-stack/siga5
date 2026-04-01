@@ -188,7 +188,6 @@ export default function DrawerLeft() {
     {
       title: 'Recursos Humanos',
       items: [
-        { label: 'Hub de RH', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
@@ -377,7 +376,6 @@ export default function DrawerLeft() {
     ...(isRH ? [{
       title: 'Recursos Humanos',
       items: [
-        { label: 'Hub de RH', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey },
         { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey },
       ],
