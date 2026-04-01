@@ -118,6 +118,7 @@ export default function FinanceiroScreen() {
   const [relMesInicio, setRelMesInicio]     = useState<string>('todos');
   const [relMesFim, setRelMesFim]           = useState<string>('todos');
   const [relTurmaId, setRelTurmaId]         = useState<string>('todas');
+  const [relPeriodo, setRelPeriodo]         = useState<'mensal' | 'trimestral' | 'anual'>('mensal');
   const [alunoPerfilId, setAlunoPerfilId]   = useState<string | null>(null);
   const [msgAlunoId, setMsgAlunoId]         = useState<string | null>(null);
   const [showMsgModal, setShowMsgModal]     = useState(false);
@@ -1218,6 +1219,7 @@ export default function FinanceiroScreen() {
   }
 
   function renderRelatorios() {
+    const pagamentosAnoCompleto = pagamentosAno.filter(p => p.status === 'pago');
     const totalRel = relatorioFiltrado.reduce((s, p) => s + p.valor, 0);
     const countRel = relatorioFiltrado.length;
     const turmasAtivas = turmas.filter(t => t.ativo);
@@ -1234,9 +1236,21 @@ export default function FinanceiroScreen() {
     }).filter(d => d.value > 0);
 
     const receitaPorMes = MESES.map((nome, i) => {
-      const val = relatorioFiltrado.filter(p => p.mes === i + 1).reduce((s, p) => s + p.valor, 0);
-      return { label: nome, value: val, color: Colors.info };
-    }).filter(d => d.value > 0);
+      const val = pagamentosAnoCompleto.filter(p => p.mes === i + 1).reduce((s, p) => s + p.valor, 0);
+      return { label: nome.slice(0, 3), value: val, color: Colors.info };
+    });
+    const TRIMS = [
+      { label: '1.º Trim.', meses: [1,2,3], color: Colors.info },
+      { label: '2.º Trim.', meses: [4,5,6], color: Colors.success },
+      { label: '3.º Trim.', meses: [7,8,9], color: Colors.gold },
+      { label: '4.º Trim.', meses: [10,11,12], color: '#8B5CF6' },
+    ];
+    const receitaPorTrimestre = TRIMS.map(tr => {
+      const val = pagamentosAnoCompleto.filter(p => tr.meses.includes(p.mes || 0)).reduce((s, p) => s + p.valor, 0);
+      const pend = pagamentosAno.filter(p => p.status === 'pendente' && tr.meses.includes(p.mes || 0)).reduce((s, p) => s + p.valor, 0);
+      const count = pagamentosAnoCompleto.filter(p => tr.meses.includes(p.mes || 0)).length;
+      return { label: tr.label, value: val, pendente: pend, count, color: tr.color };
+    });
 
     const receitaPorNivel = ['Primário','I Ciclo','II Ciclo'].map((nivel, idx) => {
       const COLORS = [Colors.success, Colors.info, '#8B5CF6'];
@@ -1257,285 +1271,486 @@ export default function FinanceiroScreen() {
     }).filter(r => r.val > 0 || r.pendente > 0).sort((a, b) => b.val - a.val);
 
     const topDevedores = alunosEmAtraso.slice(0, 5);
+    const totalAnual = pagamentosAnoCompleto.reduce((s, p) => s + p.valor, 0);
+    const totalPendenteAnual = pagamentosAno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
 
     const activeFilters = [relTipo !== 'todos', relNivel !== 'Todos', relMetodo !== 'todos', relTurmaId !== 'todas', relMesInicio !== 'todos', relMesFim !== 'todos'].filter(Boolean).length;
-
     const mesActual = new Date().getMonth() + 1;
-    const presets = [
-      { label: 'Mês Actual', action: () => { setRelMesInicio(String(mesActual)); setRelMesFim(String(mesActual)); } },
-      { label: '1.º Trim.', action: () => { setRelMesInicio('1'); setRelMesFim('3'); } },
-      { label: '2.º Trim.', action: () => { setRelMesInicio('4'); setRelMesFim('6'); } },
-      { label: '3.º Trim.', action: () => { setRelMesInicio('7'); setRelMesFim('9'); } },
-      { label: '4.º Trim.', action: () => { setRelMesInicio('10'); setRelMesFim('12'); } },
-      { label: 'Ano Inteiro', action: () => { setRelMesInicio('todos'); setRelMesFim('todos'); } },
+
+    const periodoTabs: { key: 'mensal' | 'trimestral' | 'anual'; label: string; icon: string }[] = [
+      { key: 'mensal', label: 'Mensal', icon: 'calendar' },
+      { key: 'trimestral', label: 'Trimestral', icon: 'podium' },
+      { key: 'anual', label: 'Anual', icon: 'stats-chart' },
     ];
 
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
 
-        {/* Presets rápidos */}
-        <View style={{ marginBottom: 12 }}>
-          <Text style={[st.secLabel, { marginBottom: 8 }]}>PERÍODO RÁPIDO</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={{ flexDirection: 'row', gap: 8, paddingBottom: 4 }}>
-              {presets.map(p => (
-                <TouchableOpacity
-                  key={p.label}
-                  style={{ backgroundColor: Colors.surface, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: Colors.border }}
-                  onPress={p.action}
-                >
-                  <Text style={{ color: Colors.text, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>{p.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+        {/* Seletor de Período Principal */}
+        <View style={{ marginBottom: 16 }}>
+          <Text style={[st.secLabel, { marginBottom: 10 }]}>TIPO DE RELATÓRIO</Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {periodoTabs.map(tab => (
+              <TouchableOpacity
+                key={tab.key}
+                style={[{
+                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                  gap: 5, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5,
+                  borderColor: relPeriodo === tab.key ? Colors.gold : Colors.border,
+                  backgroundColor: relPeriodo === tab.key ? Colors.gold + '18' : Colors.surface,
+                }]}
+                onPress={() => {
+                  setRelPeriodo(tab.key);
+                  if (tab.key === 'anual') { setRelMesInicio('todos'); setRelMesFim('todos'); }
+                  if (tab.key === 'mensal') { setRelMesInicio(String(mesActual)); setRelMesFim(String(mesActual)); }
+                }}
+              >
+                <Ionicons name={tab.icon as any} size={14} color={relPeriodo === tab.key ? Colors.gold : Colors.textMuted} />
+                <Text style={{ fontSize: 12, fontFamily: relPeriodo === tab.key ? 'Inter_700Bold' : 'Inter_600SemiBold', color: relPeriodo === tab.key ? Colors.gold : Colors.textMuted }}>{tab.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
-        {/* Filtros Avançados */}
-        <View style={st.relFiltrosCard}>
-          <View style={st.relFiltrosHeader}>
-            <Ionicons name="options" size={16} color={Colors.gold} />
-            <Text style={st.relFiltrosTitle}>Filtros Avançados</Text>
-            {activeFilters > 0 && (
-              <TouchableOpacity onPress={() => { setRelTipo('todos'); setRelNivel('Todos'); setRelMetodo('todos'); setRelTurmaId('todas'); setRelMesInicio('todos'); setRelMesFim('todos'); }}>
-                <Text style={{ fontSize: 11, color: Colors.danger, fontFamily: 'Inter_600SemiBold' }}>Limpar ({activeFilters})</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <Text style={st.relFiltrosLabel}>Tipo de Rubrica</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={st.chipRow}>
-              {(['todos', ...TIPOS] as const).map(t => (
-                <TouchableOpacity key={t} style={[st.chip, relTipo === t && st.chipActive]} onPress={() => setRelTipo(t as any)}>
-                  <Text style={[st.chipText, relTipo === t && st.chipTextActive]}>{t === 'todos' ? 'Todos' : TIPO_LABEL[t as TipoTaxa]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <Text style={st.relFiltrosLabel}>Nível de Ensino</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={st.chipRow}>
-              {NIVEIS.map(n => (
-                <TouchableOpacity key={n} style={[st.chip, relNivel === n && st.chipActive]} onPress={() => setRelNivel(n)}>
-                  <Text style={[st.chipText, relNivel === n && st.chipTextActive]}>{n}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <Text style={st.relFiltrosLabel}>Método de Pagamento</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={st.chipRow}>
-              {(['todos','dinheiro','transferencia','multicaixa'] as const).map(m => (
-                <TouchableOpacity key={m} style={[st.chip, relMetodo === m && st.chipActive]} onPress={() => setRelMetodo(m as any)}>
-                  <Text style={[st.chipText, relMetodo === m && st.chipTextActive]}>{m === 'todos' ? 'Todos' : metodoLabel(m)}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-
-          <Text style={st.relFiltrosLabel}>Mês (de — até)</Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={[st.relFiltrosLabel, { fontSize: 9, marginBottom: 4 }]}>A PARTIR DE</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={st.chipRow}>
-                  {(['todos', ...MESES.map((_, i) => String(i + 1))]).map((m, idx) => (
-                    <TouchableOpacity key={m} style={[st.chip, relMesInicio === m && st.chipActive, { paddingHorizontal: 8 }]} onPress={() => setRelMesInicio(m)}>
-                      <Text style={[st.chipText, relMesInicio === m && st.chipTextActive]}>{idx === 0 ? 'Todos' : MESES[idx - 1]}</Text>
+        {/* ═══════════════ VISTA MENSAL ═══════════════ */}
+        {relPeriodo === 'mensal' && (
+          <>
+            <Text style={[st.secLabel, { marginBottom: 8 }]}>SELECCIONAR MÊS</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+              <View style={{ flexDirection: 'row', gap: 6, paddingBottom: 4 }}>
+                {MESES.map((nome, i) => {
+                  const m = String(i + 1);
+                  const isActive = relMesInicio === m && relMesFim === m;
+                  return (
+                    <TouchableOpacity
+                      key={m}
+                      style={{ borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1.5, borderColor: isActive ? Colors.gold : Colors.border, backgroundColor: isActive ? Colors.gold + '18' : Colors.surface }}
+                      onPress={() => { setRelMesInicio(m); setRelMesFim(m); }}
+                    >
+                      <Text style={{ color: isActive ? Colors.gold : Colors.text, fontSize: 11, fontFamily: isActive ? 'Inter_700Bold' : 'Inter_400Regular' }}>{nome.slice(0, 3)}</Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            </View>
-          </View>
-          <View style={{ flex: 1, marginTop: 6 }}>
-            <Text style={[st.relFiltrosLabel, { fontSize: 9, marginBottom: 4 }]}>ATÉ</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={st.chipRow}>
-                {(['todos', ...MESES.map((_, i) => String(i + 1))]).map((m, idx) => (
-                  <TouchableOpacity key={m} style={[st.chip, relMesFim === m && st.chipActive, { paddingHorizontal: 8 }]} onPress={() => setRelMesFim(m)}>
-                    <Text style={[st.chipText, relMesFim === m && st.chipTextActive]}>{idx === 0 ? 'Todos' : MESES[idx - 1]}</Text>
-                  </TouchableOpacity>
-                ))}
+                  );
+                })}
               </View>
             </ScrollView>
-          </View>
 
-          {turmasAtivas.length > 0 && (
-            <>
-              <Text style={st.relFiltrosLabel}>Turma</Text>
+            <View style={[st.kpiRow, { marginBottom: 12 }]}>
+              <View style={[st.kpiCard, { flex: 1.5, borderTopWidth: 2, borderTopColor: Colors.success }]}>
+                <Ionicons name="trending-up" size={14} color={Colors.success} />
+                <Text style={[st.kpiVal, { color: Colors.success, fontSize: 16 }]}>{formatAOA(totalRel)}</Text>
+                <Text style={st.kpiLbl}>Arrecadado</Text>
+                <Text style={[st.kpiLbl, { fontSize: 9 }]}>{relMesInicio !== 'todos' ? MESES[parseInt(relMesInicio) - 1] : 'Todos os meses'}</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1 }]}>
+                <Ionicons name="receipt" size={13} color={Colors.info} />
+                <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{countRel}</Text>
+                <Text style={st.kpiLbl}>Pagamentos</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1 }]}>
+                <Ionicons name="people" size={13} color={Colors.gold} />
+                <Text style={[st.kpiVal, { color: Colors.gold, fontSize: 20 }]}>{new Set(relatorioFiltrado.map(p => p.alunoId)).size}</Text>
+                <Text style={st.kpiLbl}>Alunos</Text>
+              </View>
+            </View>
+
+            {/* Gráfico de barras — todos os meses do ano */}
+            <View style={st.relSection}>
+              <Text style={st.secLabel}>EVOLUÇÃO MENSAL DO ANO {anoAtual}</Text>
+              <Text style={[st.relFiltrosLabel, { marginBottom: 8, color: Colors.textMuted }]}>Receita arrecadada mês a mês (barra seleccionada em destaque)</Text>
+              <View style={[st.relCard, { alignItems: 'center', paddingVertical: 16 }]}>
+                <BarChart
+                  data={receitaPorMes.map((d, i) => ({
+                    ...d,
+                    color: relMesInicio === String(i + 1) ? Colors.gold : Colors.info + '99',
+                  }))}
+                  maxValue={Math.max(...receitaPorMes.map(d => d.value), 1)}
+                  height={160}
+                  width={Math.min(340, receitaPorMes.length * 26 + 40)}
+                />
+              </View>
+            </View>
+
+            {receitaPorTipo.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>DISTRIBUIÇÃO POR TIPO DE RUBRICA</Text>
+                <View style={[st.relCard, { alignItems: 'center' }]}>
+                  <DonutChart data={receitaPorTipo} size={170} thickness={28} centerLabel={formatAOA(totalRel).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+                  <View style={{ width: '100%', marginTop: 8 }}>
+                    {receitaPorTipo.map(d => (
+                      <View key={d.label} style={st.relTableRow}>
+                        <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                        <Text style={st.relTableLabel}>{d.label}</Text>
+                        <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                        <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {receitaPorMetodo.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>MÉTODO DE PAGAMENTO</Text>
+                <View style={[st.relCard, { alignItems: 'center' }]}>
+                  <DonutChart data={receitaPorMetodo} size={150} thickness={26} centerLabel={String(countRel)} centerSub="transacções" />
+                  <View style={{ width: '100%', marginTop: 8 }}>
+                    {receitaPorMetodo.map(d => (
+                      <View key={d.label} style={st.relTableRow}>
+                        <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                        <Text style={st.relTableLabel}>{d.label}</Text>
+                        <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                        <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Filtros avançados colapsáveis */}
+            <View style={[st.relFiltrosCard, { marginTop: 4 }]}>
+              <View style={st.relFiltrosHeader}>
+                <Ionicons name="options" size={15} color={Colors.gold} />
+                <Text style={st.relFiltrosTitle}>Filtros Adicionais</Text>
+                {activeFilters > 0 && (
+                  <TouchableOpacity onPress={() => { setRelTipo('todos'); setRelNivel('Todos'); setRelMetodo('todos'); setRelTurmaId('todas'); }}>
+                    <Text style={{ fontSize: 11, color: Colors.danger, fontFamily: 'Inter_600SemiBold' }}>Limpar ({activeFilters})</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+              <Text style={st.relFiltrosLabel}>Tipo de Rubrica</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View style={st.chipRow}>
-                  <TouchableOpacity style={[st.chip, relTurmaId === 'todas' && st.chipActive]} onPress={() => setRelTurmaId('todas')}>
-                    <Text style={[st.chipText, relTurmaId === 'todas' && st.chipTextActive]}>Todas</Text>
-                  </TouchableOpacity>
-                  {turmasAtivas.map(t => (
-                    <TouchableOpacity key={t.id} style={[st.chip, relTurmaId === t.id && st.chipActive]} onPress={() => setRelTurmaId(t.id)}>
-                      <Text style={[st.chipText, relTurmaId === t.id && st.chipTextActive]}>{t.nome}</Text>
+                  {(['todos', ...TIPOS] as const).map(t => (
+                    <TouchableOpacity key={t} style={[st.chip, relTipo === t && st.chipActive]} onPress={() => setRelTipo(t as any)}>
+                      <Text style={[st.chipText, relTipo === t && st.chipTextActive]}>{t === 'todos' ? 'Todos' : TIPO_LABEL[t as TipoTaxa]}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               </ScrollView>
-            </>
-          )}
-        </View>
-
-        {/* Totais do período filtrado */}
-        <View style={[st.kpiRow, { marginBottom: 4 }]}>
-          <View style={[st.kpiCard, { flex: 1.5, borderTopWidth: 2, borderTopColor: Colors.success }]}>
-            <Ionicons name="trending-up" size={16} color={Colors.success} />
-            <Text style={[st.kpiVal, { color: Colors.success }]}>{formatAOA(totalRel)}</Text>
-            <Text style={st.kpiLbl}>Total Arrecadado</Text>
-            <Text style={[st.kpiLbl, { fontSize: 9 }]}>período seleccionado</Text>
-          </View>
-          <View style={[st.kpiCard, { flex: 1 }]}>
-            <Ionicons name="receipt" size={14} color={Colors.info} />
-            <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{countRel}</Text>
-            <Text style={st.kpiLbl}>Transacções</Text>
-          </View>
-          <View style={[st.kpiCard, { flex: 1 }]}>
-            <Ionicons name="people" size={14} color={Colors.gold} />
-            <Text style={[st.kpiVal, { color: Colors.gold, fontSize: 20 }]}>{new Set(relatorioFiltrado.map(p => p.alunoId)).size}</Text>
-            <Text style={st.kpiLbl}>Alunos</Text>
-          </View>
-        </View>
-
-        {/* Donut: Receita por tipo */}
-        {receitaPorTipo.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>RECEITA POR TIPO DE RUBRICA</Text>
-            <View style={[st.relCard, { alignItems: 'center' }]}>
-              <DonutChart data={receitaPorTipo} size={180} thickness={30} centerLabel={formatAOA(totalRel).replace(' AOA','').replace('Kz','')} centerSub="Total" />
-              <View style={{ width: '100%', marginTop: 8 }}>
-                {receitaPorTipo.map(d => (
-                  <View key={d.label} style={st.relTableRow}>
-                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
-                    <Text style={st.relTableLabel}>{d.label}</Text>
-                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
-                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Donut: Por método */}
-        {receitaPorMetodo.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>RECEITA POR MÉTODO DE PAGAMENTO</Text>
-            <View style={[st.relCard, { alignItems: 'center' }]}>
-              <DonutChart data={receitaPorMetodo} size={160} thickness={28} centerLabel={String(countRel)} centerSub="transacções" />
-              <View style={{ width: '100%', marginTop: 8 }}>
-                {receitaPorMetodo.map(d => (
-                  <View key={d.label} style={st.relTableRow}>
-                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
-                    <Text style={st.relTableLabel}>{d.label}</Text>
-                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
-                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* BarChart: Receita mensal */}
-        {receitaPorMes.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>RECEITA MENSAL (PAGOS)</Text>
-            <View style={[st.relCard, { alignItems: 'center' }]}>
-              <BarChart
-                data={receitaPorMes}
-                maxValue={Math.max(...receitaPorMes.map(d => d.value), 1)}
-                height={180}
-                width={Math.min(320, receitaPorMes.length * 36 + 40)}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Donut: Por nível */}
-        {receitaPorNivel.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>RECEITA POR NÍVEL DE ENSINO</Text>
-            <View style={[st.relCard, { alignItems: 'center' }]}>
-              <DonutChart data={receitaPorNivel} size={160} thickness={28} centerLabel={formatAOA(totalRel).replace(' AOA','').replace('Kz','')} centerSub="Total" />
-              <View style={{ width: '100%', marginTop: 8 }}>
-                {receitaPorNivel.map(d => (
-                  <View key={d.label} style={st.relTableRow}>
-                    <View style={[st.relTableDot, { backgroundColor: d.color }]} />
-                    <Text style={st.relTableLabel}>{d.label}</Text>
-                    <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
-                    <Text style={st.relTablePct}>{totalRel > 0 ? Math.round((d.value / totalRel) * 100) : 0}%</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Tabela: Por turma */}
-        {receitaPorTurma.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>RECEITA POR TURMA</Text>
-            <View style={st.relCard}>
-              <View style={st.relTableHeader}>
-                <Text style={[st.relTableHeaderTxt, { flex: 2 }]}>Turma</Text>
-                <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Arrecadado</Text>
-                <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Pendente</Text>
-                <Text style={[st.relTableHeaderTxt, { flex: 0.7, textAlign: 'right' }]}>Pag.</Text>
-              </View>
-              {receitaPorTurma.map((r, idx) => (
-                <View key={r.turma} style={[st.relTableRow, idx % 2 === 0 && { backgroundColor: Colors.surface }]}>
-                  <Text style={[st.relTableLabel, { flex: 2 }]} numberOfLines={1}>{r.turma}</Text>
-                  <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: Colors.success, fontSize: 11 }]}>{formatAOA(r.val)}</Text>
-                  <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: r.pendente > 0 ? Colors.warning : Colors.textMuted, fontSize: 11 }]}>{r.pendente > 0 ? formatAOA(r.pendente) : '—'}</Text>
-                  <Text style={[st.relTablePct, { flex: 0.7, textAlign: 'right' }]}>{r.count}</Text>
+              <Text style={st.relFiltrosLabel}>Nível</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={st.chipRow}>
+                  {NIVEIS.map(n => (
+                    <TouchableOpacity key={n} style={[st.chip, relNivel === n && st.chipActive]} onPress={() => setRelNivel(n)}>
+                      <Text style={[st.chipText, relNivel === n && st.chipTextActive]}>{n}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-              ))}
+              </ScrollView>
+              {turmasAtivas.length > 0 && (
+                <>
+                  <Text style={st.relFiltrosLabel}>Turma</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={st.chipRow}>
+                      <TouchableOpacity style={[st.chip, relTurmaId === 'todas' && st.chipActive]} onPress={() => setRelTurmaId('todas')}>
+                        <Text style={[st.chipText, relTurmaId === 'todas' && st.chipTextActive]}>Todas</Text>
+                      </TouchableOpacity>
+                      {turmasAtivas.map(t => (
+                        <TouchableOpacity key={t.id} style={[st.chip, relTurmaId === t.id && st.chipActive]} onPress={() => setRelTurmaId(t.id)}>
+                          <Text style={[st.chipText, relTurmaId === t.id && st.chipTextActive]}>{t.nome}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                </>
+              )}
             </View>
-          </View>
+          </>
         )}
 
-        {/* Top devedores */}
-        {topDevedores.length > 0 && (
-          <View style={st.relSection}>
-            <Text style={st.secLabel}>TOP DEVEDORES</Text>
-            <View style={st.relCard}>
-              {topDevedores.map((item, idx) => {
-                const { aluno, mesesAtraso, pendente } = item;
-                const turmaA = turmas.find(t => t.id === aluno.turmaId);
-                const bloq = isAlunoBloqueado(aluno.id);
-                return (
-                  <View key={aluno.id} style={[st.relTableRow, { paddingVertical: 10, alignItems: 'center' }]}>
-                    <Text style={[st.relTablePct, { width: 22, color: Colors.textMuted }]}>{idx + 1}</Text>
-                    <View style={[st.atrasoAvatar, { width: 30, height: 30, borderRadius: 15 }]}>
-                      <Text style={[st.atrasoAvatarTxt, { fontSize: 11 }]}>{aluno.nome[0]}{aluno.apelido[0]}</Text>
+        {/* ═══════════════ VISTA TRIMESTRAL ═══════════════ */}
+        {relPeriodo === 'trimestral' && (
+          <>
+            <View style={[st.kpiRow, { marginBottom: 12 }]}>
+              <View style={[st.kpiCard, { flex: 1.5, borderTopWidth: 2, borderTopColor: Colors.success }]}>
+                <Ionicons name="trending-up" size={14} color={Colors.success} />
+                <Text style={[st.kpiVal, { color: Colors.success, fontSize: 16 }]}>{formatAOA(totalAnual)}</Text>
+                <Text style={st.kpiLbl}>Total Anual</Text>
+                <Text style={[st.kpiLbl, { fontSize: 9 }]}>ano lectivo {anoAtual}</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.warning }]}>
+                <Ionicons name="time" size={13} color={Colors.warning} />
+                <Text style={[st.kpiVal, { color: Colors.warning, fontSize: 16 }]}>{formatAOA(totalPendenteAnual)}</Text>
+                <Text style={st.kpiLbl}>Pendente</Text>
+              </View>
+            </View>
+
+            {/* Gráfico de barras por trimestre */}
+            <View style={st.relSection}>
+              <Text style={st.secLabel}>RECEITA POR TRIMESTRE — {anoAtual}</Text>
+              <View style={[st.relCard, { alignItems: 'center', paddingVertical: 16 }]}>
+                <BarChart
+                  data={receitaPorTrimestre.map(t => ({ label: t.label.replace('.º Trim.','T'), value: t.value, color: t.color }))}
+                  maxValue={Math.max(...receitaPorTrimestre.map(d => d.value), 1)}
+                  height={170}
+                  width={280}
+                />
+              </View>
+            </View>
+
+            {/* Tabela detalhada por trimestre */}
+            <View style={st.relSection}>
+              <Text style={st.secLabel}>DETALHE POR TRIMESTRE</Text>
+              <View style={st.relCard}>
+                <View style={[st.relTableHeader, { paddingVertical: 8 }]}>
+                  <Text style={[st.relTableHeaderTxt, { flex: 1.2 }]}>Período</Text>
+                  <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Arrecadado</Text>
+                  <Text style={[st.relTableHeaderTxt, { flex: 1.2, textAlign: 'right' }]}>Pendente</Text>
+                  <Text style={[st.relTableHeaderTxt, { flex: 0.6, textAlign: 'right' }]}>Pag.</Text>
+                </View>
+                {receitaPorTrimestre.map((tr, idx) => (
+                  <View key={tr.label} style={[st.relTableRow, { paddingVertical: 10, alignItems: 'center', backgroundColor: idx % 2 === 0 ? Colors.surface : 'transparent' }]}>
+                    <View style={{ flex: 1.2, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: tr.color }} />
+                      <Text style={[st.relTableLabel, { fontFamily: 'Inter_600SemiBold' }]}>{tr.label}</Text>
                     </View>
-                    <View style={{ flex: 1, marginLeft: 8 }}>
-                      <Text style={[st.relTableLabel, { fontFamily: 'Inter_600SemiBold' }]} numberOfLines={1}>{aluno.nome} {aluno.apelido}</Text>
-                      <Text style={[st.relTablePct, { textAlign: 'left' }]}>{turmaA?.nome || '—'} · {mesesAtraso}m atraso</Text>
-                    </View>
-                    <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                      <Text style={[st.relTableVal, { color: Colors.danger, fontSize: 12 }]}>{formatAOA(pendente)}</Text>
-                      {bloq && <Badge label="Bloq." color={Colors.danger} />}
+                    <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: Colors.success, fontSize: 11 }]}>{formatAOA(tr.value)}</Text>
+                    <Text style={[st.relTableVal, { flex: 1.2, textAlign: 'right', color: tr.pendente > 0 ? Colors.warning : Colors.textMuted, fontSize: 11 }]}>{tr.pendente > 0 ? formatAOA(tr.pendente) : '—'}</Text>
+                    <Text style={[st.relTablePct, { flex: 0.6, textAlign: 'right' }]}>{tr.count}</Text>
+                  </View>
+                ))}
+                <View style={[st.relTableRow, { paddingVertical: 10, backgroundColor: Colors.gold + '11', borderTopWidth: 1.5, borderTopColor: Colors.gold + '44' }]}>
+                  <Text style={[st.relTableLabel, { flex: 1.2, fontFamily: 'Inter_700Bold', color: Colors.gold }]}>TOTAL</Text>
+                  <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: Colors.gold, fontSize: 12, fontFamily: 'Inter_700Bold' }]}>{formatAOA(totalAnual)}</Text>
+                  <Text style={[st.relTableVal, { flex: 1.2, textAlign: 'right', color: Colors.warning, fontSize: 11 }]}>{totalPendenteAnual > 0 ? formatAOA(totalPendenteAnual) : '—'}</Text>
+                  <Text style={[st.relTablePct, { flex: 0.6, textAlign: 'right', fontFamily: 'Inter_700Bold' }]}>{pagamentosAnoCompleto.length}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Meses detalhados por trimestre */}
+            {TRIMS.map(tr => {
+              const mesesTr = receitaPorMes.filter((_, i) => tr.meses.includes(i + 1));
+              const totalTr = mesesTr.reduce((s, m) => s + m.value, 0);
+              if (totalTr === 0) return null;
+              return (
+                <View key={tr.label} style={st.relSection}>
+                  <Text style={[st.secLabel, { color: tr.color }]}>{tr.label.toUpperCase()} — DETALHES</Text>
+                  <View style={[st.relCard, { alignItems: 'center' }]}>
+                    <BarChart
+                      data={mesesTr.map(m => ({ ...m, color: tr.color }))}
+                      maxValue={Math.max(...mesesTr.map(d => d.value), 1)}
+                      height={120}
+                      width={Math.min(300, mesesTr.length * 60 + 40)}
+                    />
+                    <View style={{ width: '100%', marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: Colors.border }}>
+                      {mesesTr.map((m, i) => m.value > 0 && (
+                        <View key={i} style={st.relTableRow}>
+                          <Text style={st.relTableLabel}>{MESES[tr.meses[i] - 1]}</Text>
+                          <Text style={[st.relTableVal, { color: tr.color }]}>{formatAOA(m.value)}</Text>
+                          <Text style={st.relTablePct}>{totalTr > 0 ? Math.round((m.value / totalTr) * 100) : 0}%</Text>
+                        </View>
+                      ))}
                     </View>
                   </View>
-                );
-              })}
-            </View>
-          </View>
+                </View>
+              );
+            })}
+
+            {receitaPorNivel.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>DISTRIBUIÇÃO POR NÍVEL</Text>
+                <View style={[st.relCard, { alignItems: 'center' }]}>
+                  <DonutChart data={receitaPorNivel} size={150} thickness={26} centerLabel={formatAOA(totalAnual).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+                  <View style={{ width: '100%', marginTop: 8 }}>
+                    {receitaPorNivel.map(d => (
+                      <View key={d.label} style={st.relTableRow}>
+                        <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                        <Text style={st.relTableLabel}>{d.label}</Text>
+                        <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                        <Text style={st.relTablePct}>{totalAnual > 0 ? Math.round((d.value / totalAnual) * 100) : 0}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+          </>
         )}
 
-        {relatorioFiltrado.length === 0 && (
+        {/* ═══════════════ VISTA ANUAL ═══════════════ */}
+        {relPeriodo === 'anual' && (
+          <>
+            {/* KPIs anuais */}
+            <View style={[st.kpiRow, { marginBottom: 12 }]}>
+              <View style={[st.kpiCard, { flex: 1.5, borderTopWidth: 2, borderTopColor: Colors.success }]}>
+                <Ionicons name="trending-up" size={14} color={Colors.success} />
+                <Text style={[st.kpiVal, { color: Colors.success }]}>{formatAOA(totalAnual)}</Text>
+                <Text style={st.kpiLbl}>Total Arrecadado</Text>
+                <Text style={[st.kpiLbl, { fontSize: 9 }]}>ano lectivo {anoAtual}</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1, borderTopWidth: 2, borderTopColor: Colors.warning }]}>
+                <Ionicons name="time" size={13} color={Colors.warning} />
+                <Text style={[st.kpiVal, { color: Colors.warning, fontSize: 18 }]}>{formatAOA(totalPendenteAnual)}</Text>
+                <Text style={st.kpiLbl}>Pendente</Text>
+              </View>
+            </View>
+            <View style={[st.kpiRow, { marginBottom: 16 }]}>
+              <View style={[st.kpiCard, { flex: 1 }]}>
+                <Ionicons name="receipt" size={13} color={Colors.info} />
+                <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{pagamentosAnoCompleto.length}</Text>
+                <Text style={st.kpiLbl}>Transacções</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1 }]}>
+                <Ionicons name="people" size={13} color={Colors.gold} />
+                <Text style={[st.kpiVal, { color: Colors.gold, fontSize: 20 }]}>{new Set(pagamentosAnoCompleto.map(p => p.alunoId)).size}</Text>
+                <Text style={st.kpiLbl}>Alunos Activos</Text>
+              </View>
+              <View style={[st.kpiCard, { flex: 1 }]}>
+                <Ionicons name="alert-circle" size={13} color={Colors.danger} />
+                <Text style={[st.kpiVal, { color: Colors.danger, fontSize: 20 }]}>{alunosEmAtraso.length}</Text>
+                <Text style={st.kpiLbl}>Em Atraso</Text>
+              </View>
+            </View>
+
+            {/* Gráfico anual — todos os 12 meses */}
+            <View style={st.relSection}>
+              <Text style={st.secLabel}>EVOLUÇÃO MENSAL COMPLETA — {anoAtual}</Text>
+              <View style={[st.relCard, { alignItems: 'center', paddingVertical: 16 }]}>
+                <BarChart
+                  data={receitaPorMes.map(d => ({ ...d, color: Colors.gold + 'CC' }))}
+                  maxValue={Math.max(...receitaPorMes.map(d => d.value), 1)}
+                  height={180}
+                  width={Math.min(360, receitaPorMes.length * 26 + 40)}
+                />
+              </View>
+            </View>
+
+            {/* Donut: por tipo */}
+            {(() => {
+              const allTipo = TIPOS.map(tipo => {
+                const ids = new Set(taxas.filter(t => t.tipo === tipo).map(t => t.id));
+                const val = pagamentosAnoCompleto.filter(p => ids.has(p.taxaId)).reduce((s, p) => s + p.valor, 0);
+                return { label: TIPO_LABEL[tipo], value: val, color: TIPO_COLOR[tipo] };
+              }).filter(d => d.value > 0);
+              return allTipo.length > 0 ? (
+                <View style={st.relSection}>
+                  <Text style={st.secLabel}>RECEITA POR TIPO DE RUBRICA</Text>
+                  <View style={[st.relCard, { alignItems: 'center' }]}>
+                    <DonutChart data={allTipo} size={180} thickness={30} centerLabel={formatAOA(totalAnual).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+                    <View style={{ width: '100%', marginTop: 8 }}>
+                      {allTipo.map(d => (
+                        <View key={d.label} style={st.relTableRow}>
+                          <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                          <Text style={st.relTableLabel}>{d.label}</Text>
+                          <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                          <Text style={st.relTablePct}>{totalAnual > 0 ? Math.round((d.value / totalAnual) * 100) : 0}%</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              ) : null;
+            })()}
+
+            {/* Donut: por método */}
+            {(() => {
+              const allMetodo = (['dinheiro','transferencia','multicaixa'] as MetodoPagamento[]).map(m => {
+                const val = pagamentosAnoCompleto.filter(p => p.metodoPagamento === m).reduce((s, p) => s + p.valor, 0);
+                return { label: metodoLabel(m), value: val, color: m === 'dinheiro' ? Colors.gold : m === 'multicaixa' ? Colors.info : Colors.success };
+              }).filter(d => d.value > 0);
+              return allMetodo.length > 0 ? (
+                <View style={st.relSection}>
+                  <Text style={st.secLabel}>MÉTODO DE PAGAMENTO</Text>
+                  <View style={[st.relCard, { alignItems: 'center' }]}>
+                    <DonutChart data={allMetodo} size={160} thickness={28} centerLabel={String(pagamentosAnoCompleto.length)} centerSub="transacções" />
+                    <View style={{ width: '100%', marginTop: 8 }}>
+                      {allMetodo.map(d => (
+                        <View key={d.label} style={st.relTableRow}>
+                          <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                          <Text style={st.relTableLabel}>{d.label}</Text>
+                          <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                          <Text style={st.relTablePct}>{totalAnual > 0 ? Math.round((d.value / totalAnual) * 100) : 0}%</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </View>
+              ) : null;
+            })()}
+
+            {/* Donut: por nível */}
+            {receitaPorNivel.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>RECEITA POR NÍVEL DE ENSINO</Text>
+                <View style={[st.relCard, { alignItems: 'center' }]}>
+                  <DonutChart data={receitaPorNivel} size={160} thickness={28} centerLabel={formatAOA(totalAnual).replace(' AOA','').replace('Kz','')} centerSub="Total" />
+                  <View style={{ width: '100%', marginTop: 8 }}>
+                    {receitaPorNivel.map(d => (
+                      <View key={d.label} style={st.relTableRow}>
+                        <View style={[st.relTableDot, { backgroundColor: d.color }]} />
+                        <Text style={st.relTableLabel}>{d.label}</Text>
+                        <Text style={[st.relTableVal, { color: d.color }]}>{formatAOA(d.value)}</Text>
+                        <Text style={st.relTablePct}>{totalAnual > 0 ? Math.round((d.value / totalAnual) * 100) : 0}%</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Tabela por turma */}
+            {receitaPorTurma.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>RECEITA POR TURMA</Text>
+                <View style={st.relCard}>
+                  <View style={st.relTableHeader}>
+                    <Text style={[st.relTableHeaderTxt, { flex: 2 }]}>Turma</Text>
+                    <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Arrecadado</Text>
+                    <Text style={[st.relTableHeaderTxt, { flex: 1.5, textAlign: 'right' }]}>Pendente</Text>
+                    <Text style={[st.relTableHeaderTxt, { flex: 0.7, textAlign: 'right' }]}>Pag.</Text>
+                  </View>
+                  {receitaPorTurma.map((r, idx) => (
+                    <View key={r.turma} style={[st.relTableRow, idx % 2 === 0 && { backgroundColor: Colors.surface }]}>
+                      <Text style={[st.relTableLabel, { flex: 2 }]} numberOfLines={1}>{r.turma}</Text>
+                      <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: Colors.success, fontSize: 11 }]}>{formatAOA(r.val)}</Text>
+                      <Text style={[st.relTableVal, { flex: 1.5, textAlign: 'right', color: r.pendente > 0 ? Colors.warning : Colors.textMuted, fontSize: 11 }]}>{r.pendente > 0 ? formatAOA(r.pendente) : '—'}</Text>
+                      <Text style={[st.relTablePct, { flex: 0.7, textAlign: 'right' }]}>{r.count}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Top devedores */}
+            {topDevedores.length > 0 && (
+              <View style={st.relSection}>
+                <Text style={st.secLabel}>TOP DEVEDORES</Text>
+                <View style={st.relCard}>
+                  {topDevedores.map((item, idx) => {
+                    const { aluno, mesesAtraso, pendente } = item;
+                    const turmaA = turmas.find(t => t.id === aluno.turmaId);
+                    const bloq = isAlunoBloqueado(aluno.id);
+                    return (
+                      <View key={aluno.id} style={[st.relTableRow, { paddingVertical: 10, alignItems: 'center' }]}>
+                        <Text style={[st.relTablePct, { width: 22, color: Colors.textMuted }]}>{idx + 1}</Text>
+                        <View style={[st.atrasoAvatar, { width: 30, height: 30, borderRadius: 15 }]}>
+                          <Text style={[st.atrasoAvatarTxt, { fontSize: 11 }]}>{aluno.nome[0]}{aluno.apelido[0]}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                          <Text style={[st.relTableLabel, { fontFamily: 'Inter_600SemiBold' }]} numberOfLines={1}>{aluno.nome} {aluno.apelido}</Text>
+                          <Text style={[st.relTablePct, { textAlign: 'left' }]}>{turmaA?.nome || '—'} · {mesesAtraso}m atraso</Text>
+                        </View>
+                        <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                          <Text style={[st.relTableVal, { color: Colors.danger, fontSize: 12 }]}>{formatAOA(pendente)}</Text>
+                          {bloq && <Badge label="Bloq." color={Colors.danger} />}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+
+        {totalRel === 0 && relPeriodo !== 'anual' && totalAnual === 0 && (
           <View style={st.empty}>
             <Ionicons name="document-text-outline" size={48} color={Colors.textMuted} />
             <Text style={st.emptyTitle}>Sem dados para o período</Text>
-            <Text style={st.emptySub}>Ajuste os filtros para visualizar relatórios financeiros.</Text>
+            <Text style={st.emptySub}>Seleccione um período diferente ou verifique os pagamentos registados.</Text>
           </View>
         )}
       </ScrollView>

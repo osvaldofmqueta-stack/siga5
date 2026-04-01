@@ -1,6 +1,29 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Registo Central de Pessoal / RH)
+## Recent Changes (Latest Session — Módulo Financeiro: Relatórios e Comprovativo)
+
+### `app/(main)/financeiro.tsx`
+- Adicionado estado `relPeriodo` ('mensal' | 'trimestral' | 'anual') para o selector de período do relatório.
+- `renderRelatorios()` completamente reestruturado com 3 vistas distintas:
+  - **Mensal**: Seletor de mês individual (12 chips) + gráfico de barras com mês selecionado em destaque + donuts (tipo/método) + filtros avançados colapsáveis.
+  - **Trimestral**: KPIs totais/pendentes + gráfico de barras por trimestre (1.º–4.º) + tabela detalhada trimestral com totais + gráficos de barras mensais por trimestre + donut por nível.
+  - **Anual**: KPIs completos (total, pendente, transacções, alunos activos, em atraso) + evolução mensal completa (12 meses) + todos os donuts (tipo, método, nível) + tabela por turma + top devedores.
+- Dados calculados sobre `pagamentosAnoCompleto` (somente pagos) para vistas Trimestral e Anual.
+
+### `app/(main)/pagamentos-hub.tsx`
+- `renderPagamentoRow()`: adicionado bloco de comprovativo proeminente em cada linha de pagamento pendente:
+  - Se submetido: caixa verde com label "COMPROVATIVO" e valor seleccionável.
+  - Se não submetido: indicador cinzento "Sem comprovativo submetido".
+- Adicionado estado `filterComProva` (boolean) + chip de filtro "Com Comprovativo" na barra de filtros.
+- Ordenação automática: pagamentos com comprovativo aparecem primeiro na lista.
+- Estilos: `comprBox`, `comprHeader`, `comprLabel`, `comprVal`, `comprMissing`, `comprMissingTxt` adicionados ao StyleSheet.
+
+### Fluxo confirmado (sem alterações, apenas documentado)
+- Rubricas criadas pelo financeiro → aparecem automaticamente no perfil do aluno via `todasTaxasAluno` filtrado por `nivel` e `anoAcademico`.
+- Aluno selecciona rubrica → clica "Pagar" → gera referência pendente + submete comprovativo.
+- Financeiro valida em pagamentos-hub com botão "Confirmar" / "Rejeitar".
+
+## Recent Changes (Previous Session — Registo Central de Pessoal / RH)
 - **shared/departamentos.ts**: Ficheiro com 7 departamentos e 27+ cargos baseados no Decreto Presidencial n.º 162/23 e Lei n.º 32/20. Exporta `DEPARTAMENTOS`, `CARGOS`, `CARGOS_POR_DEPARTAMENTO`, `getCargoById`, `getDepartamentoByKey`, `getRoleForCargo`.
 - **shared/schema.ts**: Nova tabela `funcionarios` com campos completos de RH (dados pessoais, BI, NIF, departamento, cargo, tipo de contrato, dados salariais, ligação a utilizador/professor). Colunas `departamento` e `cargo` adicionadas a `utilizadores`.
 - **Migração BD (Neon)**: Executada via raw SQL (`ALTER TABLE utilizadores ADD COLUMN IF NOT EXISTS departamento/cargo`, `CREATE TABLE IF NOT EXISTS funcionarios`).

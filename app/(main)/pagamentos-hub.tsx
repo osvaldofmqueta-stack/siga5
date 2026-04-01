@@ -104,6 +104,7 @@ export default function PagamentosHubScreen() {
   const [filterMetodo, setFilterMetodo] = useState<string>('todos');
   const [filterTurma, setFilterTurma] = useState<string>('todas');
   const [filterMes, setFilterMes] = useState<number>(0);
+  const [filterComProva, setFilterComProva] = useState<boolean>(false);
   const [searchText, setSearchText] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState<Set<string>>(new Set());
@@ -126,14 +127,16 @@ export default function PagamentosHubScreen() {
     return { ...p, aluno, turma, userEnc, taxa };
   }, [alunoMap, turmaMap, users, taxas]);
 
-  const pendentes = useMemo(() =>
-    pagamentos
+  const pendentes = useMemo(() => {
+    const hasProof = (p: any) => !!p.observacao?.match(/Comprovativo:\s*(.+)/)?.[1]?.trim();
+    return pagamentos
       .filter(p => p.status === 'pendente')
       .map(enricPagamento)
       .filter(p => {
         if (filterMetodo !== 'todos' && p.metodoPagamento !== filterMetodo) return false;
         if (filterTurma !== 'todas' && p.turma?.id !== filterTurma) return false;
         if (filterMes > 0 && p.mes !== filterMes) return false;
+        if (filterComProva && !hasProof(p)) return false;
         if (searchText) {
           const q = searchText.toLowerCase();
           return (p.aluno?.nomeCompleto || '').toLowerCase().includes(q) ||
@@ -141,9 +144,13 @@ export default function PagamentosHubScreen() {
         }
         return true;
       })
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
-    [pagamentos, enricPagamento, filterMetodo, filterTurma, filterMes, searchText]
-  );
+      .sort((a, b) => {
+        const aProof = hasProof(a) ? 1 : 0;
+        const bProof = hasProof(b) ? 1 : 0;
+        if (bProof !== aProof) return bProof - aProof;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [pagamentos, enricPagamento, filterMetodo, filterTurma, filterMes, filterComProva, searchText]);
 
   const multicaixaPendentes = useMemo(() =>
     pendentes.filter(p => p.metodoPagamento === 'multicaixa'),
@@ -285,6 +292,25 @@ export default function PagamentosHubScreen() {
             <Text style={styles.pagTel}>📞 {p.userEnc.telefone}</Text>
           ) : null}
 
+          {(() => {
+            const comprProof = p.observacao?.match(/Comprovativo:\s*(.+)/)?.[1]?.trim();
+            if (!comprProof) return (
+              <View style={styles.comprMissing}>
+                <Ionicons name="document-outline" size={11} color={Colors.textMuted} />
+                <Text style={styles.comprMissingTxt}>Sem comprovativo submetido</Text>
+              </View>
+            );
+            return (
+              <View style={styles.comprBox}>
+                <View style={styles.comprHeader}>
+                  <Ionicons name="document-attach" size={14} color={Colors.success} />
+                  <Text style={styles.comprLabel}>COMPROVATIVO</Text>
+                </View>
+                <Text style={styles.comprVal} selectable numberOfLines={2}>{comprProof}</Text>
+              </View>
+            );
+          })()}
+
           <View style={styles.pagActions}>
             <Text style={styles.pagDate}>{fmtDateHour(p.createdAt)}</Text>
             <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -418,6 +444,15 @@ export default function PagamentosHubScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              style={[styles.filterChip, filterComProva && { backgroundColor: Colors.success, borderColor: Colors.success }]}
+              onPress={() => setFilterComProva(v => !v)}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Ionicons name="document-attach" size={11} color={filterComProva ? 'white' : Colors.success} />
+                <Text style={[styles.filterChipTxt, filterComProva && { color: 'white' }]}>Com Comprovativo</Text>
+              </View>
+            </TouchableOpacity>
             <View style={styles.filterSep} />
             {([0,9,10,11,12,1,2,3,4,5,6,7] as const).map(m => (
               <TouchableOpacity
@@ -896,6 +931,20 @@ const styles = StyleSheet.create({
   atrasoDebt: { fontSize: 12, fontFamily: 'Inter_700Bold', marginTop: 2 },
   exportBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   exportBtnTxt: { fontSize: 11, fontFamily: 'Inter_500Medium' },
+
+  comprBox: {
+    marginTop: 6, marginBottom: 2, padding: 8, borderRadius: 8,
+    backgroundColor: Colors.success + '15', borderWidth: 1, borderColor: Colors.success + '44',
+  },
+  comprHeader: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 3 },
+  comprLabel: { fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.success, letterSpacing: 0.5 },
+  comprVal: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text, lineHeight: 16 },
+  comprMissing: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    marginTop: 4, marginBottom: 2, paddingHorizontal: 6, paddingVertical: 3,
+    backgroundColor: Colors.border + '55', borderRadius: 6,
+  },
+  comprMissingTxt: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic' },
 
   emptyState: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, padding: 40 },
   emptyTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text },
