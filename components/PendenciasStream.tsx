@@ -20,7 +20,7 @@ interface Pendencia {
   foto: string | null;
   turma: string;
   curso: string;
-  tipoPendencia: 'propina' | 'bloqueio' | 'rupe' | 'aviso_financeiro';
+  tipoPendencia: 'propina' | 'bloqueio' | 'rupe' | 'aviso_financeiro' | 'nota_negativa' | 'faltas_excessivas';
   descricao: string;
   severidade: 'urgente' | 'aviso' | 'info';
   area: string;
@@ -29,7 +29,7 @@ interface Pendencia {
 
 const VISIBLE_ROLES = ['admin', 'ceo', 'pca', 'director', 'secretaria', 'chefe_secretaria', 'financeiro', 'pedagogico'];
 const REFRESH_INTERVAL = 30000;
-const ROTATE_INTERVAL = 6000;
+const ROTATE_INTERVAL = 10000;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getSeveridadeColor(s: Pendencia['severidade']) {
@@ -44,6 +44,8 @@ function getTipoIcon(tipo: Pendencia['tipoPendencia']): { lib: 'ion' | 'mci'; na
     case 'bloqueio': return { lib: 'ion', name: 'lock-closed' };
     case 'rupe': return { lib: 'mci', name: 'bank-outline' };
     case 'aviso_financeiro': return { lib: 'ion', name: 'warning' };
+    case 'nota_negativa': return { lib: 'mci', name: 'close-circle' };
+    case 'faltas_excessivas': return { lib: 'mci', name: 'calendar-remove' };
     default: return { lib: 'ion', name: 'alert-circle' };
   }
 }
@@ -54,6 +56,8 @@ function getTipoLabel(tipo: Pendencia['tipoPendencia']) {
     case 'bloqueio': return 'Bloqueio';
     case 'rupe': return 'RUPE';
     case 'aviso_financeiro': return 'Aviso';
+    case 'nota_negativa': return 'Nota Negativa';
+    case 'faltas_excessivas': return 'Faltas Excessivas';
     default: return 'Pendência';
   }
 }
@@ -153,7 +157,11 @@ function StudentCard({ p, onDismiss }: { p: Pendencia; onDismiss: () => void }) 
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={[styles.resolverBtn, { borderColor: sevColor + '66', backgroundColor: sevColor + '18' }]}
-          onPress={() => router.push('/(main)/pagamentos-hub' as any)}
+          onPress={() => {
+            if (p.tipoPendencia === 'nota_negativa') router.push('/(main)/notas' as any);
+            else if (p.tipoPendencia === 'faltas_excessivas') router.push('/(main)/presencas' as any);
+            else router.push('/(main)/pagamentos-hub' as any);
+          }}
           activeOpacity={0.75}
         >
           <Ionicons name="checkmark-circle-outline" size={13} color={sevColor} />

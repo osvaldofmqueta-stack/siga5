@@ -20,11 +20,15 @@
 - Integrado em `app/(main)/_layout.tsx`
 
 ### `server/routes.ts`
-- Nova rota `GET /api/pendencias-alunos`: agrega pendências de alunos de múltiplas fontes:
+- Nova rota `GET /api/pendencias-alunos`: agrega pendências e problemas de alunos de múltiplas fontes:
   1. **Propinas pendentes** — alunos com `pagamentos.status = 'pendente'` (INNER JOIN); conta total e classifica por urgência (≥3: urgente, ≥2: aviso, 1: info)
   2. **Alunos bloqueados** — alunos com `bloqueado = true`; sempre urgente
   3. **RUPEs activos** — alunos com referências bancárias `status = 'ativo'` por liquidar
   4. **Mensagens financeiras** não lidas — avisos/bloqueios não lidos
+  5. **Notas negativas** — alunos com `nf < 10` ou `mt1 < 10`; urgente se < 5, aviso se < 8, info caso contrário
+  6. **Faltas excessivas** — alunos com ≥ 10 faltas injustificadas ('F'); urgente ≥ 25, aviso ≥ 15, info ≥ 10
+  - Botão "Resolver" leva para `pagamentos-hub` (financeiro), `notas` (notas negativas) ou `presencas` (faltas)
+  - Rotação automática: 10 segundos por cartão (alterado de 6s)
   - Ordenação: urgente → aviso → info; dentro de cada grupo: mais recente primeiro
   - Acesso restrito aos papéis acima mencionados
 

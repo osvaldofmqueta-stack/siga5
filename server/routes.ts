@@ -7001,6 +7001,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // 5. Notas negativas (nf < 10 ou mt1 < 10, com pelo menos 1 nota lançada)
+      const notasNegativas = await query(`
+        SELECT DISTINCT ON (a.id)
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          COUNT(n.id) as total_negativas,
+          MIN(n.nf) as nota_minima,
+          n."anoLetivo"
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        INNER JOIN notas n ON n."alunoId" = a.id AND (
+          (n.nf > 0 AND n.nf < 10) OR (n.mt1 > 0 AND n.mt1 < 10)
+        )
+        WHERE a.ativo = true AND a.falecido = false
+        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome, n."anoLetivo"
+        ORDER BY a.id, total_negativas DESC
+        LIMIT 20
+      `, []);
+
+      for (const row of notasNegativas.rows) {
+        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'nota_negativa')) continue;
+        const count = parseInt(row.total_negativas);
+        const minNota = parseInt(row.nota_minima) || 0;
+        pendencias.push({
+          id: `nota-${row.alunoId}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'nota_negativa',
+          descricao: count === 1
+            ? `Nota negativa em ${count} disciplina (mín. ${minNota} valores)`
+            : `Notas negativas em ${count} disciplinas (mín. ${minNota} valores)`,
+          severidade: minNota < 5 ? 'urgente' : minNota < 8 ? 'aviso' : 'info',
+          area: 'Pedagógico',
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // 6. Faltas excessivas (≥ 10 faltas injustificadas 'F')
+      const faltasExcessivas = await query(`
+        SELECT DISTINCT ON (a.id)
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          COUNT(p.id) as total_faltas
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        INNER JOIN presencas p ON p."alunoId" = a.id AND p.status = 'F'
+        WHERE a.ativo = true AND a.falecido = false
+        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+        HAVING COUNT(p.id) >= 10
+        ORDER BY a.id, total_faltas DESC
+        LIMIT 20
+      `, []);
+
+      for (const row of faltasExcessivas.rows) {
+        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'faltas_excessivas')) continue;
+        const count = parseInt(row.total_faltas);
+        pendencias.push({
+          id: `faltas-${row.alunoId}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'faltas_excessivas',
+          descricao: `${count} falta${count > 1 ? 's' : ''} injustificada${count > 1 ? 's' : ''} registada${count > 1 ? 's' : ''}`,
+          severidade: count >= 25 ? 'urgente' : count >= 15 ? 'aviso' : 'info',
+          area: 'Pedagógico',
+          createdAt: new Date().toISOString(),
+        });
+      }
+
       // Sort: urgente first, then aviso, then info; within each group newest first
       const order = { urgente: 0, aviso: 1, info: 2 };
       pendencias.sort((a, b) => {
