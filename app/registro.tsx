@@ -286,6 +286,10 @@ export default function RegistroScreen() {
     'speed.1s.fr','sofimail.com','mailzilla.com','moakt.com','emailtemporario.com.br',
   ];
 
+  function validarNIForBI(v: string): boolean {
+    return /^\d{9}[A-Z]{2}\d{3}$/.test(v.trim().toUpperCase());
+  }
+
   function validarEmail(email: string): { valid: boolean; erro: string } {
     const e = email.trim().toLowerCase();
     if (!e) return { valid: false, erro: 'O email de contacto é obrigatório.' };
@@ -333,6 +337,11 @@ export default function RegistroScreen() {
       ok = false;
     }
 
+    if (form.nif.trim() && !validarNIForBI(form.nif)) {
+      erros.nif = 'NIF inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 003519344HA042).';
+      ok = false;
+    }
+
     if (Object.keys(erros).length > 0) setFieldErrors(erros);
     return ok;
   }
@@ -353,6 +362,11 @@ export default function RegistroScreen() {
     const emailCheck = validarEmail(form.email);
     if (!emailCheck.valid) {
       erros.email = emailCheck.erro;
+      ok = false;
+    }
+
+    if (form.numeroBi.trim() && !validarNIForBI(form.numeroBi)) {
+      erros.numeroBi = 'Nº do BI inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 000000000LA000).';
       ok = false;
     }
 
@@ -513,11 +527,11 @@ export default function RegistroScreen() {
                 </View>
                 <Text style={styles.fieldHint}>Introduza o NIF para preencher automaticamente o nome</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.inputWrap, { flex: 1 }]}>
+                  <View style={[styles.inputWrap, { flex: 1 }, !!fieldErrors.nif && styles.inputWrapError]}>
                     <TextInput
                       style={styles.input}
                       value={form.nif}
-                      onChangeText={v => { set('nif', v); setNifLookupStatus('idle'); setNifFoundName(''); }}
+                      onChangeText={v => { set('nif', v); setNifLookupStatus('idle'); setNifFoundName(''); if (fieldErrors.nif) setFieldErrors(e => ({ ...e, nif: '' })); }}
                       onBlur={() => lookupNIF(form.nif)}
                       placeholder="Ex: 003519344HA042"
                       placeholderTextColor={Colors.textMuted}
@@ -547,6 +561,7 @@ export default function RegistroScreen() {
                     <Text style={[nifBadgeTxtReg, { color: '#F39C12' }]}>NIF não encontrado — preencha o nome manualmente</Text>
                   </View>
                 )}
+                {!!fieldErrors.nif && <Text style={styles.fieldError}>{fieldErrors.nif}</Text>}
               </View>
 
               <InputField label="Nome Completo" value={form.nomeCompleto} onChangeText={v => { set('nomeCompleto', v); if (fieldErrors.nomeCompleto) setFieldErrors(e => ({ ...e, nomeCompleto: '' })); }} placeholder="Nome completo do estudante" required error={fieldErrors.nomeCompleto} />
@@ -616,7 +631,7 @@ export default function RegistroScreen() {
                 <Text style={styles.sectionLabelText}>Identificação Oficial</Text>
               </View>
 
-              <InputField label="Número do BI" value={form.numeroBi} onChangeText={v => set('numeroBi', v)} placeholder="000000000LA000" autoCapitalize="characters" />
+              <InputField label="Número do BI" value={form.numeroBi} onChangeText={v => { set('numeroBi', v); if (fieldErrors.numeroBi) setFieldErrors(e => ({ ...e, numeroBi: '' })); }} placeholder="000000000LA000" autoCapitalize="characters" error={fieldErrors.numeroBi} />
               <InputField label="Número da Cédula" value={form.numeroCedula} onChangeText={v => set('numeroCedula', v)} placeholder="Ex: 12345678" autoCapitalize="none" />
             </View>
           )}

@@ -246,9 +246,21 @@ export default function RHControleScreen() {
     }
   }
 
+  function validarNIForBI(v: string): boolean {
+    return /^\d{9}[A-Z]{2}\d{3}$/.test(v.trim().toUpperCase());
+  }
+
   async function saveFuncionario() {
     if (!funcForm.nome?.trim() || !funcForm.departamento || !funcForm.cargo) {
       webAlert('Campos obrigatórios', 'Preencha o nome, departamento e cargo.');
+      return;
+    }
+    if (funcForm.bi?.trim() && !validarNIForBI(funcForm.bi)) {
+      webAlert('BI inválido', 'O Bilhete de Identidade deve ter o formato: 9 dígitos + 2 letras + 3 dígitos (ex: 000000000LA000).');
+      return;
+    }
+    if (funcForm.nif?.trim() && !validarNIForBI(funcForm.nif)) {
+      webAlert('NIF inválido', 'O NIF deve ter o formato: 9 dígitos + 2 letras + 3 dígitos (ex: 003519344HA042).');
       return;
     }
     setFuncSaving(true);
