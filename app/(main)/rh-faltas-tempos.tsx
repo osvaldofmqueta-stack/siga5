@@ -1094,6 +1094,27 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
   const [loadingFaltas, setLoadingFaltas] = React.useState(false);
   const [loadingPayroll, setLoadingPayroll] = React.useState(false);
 
+  const fmtKz = (v: number) => v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
+
+  const CSS_COMUM = `
+    body{font-family:Arial,sans-serif;padding:32px;color:#111;font-size:11px}
+    h1{font-size:17px;margin-bottom:4px;color:#1a1a2e}
+    .subtitle{font-size:12px;color:#555;margin-bottom:4px;font-weight:normal}
+    .totalbox{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:8px 14px;margin-bottom:14px;display:inline-block}
+    .totalbox span{font-size:13px;color:#065f46;font-weight:bold}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th{background:#1a1a2e;color:#fff;padding:7px 9px;text-align:left;font-size:10px}
+    th.r{text-align:right}
+    td{padding:6px 9px;border-bottom:1px solid #e5e7eb;font-size:10.5px}
+    td.r{text-align:right}
+    tr:nth-child(even){background:#f9fafb}
+    .red{color:#dc2626;font-weight:600}
+    .green{color:#065f46;font-weight:700}
+    .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700}
+    .footer{margin-top:20px;font-size:9px;color:#aaa;border-top:1px dashed #e5e7eb;padding-top:8px}
+    @media print{body{padding:16px}}
+  `;
+
   async function gerarRelatorioFaltas(tipo: 'mensal' | 'anual') {
     setLoadingFaltas(true);
     try {
@@ -1105,38 +1126,42 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
         ? `Relatório de Faltas — ${MESES_LABELS[mes - 1]}/${ano}`
         : `Relatório de Faltas — Ano ${ano}`;
 
+      const inj = faltas.filter(f => f.tipo === 'injustificada').length;
+      const just = faltas.filter(f => f.tipo === 'justificada').length;
+      const meio = faltas.filter(f => f.tipo === 'meio_dia').length;
+
+      const tipoLabel = (t: string) =>
+        t === 'injustificada' ? '<span class="badge" style="background:#fee2e2;color:#dc2626">Injustificada</span>'
+        : t === 'justificada' ? '<span class="badge" style="background:#fef9c3;color:#854d0e">Justificada</span>'
+        : '<span class="badge" style="background:#f3e8ff;color:#7e22ce">Meio-Dia</span>';
+
       const rows = faltas.map(f => `
         <tr>
-          <td>${f.funcionarioNome ?? '—'}</td>
+          <td>${`${f.nome ?? ''} ${f.apelido ?? ''}`.trim() || (f.funcionarioNome ?? '—')}</td>
+          <td>${f.cargo ?? '—'}</td>
+          <td>${getDeptLabel(f.departamento ?? '')}</td>
           <td>${formatDate(f.data)}</td>
-          <td>${f.tipo === 'injustificada' ? 'Injustificada' : f.tipo === 'justificada' ? 'Justificada' : 'Meio-dia'}</td>
+          <td>${tipoLabel(f.tipo)}</td>
           <td style="text-align:center">${f.descontavel ? '✓' : '—'}</td>
           <td>${f.motivo ?? '—'}</td>
         </tr>`).join('');
 
       const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/><title>${titulo}</title>
-      <style>
-        body{font-family:Arial,sans-serif;padding:32px;color:#111;font-size:12px}
-        h1{font-size:18px;margin-bottom:4px}
-        h3{font-size:13px;color:#555;margin-bottom:16px;font-weight:normal}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        th{background:#1a1a2e;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
-        td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
-        tr:nth-child(even){background:#f9fafb}
-        .footer{margin-top:24px;font-size:10px;color:#aaa}
-      </style></head><body>
+      <style>${CSS_COMUM}</style></head><body>
       <h1>${titulo}</h1>
-      <h3>Total: ${faltas.length} falta${faltas.length !== 1 ? 's' : ''} registada${faltas.length !== 1 ? 's' : ''}</h3>
+      <p class="subtitle">Total: ${faltas.length} falta${faltas.length !== 1 ? 's' : ''} · Injustificadas: ${inj} · Justificadas: ${just} · Meio-dia: ${meio}</p>
       <table>
-        <thead><tr><th>Funcionário</th><th>Data</th><th>Tipo</th><th>Descontável</th><th>Motivo</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <thead><tr>
+          <th>Funcionário</th><th>Cargo</th><th>Departamento</th><th>Data</th><th>Tipo</th><th>Descontável</th><th>Motivo</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:20px">Sem registos</td></tr>'}</tbody>
       </table>
-      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3</p>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3 · Recursos Humanos</p>
       </body></html>`;
 
       const w = window.open('', '_blank');
       if (w) { w.document.write(html); w.document.close(); w.print(); }
-    } catch { webAlert('Erro ao gerar relatório'); }
+    } catch { webAlert('Erro ao gerar relatório de faltas'); }
     finally { setLoadingFaltas(false); }
   }
 
@@ -1146,54 +1171,91 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
       const folhasData = await api.get('/api/folhas-salarios');
       let folhas: any[] = Array.isArray(folhasData) ? folhasData : [];
       if (tipo === 'mensal') {
-        folhas = folhas.filter(f => f.mes == mes && f.ano == ano);
+        folhas = folhas.filter((f: any) => f.mes == mes && f.ano == ano);
       } else {
-        folhas = folhas.filter(f => f.ano == ano);
+        folhas = folhas.filter((f: any) => f.ano == ano);
       }
 
       const titulo = tipo === 'mensal'
         ? `Relatório de Pagamentos — ${MESES_LABELS[mes - 1]}/${ano}`
         : `Relatório de Pagamentos — Ano ${ano}`;
 
-      const totalLiquido = folhas.reduce((s: number, f: any) => s + Number(f.totalLiquido ?? 0), 0);
-      const fmt = (v: number) => v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
+      // Fetch per-employee items for all matching folhas
+      const allItems: any[] = [];
+      await Promise.all(folhas.map(async (f: any) => {
+        try {
+          const items = await api.get(`/api/folhas-salarios/${f.id}/itens`);
+          if (Array.isArray(items)) {
+            items.forEach((item: any) => {
+              allItems.push({ ...item, mesFolha: f.mes, anoFolha: f.ano, statusFolha: f.status });
+            });
+          }
+        } catch { /* skip failed */ }
+      }));
 
-      const rows = folhas.map((f: any) => `
+      const totalBruto = allItems.reduce((s: number, i: any) => s + Number(i.salarioBruto ?? 0), 0);
+      const totalDescontos = allItems.reduce((s: number, i: any) => s + Number(i.totalDescontos ?? 0), 0);
+      const totalLiquido = allItems.reduce((s: number, i: any) => s + Number(i.salarioLiquido ?? 0), 0);
+      const totalInss = allItems.reduce((s: number, i: any) => s + Number(i.inssEmpregado ?? 0), 0);
+      const totalIrt = allItems.reduce((s: number, i: any) => s + Number(i.irt ?? 0), 0);
+
+      const statusLabel = (s: string) =>
+        s === 'paga' ? '<span class="badge" style="background:#d1fae5;color:#065f46">Paga</span>'
+        : s === 'aprovada' ? '<span class="badge" style="background:#dbeafe;color:#1d4ed8">Aprovada</span>'
+        : s === 'processada' ? '<span class="badge" style="background:#e0e7ff;color:#3730a3">Processada</span>'
+        : '<span class="badge" style="background:#f3f4f6;color:#374151">Rascunho</span>';
+
+      const rows = allItems.map((i: any) => `
         <tr>
-          <td>${f.funcionarioNome ?? '—'}</td>
-          <td>${MESES_LABELS[(f.mes ?? 1) - 1]}/${f.ano}</td>
-          <td>${f.cargo ?? '—'}</td>
-          <td style="text-align:right">${fmt(Number(f.salarioBase ?? 0))}</td>
-          <td style="text-align:right;color:${Number(f.totalDescontos ?? 0) > 0 ? '#dc2626' : '#111'}">${fmt(Number(f.totalDescontos ?? 0))}</td>
-          <td style="text-align:right;font-weight:bold">${fmt(Number(f.totalLiquido ?? 0))}</td>
-          <td style="text-align:center">${f.estado === 'pago' ? '✅ Pago' : f.estado === 'processado' ? '🔄 Processado' : '⏳ Rascunho'}</td>
+          <td>${i.professorNome ?? '—'}</td>
+          <td>${i.cargo ?? '—'}</td>
+          <td>${MESES_LABELS[(i.mesFolha ?? 1) - 1]}/${i.anoFolha}</td>
+          <td class="r">${fmtKz(Number(i.salarioBase ?? 0))}</td>
+          <td class="r">${fmtKz(Number(i.salarioBruto ?? 0))}</td>
+          <td class="r red">${fmtKz(Number(i.inssEmpregado ?? 0))}</td>
+          <td class="r red">${fmtKz(Number(i.irt ?? 0))}</td>
+          <td class="r red">${Number(i.descontoFaltas ?? 0) > 0 ? fmtKz(Number(i.descontoFaltas)) : '—'}</td>
+          <td class="r red">${fmtKz(Number(i.totalDescontos ?? 0))}</td>
+          <td class="r green">${fmtKz(Number(i.salarioLiquido ?? 0))}</td>
+          <td>${statusLabel(i.statusFolha)}</td>
         </tr>`).join('');
 
       const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/><title>${titulo}</title>
-      <style>
-        body{font-family:Arial,sans-serif;padding:32px;color:#111;font-size:12px}
-        h1{font-size:18px;margin-bottom:4px}
-        h3{font-size:13px;color:#555;margin-bottom:4px;font-weight:normal}
-        .total{font-size:14px;color:#065f46;font-weight:bold;margin-bottom:16px}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        th{background:#1a1a2e;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
-        td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
-        tr:nth-child(even){background:#f9fafb}
-        .footer{margin-top:24px;font-size:10px;color:#aaa}
-      </style></head><body>
+      <style>${CSS_COMUM}</style></head><body>
       <h1>${titulo}</h1>
-      <h3>${folhas.length} folha${folhas.length !== 1 ? 's' : ''} de salário</h3>
-      <p class="total">Total Líquido: ${fmt(totalLiquido)}</p>
+      <p class="subtitle">${folhas.length} folha${folhas.length !== 1 ? 's' : ''} · ${allItems.length} funcionário${allItems.length !== 1 ? 's' : ''} processado${allItems.length !== 1 ? 's' : ''}</p>
+      <div class="totalbox">
+        <span>Bruto: ${fmtKz(totalBruto)}</span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span style="color:#dc2626">Descontos: ${fmtKz(totalDescontos)}</span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;
+        <span>Líquido Total: ${fmtKz(totalLiquido)}</span>
+      </div>
       <table>
-        <thead><tr><th>Funcionário</th><th>Mês</th><th>Cargo</th><th>Salário Base</th><th>Descontos</th><th>Líquido</th><th>Estado</th></tr></thead>
-        <tbody>${rows}</tbody>
+        <thead><tr>
+          <th>Funcionário</th><th>Cargo</th><th>Mês</th>
+          <th class="r">Base</th><th class="r">Bruto</th>
+          <th class="r">INSS</th><th class="r">IRT</th><th class="r">Faltas</th>
+          <th class="r">Total Desc.</th><th class="r">Líquido</th><th>Estado</th>
+        </tr></thead>
+        <tbody>${rows || '<tr><td colspan="11" style="text-align:center;color:#aaa;padding:20px">Sem registos processados para o período</td></tr>'}</tbody>
+        ${allItems.length > 0 ? `<tfoot><tr style="background:#eef2ff;font-weight:700">
+          <td colspan="4">TOTAIS</td>
+          <td class="r">${fmtKz(totalBruto)}</td>
+          <td class="r red">${fmtKz(totalInss)}</td>
+          <td class="r red">${fmtKz(totalIrt)}</td>
+          <td class="r red">—</td>
+          <td class="r red">${fmtKz(totalDescontos)}</td>
+          <td class="r green">${fmtKz(totalLiquido)}</td>
+          <td></td>
+        </tr></tfoot>` : ''}
       </table>
-      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3</p>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3 · Recursos Humanos</p>
       </body></html>`;
 
       const w = window.open('', '_blank');
       if (w) { w.document.write(html); w.document.close(); w.print(); }
-    } catch { webAlert('Erro ao gerar relatório'); }
+    } catch { webAlert('Erro ao gerar relatório de pagamentos'); }
     finally { setLoadingPayroll(false); }
   }
 
@@ -1221,16 +1283,16 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
           <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>Relatório de Faltas</Text>
         </View>
         <Text style={{ color: Colors.textMuted, fontSize: 12 }}>
-          Lista detalhada de todas as faltas registadas — tipo, desconto e motivo.
+          Lista detalhada de todas as faltas registadas — tipo, desconto e motivo. Disponível por mês ou ano completo.
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={btnStyle('#ef4444')} onPress={() => gerarRelatorioFaltas('mensal')} disabled={loadingFaltas}>
             <MaterialCommunityIcons name="calendar-month" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `${MESES_LABELS[mes - 1]} ${ano}`}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `Mensal — ${MESES_LABELS[mes - 1]} ${ano}`}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={btnStyle('#b91c1c')} onPress={() => gerarRelatorioFaltas('anual')} disabled={loadingFaltas}>
             <MaterialCommunityIcons name="calendar-year" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `Anual ${ano}`}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `Anual — ${ano}`}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1242,16 +1304,16 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
           <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>Relatório de Pagamentos</Text>
         </View>
         <Text style={{ color: Colors.textMuted, fontSize: 12 }}>
-          Resumo de todas as folhas de salário — salário base, descontos e líquido a receber.
+          Detalhe por funcionário: salário base, bruto, INSS, IRT, desconto de faltas, total de descontos e líquido a receber.
         </Text>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <TouchableOpacity style={btnStyle('#10b981')} onPress={() => gerarRelatorioPayroll('mensal')} disabled={loadingPayroll}>
             <MaterialCommunityIcons name="calendar-month" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `${MESES_LABELS[mes - 1]} ${ano}`}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `Mensal — ${MESES_LABELS[mes - 1]} ${ano}`}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={btnStyle('#059669')} onPress={() => gerarRelatorioPayroll('anual')} disabled={loadingPayroll}>
             <MaterialCommunityIcons name="calendar-year" size={16} color="#fff" />
-            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `Anual ${ano}`}</Text>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `Anual — ${ano}`}</Text>
           </TouchableOpacity>
         </View>
       </View>

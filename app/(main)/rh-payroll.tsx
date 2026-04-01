@@ -381,6 +381,131 @@ export default function RhPayrollScreen() {
     } catch { showToast('Erro ao atualizar estado', 'error'); }
   };
 
+  const imprimirRecibo = (item: ItemFolha, folha: FolhaSalarios) => {
+    const fmtKz = (n: number) => n.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
+    const mesAno = `${MESES[(folha.mes ?? 1) - 1]} ${folha.ano}`;
+    const docRef = `REC-${folha.ano}-${String(folha.mes).padStart(2, '0')}-${item.id.slice(0, 6).toUpperCase()}`;
+    const qrData = encodeURIComponent(`SIGA|RECIBO|${docRef}|${item.professorNome}|${mesAno}`);
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${qrData}`;
+
+    const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/>
+    <title>Recibo de Vencimento — ${item.professorNome}</title>
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;padding:24px;max-width:210mm;margin:0 auto}
+      .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #1a2b5f;padding-bottom:10px;margin-bottom:14px}
+      .school-logo{width:48px;height:48px;background:#1a2b5f;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:20pt;font-weight:900;flex-shrink:0}
+      .school-name{font-size:12pt;font-weight:700;color:#1a2b5f}
+      .school-sub{font-size:7pt;color:#6b7280;letter-spacing:1px;margin-top:2px}
+      .doc-title{text-align:right}
+      .doc-label{font-size:6pt;letter-spacing:2px;color:#6b7280;text-transform:uppercase}
+      .doc-main{font-size:12pt;font-weight:800;color:#1a2b5f;margin:2px 0}
+      .doc-period{font-size:9pt;color:#6b7280}
+      .info-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:9px 12px;margin-bottom:12px}
+      .info-title{font-size:7pt;font-weight:700;color:#1a2b5f;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:7px}
+      .info-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+      .info-label{font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
+      .info-val{font-size:9pt;font-weight:600;color:#1e293b}
+      table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:8.5pt}
+      th{padding:7px 9px;color:#fff;font-size:8pt;text-align:left}
+      th.r{text-align:right}
+      td{padding:6px 9px;border:1px solid #e2e8f0;font-size:8.5pt}
+      td.r{text-align:right;font-weight:600}
+      .th-venc{background:#1a2b5f}
+      .th-desc{background:#7f1d1d}
+      .red{color:#dc2626}
+      .liquido{background:#1a2b5f;color:#fff;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+      .liq-label{font-size:7pt;opacity:.7;letter-spacing:1.5px;text-transform:uppercase}
+      .liq-val{font-size:18pt;font-weight:800}
+      .liq-right{text-align:right}
+      .liq-status{font-size:9pt;font-weight:700}
+      .patr{background:#fff5f0;border:1px solid #ffccb0;border-radius:6px;padding:7px 10px;font-size:8pt;color:#c2410c;display:flex;justify-content:space-between}
+      .footer-row{display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;gap:16px}
+      .qr-box{display:flex;align-items:center;gap:8px}
+      .qr-label{font-size:7pt;color:#9ca3af;line-height:1.4}
+      .sigs{flex:1;display:flex;justify-content:space-around}
+      .sig{text-align:center}
+      .sig-line{border-top:1px solid #374151;margin:30px 8px 4px;width:110px}
+      .sig-label{font-size:7pt;color:#6b7280}
+      .doc-footer{text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:6px}
+      @media print{body{padding:0}}
+    </style>
+    </head><body>
+    <div class="header">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="school-logo">E</div>
+        <div>
+          <div class="school-name">SIGA — Gestão Académica</div>
+          <div class="school-sub">SISTEMA INTEGRADO DE GESTÃO ESCOLAR</div>
+        </div>
+      </div>
+      <div class="doc-title">
+        <div class="doc-label">Documento Oficial</div>
+        <div class="doc-main">RECIBO DE VENCIMENTO</div>
+        <div class="doc-period">${mesAno}</div>
+        <div style="font-size:7pt;color:#9ca3af;margin-top:2px">Ref: ${docRef}</div>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <div class="info-title">Dados do Funcionário</div>
+      <div class="info-grid">
+        <div><div class="info-label">Nome Completo</div><div class="info-val">${item.professorNome}</div></div>
+        <div><div class="info-label">Cargo</div><div class="info-val">${item.cargo ?? '—'}</div></div>
+        <div><div class="info-label">Categoria</div><div class="info-val">${item.categoria ?? '—'}</div></div>
+      </div>
+    </div>
+
+    <table>
+      <thead><tr>
+        <th class="th-venc">VENCIMENTOS</th>
+        <th class="th-venc r" style="width:130px">VALOR (Kz)</th>
+        <th class="th-desc" style="width:160px">DESCONTOS</th>
+        <th class="th-desc r" style="width:130px">VALOR (Kz)</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>Salário Base</td><td class="r">${fmtKz(item.salarioBase)}</td><td>INSS Empregado (${inssEmpPerc}%)</td><td class="r red">${fmtKz(item.inssEmpregado)}</td></tr>
+        ${item.subsidioAlimentacao > 0 ? `<tr><td>Subsídio Alimentação</td><td class="r">${fmtKz(item.subsidioAlimentacao)}</td><td>IRT (tabela progressiva)</td><td class="r red">${fmtKz(item.irt)}</td></tr>` : `<tr><td colspan="2"></td><td>IRT (tabela progressiva)</td><td class="r red">${fmtKz(item.irt)}</td></tr>`}
+        ${item.subsidioTransporte > 0 ? `<tr><td>Subsídio Transporte</td><td class="r">${fmtKz(item.subsidioTransporte)}</td>${(item.descontoFaltas ?? 0) > 0 ? `<td>Faltas (${item.numFaltasInj ?? 0} inj. + ${item.numMeioDia ?? 0} meio-dia)</td><td class="r red">${fmtKz(item.descontoFaltas)}</td>` : '<td colspan="2"></td>'}</tr>` : ''}
+        ${item.subsidioHabitacao > 0 ? `<tr><td>Subsídio Habitação</td><td class="r">${fmtKz(item.subsidioHabitacao)}</td><td colspan="2"></td></tr>` : ''}
+        ${(item.remuneracaoTempos ?? 0) > 0 ? `<tr><td>Tempos Lectivos (${item.numTempos ?? 0} unid.)</td><td class="r">${fmtKz(item.remuneracaoTempos)}</td><td colspan="2"></td></tr>` : ''}
+        <tr style="background:#eef2ff"><td style="font-weight:700;color:#1a2b5f">TOTAL BRUTO</td><td class="r" style="font-weight:700;color:#1a2b5f">${fmtKz(item.salarioBruto)}</td><td style="font-weight:700;color:#dc2626">TOTAL DESCONTOS</td><td class="r red" style="font-weight:700">${fmtKz(item.totalDescontos)}</td></tr>
+      </tbody>
+    </table>
+
+    <div class="liquido">
+      <div>
+        <div class="liq-label">Salário Líquido a Receber</div>
+        <div class="liq-val">${fmtKz(item.salarioLiquido)}</div>
+      </div>
+      <div class="liq-right">
+        <div class="liq-label">Estado da Folha</div>
+        <div class="liq-status">${folha.status?.toUpperCase() ?? '—'}</div>
+        <div style="font-size:7pt;opacity:.6;margin-top:4px">INSS Patronal (${inssPatrPerc}%): ${fmtKz(item.inssPatronal)}</div>
+      </div>
+    </div>
+
+    <div class="footer-row">
+      <div class="qr-box">
+        <img src="${qrUrl}" width="90" height="90" alt="QR Code"/>
+        <div class="qr-label">Escaneie para<br/>verificar autenticidade<br/><strong>${docRef}</strong></div>
+      </div>
+      <div class="sigs">
+        <div class="sig"><div class="sig-line"></div><div class="sig-label">Responsável RH</div></div>
+        <div class="sig"><div class="sig-line"></div><div class="sig-label">Director(a) Geral</div></div>
+        <div class="sig"><div class="sig-line"></div><div class="sig-label">Funcionário</div></div>
+      </div>
+    </div>
+
+    <div class="doc-footer">
+      Emitido em ${new Date().toLocaleDateString('pt-AO')} · SIGA v3 · Documento Oficial
+    </div>
+    </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 500); }
+  };
+
   const eliminarFolha = async (id: string) => {
     try {
       await api.delete(`/api/folhas-salarios/${id}`);
@@ -1135,15 +1260,22 @@ export default function RhPayrollScreen() {
                 </>
               )}
 
-              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20 }}>
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
                 <TouchableOpacity
-                  style={[styles.modalBtnCancel, { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
+                  style={[styles.modalBtnCancel, { flex: 1, minWidth: 120, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
                   onPress={() => { setReciboItem(null); router.push('/(main)/editor-documentos' as any); }}
                 >
                   <Ionicons name="document-text-outline" size={16} color={Colors.accent ?? '#4FC3F7'} />
                   <Text style={[styles.modalBtnCancelText, { color: Colors.accent ?? '#4FC3F7' }]}>Editar Modelo</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.modalBtnPrimary, { flex: 1 }]} onPress={() => setReciboItem(null)}>
+                <TouchableOpacity
+                  style={[styles.modalBtnCancel, { flex: 1, minWidth: 120, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }]}
+                  onPress={() => reciboItem && selectedFolha && imprimirRecibo(reciboItem, selectedFolha)}
+                >
+                  <Ionicons name="print-outline" size={16} color="#66BB6A" />
+                  <Text style={[styles.modalBtnCancelText, { color: '#66BB6A' }]}>Imprimir</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtnPrimary, { flex: 1, minWidth: 120 }]} onPress={() => setReciboItem(null)}>
                   <Text style={styles.modalBtnPrimaryText}>Fechar</Text>
                 </TouchableOpacity>
               </View>

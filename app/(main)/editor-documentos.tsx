@@ -28,7 +28,7 @@ import { webAlert } from '@/utils/webAlert';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
-type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'lista_inscritos' | 'lista_resultados_admissao' | 'recibo_salario' | 'extrato_propina' | 'historico_academico' | 'outro';
+type DocTipo = 'declaracao' | 'certificado' | 'atestado' | 'oficio' | 'pauta' | 'pauta_final' | 'ficha_matricula' | 'mapa_aproveitamento' | 'mapa_frequencias' | 'lista_turma' | 'certificado_primario' | 'ficha_inscricao' | 'boletim_matricula' | 'lista_admitidos' | 'lista_inscritos' | 'lista_resultados_admissao' | 'recibo_salario' | 'titulo_salario' | 'extrato_propina' | 'historico_academico' | 'outro';
 type Mode = 'list' | 'editor' | 'emit';
 
 interface DocTemplate {
@@ -179,6 +179,12 @@ const VARIABLE_GROUPS = [
       { tag: '{{SALARIO_LIQUIDO}}', desc: 'Salário líquido a receber (Kz)', exemplo: '178.500,00 Kz' },
       { tag: '{{INSS_PATRONAL}}', desc: 'INSS patronal 8% — informativo (Kz)', exemplo: '12.000,00 Kz' },
       { tag: '{{STATUS_FOLHA}}', desc: 'Estado da folha de salário', exemplo: 'Aprovada' },
+      { tag: '{{NUM_FALTAS_INJ}}', desc: 'Nº faltas injustificadas descontadas', exemplo: '2' },
+      { tag: '{{NUM_MEIO_DIA}}', desc: 'Nº faltas meio-dia descontadas', exemplo: '1' },
+      { tag: '{{DESCONTO_FALTAS}}', desc: 'Valor descontado por faltas (Kz)', exemplo: '6.000,00 Kz' },
+      { tag: '{{NUM_TEMPOS}}', desc: 'Nº tempos lectivos / dias trabalhados', exemplo: '42' },
+      { tag: '{{REMUNERACAO_TEMPOS}}', desc: 'Remuneração por tempos lectivos (Kz)', exemplo: '21.000,00 Kz' },
+      { tag: '{{QR_CODE}}', desc: 'Código QR de autenticidade (imagem inline)', exemplo: '<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=SIGA-DOC-EXEMPLO" style="width:80px;height:80px"/>' },
     ],
   },
   {
@@ -299,8 +305,183 @@ const HISTORICO_ACADEMICO_DEFAULT = `<div style="font-family:Arial,Helvetica,san
   </div>
 </div>`;
 
+const RECIBO_SALARIO_DEFAULT = `<div style="font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;max-width:210mm;margin:0 auto;padding:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1a2b5f;padding-bottom:10px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:52px;height:52px;background:#1a2b5f;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:18pt;font-weight:900;">E</div>
+      <div>
+        <div style="font-size:13pt;font-weight:700;color:#1a2b5f;">{{NOME_ESCOLA}}</div>
+        <div style="font-size:7pt;color:#6b7280;letter-spacing:1px;margin-top:2px;">SISTEMA INTEGRADO DE GESTÃO ACADÉMICA</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:6pt;letter-spacing:2px;color:#6b7280;text-transform:uppercase;">Documento Oficial</div>
+      <div style="font-size:12pt;font-weight:800;color:#1a2b5f;margin-top:2px;">RECIBO DE VENCIMENTO</div>
+      <div style="font-size:9pt;color:#6b7280;">{{MES_ANO_FOLHA}}</div>
+    </div>
+  </div>
+
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+    <div style="font-size:7pt;font-weight:700;color:#1a2b5f;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;">Dados do Funcionário</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Nome Completo</div><div style="font-size:9pt;font-weight:600;">{{FUNC_NOME}}</div></div>
+      <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Cargo</div><div style="font-size:9pt;font-weight:600;">{{FUNC_CARGO}}</div></div>
+      <div><div style="font-size:6.5pt;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;">Categoria</div><div style="font-size:9pt;font-weight:600;">{{FUNC_CATEGORIA}}</div></div>
+    </div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;font-size:8.5pt;">
+    <thead>
+      <tr>
+        <th style="background:#1a2b5f;color:#fff;padding:7px 10px;text-align:left;font-size:8pt;">VENCIMENTOS</th>
+        <th style="background:#1a2b5f;color:#fff;padding:7px 10px;text-align:right;width:140px;">VALOR (Kz)</th>
+        <th style="background:#7f1d1d;color:#fff;padding:7px 10px;text-align:left;width:140px;font-size:8pt;">DESCONTOS</th>
+        <th style="background:#7f1d1d;color:#fff;padding:7px 10px;text-align:right;width:140px;">VALOR (Kz)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="background:#fff;">
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Salário Base</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SALARIO_BASE}}</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">INSS Empregado (3%)</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{INSS_EMPREGADO}}</td>
+      </tr>
+      <tr style="background:#f8fafc;">
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Subsídio Alimentação</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_ALIMENTACAO}}</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">IRT (tabela progressiva)</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{IRT}}</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Subsídio Transporte</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_TRANSPORTE}}</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Faltas ({{NUM_FALTAS_INJ}} inj. + {{NUM_MEIO_DIA}} meio-dia)</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{DESCONTO_FALTAS}}</td>
+      </tr>
+      <tr style="background:#f8fafc;">
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Subsídio Habitação</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_HABITACAO}}</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Outros Descontos</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{OUTROS_DESCONTOS}}</td>
+      </tr>
+      <tr style="background:#fff;">
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;">Tempos Lectivos ({{NUM_TEMPOS}} unid.)</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;text-align:right;font-weight:600;">{{REMUNERACAO_TEMPOS}}</td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;"></td>
+        <td style="padding:6px 10px;border:1px solid #e2e8f0;"></td>
+      </tr>
+      <tr style="background:#eef2ff;">
+        <td style="padding:7px 10px;border:1px solid #c7d2fe;font-weight:700;color:#1a2b5f;">TOTAL BRUTO</td>
+        <td style="padding:7px 10px;border:1px solid #c7d2fe;text-align:right;font-weight:700;color:#1a2b5f;">{{SALARIO_BRUTO}}</td>
+        <td style="padding:7px 10px;border:1px solid #c7d2fe;font-weight:700;color:#dc2626;">TOTAL DESCONTOS</td>
+        <td style="padding:7px 10px;border:1px solid #c7d2fe;text-align:right;font-weight:700;color:#dc2626;">{{TOTAL_DESCONTOS}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="display:flex;justify-content:space-between;align-items:center;background:#1a2b5f;color:#fff;border-radius:8px;padding:12px 18px;margin-bottom:14px;">
+    <div>
+      <div style="font-size:7.5pt;opacity:0.7;letter-spacing:1.5px;text-transform:uppercase;">Salário Líquido a Receber</div>
+      <div style="font-size:18pt;font-weight:800;margin-top:2px;">{{SALARIO_LIQUIDO}}</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:7pt;opacity:0.7;">Estado da Folha</div>
+      <div style="font-size:10pt;font-weight:700;margin-top:2px;">{{STATUS_FOLHA}}</div>
+      <div style="font-size:7pt;opacity:0.6;margin-top:6px;">INSS Patronal (8%): {{INSS_PATRONAL}}</div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:20px;gap:20px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div>{{QR_CODE}}</div>
+      <div style="font-size:7pt;color:#9ca3af;">Escaneie para<br/>verificar autenticidade</div>
+    </div>
+    <div style="flex:1;display:flex;justify-content:space-around;">
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;margin:30px 10px 4px;width:120px;"></div>
+        <div style="font-size:7pt;color:#6b7280;">Responsável RH</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;margin:30px 10px 4px;width:120px;"></div>
+        <div style="font-size:7pt;color:#6b7280;">Director(a) Geral</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:6px;">
+    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · SIGA v3
+  </div>
+</div>`;
+
+const TITULO_SALARIO_DEFAULT = `<div style="font-family:Arial,Helvetica,sans-serif;color:#111;font-size:9pt;max-width:210mm;margin:0 auto;padding:20px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #1a2b5f;padding-bottom:10px;margin-bottom:14px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="width:52px;height:52px;background:#1a2b5f;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-size:18pt;font-weight:900;">E</div>
+      <div>
+        <div style="font-size:13pt;font-weight:700;color:#1a2b5f;">{{NOME_ESCOLA}}</div>
+        <div style="font-size:7pt;color:#6b7280;letter-spacing:1px;margin-top:2px;">SISTEMA INTEGRADO DE GESTÃO ACADÉMICA</div>
+      </div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:6pt;letter-spacing:2px;color:#6b7280;text-transform:uppercase;">Documento Oficial</div>
+      <div style="font-size:12pt;font-weight:800;color:#1a2b5f;margin-top:2px;">TÍTULO DE SALÁRIO</div>
+      <div style="font-size:9pt;color:#6b7280;">{{MES_ANO_FOLHA}}</div>
+    </div>
+  </div>
+
+  <p style="font-size:9pt;text-align:justify;line-height:1.7;margin-bottom:14px;">
+    A <strong>{{NOME_ESCOLA}}</strong> certifica que <strong>{{FUNC_NOME}}</strong>, exercendo o cargo de
+    <strong>{{FUNC_CARGO}}</strong>{{FUNC_CATEGORIA}}, tem direito ao processamento salarial referente
+    ao período de <strong>{{MES_ANO_FOLHA}}</strong>, conforme discriminado abaixo:
+  </p>
+
+  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:14px;">
+    <div style="font-size:7pt;font-weight:700;color:#1a2b5f;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px;">Discriminação Salarial</div>
+    <table style="width:100%;border-collapse:collapse;font-size:8.5pt;">
+      <tbody>
+        <tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#374151;">Salário Base</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SALARIO_BASE}}</td></tr>
+        <tr style="background:#fff;"><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#374151;">Subsídio Alimentação</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_ALIMENTACAO}}</td></tr>
+        <tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#374151;">Subsídio Transporte</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_TRANSPORTE}}</td></tr>
+        <tr style="background:#fff;"><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#374151;">Subsídio Habitação</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;">{{SUB_HABITACAO}}</td></tr>
+        <tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1a2b5f;">Salário Bruto</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:700;color:#1a2b5f;">{{SALARIO_BRUTO}}</td></tr>
+        <tr style="background:#fff;"><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#dc2626;">— INSS Empregado (3%)</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{INSS_EMPREGADO}}</td></tr>
+        <tr><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#dc2626;">— IRT (tabela progressiva)</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{IRT}}</td></tr>
+        <tr style="background:#fff;"><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;color:#dc2626;">— Desconto Faltas</td><td style="padding:5px 8px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:600;color:#dc2626;">{{DESCONTO_FALTAS}}</td></tr>
+        <tr style="background:#eef2ff;"><td style="padding:7px 8px;font-weight:800;color:#1a2b5f;font-size:10pt;">LÍQUIDO A RECEBER</td><td style="padding:7px 8px;text-align:right;font-weight:800;color:#1a2b5f;font-size:10pt;">{{SALARIO_LIQUIDO}}</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p style="font-size:9pt;text-align:justify;line-height:1.7;margin-bottom:20px;">
+    O presente título é emitido para os devidos efeitos legais, em conformidade com a legislação laboral angolana vigente.
+  </p>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;gap:20px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div>{{QR_CODE}}</div>
+      <div style="font-size:7pt;color:#9ca3af;">Código de verificação<br/>de autenticidade</div>
+    </div>
+    <div style="flex:1;display:flex;justify-content:space-around;">
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;margin:30px 10px 4px;width:120px;"></div>
+        <div style="font-size:7pt;color:#6b7280;">Responsável RH</div>
+      </div>
+      <div style="text-align:center;">
+        <div style="border-top:1px solid #374151;margin:30px 10px 4px;width:120px;"></div>
+        <div style="font-size:7pt;color:#6b7280;">Director(a) Geral</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:6px;">
+    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · SIGA v3
+  </div>
+</div>`;
+
 const TIPO_DEFAULT_TEMPLATES: Partial<Record<DocTipo, string>> = {
   historico_academico: HISTORICO_ACADEMICO_DEFAULT,
+  recibo_salario: RECIBO_SALARIO_DEFAULT,
+  titulo_salario: TITULO_SALARIO_DEFAULT,
 };
 
 const TIPO_LABELS: Record<DocTipo, string> = {
@@ -321,6 +502,7 @@ const TIPO_LABELS: Record<DocTipo, string> = {
   lista_inscritos: 'Lista de Inscritos',
   lista_resultados_admissao: 'Lista de Resultados de Admissão',
   recibo_salario: 'Recibo de Vencimento',
+  titulo_salario: 'Título de Salário',
   extrato_propina: 'Extracto de Propinas',
   historico_academico: 'Histórico Académico',
   outro: 'Outro',
@@ -343,6 +525,7 @@ const TIPO_COLORS: Record<DocTipo, string> = {
   lista_inscritos: '#0e7490',
   lista_resultados_admissao: '#0f3460',
   recibo_salario: '#10b981',
+  titulo_salario: '#059669',
   extrato_propina: '#0d9488',
   historico_academico: '#4f46e5',
   outro: Colors.textMuted,
