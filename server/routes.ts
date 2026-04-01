@@ -1303,22 +1303,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(
         `INSERT INTO public.funcionarios (
           id, nome, apelido, "dataNascimento", genero, bi, nif, telefone, email, foto,
-          provincia, municipio, morada, departamento, cargo, especialidade,
+          provincia, municipio, morada, departamento, seccao, cargo, especialidade,
           "tipoContrato", "dataContratacao", "dataFimContrato", habilitacoes,
           "salarioBase", "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao", "outrosSubsidios",
           "utilizadorId", "professorId", ativo, observacoes, "createdAt", "updatedAt"
         ) VALUES (
           gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,
-          $10,$11,$12,$13,$14,$15,
-          $16,$17,$18,$19,
-          $20,$21,$22,$23,$24,
-          $25,$26,$27,$28,NOW(),NOW()
+          $10,$11,$12,$13,$14,$15,$16,
+          $17,$18,$19,$20,
+          $21,$22,$23,$24,$25,
+          $26,$27,$28,$29,NOW(),NOW()
         ) RETURNING *`,
         [
           b.nome, b.apelido ?? '', b.dataNascimento ?? '', b.genero ?? '', b.bi ?? '', b.nif ?? '',
           b.telefone ?? '', b.email ?? '', b.foto ?? null,
           b.provincia ?? '', b.municipio ?? '', b.morada ?? '',
-          b.departamento, b.cargo, b.especialidade ?? '',
+          b.departamento, b.seccao ?? '', b.cargo, b.especialidade ?? '',
           b.tipoContrato ?? 'efectivo', b.dataContratacao ?? '', b.dataFimContrato ?? null, b.habilitacoes ?? '',
           b.salarioBase ?? 0, b.subsidioAlimentacao ?? 0, b.subsidioTransporte ?? 0, b.subsidioHabitacao ?? 0, b.outrosSubsidios ?? 0,
           b.utilizadorId ?? null, b.professorId ?? null, b.ativo ?? true, b.observacoes ?? '',
@@ -1336,7 +1336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const b = requireBodyObject(req);
       const allowed = [
         "nome","apelido","dataNascimento","genero","bi","nif","telefone","email","foto",
-        "provincia","municipio","morada","departamento","cargo","especialidade",
+        "provincia","municipio","morada","departamento","seccao","cargo","especialidade",
         "tipoContrato","dataContratacao","dataFimContrato","habilitacoes",
         "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios",
         "utilizadorId","professorId","ativo","observacoes",
@@ -1727,6 +1727,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const rows = await query<JsonObject>(`DELETE FROM public.sumarios WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // GET /api/sumarios/pendentes-rh?mes=X&ano=Y
+  // Returns: rejected sumários + professors with horários but no accepted sumário this month
+  app.get("/api/sumarios/pendentes-rh", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const mes  = parseInt(String(req.query.mes  ?? new Date().getMonth() + 1));
+      const ano  = parseInt(String(req.query.ano  ?? new Date().getFullYear()));
+
+      // 1. Sumários rejeitados no mês
+      const rejeitados = await query<JsonObject>(
+        `SELECT s.*, f.cargo, f.departamento
+         FROM public.sumarios s
+         LEFT JOIN public.funcionarios f ON f."professorId" = s."professorId"
+         WHERE EXTRACT(MONTH FROM s.data::date) = $1
+           AND EXTRACT(YEAR  FROM s.data::date) = $2
+           AND s.status = 'rejeitado'
+         ORDER BY s.data DESC`,
+        [mes, ano]
+      );
+
+      // 2. Professores com horários mas sem sumário aceite no mês
+      const semSumario = await query<JsonObject>(
+        `SELECT DISTINCT h."professorId", h."professorNome",
+                f.cargo, f.departamento, f.id as funcionarioId
+         FROM public.horarios h
+         LEFT JOIN public.funcionarios f ON f."professorId" = h."professorId"
+         WHERE NOT EXISTS (
+           SELECT 1 FROM public.sumarios s
+           WHERE s."professorId" = h."professorId"
+             AND EXTRACT(MONTH FROM s.data::date) = $1
+             AND EXTRACT(YEAR  FROM s.data::date) = $2
+             AND s.status = 'aceite'
+         )`,
+        [mes, ano]
+      );
+
+      json(res, 200, {
+        rejeitados: rejeitados.map(r => ({ ...r, _tipo: 'rejeitado' })),
+        semSumario: semSumario.map(r => ({ ...r, _tipo: 'sem_sumario' })),
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
   // -----------------------
@@ -3972,7 +4014,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  // Processar folha: gera itens automáticos para todos os professores ativos com salário definido
+  // Processar folha: gera itens automáticos para professores e funcionários ativos com salário definido
+  // Inclui: descontos por faltas (configuracao_rh), pagamento por tempos lectivos (tempos_lectivos)
   app.post("/api/folhas-salarios/:id/processar", requireAuth, requirePermission("rh"), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -3980,62 +4023,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const folha = await query<JsonObject>(`SELECT * FROM public.folhas_salarios WHERE id=$1`, [id]);
       if (!folha[0]) return json(res, 404, { error: 'Folha não encontrada.' });
-
-      const profs = await query<JsonObject>(
-        `SELECT * FROM public.professores WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0 ORDER BY nome`,
-        []
-      );
+      const folhaMes = Number((folha[0] as any).mes);
+      const folhaAno = Number((folha[0] as any).ano);
 
       // Delete existing items and rebuild
       await query(`DELETE FROM public.itens_folha WHERE "folhaId"=$1`, [id]);
 
+      // Load taxas globais (INSS, IRT)
       const cfgRows = await query<JsonObject>(`SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral LIMIT 1`, []);
       const cfg = cfgRows[0] as any;
       const inssEmpRate = ((cfg?.inssEmpPerc ?? 3)) / 100;
       const inssPatrRate = ((cfg?.inssPatrPerc ?? 8)) / 100;
       const irtTabela = Array.isArray(cfg?.irtTabela) && (cfg.irtTabela as any[]).length > 0 ? cfg.irtTabela : undefined;
 
-      let totalBruto = 0, totalLiquido = 0, totalInssEmp = 0, totalInssPatr = 0, totalIrtSum = 0, totalSubs = 0;
+      // Load configuração RH (valores de faltas)
+      const rhRows = await query<JsonObject>(`SELECT * FROM public.configuracao_rh WHERE id=1`);
+      const rhCfg = rhRows[0] as any ?? {};
+      const valorPorFalta = Number(rhCfg.valorPorFalta ?? 0);
+      const valorMeioDia  = Number(rhCfg.valorMeioDia  ?? 0);
 
-      for (const p of profs) {
-        const salBase = Number(p.salarioBase ?? 0);
-        const subAlim = Number(p.subsidioAlimentacao ?? 0);
-        const subTrans = Number(p.subsidioTransporte ?? 0);
-        const subHab = Number(p.subsidioHabitacao ?? 0);
-        const outrosSubs = Number(b.outrosSubsidios ?? 0);
+      let totalBruto = 0, totalLiquido = 0, totalInssEmp = 0, totalInssPatr = 0, totalIrtSum = 0, totalSubs = 0;
+      let numProcessados = 0;
+
+      // ── Helper: calcular item para qualquer funcionário/professor ───────────
+      async function processarPessoa(
+        pessoaId: string,
+        nome: string,
+        cargoStr: string,
+        categoriaStr: string,
+        salBase: number,
+        subAlim: number,
+        subTrans: number,
+        subHab: number,
+        outrosSubs: number,
+        tipoFunc: 'professor' | 'funcionario',
+        departamentoStr: string,
+        seccaoStr: string,
+      ) {
         const outrosDesc = Number(b.outrosDescontos ?? 0);
 
+        // ── Faltas do mês ──────────────────────────────────────────────────
+        const faltasRows = await query<JsonObject>(
+          `SELECT tipo, descontavel FROM public.faltas_funcionarios
+           WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3`,
+          [pessoaId, folhaMes, folhaAno]
+        );
+        const nFaltasInj = faltasRows.filter(f => (f as any).tipo === 'injustificada' && (f as any).descontavel).length;
+        const nMeioDia   = faltasRows.filter(f => (f as any).tipo === 'meio_dia'      && (f as any).descontavel).length;
+        const descFaltas = Math.round((nFaltasInj * valorPorFalta + nMeioDia * valorMeioDia) * 100) / 100;
+
+        // ── Tempos lectivos / dias trabalhados (para contratados) ──────────
+        const tempoRows = await query<JsonObject>(
+          `SELECT "totalUnidades","totalCalculado" FROM public.tempos_lectivos
+           WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3 AND aprovado=true`,
+          [pessoaId, folhaMes, folhaAno]
+        );
+        const numTempos = tempoRows.reduce((s, t) => s + Number((t as any).totalUnidades ?? 0), 0);
+        const remTempos  = Math.round(tempoRows.reduce((s, t) => s + Number((t as any).totalCalculado ?? 0), 0) * 100) / 100;
+
         const totalSubsidios = subAlim + subTrans + subHab + outrosSubs;
-        const salBruto = salBase + totalSubsidios;
+        // Bruto = salário base + subsídios + remuneração por tempos (para contratados sem base fixa ou extra)
+        const salBruto = Math.round((salBase + totalSubsidios + remTempos) * 100) / 100;
 
-        // INSS: taxas configuráveis em config_geral
-        const inssEmp = Math.round(salBase * inssEmpRate * 100) / 100;
+        // INSS calcula sobre salário base
+        const inssEmp  = Math.round(salBase * inssEmpRate  * 100) / 100;
         const inssPatr = Math.round(salBase * inssPatrRate * 100) / 100;
-
-        // IRT: calculado com tabela configurável (Angola, subsídios em geral isentos)
+        // IRT sobre salário base
         const irt = Math.round(calcularIRT(salBase, irtTabela) * 100) / 100;
 
-        const totalDescontos = inssEmp + irt + outrosDesc;
-        const salLiquido = Math.round((salBruto - totalDescontos) * 100) / 100;
+        const totalDescontos = Math.round((inssEmp + irt + descFaltas + outrosDesc) * 100) / 100;
+        const salLiquido     = Math.round((salBruto - totalDescontos) * 100) / 100;
 
         await query(
           `INSERT INTO public.itens_folha
            (id,"folhaId","professorId","professorNome",cargo,categoria,
             "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios","salarioBruto",
-            "inssEmpregado","inssPatronal",irt,"outrosDescontos","totalDescontos","salarioLiquido")
-           VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
-          [id, String(p.id), `${p.nome} ${p.apelido}`,
-           String(p.cargo ?? 'Professor'), String(p.categoria ?? ''),
-           salBase, subAlim, subTrans, subHab, outrosSubs, salBruto,
-           inssEmp, inssPatr, irt, outrosDesc, totalDescontos, salLiquido]
+            "inssEmpregado","inssPatronal",irt,
+            "descontoFaltas","numFaltasInj","numMeioDia",
+            "remuneracaoTempos","numTempos",
+            "outrosDescontos","totalDescontos","salarioLiquido",
+            "tipoFuncionario",departamento,seccao)
+           VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25)`,
+          [
+            id, pessoaId, nome, cargoStr, categoriaStr,
+            salBase, subAlim, subTrans, subHab, outrosSubs, salBruto,
+            inssEmp, inssPatr, irt,
+            descFaltas, nFaltasInj, nMeioDia,
+            remTempos, numTempos,
+            outrosDesc, totalDescontos, salLiquido,
+            tipoFunc, departamentoStr, seccaoStr,
+          ]
         );
 
-        totalBruto += salBruto;
-        totalLiquido += salLiquido;
-        totalInssEmp += inssEmp;
+        totalBruto    += salBruto;
+        totalLiquido  += salLiquido;
+        totalInssEmp  += inssEmp;
         totalInssPatr += inssPatr;
-        totalIrtSum += irt;
-        totalSubs += totalSubsidios;
+        totalIrtSum   += irt;
+        totalSubs     += totalSubsidios;
+        numProcessados++;
+      }
+
+      // ── 1. Professores com salário base definido ──────────────────────────
+      const profs = await query<JsonObject>(
+        `SELECT * FROM public.professores WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0 ORDER BY nome`,
+        []
+      );
+      for (const p of profs) {
+        // Obter funcionario correspondente para faltas (professores podem estar na tabela funcionarios)
+        const fRows = await query<JsonObject>(`SELECT id, seccao FROM public.funcionarios WHERE "professorId"=$1 LIMIT 1`, [String(p.id)]);
+        const funcId = fRows[0] ? String((fRows[0] as any).id) : String(p.id);
+        const seccao = fRows[0] ? String((fRows[0] as any).seccao ?? '') : '';
+        await processarPessoa(
+          funcId,
+          `${p.nome} ${p.apelido}`,
+          String(p.cargo ?? 'Professor'),
+          String(p.categoria ?? ''),
+          Number(p.salarioBase ?? 0),
+          Number(p.subsidioAlimentacao ?? 0),
+          Number(p.subsidioTransporte ?? 0),
+          Number(p.subsidioHabitacao ?? 0),
+          0,
+          'professor',
+          'pedagogico',
+          seccao,
+        );
+      }
+
+      // ── 2. Funcionários administrativos com salário base definido ────────
+      // Exclui os que já estão ligados a um professor (evitar duplicação)
+      const funcs = await query<JsonObject>(
+        `SELECT * FROM public.funcionarios
+         WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0
+           AND departamento != 'pedagogico'
+         ORDER BY departamento, nome`,
+        []
+      );
+      for (const f of funcs) {
+        await processarPessoa(
+          String(f.id),
+          `${f.nome} ${f.apelido}`,
+          String((f as any).cargo ?? ''),
+          '',
+          Number((f as any).salarioBase ?? 0),
+          Number((f as any).subsidioAlimentacao ?? 0),
+          Number((f as any).subsidioTransporte ?? 0),
+          Number((f as any).subsidioHabitacao ?? 0),
+          Number((f as any).outrosSubsidios ?? 0),
+          'funcionario',
+          String((f as any).departamento ?? ''),
+          String((f as any).seccao ?? ''),
+        );
+      }
+
+      // ── 3. Professores/funcionários contratados SEM salário base fixo ────
+      // Apenas com tempos lectivos aprovados (pagamento 100% por tempos)
+      const semSalBase = await query<JsonObject>(
+        `SELECT DISTINCT tl."funcionarioId", f.nome, f.apelido, f.cargo, f.departamento, f.seccao,
+                (f."salarioBase" IS NULL OR f."salarioBase" = 0) AS semBase
+         FROM public.tempos_lectivos tl
+         JOIN public.funcionarios f ON tl."funcionarioId" = f.id
+         WHERE tl.mes=$1 AND tl.ano=$2 AND tl.aprovado=true
+           AND (f."salarioBase" IS NULL OR f."salarioBase" = 0)
+           AND f.ativo=true`,
+        [folhaMes, folhaAno]
+      );
+      for (const p of semSalBase) {
+        await processarPessoa(
+          String((p as any).funcionarioId),
+          `${(p as any).nome} ${(p as any).apelido}`,
+          String((p as any).cargo ?? ''),
+          '',
+          0,
+          0, 0, 0, 0,
+          (p as any).departamento === 'pedagogico' ? 'professor' : 'funcionario',
+          String((p as any).departamento ?? ''),
+          String((p as any).seccao ?? ''),
+        );
       }
 
       const nomeProcBy = String(b.processadaPor ?? 'Sistema');
@@ -4049,10 +4213,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [Math.round(totalBruto*100)/100, Math.round(totalLiquido*100)/100,
          Math.round(totalInssEmp*100)/100, Math.round(totalInssPatr*100)/100,
          Math.round(totalIrtSum*100)/100, Math.round(totalSubs*100)/100,
-         profs.length, nomeProcBy, id]
+         numProcessados, nomeProcBy, id]
       );
 
-      json(res, 200, { folha: updated[0], numProcessados: profs.length });
+      json(res, 200, { folha: updated[0], numProcessados });
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 

@@ -138,6 +138,254 @@ function CodigoCard({ cod, onCopy, onRevogar }: {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+   Painel de Recursos Humanos para CEO/PCA
+───────────────────────────────────────────────────────── */
+interface RHStats {
+  totalFuncionarios: number;
+  totalProfessores: number;
+  totalAdmin: number;
+  faltasThisMonth: number;
+  ultimaFolha: { mes: string; total: number; estado: string } | null;
+  totalSalariosUltimaFolha: number;
+  deptBreakdown: { departamento: string; count: number }[];
+}
+
+function RHPanelCEO({ router }: { router: ReturnType<typeof useRouter> }) {
+  const [stats, setStats] = useState<RHStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchRHStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [funcsRes, faltasRes, folhasRes] = await Promise.all([
+        api.get('/funcionarios'),
+        api.get('/faltas-funcionarios'),
+        api.get('/folhas-salarios'),
+      ]);
+
+      const funcs: any[] = funcsRes.data || [];
+      const faltas: any[] = faltasRes.data || [];
+      const folhas: any[] = folhasRes.data || [];
+
+      const now = new Date();
+      const mesAtual = now.getMonth() + 1;
+      const anoAtual = now.getFullYear();
+
+      const faltasMes = faltas.filter(f => {
+        const d = new Date(f.data);
+        return d.getMonth() + 1 === mesAtual && d.getFullYear() === anoAtual;
+      }).length;
+
+      const profs = funcs.filter(f =>
+        (f.departamento || '').toLowerCase().includes('pedagog') ||
+        (f.cargo || '').toLowerCase().includes('professor')
+      );
+      const admin = funcs.filter(f =>
+        !(f.departamento || '').toLowerCase().includes('pedagog') &&
+        !(f.cargo || '').toLowerCase().includes('professor')
+      );
+
+      const deptMap: Record<string, number> = {};
+      funcs.forEach(f => {
+        const dept = f.departamento || 'Sem Departamento';
+        deptMap[dept] = (deptMap[dept] || 0) + 1;
+      });
+      const deptBreakdown = Object.entries(deptMap)
+        .map(([departamento, count]) => ({ departamento, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      let ultimaFolha = null;
+      let totalSalariosUltimaFolha = 0;
+      if (folhas.length > 0) {
+        const folha = folhas.sort((a: any, b: any) => b.id - a.id)[0];
+        try {
+          const itensRes = await api.get(`/folhas-salarios/${folha.id}/itens`);
+          const itens: any[] = itensRes.data || [];
+          totalSalariosUltimaFolha = itens.reduce((s: number, i: any) => s + (i.salarioLiquido || 0), 0);
+        } catch (_) {}
+        ultimaFolha = {
+          mes: folha.mes,
+          total: totalSalariosUltimaFolha,
+          estado: folha.estado || 'rascunho',
+        };
+      }
+
+      setStats({
+        totalFuncionarios: funcs.length,
+        totalProfessores: profs.length,
+        totalAdmin: admin.length,
+        faltasThisMonth: faltasMes,
+        ultimaFolha,
+        totalSalariosUltimaFolha,
+        deptBreakdown,
+      });
+    } catch (e) {
+      console.error('RHPanelCEO error:', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchRHStats(); }, [fetchRHStats]);
+
+  function formatAOA(v: number) {
+    return v.toLocaleString('pt-AO', { style: 'currency', currency: 'AOA', maximumFractionDigits: 0 });
+  }
+
+  const ESTADO_COLOR: Record<string, string> = {
+    processada: Colors.success,
+    paga: Colors.info,
+    rascunho: Colors.textMuted,
+    pendente: Colors.warning,
+  };
+
+  return (
+    <>
+      <View style={rhS.header}>
+        <MaterialCommunityIcons name="account-group" size={20} color={Colors.gold} />
+        <Text style={rhS.headerTitle}>Recursos Humanos</Text>
+        <TouchableOpacity onPress={fetchRHStats} style={{ marginLeft: 'auto' }}>
+          <Ionicons name="refresh-outline" size={16} color={Colors.textMuted} />
+        </TouchableOpacity>
+      </View>
+
+      {loading ? (
+        <View style={rhS.loadingBox}>
+          <Text style={{ color: Colors.textMuted, fontSize: 13 }}>A carregar dados RH...</Text>
+        </View>
+      ) : (
+        <>
+          {/* KPI Grid */}
+          <View style={rhS.grid}>
+            <View style={[rhS.kpi, { borderLeftColor: Colors.info }]}>
+              <Text style={rhS.kpiValue}>{stats?.totalFuncionarios ?? 0}</Text>
+              <Text style={rhS.kpiLabel}>Total Funcionários</Text>
+            </View>
+            <View style={[rhS.kpi, { borderLeftColor: Colors.success }]}>
+              <Text style={rhS.kpiValue}>{stats?.totalProfessores ?? 0}</Text>
+              <Text style={rhS.kpiLabel}>Docentes</Text>
+            </View>
+            <View style={[rhS.kpi, { borderLeftColor: Colors.warning }]}>
+              <Text style={rhS.kpiValue}>{stats?.totalAdmin ?? 0}</Text>
+              <Text style={rhS.kpiLabel}>Administrativos</Text>
+            </View>
+            <View style={[rhS.kpi, { borderLeftColor: Colors.danger }]}>
+              <Text style={rhS.kpiValue}>{stats?.faltasThisMonth ?? 0}</Text>
+              <Text style={rhS.kpiLabel}>Faltas este mês</Text>
+            </View>
+          </View>
+
+          {/* Última Folha de Salários */}
+          {stats?.ultimaFolha && (
+            <View style={rhS.folhaCard}>
+              <View style={rhS.folhaHeader}>
+                <MaterialCommunityIcons name="file-document-outline" size={16} color={Colors.gold} />
+                <Text style={rhS.folhaTitle}>Última Folha de Salários</Text>
+                <View style={[rhS.folhaEstado, { backgroundColor: (ESTADO_COLOR[stats.ultimaFolha.estado] || Colors.textMuted) + '22' }]}>
+                  <Text style={[rhS.folhaEstadoText, { color: ESTADO_COLOR[stats.ultimaFolha.estado] || Colors.textMuted }]}>
+                    {stats.ultimaFolha.estado.charAt(0).toUpperCase() + stats.ultimaFolha.estado.slice(1)}
+                  </Text>
+                </View>
+              </View>
+              <View style={rhS.folhaBody}>
+                <View>
+                  <Text style={rhS.folhaMes}>{stats.ultimaFolha.mes}</Text>
+                  <Text style={rhS.folhaLabel}>Período</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={[rhS.folhaMes, { color: Colors.success }]}>{formatAOA(stats.ultimaFolha.total)}</Text>
+                  <Text style={rhS.folhaLabel}>Total Salários Líquidos</Text>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* Distribuição por Departamento */}
+          {(stats?.deptBreakdown ?? []).length > 0 && (
+            <View style={rhS.deptCard}>
+              <Text style={rhS.deptTitle}>Pessoal por Departamento</Text>
+              {stats!.deptBreakdown.map((d, i) => {
+                const total = stats!.totalFuncionarios || 1;
+                const pct = Math.round((d.count / total) * 100);
+                const DEPT_COLORS = [Colors.info, Colors.success, Colors.warning, '#8b5cf6', Colors.gold];
+                const cor = DEPT_COLORS[i % DEPT_COLORS.length];
+                return (
+                  <View key={d.departamento} style={rhS.deptRow}>
+                    <View style={{ flex: 1 }}>
+                      <View style={rhS.deptLabelRow}>
+                        <Text style={rhS.deptName} numberOfLines={1}>{d.departamento}</Text>
+                        <Text style={rhS.deptCount}>{d.count} ({pct}%)</Text>
+                      </View>
+                      <View style={rhS.deptBarBg}>
+                        <View style={[rhS.deptBar, { width: `${pct}%` as any, backgroundColor: cor }]} />
+                      </View>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Atalhos RH */}
+          <Text style={[styles.escolaSectionTitle, { marginTop: 16 }]}>Módulos de Recursos Humanos</Text>
+          {[
+            { label: 'Controlo de Pessoal', sub: 'Ficha e gestão de funcionários', route: '/(main)/rh-controle', icon: 'people', color: Colors.info },
+            { label: 'Faltas & Tempos Lectivos', sub: 'Registo de faltas e tempos', route: '/(main)/rh-faltas-tempos', icon: 'time', color: Colors.warning },
+            { label: 'Folhas de Salários', sub: 'Processamento e emissão de recibos', route: '/(main)/rh-payroll', icon: 'cash', color: Colors.success },
+          ].map(item => (
+            <TouchableOpacity
+              key={item.route}
+              style={styles.escolaShortcut}
+              onPress={() => router.push(item.route as any)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.escolaShortcutIcon, { backgroundColor: item.color + '22' }]}>
+                <Ionicons name={item.icon as any} size={18} color={item.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.escolaShortcutLabel}>{item.label}</Text>
+                <Text style={styles.escolaShortcutSub}>{item.sub}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+const rhS = StyleSheet.create({
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 20, marginBottom: 12 },
+  headerTitle: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  loadingBox: { alignItems: 'center', padding: 24 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
+  kpi: {
+    flex: 1, minWidth: '44%', backgroundColor: Colors.card, borderRadius: 10, padding: 12,
+    borderLeftWidth: 3,
+  },
+  kpiValue: { fontSize: 22, fontWeight: '800', color: Colors.text, marginBottom: 2 },
+  kpiLabel: { fontSize: 11, color: Colors.textMuted },
+  folhaCard: { backgroundColor: Colors.card, borderRadius: 10, padding: 14, marginBottom: 10 },
+  folhaHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  folhaTitle: { fontSize: 13, fontWeight: '700', color: Colors.text, flex: 1 },
+  folhaEstado: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
+  folhaEstadoText: { fontSize: 11, fontWeight: '700' },
+  folhaBody: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  folhaMes: { fontSize: 15, fontWeight: '700', color: Colors.text },
+  folhaLabel: { fontSize: 11, color: Colors.textMuted, marginTop: 2 },
+  deptCard: { backgroundColor: Colors.card, borderRadius: 10, padding: 14, marginBottom: 10 },
+  deptTitle: { fontSize: 13, fontWeight: '700', color: Colors.text, marginBottom: 10 },
+  deptRow: { marginBottom: 8 },
+  deptLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  deptName: { fontSize: 12, color: Colors.text, flex: 1 },
+  deptCount: { fontSize: 12, color: Colors.textMuted, fontWeight: '600' },
+  deptBarBg: { height: 5, backgroundColor: Colors.border, borderRadius: 3, overflow: 'hidden' },
+  deptBar: { height: 5, borderRadius: 3 },
+});
+
 export default function CeoScreen() {
   const { licenca, codigosGerados, isLicencaValida, diasRestantes, gerarCodigo, revogarCodigo, adicionarSaldo } = useLicense();
   const { alunos, turmas, professores, notas } = useData();
@@ -516,6 +764,9 @@ export default function CeoScreen() {
               <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
             </TouchableOpacity>
           ))}
+
+          {/* ── Recursos Humanos ── */}
+          <RHPanelCEO router={router} />
         </ScrollView>
       )}
 

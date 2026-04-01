@@ -51,6 +51,7 @@ interface Funcionario {
   municipio: string;
   morada: string;
   departamento: DepartamentoKey;
+  seccao: string;
   cargo: string;
   especialidade: string;
   tipoContrato: string;
@@ -107,7 +108,7 @@ function emptyFuncionario(): Partial<Funcionario> {
     nome: '', apelido: '', dataNascimento: '', genero: 'M',
     bi: '', nif: '', telefone: '', email: '',
     provincia: 'Luanda', municipio: '', morada: '',
-    departamento: 'pedagogico', cargo: 'professor_i_ciclo',
+    departamento: 'pedagogico', seccao: '', cargo: 'professor_i_ciclo',
     especialidade: '', tipoContrato: 'efectivo',
     dataContratacao: '', dataFimContrato: '',
     habilitacoes: '', salarioBase: 0,
@@ -817,6 +818,9 @@ export default function RHControleScreen() {
                     })}
                   </View>
 
+                  <FormRow label="Secção / Unidade Orgânica">
+                    <TextInput style={styles.input} placeholder="Ex: Secretaria Pedagógica, Arquivo, Tesouraria..." placeholderTextColor={Colors.textMuted} value={funcForm.seccao} onChangeText={v => updateField('seccao', v)} />
+                  </FormRow>
                   <FormRow label="Especialidade / Área">
                     <TextInput style={styles.input} placeholder="Ex: Matemática, Gestão, etc." placeholderTextColor={Colors.textMuted} value={funcForm.especialidade} onChangeText={v => updateField('especialidade', v)} />
                   </FormRow>
@@ -944,6 +948,7 @@ export default function RHControleScreen() {
                     <DetailRow label="Email" value={selectedFunc.email || '—'} />
                     <DetailRow label="Data de Nascimento" value={selectedFunc.dataNascimento || '—'} />
                     <DetailRow label="Província / Município" value={selectedFunc.provincia ? `${selectedFunc.provincia} / ${selectedFunc.municipio}` : '—'} />
+                    {selectedFunc.seccao ? <DetailRow label="Secção / Unidade" value={selectedFunc.seccao} /> : null}
                     <DetailRow label="Vínculo" value={TIPO_CONTRATO.find(t => t.id === selectedFunc.tipoContrato)?.label || selectedFunc.tipoContrato} />
                     <DetailRow label="Data de Contratação" value={selectedFunc.dataContratacao || '—'} />
                     <DetailRow label="Habilitações" value={selectedFunc.habilitacoes || '—'} />

@@ -54,9 +54,17 @@ interface ItemFolha {
   inssEmpregado: number;
   inssPatronal: number;
   irt: number;
+  descontoFaltas: number;
+  numFaltasInj: number;
+  numMeioDia: number;
+  remuneracaoTempos: number;
+  numTempos: number;
   outrosDescontos: number;
   totalDescontos: number;
   salarioLiquido: number;
+  tipoFuncionario: string;
+  departamento: string;
+  seccao: string;
   observacao: string | null;
 }
 
@@ -475,11 +483,28 @@ export default function RhPayrollScreen() {
       <View style={styles.itemHeader}>
         <View style={{ flex: 1 }}>
           <Text style={styles.rowTitle}>{item.professorNome}</Text>
-          <Text style={styles.rowSub}>{item.cargo}{item.categoria ? ` · ${item.categoria}` : ''}</Text>
+          <Text style={styles.rowSub}>
+            {item.cargo}{item.categoria ? ` · ${item.categoria}` : ''}
+            {item.seccao ? ` · ${item.seccao}` : ''}
+          </Text>
         </View>
-        <View style={[styles.badge, { backgroundColor: '#5E6AD228', borderColor: '#5E6AD2' }]}>
-          <Ionicons name="document-text-outline" size={12} color="#5E6AD2" />
-          <Text style={[styles.badgeText, { color: '#5E6AD2', marginLeft: 4 }]}>Recibo</Text>
+        <View style={{ flexDirection: 'row', gap: 4 }}>
+          {item.numFaltasInj > 0 && (
+            <View style={[styles.badge, { backgroundColor: '#EF535028', borderColor: '#EF5350' }]}>
+              <Ionicons name="warning-outline" size={11} color="#EF5350" />
+              <Text style={[styles.badgeText, { color: '#EF5350', marginLeft: 3 }]}>{item.numFaltasInj}F</Text>
+            </View>
+          )}
+          {item.numTempos > 0 && (
+            <View style={[styles.badge, { backgroundColor: '#FF714128', borderColor: '#FF7141' }]}>
+              <Ionicons name="time-outline" size={11} color="#FF7141" />
+              <Text style={[styles.badgeText, { color: '#FF7141', marginLeft: 3 }]}>{item.numTempos}T</Text>
+            </View>
+          )}
+          <View style={[styles.badge, { backgroundColor: '#5E6AD228', borderColor: '#5E6AD2' }]}>
+            <Ionicons name="document-text-outline" size={12} color="#5E6AD2" />
+            <Text style={[styles.badgeText, { color: '#5E6AD2', marginLeft: 4 }]}>Recibo</Text>
+          </View>
         </View>
       </View>
       <View style={styles.itemCols}>
@@ -495,6 +520,12 @@ export default function RhPayrollScreen() {
           <Text style={[styles.itemColLabel, { color: '#EF5350' }]}>IRT</Text>
           <Text style={[styles.itemColVal, { color: '#EF5350' }]}>{fmt(item.irt)}</Text>
         </View>
+        {(item.descontoFaltas ?? 0) > 0 && (
+          <View style={styles.itemCol}>
+            <Text style={[styles.itemColLabel, { color: '#EF5350' }]}>Faltas</Text>
+            <Text style={[styles.itemColVal, { color: '#EF5350' }]}>-{fmt(item.descontoFaltas)}</Text>
+          </View>
+        )}
         <View style={styles.itemCol}>
           <Text style={[styles.itemColLabel, { color: '#66BB6A' }]}>Líquido</Text>
           <Text style={[styles.itemColVal, { color: '#66BB6A', fontWeight: '700' }]}>{fmt(item.salarioLiquido)}</Text>
@@ -1035,11 +1066,26 @@ export default function RhPayrollScreen() {
 
                   <View style={reciboStyles.divider} />
 
+                  {/* Remuneração por Tempos Lectivos */}
+                  {(reciboItem.remuneracaoTempos ?? 0) > 0 && (
+                    <>
+                      <Text style={reciboStyles.sectionLabel}>TEMPOS LECTIVOS / DIAS TRABALHADOS</Text>
+                      <View style={reciboStyles.infoGrid}>
+                        <RLine label="Nº de Unidades" val={String(reciboItem.numTempos ?? 0)} />
+                        <RLine label="Remuneração por Tempos" val={fmt(reciboItem.remuneracaoTempos)} accent />
+                      </View>
+                      <View style={reciboStyles.divider} />
+                    </>
+                  )}
+
                   {/* Descontos */}
                   <Text style={reciboStyles.sectionLabel}>DESCONTOS</Text>
                   <View style={reciboStyles.infoGrid}>
                     <RLine label={`INSS Empregado (${inssEmpPerc}%)`} val={fmt(reciboItem.inssEmpregado)} deducao />
                     <RLine label="IRT (tabela progressiva)" val={fmt(reciboItem.irt)} deducao />
+                    {(reciboItem.descontoFaltas ?? 0) > 0 && (
+                      <RLine label={`Faltas (${reciboItem.numFaltasInj ?? 0} inj. + ${reciboItem.numMeioDia ?? 0} meio-dia)`} val={fmt(reciboItem.descontoFaltas)} deducao />
+                    )}
                     {reciboItem.outrosDescontos > 0 && <RLine label="Outros Descontos" val={fmt(reciboItem.outrosDescontos)} deducao />}
                     <RLine label="Total Descontos" val={fmt(reciboItem.totalDescontos)} bold deducao />
                   </View>

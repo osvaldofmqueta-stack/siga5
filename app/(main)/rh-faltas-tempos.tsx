@@ -14,7 +14,7 @@ import { webAlert } from '@/utils/webAlert';
 import { DEPARTAMENTOS, getDepartamentoByKey, DepartamentoKey } from '@/shared/departamentos';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = 'faltas' | 'professores' | 'admin' | 'configuracao';
+type Tab = 'faltas' | 'professores' | 'admin' | 'configuracao' | 'sumarios' | 'relatorios';
 
 interface Funcionario {
   id: string;
@@ -115,8 +115,10 @@ export default function RHFaltasTemposScreen() {
 
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: 'faltas',       label: 'Faltas',        icon: 'calendar-remove'   },
+    { key: 'sumarios',     label: 'Sumários',      icon: 'alert-circle'      },
     { key: 'professores',  label: 'Prof. Tempos',  icon: 'school'            },
     { key: 'admin',        label: 'Pessoal Admin', icon: 'office-building'   },
+    { key: 'relatorios',   label: 'Relatórios',    icon: 'file-chart'        },
     { key: 'configuracao', label: 'Configuração',  icon: 'cog'               },
   ];
 
@@ -147,8 +149,10 @@ export default function RHFaltasTemposScreen() {
 
       {/* Content */}
       {tab === 'faltas'       && <FaltasTab mes={mes} ano={ano} user={user} />}
+      {tab === 'sumarios'     && <SumariosTab mes={mes} ano={ano} user={user} />}
       {tab === 'professores'  && <TemposTab tipo="professor" mes={mes} ano={ano} user={user} />}
       {tab === 'admin'        && <TemposTab tipo="admin" mes={mes} ano={ano} user={user} />}
+      {tab === 'relatorios'   && <RelatoriosTab mes={mes} ano={ano} />}
       {tab === 'configuracao' && <ConfiguracaoTab />}
     </View>
   );
@@ -941,6 +945,317 @@ function ConfigField({ label, value, onChangeText, placeholder, icon, iconColor 
         />
       </View>
     </View>
+  );
+}
+
+// ── SumariosTab ───────────────────────────────────────────────────────────────
+function SumariosTab({ mes, ano, user }: { mes: number; ano: number; user: any }) {
+  const [data, setData] = React.useState<{ rejeitados: any[]; semSumario: any[] } | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [registering, setRegistering] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    setData(null);
+    api.get(`/api/sumarios/pendentes-rh?mes=${mes}&ano=${ano}`)
+      .then(r => setData(r))
+      .catch(() => setData({ rejeitados: [], semSumario: [] }))
+      .finally(() => setLoading(false));
+  }, [mes, ano]);
+
+  async function registrarFalta(professorId: string, nome: string) {
+    const key = professorId;
+    setRegistering(key);
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      await api.post('/api/faltas-funcionarios', {
+        funcionarioId: professorId,
+        data: today,
+        tipo: 'injustificada',
+        descontavel: true,
+        motivo: `Falta automática – sumário não confirmado (${MESES_LABELS[mes - 1]}/${ano})`,
+        registadoPor: user?.name || 'RH',
+      });
+      webAlert(`Falta registada para ${nome}`);
+      setData(d => d ? { ...d, semSumario: d.semSumario.filter(s => s.professorId !== professorId) } : d);
+    } catch {
+      webAlert('Erro ao registar falta');
+    } finally {
+      setRegistering(null);
+    }
+  }
+
+  const total = (data?.rejeitados.length ?? 0) + (data?.semSumario.length ?? 0);
+
+  if (loading) return (
+    <View style={[styles.centered]}>
+      <ActivityIndicator color={Colors.accent} size="large" />
+      <Text style={[styles.emptySub, { marginTop: 12 }]}>A carregar sumários...</Text>
+    </View>
+  );
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+      {/* KPI */}
+      <View style={{ backgroundColor: total > 0 ? '#7f1d1d22' : Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: total > 0 ? '#ef4444' : Colors.border, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
+        <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: total > 0 ? '#ef444422' : Colors.surfaceLight + '44', justifyContent: 'center', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="alert-circle" size={24} color={total > 0 ? '#ef4444' : Colors.textMuted} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: Colors.text ?? '#fff', fontSize: 22, fontWeight: '800' }}>{total}</Text>
+          <Text style={{ color: Colors.textMuted, fontSize: 12, marginTop: 2 }}>
+            {total === 0 ? 'Nenhuma ocorrência' : `ocorrência${total > 1 ? 's' : ''} encontrada${total > 1 ? 's' : ''}`} em {MESES_LABELS[mes - 1]}/{ano}
+          </Text>
+        </View>
+      </View>
+
+      {/* Rejeitados */}
+      {(data?.rejeitados.length ?? 0) > 0 && (
+        <View style={{ backgroundColor: Colors.surface, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
+          <View style={{ backgroundColor: '#7f1d1d', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialCommunityIcons name="close-circle" size={16} color="#fca5a5" />
+            <Text style={{ color: '#fca5a5', fontSize: 13, fontWeight: '700' }}>Sumários Rejeitados ({data!.rejeitados.length})</Text>
+          </View>
+          {data!.rejeitados.map((s, i) => (
+            <View key={s.id} style={{ padding: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: Colors.border, gap: 4 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: Colors.text ?? '#fff', fontSize: 13, fontWeight: '700' }}>{s.professorNome}</Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>{s.disciplina} · {s.turmaNome} · {formatDate(s.data)}</Text>
+                  {s.observacaoRH ? <Text style={{ color: '#ef4444', fontSize: 11, marginTop: 2 }}>Motivo: {s.observacaoRH}</Text> : null}
+                </View>
+                <View style={{ backgroundColor: '#7f1d1d', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                  <Text style={{ color: '#fca5a5', fontSize: 9, fontWeight: '700' }}>REJEITADO</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}
+                onPress={() => registrarFalta(s.professorId, s.professorNome)}
+                disabled={registering === s.professorId}
+              >
+                <MaterialCommunityIcons name="calendar-remove" size={14} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>
+                  {registering === s.professorId ? 'A registar...' : 'Registar Falta'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Sem sumário */}
+      {(data?.semSumario.length ?? 0) > 0 && (
+        <View style={{ backgroundColor: Colors.surface, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: Colors.border }}>
+          <View style={{ backgroundColor: '#78350f', padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialCommunityIcons name="file-remove" size={16} color="#fcd34d" />
+            <Text style={{ color: '#fcd34d', fontSize: 13, fontWeight: '700' }}>Sem Sumário Aceite ({data!.semSumario.length})</Text>
+          </View>
+          {data!.semSumario.map((s, i) => (
+            <View key={s.professorId} style={{ padding: 12, borderTopWidth: i > 0 ? 1 : 0, borderTopColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#78350f44', justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: '#fcd34d', fontSize: 14, fontWeight: '800' }}>{(s.professorNome ?? '?').charAt(0)}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: Colors.text ?? '#fff', fontSize: 13, fontWeight: '700' }}>{s.professorNome}</Text>
+                <Text style={{ color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>
+                  {s.departamento ? getDeptLabel(s.departamento) : 'Professor'}{s.cargo ? ` · ${s.cargo}` : ''}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#ef4444', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                onPress={() => registrarFalta(s.professorId, s.professorNome)}
+                disabled={registering === s.professorId}
+              >
+                <MaterialCommunityIcons name="calendar-remove" size={14} color="#fff" />
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>
+                  {registering === s.professorId ? '...' : 'Falta'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {total === 0 && !loading && (
+        <View style={styles.centered}>
+          <MaterialCommunityIcons name="check-circle" size={48} color={Colors.success} />
+          <Text style={styles.emptyText}>Tudo em ordem!</Text>
+          <Text style={styles.emptySub}>Todos os professores têm sumários aceites em {MESES_LABELS[mes - 1]}/{ano}.</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+const MESES_LABELS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+// ── RelatoriosTab ──────────────────────────────────────────────────────────────
+function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
+  const [loadingFaltas, setLoadingFaltas] = React.useState(false);
+  const [loadingPayroll, setLoadingPayroll] = React.useState(false);
+
+  async function gerarRelatorioFaltas(tipo: 'mensal' | 'anual') {
+    setLoadingFaltas(true);
+    try {
+      const params = tipo === 'mensal' ? `mes=${mes}&ano=${ano}` : `ano=${ano}`;
+      const data = await api.get(`/api/faltas-funcionarios?${params}`);
+      const faltas: any[] = Array.isArray(data) ? data : [];
+
+      const titulo = tipo === 'mensal'
+        ? `Relatório de Faltas — ${MESES_LABELS[mes - 1]}/${ano}`
+        : `Relatório de Faltas — Ano ${ano}`;
+
+      const rows = faltas.map(f => `
+        <tr>
+          <td>${f.funcionarioNome ?? '—'}</td>
+          <td>${formatDate(f.data)}</td>
+          <td>${f.tipo === 'injustificada' ? 'Injustificada' : f.tipo === 'justificada' ? 'Justificada' : 'Meio-dia'}</td>
+          <td style="text-align:center">${f.descontavel ? '✓' : '—'}</td>
+          <td>${f.motivo ?? '—'}</td>
+        </tr>`).join('');
+
+      const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/><title>${titulo}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:32px;color:#111;font-size:12px}
+        h1{font-size:18px;margin-bottom:4px}
+        h3{font-size:13px;color:#555;margin-bottom:16px;font-weight:normal}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th{background:#1a1a2e;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
+        td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
+        tr:nth-child(even){background:#f9fafb}
+        .footer{margin-top:24px;font-size:10px;color:#aaa}
+      </style></head><body>
+      <h1>${titulo}</h1>
+      <h3>Total: ${faltas.length} falta${faltas.length !== 1 ? 's' : ''} registada${faltas.length !== 1 ? 's' : ''}</h3>
+      <table>
+        <thead><tr><th>Funcionário</th><th>Data</th><th>Tipo</th><th>Descontável</th><th>Motivo</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3</p>
+      </body></html>`;
+
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); w.print(); }
+    } catch { webAlert('Erro ao gerar relatório'); }
+    finally { setLoadingFaltas(false); }
+  }
+
+  async function gerarRelatorioPayroll(tipo: 'mensal' | 'anual') {
+    setLoadingPayroll(true);
+    try {
+      const folhasData = await api.get('/api/folhas-salarios');
+      let folhas: any[] = Array.isArray(folhasData) ? folhasData : [];
+      if (tipo === 'mensal') {
+        folhas = folhas.filter(f => f.mes == mes && f.ano == ano);
+      } else {
+        folhas = folhas.filter(f => f.ano == ano);
+      }
+
+      const titulo = tipo === 'mensal'
+        ? `Relatório de Pagamentos — ${MESES_LABELS[mes - 1]}/${ano}`
+        : `Relatório de Pagamentos — Ano ${ano}`;
+
+      const totalLiquido = folhas.reduce((s: number, f: any) => s + Number(f.totalLiquido ?? 0), 0);
+      const fmt = (v: number) => v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
+
+      const rows = folhas.map((f: any) => `
+        <tr>
+          <td>${f.funcionarioNome ?? '—'}</td>
+          <td>${MESES_LABELS[(f.mes ?? 1) - 1]}/${f.ano}</td>
+          <td>${f.cargo ?? '—'}</td>
+          <td style="text-align:right">${fmt(Number(f.salarioBase ?? 0))}</td>
+          <td style="text-align:right;color:${Number(f.totalDescontos ?? 0) > 0 ? '#dc2626' : '#111'}">${fmt(Number(f.totalDescontos ?? 0))}</td>
+          <td style="text-align:right;font-weight:bold">${fmt(Number(f.totalLiquido ?? 0))}</td>
+          <td style="text-align:center">${f.estado === 'pago' ? '✅ Pago' : f.estado === 'processado' ? '🔄 Processado' : '⏳ Rascunho'}</td>
+        </tr>`).join('');
+
+      const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/><title>${titulo}</title>
+      <style>
+        body{font-family:Arial,sans-serif;padding:32px;color:#111;font-size:12px}
+        h1{font-size:18px;margin-bottom:4px}
+        h3{font-size:13px;color:#555;margin-bottom:4px;font-weight:normal}
+        .total{font-size:14px;color:#065f46;font-weight:bold;margin-bottom:16px}
+        table{width:100%;border-collapse:collapse;margin-top:16px}
+        th{background:#1a1a2e;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
+        td{padding:7px 10px;border-bottom:1px solid #e5e7eb}
+        tr:nth-child(even){background:#f9fafb}
+        .footer{margin-top:24px;font-size:10px;color:#aaa}
+      </style></head><body>
+      <h1>${titulo}</h1>
+      <h3>${folhas.length} folha${folhas.length !== 1 ? 's' : ''} de salário</h3>
+      <p class="total">Total Líquido: ${fmt(totalLiquido)}</p>
+      <table>
+        <thead><tr><th>Funcionário</th><th>Mês</th><th>Cargo</th><th>Salário Base</th><th>Descontos</th><th>Líquido</th><th>Estado</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3</p>
+      </body></html>`;
+
+      const w = window.open('', '_blank');
+      if (w) { w.document.write(html); w.document.close(); w.print(); }
+    } catch { webAlert('Erro ao gerar relatório'); }
+    finally { setLoadingPayroll(false); }
+  }
+
+  const cardStyle = (color: string) => ({
+    backgroundColor: Colors.surface, borderRadius: 16, padding: 20,
+    borderWidth: 1, borderColor: Colors.border, gap: 10,
+    borderLeftWidth: 4, borderLeftColor: color,
+  });
+
+  const btnStyle = (color: string) => ({
+    backgroundColor: color, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 16,
+    flexDirection: 'row' as const, alignItems: 'center' as const, gap: 8, flex: 1,
+  });
+
+  return (
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
+      <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 4 }}>
+        Gere relatórios em PDF directamente do seu navegador. Seleccione o período pretendido.
+      </Text>
+
+      {/* Faltas */}
+      <View style={cardStyle('#ef4444')}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <MaterialCommunityIcons name="calendar-remove" size={20} color="#ef4444" />
+          <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>Relatório de Faltas</Text>
+        </View>
+        <Text style={{ color: Colors.textMuted, fontSize: 12 }}>
+          Lista detalhada de todas as faltas registadas — tipo, desconto e motivo.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={btnStyle('#ef4444')} onPress={() => gerarRelatorioFaltas('mensal')} disabled={loadingFaltas}>
+            <MaterialCommunityIcons name="calendar-month" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `${MESES_LABELS[mes - 1]} ${ano}`}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={btnStyle('#b91c1c')} onPress={() => gerarRelatorioFaltas('anual')} disabled={loadingFaltas}>
+            <MaterialCommunityIcons name="calendar-year" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingFaltas ? 'A gerar...' : `Anual ${ano}`}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Payroll */}
+      <View style={cardStyle('#10b981')}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <MaterialCommunityIcons name="cash-multiple" size={20} color="#10b981" />
+          <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>Relatório de Pagamentos</Text>
+        </View>
+        <Text style={{ color: Colors.textMuted, fontSize: 12 }}>
+          Resumo de todas as folhas de salário — salário base, descontos e líquido a receber.
+        </Text>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          <TouchableOpacity style={btnStyle('#10b981')} onPress={() => gerarRelatorioPayroll('mensal')} disabled={loadingPayroll}>
+            <MaterialCommunityIcons name="calendar-month" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `${MESES_LABELS[mes - 1]} ${ano}`}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={btnStyle('#059669')} onPress={() => gerarRelatorioPayroll('anual')} disabled={loadingPayroll}>
+            <MaterialCommunityIcons name="calendar-year" size={16} color="#fff" />
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 12 }}>{loadingPayroll ? 'A gerar...' : `Anual ${ano}`}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScrollView>
   );
 }
 

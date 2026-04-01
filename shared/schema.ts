@@ -188,6 +188,9 @@ export const professores = pgTable("professores", {
   habilitacoes: text("habilitacoes").notNull(),
   ativo: boolean("ativo").notNull().default(true),
 
+  // Organização interna
+  seccao: text("seccao").notNull().default(''), // Secção dentro do departamento (ex: Secretaria Pedagógica, Arquivo)
+
   // Dados Salariais (Payroll)
   cargo: text("cargo").default('Professor'),
   categoria: text("categoria").default(''),
@@ -245,11 +248,20 @@ export const itensFolha = pgTable("itens_folha", {
   inssEmpregado: real("inssEmpregado").notNull().default(0),   // 3%
   inssPatronal: real("inssPatronal").notNull().default(0),     // 8%
   irt: real("irt").notNull().default(0),                        // IRT Angola
+  descontoFaltas: real("descontoFaltas").notNull().default(0), // Desconto por faltas (Kz)
+  numFaltasInj: integer("numFaltasInj").notNull().default(0),  // Nº faltas injustificadas
+  numMeioDia: integer("numMeioDia").notNull().default(0),      // Nº meios-dias
   outrosDescontos: real("outrosDescontos").notNull().default(0),
   totalDescontos: real("totalDescontos").notNull().default(0),
+  // Remuneração extra por tempos lectivos / dias trabalhados (contratados)
+  remuneracaoTempos: real("remuneracaoTempos").notNull().default(0), // Total pago por tempos lectivos ou dias
+  numTempos: integer("numTempos").notNull().default(0),              // Nº de tempos lectivos / dias
   // Líquido
   salarioLiquido: real("salarioLiquido").notNull().default(0),
   // Meta
+  tipoFuncionario: text("tipoFuncionario").notNull().default('professor'), // 'professor' | 'funcionario'
+  departamento: text("departamento").notNull().default(''),
+  seccao: text("seccao").notNull().default(''),
   observacao: text("observacao"),
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
 });
