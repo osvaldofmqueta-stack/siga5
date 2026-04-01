@@ -65,6 +65,7 @@
     "express": "^5.2.1",
     "get-tsconfig": "^4.13.7",
     "http-proxy-middleware": "^3.0.5",
+    "install": "^0.13.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.4",
