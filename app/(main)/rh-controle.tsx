@@ -33,6 +33,7 @@ import {
 import { api } from '@/lib/api';
 import { consultarNIF } from '@/lib/nifLookup';
 import DatePickerField from '@/components/DatePickerField';
+import DateInput from '@/components/DateInput';
 
 type Tab = 'pessoal' | 'sumarios' | 'solicitacoes' | 'calendario';
 type SumFiltro = 'todos' | 'pendente' | 'aceite' | 'rejeitado';
@@ -941,10 +942,10 @@ export default function RHControleScreen() {
                     ))}
                   </View>
                   <FormRow label="Data de Contratação">
-                    <TextInput style={styles.input} placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} value={funcForm.dataContratacao} onChangeText={v => updateField('dataContratacao', v)} />
+                    <DateInput style={styles.input} value={funcForm.dataContratacao} onChangeText={v => updateField('dataContratacao', v)} />
                   </FormRow>
                   <FormRow label="Data de Fim de Contrato (se aplicável)">
-                    <TextInput style={styles.input} placeholder="AAAA-MM-DD (deixar vazio se sem prazo)" placeholderTextColor={Colors.textMuted} value={funcForm.dataFimContrato} onChangeText={v => updateField('dataFimContrato', v)} />
+                    <DateInput style={styles.input} value={funcForm.dataFimContrato} onChangeText={v => updateField('dataFimContrato', v)} placeholder="DD-MM-AAAA (vazio se sem prazo)" />
                   </FormRow>
                   <FormRow label="Observações">
                     <TextInput style={[styles.input, { height: 80, textAlignVertical: 'top' }]} placeholder="Notas sobre o contrato..." placeholderTextColor={Colors.textMuted} value={funcForm.observacoes} onChangeText={v => updateField('observacoes', v)} multiline />
@@ -1244,8 +1245,8 @@ export default function RHControleScreen() {
               <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre..." placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} />
               <Text style={styles.fieldLabel}>Disciplina</Text>
               <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} />
-              <Text style={styles.fieldLabel}>Data (AAAA-MM-DD)</Text>
-              <TextInput style={styles.input} placeholder="2025-06-15" placeholderTextColor={Colors.textMuted} value={provaData} onChangeText={setProvaData} />
+              <Text style={styles.fieldLabel}>Data</Text>
+              <DateInput style={styles.input} value={provaData} onChangeText={setProvaData} />
               <Text style={styles.fieldLabel}>Hora</Text>
               <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
               <Text style={styles.fieldLabel}>Descrição (opcional)</Text>

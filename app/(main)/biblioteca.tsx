@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
@@ -1025,11 +1026,11 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>Data de Empréstimo</MLabel>
-                <MInput value={form.dataEmprestimo} onChangeText={upd('dataEmprestimo')} placeholder="AAAA-MM-DD" />
+                <DateInput style={mStyles.input} value={form.dataEmprestimo} onChangeText={upd('dataEmprestimo')} />
               </View>
               <View style={{ flex: 1 }}>
                 <MLabel>Data Prevista de Devolução</MLabel>
-                <MInput value={form.dataPrevistaDevolucao} onChangeText={upd('dataPrevistaDevolucao')} placeholder="AAAA-MM-DD" />
+                <DateInput style={mStyles.input} value={form.dataPrevistaDevolucao} onChangeText={upd('dataPrevistaDevolucao')} />
               </View>
             </View>
             <MLabel>Observações</MLabel>

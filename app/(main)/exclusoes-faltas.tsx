@@ -16,6 +16,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
@@ -1134,8 +1135,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
             <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
               placeholder="Ex: Física" placeholderTextColor={Colors.textMuted} />
             <Text style={styles.label}>Data da Prova Original *</Text>
-            <TextInput style={styles.input} value={dataProvaOriginal} onChangeText={setDataProvaOriginal}
-              placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} />
+            <DateInput style={styles.input} value={dataProvaOriginal} onChangeText={setDataProvaOriginal} />
             <Text style={styles.label}>Motivo / Justificação *</Text>
             <TextInput style={[styles.input, { height: 80 }]} value={motivo} onChangeText={setMotivo}
               multiline placeholderTextColor={Colors.textMuted} />
@@ -1199,8 +1199,7 @@ function RespostaProvaModal({ solicitacao, userName, onClose, onSaved }: {
             </View>
             {status === 'aprovada' && <>
               <Text style={styles.label}>Data da Prova Justificada</Text>
-              <TextInput style={styles.input} value={dataProvaJustificada} onChangeText={setDataProvaJustificada}
-                placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} />
+              <DateInput style={styles.input} value={dataProvaJustificada} onChangeText={setDataProvaJustificada} />
             </>}
             <Text style={styles.label}>Resposta / Observação</Text>
             <TextInput style={[styles.input, { height: 70 }]} value={resposta} onChangeText={setResposta}
@@ -1304,8 +1303,7 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
               </ScrollView>
             </>}
             <Text style={styles.label}>Data de Anulação *</Text>
-            <TextInput style={styles.input} value={dataAnulacao} onChangeText={setDataAnulacao}
-              placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} />
+            <DateInput style={styles.input} value={dataAnulacao} onChangeText={setDataAnulacao} />
             <Text style={styles.label}>Descrição / Observações</Text>
             <TextInput style={[styles.input, { height: 70 }]} value={descricao} onChangeText={setDescricao}
               multiline placeholderTextColor={Colors.textMuted} />

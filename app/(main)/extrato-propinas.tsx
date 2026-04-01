@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import TopBar from '@/components/TopBar';
+import DateInput from '@/components/DateInput';
 import { useToast } from '@/context/ToastContext';
 import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
@@ -563,24 +564,20 @@ export default function ExtratoPropinas() {
           <View style={styles.dateRow}>
             <View style={styles.dateField}>
               <Text style={styles.label}>Data Início</Text>
-              <TextInput
+              <DateInput
                 style={styles.dateInput}
                 value={dataInicio}
                 onChangeText={setDataInicio}
-                placeholder="AAAA-MM-DD"
                 placeholderTextColor="#555"
-                maxLength={10}
               />
             </View>
             <View style={styles.dateField}>
               <Text style={styles.label}>Data Fim</Text>
-              <TextInput
+              <DateInput
                 style={styles.dateInput}
                 value={dataFim}
                 onChangeText={setDataFim}
-                placeholder="AAAA-MM-DD"
                 placeholderTextColor="#555"
-                maxLength={10}
               />
             </View>
           </View>

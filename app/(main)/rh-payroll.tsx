@@ -16,6 +16,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useConfig, calcIRT as calcIRTFromTabela, IrtEscalao } from '../../context/ConfigContext';
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
+import DateInput from '../../components/DateInput';
 import { useToast } from '../../context/ToastContext';
 import { webAlert } from '@/utils/webAlert';
 import { BarChart, DonutChart } from '@/components/Charts';
@@ -1168,9 +1169,9 @@ export default function RhPayrollScreen() {
                 keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
 
               <Text style={styles.fieldLabel}>Data de Contratação</Text>
-              <TextInput style={styles.textInput} value={profForm.dataContratacao}
+              <DateInput style={styles.textInput} value={profForm.dataContratacao}
                 onChangeText={v => setProfForm(f => ({ ...f, dataContratacao: v }))}
-                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="YYYY-MM-DD" />
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} />
 
               <Text style={styles.fieldLabel}>Tipo de Contrato</Text>
               <View style={styles.contractRow}>

@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
@@ -683,7 +684,10 @@ export default function ProfessorPlanoAulaScreen() {
             <Field label="Classe" value={form.classe} onChangeText={v => setForm(p => ({ ...p, classe: v }))} placeholder="Ex: 8ª" />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Data" value={form.data} onChangeText={v => setForm(p => ({ ...p, data: v }))} placeholder="AAAA-MM-DD" />
+            <View style={f.field}>
+              <Text style={f.label}>Data</Text>
+              <DateInput style={f.input} value={form.data} onChangeText={v => setForm(p => ({ ...p, data: v }))} />
+            </View>
           </View>
         </View>
 

@@ -16,6 +16,7 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/context/ToastContext';
@@ -419,10 +420,8 @@ function FormModal({
 
             {/* Data de requisição */}
             <Text style={fStyles.label}>Data de Requisição</Text>
-            <TextInput
+            <DateInput
               style={fStyles.input}
-              placeholder="AAAA-MM-DD"
-              placeholderTextColor={Colors.textMuted}
               value={form.dataRequisicao ?? ''}
               onChangeText={v => set('dataRequisicao', v)}
             />

@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api } from '@/lib/api';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
@@ -7974,21 +7975,19 @@ export default function EditorDocumentos() {
                       <View style={{ flexDirection: 'row', gap: 10 }}>
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Data início</Text>
-                          <TextInput
+                          <DateInput
                             style={{ backgroundColor: Colors.surface, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 13, paddingHorizontal: 10, paddingVertical: 8 }}
                             value={emitExtratoDataInicio}
                             onChangeText={setEmitExtratoDataInicio}
-                            placeholder="AAAA-MM-DD"
                             placeholderTextColor={Colors.textMuted}
                           />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: Colors.textMuted, fontSize: 10, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Data fim</Text>
-                          <TextInput
+                          <DateInput
                             style={{ backgroundColor: Colors.surface, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 13, paddingHorizontal: 10, paddingVertical: 8 }}
                             value={emitExtratoDataFim}
                             onChangeText={setEmitExtratoDataFim}
-                            placeholder="AAAA-MM-DD"
                             placeholderTextColor={Colors.textMuted}
                           />
                         </View>

@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import { useData, Evento } from '@/context/DataContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso, alertErro } from '@/utils/toast';
@@ -59,9 +60,6 @@ function EventoFormModal({ visible, onClose, onSave, evento }: any) {
             {[
               { label: 'Título', key: 'titulo', placeholder: 'Nome do evento' },
               { label: 'Descrição', key: 'descricao', placeholder: 'Detalhes...' },
-              { label: 'Data (AAAA-MM-DD)', key: 'data', placeholder: '2025-03-15' },
-              { label: 'Hora (HH:MM)', key: 'hora', placeholder: '08:00' },
-              { label: 'Local', key: 'local', placeholder: 'Sala / Pátio / etc.' },
             ].map(f => (
               <View key={f.key} style={mS.field}>
                 <Text style={mS.fieldLabel}>{f.label}</Text>
@@ -73,6 +71,25 @@ function EventoFormModal({ visible, onClose, onSave, evento }: any) {
                   placeholderTextColor={Colors.textMuted}
                   multiline={f.key === 'descricao'}
                   numberOfLines={f.key === 'descricao' ? 3 : 1}
+                />
+              </View>
+            ))}
+            <View style={mS.field}>
+              <Text style={mS.fieldLabel}>Data</Text>
+              <DateInput style={mS.input} value={form.data ?? ''} onChangeText={v => set('data', v)} />
+            </View>
+            {[
+              { label: 'Hora (HH:MM)', key: 'hora', placeholder: '08:00' },
+              { label: 'Local', key: 'local', placeholder: 'Sala / Pátio / etc.' },
+            ].map(f => (
+              <View key={f.key} style={mS.field}>
+                <Text style={mS.fieldLabel}>{f.label}</Text>
+                <TextInput
+                  style={mS.input}
+                  value={(form as any)[f.key] ?? ''}
+                  onChangeText={v => set(f.key as keyof Evento, v)}
+                  placeholder={f.placeholder}
+                  placeholderTextColor={Colors.textMuted}
                 />
               </View>
             ))}

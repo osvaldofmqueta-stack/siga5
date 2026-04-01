@@ -15,6 +15,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -1472,8 +1473,7 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Data *</Text>
-          <TextInput style={[st.input, { marginBottom: 14 }]} value={formOco.data}
-            onChangeText={v => setFormOco(p => ({ ...p, data: v }))} placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} />
+          <DateInput style={[st.input, { marginBottom: 14 }]} value={formOco.data} onChangeText={v => setFormOco(p => ({ ...p, data: v }))} />
 
           <Text style={st.lbl}>Descrição da Ocorrência *</Text>
           <TextInput style={[st.input, { height: 90, textAlignVertical: 'top', marginBottom: 14 }]}

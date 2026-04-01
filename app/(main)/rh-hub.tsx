@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { useConfig } from '@/context/ConfigContext';
@@ -1007,8 +1008,8 @@ export default function RHHubScreen() {
               <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre" placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} />
               <Text style={styles.fieldLabel}>Disciplina *</Text>
               <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} />
-              <Text style={styles.fieldLabel}>Data * (AAAA-MM-DD)</Text>
-              <TextInput style={styles.input} placeholder="2025-06-15" placeholderTextColor={Colors.textMuted} value={provaData} onChangeText={setProvaData} />
+              <Text style={styles.fieldLabel}>Data *</Text>
+              <DateInput style={styles.input} value={provaData} onChangeText={setProvaData} />
               <Text style={styles.fieldLabel}>Hora</Text>
               <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
               <Text style={styles.fieldLabel}>Descrição</Text>

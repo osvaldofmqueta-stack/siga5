@@ -7,6 +7,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
+import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -361,11 +362,9 @@ function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) 
               ))}
             </ScrollView>
 
-            <Text style={styles.fieldLabel}>Data (AAAA-MM-DD) *</Text>
-            <TextInput
+            <Text style={styles.fieldLabel}>Data *</Text>
+            <DateInput
               style={styles.input}
-              placeholder="2025-01-15"
-              placeholderTextColor={Colors.textMuted}
               value={formData}
               onChangeText={setFormData}
             />
