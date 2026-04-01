@@ -231,6 +231,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
     'biblioteca', 'documentos_hub',
+    // RH (administrador supervisiona pessoal e processa vencimentos)
+    'rh_hub', 'rh_controle', 'rh_payroll',
   ],
 
   // ── Secretaria: operações administrativas académicas ─────────────

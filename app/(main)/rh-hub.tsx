@@ -447,6 +447,22 @@ export default function RHHubScreen() {
             )}
           </View>
 
+          {/* Gestão de Pessoal quick access */}
+          <TouchableOpacity
+            style={[styles.sectionCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}
+            onPress={() => router.push('/(main)/rh-controle' as never)}
+            activeOpacity={0.8}
+          >
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.info + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <MaterialCommunityIcons name="account-group" size={24} color={Colors.info} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.sectionTitle}>Gestão de Pessoal</Text>
+              <Text style={styles.emptySmall}>Funcionários · Contratos · Departamentos · Acessos</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.textMuted} />
+          </TouchableOpacity>
+
           {/* Payroll quick access */}
           <TouchableOpacity
             style={[styles.sectionCard, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}

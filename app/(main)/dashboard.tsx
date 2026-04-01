@@ -88,6 +88,16 @@ interface Registro {
   matriculaCompleta?: boolean;
 }
 
+interface Funcionario {
+  id: string;
+  nome: string;
+  apelido: string;
+  departamento: string;
+  cargo: string;
+  ativo: boolean;
+  tipoContrato: string;
+}
+
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -96,6 +106,7 @@ export default function DashboardScreen() {
 
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [loadingReg, setLoadingReg] = useState(false);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
 
   useEffect(() => {
     setLoadingReg(true);
@@ -105,6 +116,16 @@ export default function DashboardScreen() {
       .catch(() => setRegistros([]))
       .finally(() => setLoadingReg(false));
   }, []);
+
+  const isRhViewer = ['ceo', 'pca', 'admin', 'director'].includes(user?.role || '');
+
+  useEffect(() => {
+    if (!isRhViewer) return;
+    apiRequest('GET', '/api/funcionarios')
+      .then(r => r.json())
+      .then((data: Funcionario[]) => setFuncionarios(Array.isArray(data) ? data : []))
+      .catch(() => setFuncionarios([]));
+  }, [isRhViewer]);
 
   const alunosAtivos = useMemo(() => alunos.filter(a => a.ativo), [alunos]);
   const profsAtivos   = useMemo(() => professores.filter(p => p.ativo), [professores]);
@@ -451,6 +472,105 @@ export default function DashboardScreen() {
           </View>
         </View>
 
+        {/* ── Pessoal (CEO / PCA / Admin / Director) ───────── */}
+        {isRhViewer && (
+          <View style={st.section}>
+            <SectionTitle
+              label="Recursos Humanos — Pessoal"
+              color='#8B5CF6'
+              action={() => router.push('/(main)/rh-controle' as any)}
+              actionLabel="Gerir Pessoal"
+            />
+            <View style={st.card}>
+              {/* Resumo total */}
+              <View style={st.matriculaResumo}>
+                <View style={st.matriculaResumoItem}>
+                  <Text style={[st.matriculaBig, { color: '#8B5CF6' }]}>{funcionarios.length}</Text>
+                  <Text style={st.matriculaSmall}>Total de{'\n'}Funcionários</Text>
+                </View>
+                <View style={st.matriculaDivider} />
+                <View style={st.matriculaResumoItem}>
+                  <Text style={[st.matriculaBig, { color: Colors.success }]}>{funcionarios.filter(f => f.ativo).length}</Text>
+                  <Text style={st.matriculaSmall}>Activos</Text>
+                </View>
+                <View style={st.matriculaDivider} />
+                <View style={st.matriculaResumoItem}>
+                  <Text style={[st.matriculaBig, { color: Colors.textMuted }]}>{funcionarios.filter(f => !f.ativo).length}</Text>
+                  <Text style={st.matriculaSmall}>Inactivos</Text>
+                </View>
+              </View>
+
+              {funcionarios.length > 0 && (
+                <>
+                  <View style={st.cardDivider} />
+                  <Text style={st.subCardTitle}>Distribuição por Departamento</Text>
+                  {(() => {
+                    const deptMap: Record<string, number> = {};
+                    funcionarios.forEach(f => {
+                      const d = f.departamento || 'Outro';
+                      deptMap[d] = (deptMap[d] || 0) + 1;
+                    });
+                    const DEPT_COLORS: Record<string, string> = {
+                      direccao: Colors.gold, pedagogico: Colors.info, administrativo: Colors.success,
+                      financeiro: Colors.warning, rh: '#8B5CF6', apoio: Colors.accent,
+                      seguranca: Colors.danger, tecnologia: Colors.primaryLight,
+                    };
+                    return Object.entries(deptMap)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([dept, count]) => {
+                        const color = DEPT_COLORS[dept] ?? Colors.textMuted;
+                        const pct = Math.round((count / funcionarios.length) * 100);
+                        return (
+                          <View key={dept} style={st.ocupRow}>
+                            <Text style={st.ocupNome} numberOfLines={1}>
+                              {dept.charAt(0).toUpperCase() + dept.slice(1).replace(/_/g, ' ')}
+                            </Text>
+                            <View style={st.ocupBarWrap}>
+                              <View style={[st.ocupBarFill, { width: `${pct}%` as any, backgroundColor: color }]} />
+                            </View>
+                            <Text style={[st.ocupPct, { color }]}>{count}</Text>
+                          </View>
+                        );
+                      });
+                  })()}
+                </>
+              )}
+
+              {funcionarios.length === 0 && (
+                <View style={st.emptySmall}>
+                  <Ionicons name="people-outline" size={28} color={Colors.textMuted} />
+                  <Text style={st.emptySmallText}>Sem funcionários registados</Text>
+                </View>
+              )}
+
+              <View style={st.cardDivider} />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity
+                  style={[st.rhActionBtn, { borderColor: '#8B5CF644', backgroundColor: '#8B5CF611' }]}
+                  onPress={() => router.push('/(main)/rh-controle' as any)}
+                >
+                  <Ionicons name="people" size={16} color="#8B5CF6" />
+                  <Text style={[st.rhActionLabel, { color: '#8B5CF6' }]}>Gerir Pessoal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[st.rhActionBtn, { borderColor: Colors.gold + '44', backgroundColor: Colors.gold + '11' }]}
+                  onPress={() => router.push('/(main)/rh-payroll' as any)}
+                >
+                  <Ionicons name="cash" size={16} color={Colors.gold} />
+                  <Text style={[st.rhActionLabel, { color: Colors.gold }]}>Vencimentos</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[st.rhActionBtn, { borderColor: Colors.info + '44', backgroundColor: Colors.info + '11' }]}
+                  onPress={() => router.push('/(main)/rh-hub' as any)}
+                >
+                  <Ionicons name="briefcase" size={16} color={Colors.info} />
+                  <Text style={[st.rhActionLabel, { color: Colors.info }]}>Hub RH</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* ── Desempenho por Disciplina ─────────────────────── */}
         <View style={st.section}>
           <SectionTitle label="Médias por Disciplina" color={Colors.gold} action={() => router.push('/(main)/desempenho')} actionLabel="Ver desempenho" />
@@ -600,4 +720,7 @@ const st = StyleSheet.create({
 
   emptySmall: { alignItems: 'center', paddingVertical: 24, gap: 8 },
   emptySmallText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+
+  rhActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 8 },
+  rhActionLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
 });
