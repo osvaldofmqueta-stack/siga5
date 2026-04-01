@@ -493,6 +493,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "subsidioHabitacao",
         "dataContratacao",
         "tipoContrato",
+        "valorPorTempoLectivo",
+        "temposSemanais",
       ] as const;
 
       const jsonbKeys = new Set(["disciplinas", "turmasIds"]);
@@ -1339,6 +1341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "provincia","municipio","morada","departamento","seccao","cargo","especialidade",
         "tipoContrato","dataContratacao","dataFimContrato","habilitacoes",
         "salarioBase","subsidioAlimentacao","subsidioTransporte","subsidioHabitacao","outrosSubsidios",
+        "valorPorTempoLectivo","temposSemanais",
         "utilizadorId","professorId","ativo","observacoes",
       ] as const;
       const setParts: string[] = []; const values: unknown[] = [];
@@ -4036,11 +4039,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const inssPatrRate = ((cfg?.inssPatrPerc ?? 8)) / 100;
       const irtTabela = Array.isArray(cfg?.irtTabela) && (cfg.irtTabela as any[]).length > 0 ? cfg.irtTabela : undefined;
 
-      // Load configuração RH (valores de faltas)
+      // Load configuração RH (valores de faltas e parâmetros de tempos lectivos)
       const rhRows = await query<JsonObject>(`SELECT * FROM public.configuracao_rh WHERE id=1`);
       const rhCfg = rhRows[0] as any ?? {};
-      const valorPorFalta = Number(rhCfg.valorPorFalta ?? 0);
-      const valorMeioDia  = Number(rhCfg.valorMeioDia  ?? 0);
+      const valorPorFalta           = Number(rhCfg.valorPorFalta ?? 0);
+      const valorMeioDia            = Number(rhCfg.valorMeioDia  ?? 0);
+      const descontoPorTempoNaoDado = Number(rhCfg.descontoPorTempoNaoDado ?? 0);
+      const semanasPorMes           = Number(rhCfg.semanasPorMes ?? 4);
 
       let totalBruto = 0, totalLiquido = 0, totalInssEmp = 0, totalInssPatr = 0, totalIrtSum = 0, totalSubs = 0;
       let numProcessados = 0;
@@ -4059,6 +4064,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tipoFunc: 'professor' | 'funcionario',
         departamentoStr: string,
         seccaoStr: string,
+        tipoContrato: string = 'efectivo',
+        valorPorTempoLectivo: number = 0,
+        temposSemanais: number = 0,
       ) {
         const outrosDesc = Number(b.outrosDescontos ?? 0);
 
@@ -4072,24 +4080,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const nMeioDia   = faltasRows.filter(f => (f as any).tipo === 'meio_dia'      && (f as any).descontavel).length;
         const descFaltas = Math.round((nFaltasInj * valorPorFalta + nMeioDia * valorMeioDia) * 100) / 100;
 
-        // ── Tempos lectivos / dias trabalhados (para contratados) ──────────
+        // ── Tempos lectivos registados manualmente (aprovados) ─────────────
         const tempoRows = await query<JsonObject>(
           `SELECT "totalUnidades","totalCalculado" FROM public.tempos_lectivos
            WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3 AND aprovado=true`,
           [pessoaId, folhaMes, folhaAno]
         );
-        const numTempos = tempoRows.reduce((s, t) => s + Number((t as any).totalUnidades ?? 0), 0);
-        const remTempos  = Math.round(tempoRows.reduce((s, t) => s + Number((t as any).totalCalculado ?? 0), 0) * 100) / 100;
+        const numTemposRegist = tempoRows.reduce((s, t) => s + Number((t as any).totalUnidades ?? 0), 0);
+        const remTemposRegist  = Math.round(tempoRows.reduce((s, t) => s + Number((t as any).totalCalculado ?? 0), 0) * 100) / 100;
+
+        let salBaseEfectivo = salBase;
+        let remTempos = remTemposRegist;
+        let numTempos = numTemposRegist;
+
+        // ── Lógica específica por tipo de contrato ─────────────────────────
+        if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
+          // Efectivo: salário base fixo menos desconto por tempos lectivos não dados
+          // Tempos esperados no mês = temposSemanais × semanasPorMes
+          const temposEsperados = temposSemanais * semanasPorMes;
+          const temposDados = numTemposRegist; // tempos registados como dados
+          const temposNaoDados = Math.max(0, temposEsperados - temposDados);
+          const descontoTempos = Math.round(temposNaoDados * descontoPorTempoNaoDado * 100) / 100;
+          // O desconto por tempos não dados subtrai do salário base
+          salBaseEfectivo = Math.max(0, Math.round((salBase - descontoTempos) * 100) / 100);
+          numTempos = temposNaoDados; // guardar o nº de tempos não dados para referência
+          remTempos = -descontoTempos; // negativo indica desconto
+        } else if ((tipoContrato === 'colaborador' || tipoContrato === 'contratado' || tipoContrato === 'prestacao_servicos') && valorPorTempoLectivo > 0 && temposSemanais > 0 && salBase === 0) {
+          // Colaborador sem salário base fixo: valor por tempo × tempos semanais × semanas/mês
+          const salCalculado = Math.round(valorPorTempoLectivo * temposSemanais * semanasPorMes * 100) / 100;
+          salBaseEfectivo = salCalculado;
+          numTempos = temposSemanais * semanasPorMes;
+          remTempos = salCalculado; // remuneração calculada automaticamente
+        } else if ((tipoContrato === 'colaborador' || tipoContrato === 'contratado' || tipoContrato === 'prestacao_servicos') && valorPorTempoLectivo > 0 && temposSemanais > 0 && salBase > 0) {
+          // Colaborador com salário base definido — usar o base definido + tempos registados
+          remTempos = remTemposRegist;
+        }
 
         const totalSubsidios = subAlim + subTrans + subHab + outrosSubs;
-        // Bruto = salário base + subsídios + remuneração por tempos (para contratados sem base fixa ou extra)
-        const salBruto = Math.round((salBase + totalSubsidios + remTempos) * 100) / 100;
+        // Bruto = salário base efectivo + subsídios + remuneração extra por tempos registados
+        const remTemposExtra = tipoContrato === 'efectivo' ? 0 : (remTemposRegist > 0 && salBaseEfectivo > 0 ? remTemposRegist : 0);
+        const salBruto = Math.round((salBaseEfectivo + totalSubsidios + remTemposExtra) * 100) / 100;
 
-        // INSS calcula sobre salário base
-        const inssEmp  = Math.round(salBase * inssEmpRate  * 100) / 100;
-        const inssPatr = Math.round(salBase * inssPatrRate * 100) / 100;
-        // IRT sobre salário base
-        const irt = Math.round(calcularIRT(salBase, irtTabela) * 100) / 100;
+        // INSS e IRT calculam sobre salário base efectivo
+        const inssEmp  = Math.round(salBaseEfectivo * inssEmpRate  * 100) / 100;
+        const inssPatr = Math.round(salBaseEfectivo * inssPatrRate * 100) / 100;
+        const irt = Math.round(calcularIRT(salBaseEfectivo, irtTabela) * 100) / 100;
 
         const totalDescontos = Math.round((inssEmp + irt + descFaltas + outrosDesc) * 100) / 100;
         const salLiquido     = Math.round((salBruto - totalDescontos) * 100) / 100;
@@ -4124,9 +4159,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         numProcessados++;
       }
 
-      // ── 1. Professores com salário base definido ──────────────────────────
+      // ── 1. Professores com salário base definido ou com tempos lectivos configurados ─
       const profs = await query<JsonObject>(
-        `SELECT * FROM public.professores WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0 ORDER BY nome`,
+        `SELECT * FROM public.professores WHERE ativo=true AND (("salarioBase" IS NOT NULL AND "salarioBase" > 0) OR ("temposSemanais" IS NOT NULL AND "temposSemanais" > 0)) ORDER BY nome`,
         []
       );
       for (const p of profs) {
@@ -4147,15 +4182,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'professor',
           'pedagogico',
           seccao,
+          String(p.tipoContrato ?? 'efectivo'),
+          Number((p as any).valorPorTempoLectivo ?? 0),
+          Number((p as any).temposSemanais ?? 0),
         );
       }
 
-      // ── 2. Funcionários administrativos com salário base definido ────────
+      // ── 2. Funcionários administrativos com salário base definido ou com tempos ─
       // Exclui os que já estão ligados a um professor (evitar duplicação)
       const funcs = await query<JsonObject>(
         `SELECT * FROM public.funcionarios
-         WHERE ativo=true AND "salarioBase" IS NOT NULL AND "salarioBase" > 0
+         WHERE ativo=true
            AND departamento != 'pedagogico'
+           AND (("salarioBase" IS NOT NULL AND "salarioBase" > 0)
+                OR ("temposSemanais" IS NOT NULL AND "temposSemanais" > 0
+                    AND "valorPorTempoLectivo" IS NOT NULL AND "valorPorTempoLectivo" > 0))
          ORDER BY departamento, nome`,
         []
       );
@@ -4173,18 +4214,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           'funcionario',
           String((f as any).departamento ?? ''),
           String((f as any).seccao ?? ''),
+          String((f as any).tipoContrato ?? 'efectivo'),
+          Number((f as any).valorPorTempoLectivo ?? 0),
+          Number((f as any).temposSemanais ?? 0),
         );
       }
 
-      // ── 3. Professores/funcionários contratados SEM salário base fixo ────
-      // Apenas com tempos lectivos aprovados (pagamento 100% por tempos)
+      // ── 3. Professores/funcionários contratados SEM salário base fixo e SEM tempos configurados ──
+      // Apenas com tempos lectivos aprovados registados manualmente
       const semSalBase = await query<JsonObject>(
         `SELECT DISTINCT tl."funcionarioId", f.nome, f.apelido, f.cargo, f.departamento, f.seccao,
-                (f."salarioBase" IS NULL OR f."salarioBase" = 0) AS semBase
+                f."tipoContrato", f."valorPorTempoLectivo", f."temposSemanais"
          FROM public.tempos_lectivos tl
          JOIN public.funcionarios f ON tl."funcionarioId" = f.id
          WHERE tl.mes=$1 AND tl.ano=$2 AND tl.aprovado=true
            AND (f."salarioBase" IS NULL OR f."salarioBase" = 0)
+           AND (f."temposSemanais" IS NULL OR f."temposSemanais" = 0)
            AND f.ativo=true`,
         [folhaMes, folhaAno]
       );
@@ -4199,6 +4244,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (p as any).departamento === 'pedagogico' ? 'professor' : 'funcionario',
           String((p as any).departamento ?? ''),
           String((p as any).seccao ?? ''),
+          String((p as any).tipoContrato ?? 'contratado'),
+          Number((p as any).valorPorTempoLectivo ?? 0),
+          Number((p as any).temposSemanais ?? 0),
         );
       }
 

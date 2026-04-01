@@ -70,6 +70,8 @@ interface ConfigRH {
   valorMeioDia: number;
   taxaTempoLectivo: number;
   taxaAdminPorDia: number;
+  descontoPorTempoNaoDado: number;
+  semanasPorMes: number;
   observacoes: string;
 }
 
@@ -215,7 +217,7 @@ function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) 
       ]);
       setFaltas(Array.isArray(f) ? f : []);
       setFuncionarios(Array.isArray(funcs) ? funcs : []);
-      setConfigRH(cfg ?? { valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+      setConfigRH(cfg ?? { valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
     } catch { /* ignore */ }
     finally { setLoading(false); setRefreshing(false); }
   }, [mes, ano]);
@@ -771,7 +773,7 @@ function TempoCard({ func, tempo, tipo, configRH, onEdit, onDelete }: {
 
 // ── Configuração Tab ───────────────────────────────────────────────────────────
 function ConfiguracaoTab() {
-  const [config, setConfig] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [config, setConfig] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -826,25 +828,55 @@ function ConfiguracaoTab() {
       <View style={styles.configSection}>
         <View style={styles.configSectionHeader}>
           <MaterialCommunityIcons name="school" size={20} color={Colors.accent} />
-          <Text style={styles.configSectionTitle}>Professores Contratados</Text>
+          <Text style={styles.configSectionTitle}>Professores Efectivos — Desconto por Tempo Não Dado</Text>
         </View>
         <Text style={styles.configSectionDesc}>
-          Taxa paga por cada tempo lectivo dado por professores contratados e colaboradores.
-          O salário mensal é calculado automaticamente: Tempos × Taxa = Total a Receber.
+          Para professores em regime efectivo: o salário base é fixo, mas é descontado um valor por cada tempo lectivo que não foi dado no mês. Defina o número de semanas por mês para o cálculo (normalmente 4).
         </Text>
         <ConfigField
-          label="Valor por Tempo Lectivo (Kz)"
+          label="Desconto por Tempo Lectivo Não Dado (Kz)"
+          value={String(config.descontoPorTempoNaoDado)}
+          onChangeText={v => setConfig(p => ({ ...p, descontoPorTempoNaoDado: parseFloat(v) || 0 }))}
+          placeholder="Ex: 1500"
+          icon="remove-circle"
+          iconColor={Colors.danger}
+        />
+        <ConfigField
+          label="Semanas por Mês (para cálculo de tempos esperados)"
+          value={String(config.semanasPorMes)}
+          onChangeText={v => setConfig(p => ({ ...p, semanasPorMes: parseInt(v) || 4 }))}
+          placeholder="Ex: 4"
+          icon="calendar"
+          iconColor={Colors.accent}
+        />
+        <View style={styles.previewBox}>
+          <Text style={styles.previewBoxLabel}>Exemplo (professor com 5 tempos/semana, 2 não dados):</Text>
+          <Text style={styles.previewBoxCalc}>
+            5 × {config.semanasPorMes} = {5 * (config.semanasPorMes || 4)} esperados — 2 não dados → desconto: {fmt(2 * config.descontoPorTempoNaoDado)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.configSection}>
+        <View style={styles.configSectionHeader}>
+          <MaterialCommunityIcons name="account-clock" size={20} color={Colors.success} />
+          <Text style={styles.configSectionTitle}>Colaboradores — Salário por Tempos Lectivos</Text>
+        </View>
+        <Text style={styles.configSectionDesc}>
+          Para colaboradores/contratados sem salário base fixo: o salário mensal é calculado automaticamente com base no valor por tempo lectivo e no número de tempos semanais definidos no perfil de cada funcionário. Fórmula: Valor × Tempos/Semana × Semanas/Mês.
+        </Text>
+        <ConfigField
+          label="Valor Global por Tempo Lectivo (Kz) — usado como referência"
           value={String(config.taxaTempoLectivo)}
           onChangeText={v => setConfig(p => ({ ...p, taxaTempoLectivo: parseFloat(v) || 0 }))}
           placeholder="Ex: 2500"
           icon="cash"
           iconColor={Colors.success}
         />
-        {/* Preview */}
         <View style={styles.previewBox}>
-          <Text style={styles.previewBoxLabel}>Exemplo de cálculo:</Text>
+          <Text style={styles.previewBoxLabel}>Exemplo (colaborador com 8 tempos/semana a 2500 Kz):</Text>
           <Text style={styles.previewBoxCalc}>
-            40 tempos × {fmt(config.taxaTempoLectivo)} = {fmt(40 * config.taxaTempoLectivo)}
+            8 tempos × {config.semanasPorMes || 4} sem. × {fmt(config.taxaTempoLectivo)} = {fmt(8 * (config.semanasPorMes || 4) * config.taxaTempoLectivo)}
           </Text>
         </View>
       </View>

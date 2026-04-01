@@ -99,6 +99,12 @@ export const funcionarios = pgTable("funcionarios", {
   subsidioHabitacao: real("subsidioHabitacao").notNull().default(0),
   outrosSubsidios: real("outrosSubsidios").notNull().default(0),
 
+  // Remuneração por Tempos Lectivos (colaboradores / prestação de serviços)
+  // Para efectivos: salário base fixo + desconto por tempos não dados
+  // Para colaboradores: valorPorTempoLectivo × temposSemanais × 4 semanas = salário mensal
+  valorPorTempoLectivo: real("valorPorTempoLectivo").notNull().default(0), // valor unitário por tempo lectivo (Kz)
+  temposSemanais: integer("temposSemanais").notNull().default(0),           // tempos lectivos por semana
+
   // Acesso ao Sistema
   utilizadorId: varchar("utilizadorId"), // link to utilizadores — null if no system access
   professorId: varchar("professorId"),   // link to professores — null if not a teacher
@@ -200,6 +206,9 @@ export const professores = pgTable("professores", {
   subsidioHabitacao: real("subsidioHabitacao").default(0),
   dataContratacao: text("dataContratacao"),
   tipoContrato: text("tipoContrato").default('efectivo'), // 'efectivo' | 'contratado' | 'prestacao_servicos'
+  // Remuneração por Tempos Lectivos
+  valorPorTempoLectivo: real("valorPorTempoLectivo").default(0), // valor por tempo lectivo (Kz) — para colaboradores
+  temposSemanais: integer("temposSemanais").default(0),           // tempos lectivos por semana — para colaboradores
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
@@ -318,10 +327,12 @@ export type TempoLectivo = typeof temposLectivos.$inferSelect;
 // -----------------------
 export const configuracaoRH = pgTable("configuracao_rh", {
   id: integer("id").primaryKey().default(sql`1`),
-  valorPorFalta: real("valorPorFalta").notNull().default(0),       // desconto por falta injustificada (Kz)
-  valorMeioDia: real("valorMeioDia").notNull().default(0),          // desconto por meio-dia
-  taxaTempoLectivo: real("taxaTempoLectivo").notNull().default(0),  // valor por tempo lectivo (prof. contratado)
-  taxaAdminPorDia: real("taxaAdminPorDia").notNull().default(0),    // valor por dia trabalhado (pessoal admin)
+  valorPorFalta: real("valorPorFalta").notNull().default(0),             // desconto por falta injustificada (Kz)
+  valorMeioDia: real("valorMeioDia").notNull().default(0),                // desconto por meio-dia
+  taxaTempoLectivo: real("taxaTempoLectivo").notNull().default(0),        // valor global por tempo lectivo (prof. contratado — substituído pelo individual)
+  taxaAdminPorDia: real("taxaAdminPorDia").notNull().default(0),          // valor por dia trabalhado (pessoal admin)
+  descontoPorTempoNaoDado: real("descontoPorTempoNaoDado").notNull().default(0), // desconto por tempo lectivo não dado (prof. efectivo)
+  semanasPorMes: integer("semanasPorMes").notNull().default(4),           // semanas por mês para cálculo de colaboradores
   observacoes: text("observacoes").notNull().default(''),
   atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
 });

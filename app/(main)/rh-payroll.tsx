@@ -81,6 +81,8 @@ interface ProfessorSalario {
   subsidioHabitacao: number | null;
   dataContratacao: string | null;
   tipoContrato: string | null;
+  valorPorTempoLectivo: number | null;
+  temposSemanais: number | null;
   ativo: boolean;
   email: string;
 }
@@ -295,10 +297,11 @@ export default function RhPayrollScreen() {
   const [newAno, setNewAno] = useState(now.getFullYear());
   const [newDescricao, setNewDescricao] = useState('');
 
-  // Prof edit form
+  // Prof edit form — includes tempo lectivo fields
   const [profForm, setProfForm] = useState({
     cargo: '', categoria: '', salarioBase: '', subsidioAlimentacao: '',
     subsidioTransporte: '', subsidioHabitacao: '', dataContratacao: '', tipoContrato: 'efectivo',
+    valorPorTempoLectivo: '', temposSemanais: '',
   });
 
   // Filter
@@ -528,6 +531,8 @@ export default function RhPayrollScreen() {
       subsidioHabitacao: String(p.subsidioHabitacao ?? 0),
       dataContratacao: p.dataContratacao ?? '',
       tipoContrato: p.tipoContrato ?? 'efectivo',
+      valorPorTempoLectivo: String(p.valorPorTempoLectivo ?? 0),
+      temposSemanais: String(p.temposSemanais ?? 0),
     });
     setShowProfModal(true);
   };
@@ -544,6 +549,8 @@ export default function RhPayrollScreen() {
         subsidioHabitacao: Number(profForm.subsidioHabitacao),
         dataContratacao: profForm.dataContratacao,
         tipoContrato: profForm.tipoContrato,
+        valorPorTempoLectivo: Number(profForm.valorPorTempoLectivo),
+        temposSemanais: Number(profForm.temposSemanais),
       });
       showToast('Dados salariais atualizados', 'success');
       setShowProfModal(false);
@@ -1177,6 +1184,36 @@ export default function RhPayrollScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+
+              <Text style={styles.fieldLabel}>Valor por Tempo Lectivo (Kz)</Text>
+              <TextInput style={styles.textInput}
+                value={profForm.valorPorTempoLectivo}
+                onChangeText={v => setProfForm(f => ({ ...f, valorPorTempoLectivo: v }))}
+                keyboardType="numeric"
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'}
+                placeholder="0.00 — usado para colaboradores e desconto de efectivos" />
+
+              <Text style={styles.fieldLabel}>Tempos Lectivos por Semana</Text>
+              <TextInput style={styles.textInput}
+                value={profForm.temposSemanais}
+                onChangeText={v => setProfForm(f => ({ ...f, temposSemanais: v }))}
+                keyboardType="numeric"
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'}
+                placeholder="Ex: 8 — número de tempos semanais atribuídos" />
+
+              {/* Pré-visualização para colaboradores sem salário base */}
+              {['colaborador', 'contratado', 'prestacao_servicos'].includes(profForm.tipoContrato) &&
+               Number(profForm.valorPorTempoLectivo) > 0 && Number(profForm.temposSemanais) > 0 && (
+                <View style={styles.calcPreview}>
+                  <Text style={styles.calcPreviewTitle}>Estimativa Mensal (Colaborador)</Text>
+                  <View style={styles.calcRow}>
+                    <Text style={styles.calcLabel}>Tempos × Semanas × Valor</Text>
+                    <Text style={[styles.calcVal, { color: '#66BB6A', fontWeight: '700' }]}>
+                      {fmt(Number(profForm.temposSemanais) * 4 * Number(profForm.valorPorTempoLectivo))}
+                    </Text>
+                  </View>
+                </View>
+              )}
 
               {/* Preview calculation */}
               {Number(profForm.salarioBase) > 0 && (
