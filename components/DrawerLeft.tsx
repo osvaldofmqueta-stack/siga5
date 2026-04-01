@@ -197,7 +197,6 @@ export default function DrawerLeft() {
     {
       title: 'Pessoal Docente',
       items: [
-        { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
       ],
     },
