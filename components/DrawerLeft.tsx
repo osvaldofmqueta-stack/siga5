@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions,
-  Platform, ScrollView, Image,
+  Platform, ScrollView, Image, Modal,
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -41,10 +41,11 @@ export default function DrawerLeft() {
   const { user } = useAuth();
   const { unreadCount } = useNotificacoes();
   const { unreadTotal: chatUnreadCount } = useChatInterno();
-  const { anos, anoSelecionado, setAnoSelecionado } = useAnoAcademico();
+  const { anos, anoAtivo, anoSelecionado, setAnoSelecionado } = useAnoAcademico();
   const { isLicencaValida, diasRestantes } = useLicense();
   const { isDesktop } = useBreakpoint();
 
+  const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -600,28 +601,114 @@ export default function DrawerLeft() {
           </TouchableOpacity>
         )}
 
-        {/* Year Selector */}
-        {!isCeo && anos.length > 1 && (
+        {/* Year Selector — Smart Dropdown */}
+        {!isCeo && anos.length > 0 && (
           <View style={styles.yearSelector}>
             <Text style={styles.yearLabel}>Ano Académico</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.yearBtns}>
-                {anos.map(ano => (
-                  <TouchableOpacity
-                    key={ano.id}
-                    style={[styles.yearBtn, anoSelecionado?.id === ano.id && styles.yearBtnActive]}
-                    onPress={() => setAnoSelecionado(ano)}
-                  >
-                    <Text style={[styles.yearBtnText, anoSelecionado?.id === ano.id && styles.yearBtnTextActive]}>
-                      {ano.ano}
-                    </Text>
-                    {ano.ativo && <View style={styles.yearActiveDot} />}
-                  </TouchableOpacity>
-                ))}
+            <TouchableOpacity
+              style={styles.yearDropdownBtn}
+              onPress={() => setYearDropdownOpen(true)}
+              activeOpacity={0.82}
+            >
+              <View style={styles.yearDropdownLeft}>
+                <View style={styles.yearDropdownIconWrap}>
+                  <Ionicons name="calendar" size={14} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.yearDropdownValue} numberOfLines={1}>
+                    {anoSelecionado?.ano ?? '—'}
+                  </Text>
+                  {anoSelecionado?.id === anoAtivo?.id ? (
+                    <Text style={styles.yearDropdownBadgeActive}>● Ano activo</Text>
+                  ) : anoSelecionado ? (
+                    <Text style={styles.yearDropdownBadgeHistory}>Histórico</Text>
+                  ) : null}
+                </View>
               </View>
-            </ScrollView>
+              <Ionicons name="chevron-down" size={15} color={Colors.textMuted} />
+            </TouchableOpacity>
           </View>
         )}
+
+        {/* Year Dropdown Modal */}
+        <Modal
+          visible={yearDropdownOpen}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setYearDropdownOpen(false)}
+        >
+          <TouchableOpacity
+            style={styles.yearModalOverlay}
+            activeOpacity={1}
+            onPress={() => setYearDropdownOpen(false)}
+          >
+            <View style={styles.yearModalCard}>
+              <View style={styles.yearModalHeader}>
+                <View style={styles.yearModalHeaderLeft}>
+                  <Ionicons name="calendar-outline" size={16} color={Colors.gold} />
+                  <Text style={styles.yearModalTitle}>Seleccionar Ano Académico</Text>
+                </View>
+                <TouchableOpacity onPress={() => setYearDropdownOpen(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Ionicons name="close" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.yearModalSub}>
+                Toda a informação do sistema será filtrada pelo ano seleccionado.
+              </Text>
+              <ScrollView style={styles.yearModalList} showsVerticalScrollIndicator={false}>
+                {[...anos].sort((a, b) => b.ano.localeCompare(a.ano)).map(ano => {
+                  const isSelected = anoSelecionado?.id === ano.id;
+                  const isActive = ano.id === anoAtivo?.id;
+                  const today = new Date().toISOString().split('T')[0];
+                  const isFuture = ano.dataInicio > today;
+                  const isPast = !isActive && !isFuture;
+                  return (
+                    <TouchableOpacity
+                      key={ano.id}
+                      style={[styles.yearModalItem, isSelected && styles.yearModalItemSelected]}
+                      onPress={() => { setAnoSelecionado(ano); setYearDropdownOpen(false); }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.yearModalItemLeft}>
+                        <View style={[styles.yearModalDot, isActive && styles.yearModalDotActive, isFuture && styles.yearModalDotFuture]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.yearModalItemYear, isSelected && styles.yearModalItemYearSelected]}>
+                            {ano.ano}
+                          </Text>
+                          {(ano.dataInicio || ano.dataFim) && (
+                            <Text style={styles.yearModalItemDates}>
+                              {ano.dataInicio} — {ano.dataFim}
+                            </Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.yearModalItemRight}>
+                        {isActive && (
+                          <View style={styles.yearBadgeActive}>
+                            <Text style={styles.yearBadgeActiveText}>Activo</Text>
+                          </View>
+                        )}
+                        {isFuture && (
+                          <View style={styles.yearBadgeFuture}>
+                            <Text style={styles.yearBadgeFutureText}>Futuro</Text>
+                          </View>
+                        )}
+                        {isPast && !isActive && (
+                          <View style={styles.yearBadgeHistory}>
+                            <Text style={styles.yearBadgeHistoryText}>Histórico</Text>
+                          </View>
+                        )}
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={18} color={Colors.gold} style={{ marginLeft: 6 }} />
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </TouchableOpacity>
+        </Modal>
 
         <View style={styles.divider} />
 
@@ -1012,7 +1099,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   yearSelector: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingBottom: 8,
   },
   yearLabel: {
@@ -1022,40 +1109,207 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 6,
+    paddingHorizontal: 4,
   },
-  yearBtns: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  yearBtn: {
+  yearDropdownBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
-    backgroundColor: Colors.surface,
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: 'rgba(240,165,0,0.25)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 8,
   },
-  yearBtnActive: {
-    backgroundColor: 'rgba(240,165,0,0.15)',
-    borderColor: Colors.gold + '66',
+  yearDropdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
   },
-  yearBtnText: {
+  yearDropdownIconWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(240,165,0,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.2)',
+  },
+  yearDropdownValue: {
     fontSize: 13,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  yearDropdownBadgeActive: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.success,
+    marginTop: 1,
+  },
+  yearDropdownBadgeHistory: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textMuted,
+    marginTop: 1,
+  },
+  yearModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(6,16,41,0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  yearModalCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#132145',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.2)',
+    overflow: 'hidden',
+    paddingTop: 20,
+    paddingBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.45,
+    shadowRadius: 32,
+    elevation: 24,
+  },
+  yearModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 6,
+  },
+  yearModalHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  yearModalTitle: {
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  yearModalSub: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    paddingHorizontal: 20,
+    marginBottom: 14,
+    lineHeight: 16,
+  },
+  yearModalList: {
+    maxHeight: 320,
+    paddingHorizontal: 12,
+    marginBottom: 8,
+  },
+  yearModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  yearModalItemSelected: {
+    backgroundColor: 'rgba(240,165,0,0.1)',
+    borderColor: 'rgba(240,165,0,0.3)',
+  },
+  yearModalItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  yearModalDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.textMuted,
+  },
+  yearModalDotActive: {
+    backgroundColor: Colors.success,
+  },
+  yearModalDotFuture: {
+    backgroundColor: Colors.info,
+  },
+  yearModalItemYear: {
+    fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.textSecondary,
   },
-  yearBtnTextActive: {
+  yearModalItemYearSelected: {
     color: Colors.gold,
   },
-  yearActiveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.success,
+  yearModalItemDates: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    marginTop: 2,
   },
+  yearModalItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  yearBadgeActive: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(46,204,113,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(46,204,113,0.3)',
+  },
+  yearBadgeActiveText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.success,
+    letterSpacing: 0.5,
+  },
+  yearBadgeFuture: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(52,152,219,0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(52,152,219,0.3)',
+  },
+  yearBadgeFutureText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.info,
+    letterSpacing: 0.5,
+  },
+  yearBadgeHistory: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  yearBadgeHistoryText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.textMuted,
+    letterSpacing: 0.5,
+  },
+  yearBtns: { flexDirection: 'row', gap: 6 },
+  yearBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  yearBtnActive: { backgroundColor: 'rgba(240,165,0,0.15)', borderColor: Colors.gold + '66' },
+  yearBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  yearBtnTextActive: { color: Colors.gold },
+  yearActiveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.success },
   divider: {
     height: 1,
     backgroundColor: Colors.border,
