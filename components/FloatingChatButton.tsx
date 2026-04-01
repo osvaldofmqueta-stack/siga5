@@ -22,10 +22,6 @@ export default function FloatingChatButton() {
   const badgeAnim = useRef(new Animated.Value(0)).current;
   const prevUnread = useRef(0);
 
-  // Oculta no ecrã de chat
-  const isHidden = HIDDEN_ROUTES.some(r => pathname?.includes('chat-interno'));
-  if (isHidden) return null;
-
   // Animação de pulso quando chegam novas mensagens
   useEffect(() => {
     if (unreadTotal > prevUnread.current) {
@@ -37,6 +33,10 @@ export default function FloatingChatButton() {
     }
     prevUnread.current = unreadTotal;
   }, [unreadTotal]);
+
+  // Oculta no ecrã de chat (após todos os hooks)
+  const isHidden = HIDDEN_ROUTES.some(() => pathname?.includes('chat-interno'));
+  if (isHidden) return null;
 
   return (
     <Animated.View

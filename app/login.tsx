@@ -1016,10 +1016,10 @@ export default function LoginScreen() {
       resizeMode="cover"
     >
       <LinearGradient
-        colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+        colors={['rgba(6,16,41,0.97)', 'rgba(10,22,40,0.95)', 'rgba(15,31,64,0.93)', 'rgba(20,34,71,0.92)']}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
-        end={{ x: 0.6, y: 1 }}
+        end={{ x: 1, y: 1 }}
       />
       {bgDecorations}
 
@@ -1051,7 +1051,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, ...(Platform.OS === 'web' ? { minHeight: '100vh' as any } : {}) },
 
   desktopRow: {
     flex: 1,
@@ -1185,10 +1185,10 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(10,22,52,0.82)',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
+    borderColor: 'rgba(255,255,255,0.12)',
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
