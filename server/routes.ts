@@ -6051,6 +6051,176 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // CONFIGURAÇÃO RH (taxas e valores de pagamento/desconto)
+  // -----------------------
+  app.get("/api/configuracao-rh", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.configuracao_rh WHERE id=1`);
+    json(res, 200, rows[0] ?? { id: 1, valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  });
+
+  app.put("/api/configuracao-rh", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.configuracao_rh (id, "valorPorFalta", "valorMeioDia", "taxaTempoLectivo", "taxaAdminPorDia", observacoes, "atualizadoEm")
+         VALUES (1,$1,$2,$3,$4,$5,NOW())
+         ON CONFLICT (id) DO UPDATE SET
+           "valorPorFalta"=$1, "valorMeioDia"=$2, "taxaTempoLectivo"=$3, "taxaAdminPorDia"=$4, observacoes=$5, "atualizadoEm"=NOW()
+         RETURNING *`,
+        [b.valorPorFalta ?? 0, b.valorMeioDia ?? 0, b.taxaTempoLectivo ?? 0, b.taxaAdminPorDia ?? 0, b.observacoes ?? '']
+      );
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // FALTAS DE FUNCIONÁRIOS
+  // -----------------------
+  app.get("/api/faltas-funcionarios", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const { funcionarioId, mes, ano, departamento } = req.query as Record<string, string>;
+    let sql = `SELECT ff.*, f.nome, f.apelido, f.departamento, f.cargo
+               FROM public.faltas_funcionarios ff
+               JOIN public.funcionarios f ON ff."funcionarioId" = f.id WHERE 1=1`;
+    const params: unknown[] = [];
+    if (funcionarioId) { params.push(funcionarioId); sql += ` AND ff."funcionarioId"=$${params.length}`; }
+    if (mes) { params.push(parseInt(mes)); sql += ` AND ff.mes=$${params.length}`; }
+    if (ano) { params.push(parseInt(ano)); sql += ` AND ff.ano=$${params.length}`; }
+    if (departamento) { params.push(departamento); sql += ` AND f.departamento=$${params.length}`; }
+    sql += ` ORDER BY ff.data DESC, ff."criadoEm" DESC`;
+    const rows = await query<JsonObject>(sql, params);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/faltas-funcionarios", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      if (!b.funcionarioId || !b.data || !b.mes || !b.ano) return json(res, 400, { error: "funcionarioId, data, mes e ano são obrigatórios." });
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.faltas_funcionarios
+           ("funcionarioId", data, tipo, motivo, descontavel, mes, ano, "registadoPor", "criadoEm")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *`,
+        [b.funcionarioId, b.data, b.tipo ?? 'injustificada', b.motivo ?? '',
+         b.descontavel ?? true, b.mes, b.ano, b.registadoPor ?? '']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/faltas-funcionarios/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.faltas_funcionarios SET tipo=$1, motivo=$2, descontavel=$3, data=$4 WHERE id=$5 RETURNING *`,
+        [b.tipo ?? 'injustificada', b.motivo ?? '', b.descontavel ?? true, b.data, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Falta não encontrada." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/faltas-funcionarios/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.faltas_funcionarios WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Resumo de faltas por funcionário (para folha de salário)
+  app.get("/api/faltas-funcionarios/resumo", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const { mes, ano } = req.query as Record<string, string>;
+    if (!mes || !ano) return json(res, 400, { error: "mes e ano são obrigatórios." });
+    const rows = await query<JsonObject>(
+      `SELECT ff."funcionarioId", f.nome, f.apelido, f.departamento, f.cargo,
+              COUNT(*) FILTER (WHERE ff.tipo='injustificada' AND ff.descontavel) AS faltas_injustificadas,
+              COUNT(*) FILTER (WHERE ff.tipo='justificada') AS faltas_justificadas,
+              COUNT(*) FILTER (WHERE ff.tipo='meio_dia' AND ff.descontavel) AS meios_dias,
+              COUNT(*) AS total_faltas
+       FROM public.faltas_funcionarios ff
+       JOIN public.funcionarios f ON ff."funcionarioId" = f.id
+       WHERE ff.mes=$1 AND ff.ano=$2
+       GROUP BY ff."funcionarioId", f.nome, f.apelido, f.departamento, f.cargo
+       ORDER BY f.nome`,
+      [parseInt(mes), parseInt(ano)]
+    );
+    json(res, 200, rows);
+  });
+
+  // -----------------------
+  // TEMPOS LECTIVOS / DIAS TRABALHADOS
+  // -----------------------
+  app.get("/api/tempos-lectivos", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    const { mes, ano, tipo, departamento } = req.query as Record<string, string>;
+    let sql = `SELECT tl.*, f.nome, f.apelido, f.departamento, f.cargo, f.especialidade
+               FROM public.tempos_lectivos tl
+               JOIN public.funcionarios f ON tl."funcionarioId" = f.id WHERE 1=1`;
+    const params: unknown[] = [];
+    if (mes) { params.push(parseInt(mes)); sql += ` AND tl.mes=$${params.length}`; }
+    if (ano) { params.push(parseInt(ano)); sql += ` AND tl.ano=$${params.length}`; }
+    if (tipo) { params.push(tipo); sql += ` AND tl.tipo=$${params.length}`; }
+    if (departamento) { params.push(departamento); sql += ` AND f.departamento=$${params.length}`; }
+    sql += ` ORDER BY f.nome, tl."criadoEm" DESC`;
+    const rows = await query<JsonObject>(sql, params);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/tempos-lectivos", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      if (!b.funcionarioId || !b.mes || !b.ano) return json(res, 400, { error: "funcionarioId, mes e ano são obrigatórios." });
+      const totalUnidades = b.totalUnidades ?? 0;
+      const valorUnitario = b.valorUnitario ?? 0;
+      const totalCalculado = totalUnidades * valorUnitario;
+      // Check for existing record (one per funcionario/mes/ano/tipo)
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.tempos_lectivos WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3 AND tipo=$4`,
+        [b.funcionarioId, b.mes, b.ano, b.tipo ?? 'professor']
+      );
+      if (existing[0]) {
+        const rows = await query<JsonObject>(
+          `UPDATE public.tempos_lectivos SET "totalUnidades"=$1, "valorUnitario"=$2, "totalCalculado"=$3,
+           departamento=$4, observacoes=$5, aprovado=$6, "atualizadoEm"=NOW()
+           WHERE id=$7 RETURNING *`,
+          [totalUnidades, valorUnitario, totalCalculado, b.departamento ?? '', b.observacoes ?? '', b.aprovado ?? false, existing[0].id]
+        );
+        return json(res, 200, rows[0]);
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.tempos_lectivos
+           ("funcionarioId", mes, ano, "totalUnidades", "valorUnitario", "totalCalculado", tipo, departamento, observacoes, aprovado, "criadoEm", "atualizadoEm")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW(),NOW()) RETURNING *`,
+        [b.funcionarioId, b.mes, b.ano, totalUnidades, valorUnitario, totalCalculado,
+         b.tipo ?? 'professor', b.departamento ?? '', b.observacoes ?? '', b.aprovado ?? false]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/tempos-lectivos/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const totalUnidades = b.totalUnidades ?? 0;
+      const valorUnitario = b.valorUnitario ?? 0;
+      const rows = await query<JsonObject>(
+        `UPDATE public.tempos_lectivos SET
+           "totalUnidades"=$1, "valorUnitario"=$2, "totalCalculado"=$3,
+           departamento=$4, observacoes=$5, aprovado=$6, "atualizadoEm"=NOW()
+         WHERE id=$7 RETURNING *`,
+        [totalUnidades, valorUnitario, totalUnidades * valorUnitario,
+         b.departamento ?? '', b.observacoes ?? '', b.aprovado ?? false, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: "Registo não encontrado." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/tempos-lectivos/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.tempos_lectivos WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

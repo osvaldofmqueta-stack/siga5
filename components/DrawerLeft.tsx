@@ -189,6 +189,7 @@ export default function DrawerLeft() {
       title: 'Recursos Humanos',
       items: [
         { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
+        { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
         { label: 'Chat Interno', route: '/(main)/chat-interno', icon: <Ionicons name="chatbubble-ellipses" size={20} color="inherit" />, badgeCount: chatUnreadCount, permKey: 'chat_interno' },
@@ -311,6 +312,7 @@ export default function DrawerLeft() {
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
+        { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
       ],
     },

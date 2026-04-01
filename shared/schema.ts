@@ -255,6 +255,66 @@ export const itensFolha = pgTable("itens_folha", {
 });
 
 // -----------------------
+// FALTAS DE FUNCIONÁRIOS (controlo de faltas do pessoal)
+// -----------------------
+export const faltasFuncionarios = pgTable("faltas_funcionarios", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  funcionarioId: varchar("funcionarioId").notNull().references(() => funcionarios.id, { onDelete: "cascade" }),
+  data: text("data").notNull(), // 'YYYY-MM-DD'
+  tipo: text("tipo").notNull().default('injustificada'), // 'justificada' | 'injustificada' | 'meio_dia'
+  motivo: text("motivo").notNull().default(''),
+  descontavel: boolean("descontavel").notNull().default(true),
+  mes: integer("mes").notNull(),
+  ano: integer("ano").notNull(),
+  registadoPor: text("registadoPor").notNull().default(''),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertFaltaFuncionarioSchema = createInsertSchema(faltasFuncionarios).omit({ id: true, criadoEm: true });
+export type InsertFaltaFuncionario = z.infer<typeof insertFaltaFuncionarioSchema>;
+export type FaltaFuncionario = typeof faltasFuncionarios.$inferSelect;
+
+// -----------------------
+// TEMPOS LECTIVOS / DIAS TRABALHADOS (pagamento por trabalho efectuado)
+// -----------------------
+export const temposLectivos = pgTable("tempos_lectivos", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  funcionarioId: varchar("funcionarioId").notNull().references(() => funcionarios.id, { onDelete: "cascade" }),
+  mes: integer("mes").notNull(),
+  ano: integer("ano").notNull(),
+  totalUnidades: integer("totalUnidades").notNull().default(0), // tempos lectivos (prof) ou dias (admin)
+  valorUnitario: real("valorUnitario").notNull().default(0),
+  totalCalculado: real("totalCalculado").notNull().default(0),
+  tipo: text("tipo").notNull().default('professor'), // 'professor' | 'admin'
+  departamento: text("departamento").notNull().default(''),
+  observacoes: text("observacoes").notNull().default(''),
+  aprovado: boolean("aprovado").notNull().default(false),
+  criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+  atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const insertTempoLectivoSchema = createInsertSchema(temposLectivos).omit({ id: true, criadoEm: true, atualizadoEm: true });
+export type InsertTempoLectivo = z.infer<typeof insertTempoLectivoSchema>;
+export type TempoLectivo = typeof temposLectivos.$inferSelect;
+
+// -----------------------
+// CONFIGURAÇÃO RH (valores e taxas definidos pelo Recursos Humanos)
+// -----------------------
+export const configuracaoRH = pgTable("configuracao_rh", {
+  id: integer("id").primaryKey().default(sql`1`),
+  valorPorFalta: real("valorPorFalta").notNull().default(0),       // desconto por falta injustificada (Kz)
+  valorMeioDia: real("valorMeioDia").notNull().default(0),          // desconto por meio-dia
+  taxaTempoLectivo: real("taxaTempoLectivo").notNull().default(0),  // valor por tempo lectivo (prof. contratado)
+  taxaAdminPorDia: real("taxaAdminPorDia").notNull().default(0),    // valor por dia trabalhado (pessoal admin)
+  observacoes: text("observacoes").notNull().default(''),
+  atualizadoEm: timestamp("atualizadoEm", { withTimezone: true }).notNull().defaultNow(),
+});
+
+// -----------------------
 // SALAS DE AULA
 // -----------------------
 export const salas = pgTable("salas", {

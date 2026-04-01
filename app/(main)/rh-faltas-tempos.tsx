@@ -1,0 +1,1137 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  TextInput, Modal, ActivityIndicator, RefreshControl, Switch, Platform
+} from 'react-native';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/colors';
+import TopBar from '@/components/TopBar';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+import { webAlert } from '@/utils/webAlert';
+import { DEPARTAMENTOS, getDepartamentoByKey, DepartamentoKey } from '@/shared/departamentos';
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+type Tab = 'faltas' | 'professores' | 'admin' | 'configuracao';
+
+interface Funcionario {
+  id: string;
+  nome: string;
+  apelido: string;
+  departamento: string;
+  cargo: string;
+  especialidade: string;
+  tipoContrato: string;
+  ativo: boolean;
+}
+
+interface FaltaFuncionario {
+  id: string;
+  funcionarioId: string;
+  nome?: string;
+  apelido?: string;
+  departamento?: string;
+  cargo?: string;
+  data: string;
+  tipo: 'justificada' | 'injustificada' | 'meio_dia';
+  motivo: string;
+  descontavel: boolean;
+  mes: number;
+  ano: number;
+  registadoPor: string;
+  criadoEm: string;
+}
+
+interface TempoLectivo {
+  id: string;
+  funcionarioId: string;
+  nome?: string;
+  apelido?: string;
+  departamento?: string;
+  cargo?: string;
+  especialidade?: string;
+  mes: number;
+  ano: number;
+  totalUnidades: number;
+  valorUnitario: number;
+  totalCalculado: number;
+  tipo: 'professor' | 'admin';
+  departamento2?: string;
+  observacoes: string;
+  aprovado: boolean;
+  criadoEm: string;
+}
+
+interface ConfigRH {
+  valorPorFalta: number;
+  valorMeioDia: number;
+  taxaTempoLectivo: number;
+  taxaAdminPorDia: number;
+  observacoes: string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+const fmt = (n: number) =>
+  new Intl.NumberFormat('pt-AO', { style: 'currency', currency: 'AOA', minimumFractionDigits: 2 })
+    .format(n).replace('AOA', 'Kz');
+
+const now = new Date();
+
+const TIPO_FALTA_LABELS: Record<string, { label: string; color: string }> = {
+  injustificada: { label: 'Injustificada', color: Colors.danger },
+  justificada:   { label: 'Justificada',   color: Colors.warning },
+  meio_dia:      { label: 'Meio Dia',      color: '#AB47BC' },
+};
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
+export default function RHFaltasTemposScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  const [tab, setTab] = useState<Tab>('faltas');
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const [ano, setAno] = useState(now.getFullYear());
+
+  const isRH = ['rh', 'admin', 'director', 'ceo', 'pca'].includes(user?.role ?? '');
+
+  if (!isRH) {
+    return (
+      <View style={styles.container}>
+        <TopBar title="Faltas & Remunerações" subtitle="Acesso restrito" />
+        <View style={styles.centered}>
+          <Ionicons name="lock-closed" size={52} color={Colors.textMuted} />
+          <Text style={styles.emptyText}>Acesso Restrito</Text>
+          <Text style={styles.emptySub}>Esta área é exclusiva para o departamento de RH.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const tabs: { key: Tab; label: string; icon: string }[] = [
+    { key: 'faltas',       label: 'Faltas',        icon: 'calendar-remove'   },
+    { key: 'professores',  label: 'Prof. Tempos',  icon: 'school'            },
+    { key: 'admin',        label: 'Pessoal Admin', icon: 'office-building'   },
+    { key: 'configuracao', label: 'Configuração',  icon: 'cog'               },
+  ];
+
+  return (
+    <View style={styles.container}>
+      <TopBar
+        title="Faltas & Remunerações"
+        subtitle={`${MESES[mes - 1]} ${ano}`}
+        leftAction={{ icon: 'arrow-back', onPress: () => router.back() }}
+      />
+
+      {/* Tab Bar */}
+      <View style={styles.tabBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabScroll}>
+          {tabs.map(t => (
+            <TouchableOpacity key={t.key} style={[styles.tab, tab === t.key && styles.tabActive]} onPress={() => setTab(t.key)}>
+              <MaterialCommunityIcons name={t.icon as any} size={16} color={tab === t.key ? Colors.accent : Colors.textMuted} />
+              <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
+      {/* Month/Year Selector */}
+      {tab !== 'configuracao' && (
+        <MonthSelector mes={mes} ano={ano} onChangeMes={setMes} onChangeAno={setAno} />
+      )}
+
+      {/* Content */}
+      {tab === 'faltas'       && <FaltasTab mes={mes} ano={ano} user={user} />}
+      {tab === 'professores'  && <TemposTab tipo="professor" mes={mes} ano={ano} user={user} />}
+      {tab === 'admin'        && <TemposTab tipo="admin" mes={mes} ano={ano} user={user} />}
+      {tab === 'configuracao' && <ConfiguracaoTab />}
+    </View>
+  );
+}
+
+// ── Month Selector ────────────────────────────────────────────────────────────
+function MonthSelector({ mes, ano, onChangeMes, onChangeAno }: {
+  mes: number; ano: number;
+  onChangeMes: (m: number) => void;
+  onChangeAno: (a: number) => void;
+}) {
+  const prev = () => {
+    if (mes === 1) { onChangeMes(12); onChangeAno(ano - 1); }
+    else onChangeMes(mes - 1);
+  };
+  const next = () => {
+    if (mes === 12) { onChangeMes(1); onChangeAno(ano + 1); }
+    else onChangeMes(mes + 1);
+  };
+  return (
+    <View style={styles.monthBar}>
+      <TouchableOpacity onPress={prev} style={styles.monthBtn}>
+        <Ionicons name="chevron-back" size={20} color={Colors.accent} />
+      </TouchableOpacity>
+      <Text style={styles.monthLabel}>{MESES[mes - 1]} {ano}</Text>
+      <TouchableOpacity onPress={next} style={styles.monthBtn}>
+        <Ionicons name="chevron-forward" size={20} color={Colors.accent} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ── Faltas Tab ────────────────────────────────────────────────────────────────
+function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) {
+  const [faltas, setFaltas] = useState<FaltaFuncionario[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [showForm, setShowForm] = useState(false);
+  const [deptFiltro, setDeptFiltro] = useState<string>('todos');
+  const [search, setSearch] = useState('');
+
+  // Form state
+  const [formFuncionarioId, setFormFuncionarioId] = useState('');
+  const [formData, setFormData] = useState('');
+  const [formTipo, setFormTipo] = useState<'justificada' | 'injustificada' | 'meio_dia'>('injustificada');
+  const [formMotivo, setFormMotivo] = useState('');
+  const [formDescontavel, setFormDescontavel] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true); else setLoading(true);
+    try {
+      const [f, funcs, cfg] = await Promise.all([
+        api.get(`/api/faltas-funcionarios?mes=${mes}&ano=${ano}`),
+        api.get('/api/funcionarios?ativo=true'),
+        api.get('/api/configuracao-rh'),
+      ]);
+      setFaltas(Array.isArray(f) ? f : []);
+      setFuncionarios(Array.isArray(funcs) ? funcs : []);
+      setConfigRH(cfg ?? { valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+    } catch { /* ignore */ }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [mes, ano]);
+
+  useEffect(() => { load(); }, [load]);
+
+  async function registarFalta() {
+    if (!formFuncionarioId || !formData) {
+      webAlert('Campos obrigatórios', 'Seleccione o funcionário e a data.'); return;
+    }
+    // Parse date to get mes/ano
+    const parts = formData.split('-');
+    const fMes = parts.length === 3 ? parseInt(parts[1]) : mes;
+    const fAno = parts.length === 3 ? parseInt(parts[0]) : ano;
+    setSaving(true);
+    try {
+      await api.post('/api/faltas-funcionarios', {
+        funcionarioId: formFuncionarioId,
+        data: formData,
+        tipo: formTipo,
+        motivo: formMotivo,
+        descontavel: formDescontavel,
+        mes: fMes,
+        ano: fAno,
+        registadoPor: user?.nome ?? user?.username ?? '',
+      });
+      setShowForm(false);
+      resetForm();
+      await load(true);
+    } catch (e: any) {
+      webAlert('Erro', e?.message ?? 'Erro ao registar falta.');
+    } finally { setSaving(false); }
+  }
+
+  async function eliminarFalta(id: string) {
+    webAlert('Confirmar', 'Eliminar este registo de falta?', async () => {
+      try {
+        await api.delete(`/api/faltas-funcionarios/${id}`);
+        await load(true);
+      } catch { webAlert('Erro', 'Não foi possível eliminar.'); }
+    }, undefined, true);
+  }
+
+  function resetForm() {
+    setFormFuncionarioId(''); setFormData(''); setFormTipo('injustificada');
+    setFormMotivo(''); setFormDescontavel(true);
+  }
+
+  const faltasFiltradas = useMemo(() => faltas.filter(f => {
+    if (deptFiltro !== 'todos' && f.departamento !== deptFiltro) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const nome = `${f.nome ?? ''} ${f.apelido ?? ''}`.toLowerCase();
+      if (!nome.includes(q)) return false;
+    }
+    return true;
+  }), [faltas, deptFiltro, search]);
+
+  // Summary
+  const resumo = useMemo(() => {
+    const inj = faltasFiltradas.filter(f => f.tipo === 'injustificada' && f.descontavel).length;
+    const just = faltasFiltradas.filter(f => f.tipo === 'justificada').length;
+    const meio = faltasFiltradas.filter(f => f.tipo === 'meio_dia' && f.descontavel).length;
+    const totalDesc = inj * configRH.valorPorFalta + meio * configRH.valorMeioDia;
+    return { inj, just, meio, totalDesc };
+  }, [faltasFiltradas, configRH]);
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Summary Cards */}
+      <View style={styles.summaryRow}>
+        <SummaryCard label="Injustificadas" value={resumo.inj} color={Colors.danger} icon="close-circle" />
+        <SummaryCard label="Justificadas" value={resumo.just} color={Colors.warning} icon="checkmark-circle" />
+        <SummaryCard label="Meio Dia" value={resumo.meio} color="#AB47BC" icon="time" />
+        <SummaryCard label="Total Desconto" value={fmt(resumo.totalDesc)} color={Colors.accent} icon="cash" isText />
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Pesquisar funcionário..."
+          placeholderTextColor={Colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+        <TouchableOpacity style={styles.addBtn} onPress={() => setShowForm(true)}>
+          <Ionicons name="add" size={20} color="#fff" />
+          <Text style={styles.addBtnText}>Registar</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Dept filter pills */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow} contentContainerStyle={{ paddingHorizontal: 12 }}>
+        <DeptPill label="Todos" active={deptFiltro === 'todos'} onPress={() => setDeptFiltro('todos')} />
+        {DEPARTAMENTOS.map(d => (
+          <DeptPill key={d.key} label={d.nome} active={deptFiltro === d.key} onPress={() => setDeptFiltro(d.key)} />
+        ))}
+      </ScrollView>
+
+      {/* List */}
+      {loading ? (
+        <View style={styles.centered}><ActivityIndicator color={Colors.accent} /></View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 80 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
+        >
+          {faltasFiltradas.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <MaterialCommunityIcons name="calendar-check" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptyCardText}>Sem faltas registadas para {MESES[mes - 1]} {ano}</Text>
+            </View>
+          ) : (
+            faltasFiltradas.map(falta => (
+              <FaltaCard key={falta.id} falta={falta} configRH={configRH} onDelete={() => eliminarFalta(falta.id)} />
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* Register Modal */}
+      <Modal visible={showForm} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>Registar Falta</Text>
+
+            <Text style={styles.fieldLabel}>Funcionário *</Text>
+            <ScrollView style={{ maxHeight: 120, borderWidth: 1, borderColor: Colors.surface, borderRadius: 8, marginBottom: 10 }}>
+              {funcionarios.map(f => (
+                <TouchableOpacity
+                  key={f.id}
+                  style={[styles.funcOption, formFuncionarioId === f.id && styles.funcOptionActive]}
+                  onPress={() => setFormFuncionarioId(f.id)}
+                >
+                  <Text style={[styles.funcOptionText, formFuncionarioId === f.id && { color: Colors.accent }]}>
+                    {f.nome} {f.apelido} — {f.cargo}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.fieldLabel}>Data (AAAA-MM-DD) *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="2025-01-15"
+              placeholderTextColor={Colors.textMuted}
+              value={formData}
+              onChangeText={setFormData}
+            />
+
+            <Text style={styles.fieldLabel}>Tipo de Falta</Text>
+            <View style={styles.tipoRow}>
+              {(['injustificada','justificada','meio_dia'] as const).map(t => (
+                <TouchableOpacity
+                  key={t}
+                  style={[styles.tipoPill, formTipo === t && { backgroundColor: TIPO_FALTA_LABELS[t].color }]}
+                  onPress={() => setFormTipo(t)}
+                >
+                  <Text style={[styles.tipoPillText, formTipo === t && { color: '#fff', fontWeight: '700' }]}>
+                    {TIPO_FALTA_LABELS[t].label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.fieldLabel}>Motivo / Observação</Text>
+            <TextInput
+              style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+              placeholder="Descreva o motivo..."
+              placeholderTextColor={Colors.textMuted}
+              value={formMotivo}
+              onChangeText={setFormMotivo}
+              multiline
+            />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.fieldLabel}>Descontar no salário</Text>
+              <Switch
+                value={formDescontavel}
+                onValueChange={setFormDescontavel}
+                trackColor={{ false: Colors.surface, true: Colors.accent + '88' }}
+                thumbColor={formDescontavel ? Colors.accent : Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowForm(false); resetForm(); }}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={registarFalta} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Registar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ── Falta Card ─────────────────────────────────────────────────────────────────
+function FaltaCard({ falta, configRH, onDelete }: { falta: FaltaFuncionario; configRH: ConfigRH; onDelete: () => void }) {
+  const ti = TIPO_FALTA_LABELS[falta.tipo] ?? { label: falta.tipo, color: Colors.textMuted };
+  const desconto = falta.descontavel
+    ? falta.tipo === 'injustificada' ? configRH.valorPorFalta
+    : falta.tipo === 'meio_dia' ? configRH.valorMeioDia
+    : 0
+    : 0;
+  return (
+    <View style={styles.faltaCard}>
+      <View style={styles.faltaCardHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.faltaNome}>{falta.nome} {falta.apelido}</Text>
+          <Text style={styles.faltaCargo}>{falta.cargo} • {getDeptLabel(falta.departamento ?? '')}</Text>
+        </View>
+        <View style={[styles.tipoBadge, { backgroundColor: ti.color + '22', borderColor: ti.color }]}>
+          <Text style={[styles.tipoBadgeText, { color: ti.color }]}>{ti.label}</Text>
+        </View>
+      </View>
+      <View style={styles.faltaCardBody}>
+        <View style={styles.faltaInfo}>
+          <Ionicons name="calendar-outline" size={14} color={Colors.textMuted} />
+          <Text style={styles.faltaInfoText}>{formatDate(falta.data)}</Text>
+        </View>
+        {falta.motivo ? (
+          <View style={styles.faltaInfo}>
+            <Ionicons name="document-text-outline" size={14} color={Colors.textMuted} />
+            <Text style={styles.faltaInfoText}>{falta.motivo}</Text>
+          </View>
+        ) : null}
+        <View style={styles.faltaFooter}>
+          <View style={styles.faltaInfo}>
+            <Ionicons name={falta.descontavel ? 'cash-outline' : 'close-circle-outline'} size={14}
+              color={falta.descontavel ? Colors.danger : Colors.success} />
+            <Text style={[styles.faltaInfoText, { color: falta.descontavel ? Colors.danger : Colors.success }]}>
+              {falta.descontavel ? `Desconto: ${fmt(desconto)}` : 'Sem desconto'}
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onDelete} style={styles.deleteBtn}>
+            <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
+// ── Tempos Lectivos / Dias Admin Tab ──────────────────────────────────────────
+function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes: number; ano: number; user: any }) {
+  const [tempos, setTempos] = useState<TempoLectivo[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
+  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+
+  // Form
+  const [formFuncId, setFormFuncId] = useState('');
+  const [formUnidades, setFormUnidades] = useState('');
+  const [formValorUnit, setFormValorUnit] = useState('');
+  const [formObs, setFormObs] = useState('');
+  const [formAprovado, setFormAprovado] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const defaultRate = tipo === 'professor' ? configRH.taxaTempoLectivo : configRH.taxaAdminPorDia;
+
+  const load = useCallback(async (refresh = false) => {
+    if (refresh) setRefreshing(true); else setLoading(true);
+    try {
+      const [t, funcs, cfg] = await Promise.all([
+        api.get(`/api/tempos-lectivos?mes=${mes}&ano=${ano}&tipo=${tipo}`),
+        api.get('/api/funcionarios?ativo=true'),
+        api.get('/api/configuracao-rh'),
+      ]);
+      setTempos(Array.isArray(t) ? t : []);
+      // Filter by type
+      const filtrados = (Array.isArray(funcs) ? funcs : []).filter((f: Funcionario) => {
+        if (tipo === 'professor') return f.tipoContrato === 'contratado' || f.departamento === 'docente';
+        return f.departamento !== 'docente';
+      });
+      setFuncionarios(filtrados);
+      if (cfg) setConfigRH(cfg);
+    } catch { /* ignore */ }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [mes, ano, tipo]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const funcComTempos = useMemo(() => {
+    const temposMap = new Map(tempos.map(t => [t.funcionarioId, t]));
+    return funcionarios.filter(f => {
+      if (!search) return true;
+      return `${f.nome} ${f.apelido}`.toLowerCase().includes(search.toLowerCase());
+    }).map(f => ({ func: f, tempo: temposMap.get(f.id) ?? null }));
+  }, [funcionarios, tempos, search]);
+
+  const totalPagar = useMemo(() => tempos.reduce((s, t) => s + (t.totalCalculado ?? 0), 0), [tempos]);
+  const totalUnidades = useMemo(() => tempos.reduce((s, t) => s + (t.totalUnidades ?? 0), 0), [tempos]);
+
+  function openForm(func: Funcionario, tempo: TempoLectivo | null) {
+    setFormFuncId(func.id);
+    if (tempo) {
+      setEditingId(tempo.id);
+      setFormUnidades(String(tempo.totalUnidades));
+      setFormValorUnit(String(tempo.valorUnitario));
+      setFormObs(tempo.observacoes);
+      setFormAprovado(tempo.aprovado);
+    } else {
+      setEditingId(null);
+      setFormUnidades('');
+      const rate = tipo === 'professor' ? configRH.taxaTempoLectivo : configRH.taxaAdminPorDia;
+      setFormValorUnit(String(rate));
+      setFormObs('');
+      setFormAprovado(false);
+    }
+    setShowForm(true);
+  }
+
+  async function salvarTempo() {
+    if (!formFuncId || !formUnidades) { webAlert('Campos obrigatórios', 'Seleccione o funcionário e introduza as unidades.'); return; }
+    const unidades = parseInt(formUnidades) || 0;
+    const valorUnit = parseFloat(formValorUnit) || 0;
+    setSaving(true);
+    try {
+      const payload = {
+        funcionarioId: formFuncId,
+        mes, ano, totalUnidades: unidades, valorUnitario: valorUnit,
+        tipo, departamento: '', observacoes: formObs, aprovado: formAprovado,
+      };
+      if (editingId) {
+        await api.put(`/api/tempos-lectivos/${editingId}`, payload);
+      } else {
+        await api.post('/api/tempos-lectivos', payload);
+      }
+      setShowForm(false);
+      await load(true);
+    } catch (e: any) {
+      webAlert('Erro', e?.message ?? 'Erro ao guardar.');
+    } finally { setSaving(false); }
+  }
+
+  async function eliminar(id: string) {
+    webAlert('Confirmar', 'Eliminar este registo?', async () => {
+      try { await api.delete(`/api/tempos-lectivos/${id}`); await load(true); }
+      catch { webAlert('Erro', 'Não foi possível eliminar.'); }
+    }, undefined, true);
+  }
+
+  const unidadeLabel = tipo === 'professor' ? 'Tempos Lectivos' : 'Dias Trabalhados';
+  const taxaLabel    = tipo === 'professor' ? 'por Tempo Lectivo' : 'por Dia Trabalhado';
+
+  return (
+    <View style={{ flex: 1 }}>
+      {/* Summary */}
+      <View style={styles.summaryRow}>
+        <SummaryCard label={tipo === 'professor' ? 'Professores' : 'Funcionários'} value={funcionarios.length} color={Colors.accent} icon="people" />
+        <SummaryCard label={`Total ${unidadeLabel}`} value={totalUnidades} color="#66BB6A" icon="time" />
+        <SummaryCard label="Total a Pagar" value={fmt(totalPagar)} color={Colors.warning} icon="cash" isText />
+      </View>
+
+      {/* Filters */}
+      <View style={styles.filterRow}>
+        <TextInput
+          style={[styles.searchInput, { flex: 1 }]}
+          placeholder={`Pesquisar ${tipo === 'professor' ? 'professor' : 'funcionário'}...`}
+          placeholderTextColor={Colors.textMuted}
+          value={search}
+          onChangeText={setSearch}
+        />
+      </View>
+
+      {/* Info Banner */}
+      <View style={styles.infoBanner}>
+        <Ionicons name="information-circle" size={16} color={Colors.accent} />
+        <Text style={styles.infoBannerText}>
+          Taxa actual: {fmt(tipo === 'professor' ? configRH.taxaTempoLectivo : configRH.taxaAdminPorDia)} {taxaLabel}
+          {' '}(ajustável em Configuração)
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.centered}><ActivityIndicator color={Colors.accent} /></View>
+      ) : (
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 12, paddingBottom: 80 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor={Colors.accent} />}
+        >
+          {funcComTempos.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <MaterialCommunityIcons name="account-off" size={40} color={Colors.textMuted} />
+              <Text style={styles.emptyCardText}>
+                {tipo === 'professor'
+                  ? 'Sem professores contratados registados'
+                  : 'Sem pessoal administrativo registado'}
+              </Text>
+              <Text style={styles.emptyCardSub}>
+                Registe primeiro os funcionários na Gestão de Pessoal
+              </Text>
+            </View>
+          ) : (
+            funcComTempos.map(({ func, tempo }) => (
+              <TempoCard
+                key={func.id}
+                func={func}
+                tempo={tempo}
+                tipo={tipo}
+                configRH={configRH}
+                onEdit={() => openForm(func, tempo)}
+                onDelete={tempo ? () => eliminar(tempo.id) : undefined}
+              />
+            ))
+          )}
+        </ScrollView>
+      )}
+
+      {/* Form Modal */}
+      <Modal visible={showForm} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <Text style={styles.modalTitle}>
+              {editingId ? 'Editar' : 'Registar'} {tipo === 'professor' ? 'Tempos Lectivos' : 'Dias Trabalhados'}
+            </Text>
+
+            <Text style={styles.fieldLabel}>{tipo === 'professor' ? 'Número de Tempos Lectivos' : 'Dias Trabalhados'} *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder={tipo === 'professor' ? 'Ex: 40' : 'Ex: 22'}
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="numeric"
+              value={formUnidades}
+              onChangeText={setFormUnidades}
+            />
+
+            <Text style={styles.fieldLabel}>Valor Unitário (Kz) *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Ex: 2500"
+              placeholderTextColor={Colors.textMuted}
+              keyboardType="decimal-pad"
+              value={formValorUnit}
+              onChangeText={setFormValorUnit}
+            />
+
+            {/* Preview */}
+            {formUnidades && formValorUnit ? (
+              <View style={styles.calcPreview}>
+                <Text style={styles.calcPreviewLabel}>Total calculado:</Text>
+                <Text style={styles.calcPreviewValue}>
+                  {fmt((parseInt(formUnidades) || 0) * (parseFloat(formValorUnit) || 0))}
+                </Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.fieldLabel}>Observações</Text>
+            <TextInput
+              style={[styles.input, { height: 60, textAlignVertical: 'top' }]}
+              placeholder="Observações opcionais..."
+              placeholderTextColor={Colors.textMuted}
+              value={formObs}
+              onChangeText={setFormObs}
+              multiline
+            />
+
+            <View style={styles.switchRow}>
+              <Text style={styles.fieldLabel}>Aprovado</Text>
+              <Switch
+                value={formAprovado}
+                onValueChange={setFormAprovado}
+                trackColor={{ false: Colors.surface, true: Colors.success + '88' }}
+                thumbColor={formAprovado ? Colors.success : Colors.textMuted}
+              />
+            </View>
+
+            <View style={styles.modalBtns}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowForm(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={salvarTempo} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
+
+// ── Tempo Card ─────────────────────────────────────────────────────────────────
+function TempoCard({ func, tempo, tipo, configRH, onEdit, onDelete }: {
+  func: Funcionario;
+  tempo: TempoLectivo | null;
+  tipo: 'professor' | 'admin';
+  configRH: ConfigRH;
+  onEdit: () => void;
+  onDelete?: () => void;
+}) {
+  const unidadeLabel = tipo === 'professor' ? 'tempos' : 'dias';
+  const defaultRate  = tipo === 'professor' ? configRH.taxaTempoLectivo : configRH.taxaAdminPorDia;
+  return (
+    <View style={styles.tempoCard}>
+      <View style={styles.tempoCardLeft}>
+        <View style={styles.avatarCircle}>
+          <Text style={styles.avatarText}>{func.nome[0]}{func.apelido[0]}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.tempoNome}>{func.nome} {func.apelido}</Text>
+          <Text style={styles.tempoCargo}>{func.cargo} {func.especialidade ? `— ${func.especialidade}` : ''}</Text>
+        </View>
+      </View>
+
+      {tempo ? (
+        <View style={styles.tempoCardRight}>
+          <View style={styles.tempoStat}>
+            <Text style={styles.tempoStatNum}>{tempo.totalUnidades}</Text>
+            <Text style={styles.tempoStatLabel}>{unidadeLabel}</Text>
+          </View>
+          <View style={styles.tempoStat}>
+            <Text style={[styles.tempoStatNum, { color: Colors.warning }]}>{fmt(tempo.totalCalculado)}</Text>
+            <Text style={styles.tempoStatLabel}>total</Text>
+          </View>
+          {tempo.aprovado && (
+            <View style={styles.aprovadoBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+              <Text style={styles.aprovadoText}>Aprovado</Text>
+            </View>
+          )}
+          <View style={styles.cardActions}>
+            <TouchableOpacity onPress={onEdit} style={styles.editIconBtn}>
+              <Ionicons name="create-outline" size={18} color={Colors.accent} />
+            </TouchableOpacity>
+            {onDelete && (
+              <TouchableOpacity onPress={onDelete} style={styles.editIconBtn}>
+                <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      ) : (
+        <TouchableOpacity style={styles.addTempoBtn} onPress={onEdit}>
+          <Ionicons name="add-circle-outline" size={18} color={Colors.accent} />
+          <Text style={styles.addTempoBtnText}>Registar</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ── Configuração Tab ───────────────────────────────────────────────────────────
+function ConfiguracaoTab() {
+  const [config, setConfig] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get('/api/configuracao-rh').then(d => {
+      if (d) setConfig(d);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  async function guardar() {
+    setSaving(true);
+    try {
+      const saved = await api.put('/api/configuracao-rh', config);
+      if (saved) setConfig(saved);
+      webAlert('Sucesso', 'Configuração guardada com sucesso!');
+    } catch { webAlert('Erro', 'Não foi possível guardar.'); }
+    finally { setSaving(false); }
+  }
+
+  if (loading) return <View style={styles.centered}><ActivityIndicator color={Colors.accent} /></View>;
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 80 }}>
+      <View style={styles.configSection}>
+        <View style={styles.configSectionHeader}>
+          <MaterialCommunityIcons name="calendar-remove" size={20} color={Colors.danger} />
+          <Text style={styles.configSectionTitle}>Descontos por Falta</Text>
+        </View>
+        <Text style={styles.configSectionDesc}>
+          Valores a descontar no salário quando o funcionário regista faltas descontáveis.
+        </Text>
+
+        <ConfigField
+          label="Desconto por Falta Injustificada (Kz)"
+          value={String(config.valorPorFalta)}
+          onChangeText={v => setConfig(p => ({ ...p, valorPorFalta: parseFloat(v) || 0 }))}
+          placeholder="Ex: 3500"
+          icon="close-circle"
+          iconColor={Colors.danger}
+        />
+        <ConfigField
+          label="Desconto por Meio Dia (Kz)"
+          value={String(config.valorMeioDia)}
+          onChangeText={v => setConfig(p => ({ ...p, valorMeioDia: parseFloat(v) || 0 }))}
+          placeholder="Ex: 1750"
+          icon="time"
+          iconColor="#AB47BC"
+        />
+      </View>
+
+      <View style={styles.configSection}>
+        <View style={styles.configSectionHeader}>
+          <MaterialCommunityIcons name="school" size={20} color={Colors.accent} />
+          <Text style={styles.configSectionTitle}>Professores Contratados</Text>
+        </View>
+        <Text style={styles.configSectionDesc}>
+          Taxa paga por cada tempo lectivo dado por professores contratados e colaboradores.
+          O salário mensal é calculado automaticamente: Tempos × Taxa = Total a Receber.
+        </Text>
+        <ConfigField
+          label="Valor por Tempo Lectivo (Kz)"
+          value={String(config.taxaTempoLectivo)}
+          onChangeText={v => setConfig(p => ({ ...p, taxaTempoLectivo: parseFloat(v) || 0 }))}
+          placeholder="Ex: 2500"
+          icon="cash"
+          iconColor={Colors.success}
+        />
+        {/* Preview */}
+        <View style={styles.previewBox}>
+          <Text style={styles.previewBoxLabel}>Exemplo de cálculo:</Text>
+          <Text style={styles.previewBoxCalc}>
+            40 tempos × {fmt(config.taxaTempoLectivo)} = {fmt(40 * config.taxaTempoLectivo)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.configSection}>
+        <View style={styles.configSectionHeader}>
+          <MaterialCommunityIcons name="office-building" size={20} color={Colors.warning} />
+          <Text style={styles.configSectionTitle}>Pessoal Administrativo</Text>
+        </View>
+        <Text style={styles.configSectionDesc}>
+          Taxa diária para pessoal administrativo que trabalha a nível de departamento e secção.
+          O pagamento mensal calcula-se por: Dias Trabalhados × Taxa Diária.
+        </Text>
+        <ConfigField
+          label="Valor por Dia Trabalhado (Kz)"
+          value={String(config.taxaAdminPorDia)}
+          onChangeText={v => setConfig(p => ({ ...p, taxaAdminPorDia: parseFloat(v) || 0 }))}
+          placeholder="Ex: 4000"
+          icon="calendar"
+          iconColor={Colors.warning}
+        />
+        <View style={styles.previewBox}>
+          <Text style={styles.previewBoxLabel}>Exemplo de cálculo (22 dias úteis):</Text>
+          <Text style={styles.previewBoxCalc}>
+            22 dias × {fmt(config.taxaAdminPorDia)} = {fmt(22 * config.taxaAdminPorDia)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.configSection}>
+        <View style={styles.configSectionHeader}>
+          <Ionicons name="document-text" size={20} color={Colors.textMuted} />
+          <Text style={styles.configSectionTitle}>Observações</Text>
+        </View>
+        <TextInput
+          style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+          placeholder="Notas internas sobre a configuração de pagamentos..."
+          placeholderTextColor={Colors.textMuted}
+          value={config.observacoes}
+          onChangeText={v => setConfig(p => ({ ...p, observacoes: v }))}
+          multiline
+        />
+      </View>
+
+      <TouchableOpacity style={styles.guardarBtn} onPress={guardar} disabled={saving}>
+        {saving
+          ? <ActivityIndicator color="#fff" size="small" />
+          : <>
+              <Ionicons name="checkmark-circle" size={18} color="#fff" />
+              <Text style={styles.guardarBtnText}>Guardar Configuração</Text>
+            </>}
+      </TouchableOpacity>
+    </ScrollView>
+  );
+}
+
+// ── Shared Sub-components ─────────────────────────────────────────────────────
+function SummaryCard({ label, value, color, icon, isText }: {
+  label: string; value: string | number; color: string; icon: string; isText?: boolean;
+}) {
+  return (
+    <View style={[styles.summaryCard, { borderTopColor: color }]}>
+      <Ionicons name={icon as any} size={18} color={color} />
+      <Text style={[styles.summaryValue, { color, fontSize: isText ? 11 : 22 }]}>{value}</Text>
+      <Text style={styles.summaryLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function DeptPill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity
+      style={[styles.deptPill, active && styles.deptPillActive]}
+      onPress={onPress}
+    >
+      <Text style={[styles.deptPillText, active && styles.deptPillTextActive]}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ConfigField({ label, value, onChangeText, placeholder, icon, iconColor }: {
+  label: string; value: string; onChangeText: (v: string) => void;
+  placeholder: string; icon: string; iconColor: string;
+}) {
+  return (
+    <View style={styles.configField}>
+      <Text style={styles.configFieldLabel}>{label}</Text>
+      <View style={styles.configInputRow}>
+        <View style={[styles.configIconBox, { backgroundColor: iconColor + '22' }]}>
+          <Ionicons name={icon as any} size={18} color={iconColor} />
+        </View>
+        <TextInput
+          style={styles.configInput}
+          placeholder={placeholder}
+          placeholderTextColor={Colors.textMuted}
+          keyboardType="decimal-pad"
+          value={value}
+          onChangeText={onChangeText}
+        />
+      </View>
+    </View>
+  );
+}
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function getDeptLabel(key: string): string {
+  const d = getDepartamentoByKey(key as DepartamentoKey);
+  return d?.nome ?? key;
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Colors.background },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  emptyText: { color: Colors.text ?? '#fff', fontSize: 18, fontWeight: '700', marginTop: 12 },
+  emptySub: { color: Colors.textMuted, fontSize: 13, textAlign: 'center', marginTop: 6 },
+
+  tabBar: { backgroundColor: Colors.surface, borderBottomWidth: 1, borderBottomColor: Colors.surfaceLight ?? '#243A78' },
+  tabScroll: { paddingHorizontal: 8 },
+  tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 12 },
+  tabActive: { borderBottomWidth: 2, borderBottomColor: Colors.accent },
+  tabLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '500' },
+  tabLabelActive: { color: Colors.accent, fontWeight: '700' },
+
+  monthBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 8, backgroundColor: Colors.surface,
+    borderBottomWidth: 1, borderBottomColor: Colors.surfaceLight ?? '#243A78',
+  },
+  monthBtn: { padding: 8 },
+  monthLabel: { color: Colors.accent, fontSize: 15, fontWeight: '700', minWidth: 160, textAlign: 'center' },
+
+  summaryRow: { flexDirection: 'row', padding: 8, gap: 6 },
+  summaryCard: {
+    flex: 1, backgroundColor: Colors.surface, borderRadius: 10, padding: 10,
+    alignItems: 'center', borderTopWidth: 3, gap: 4,
+  },
+  summaryValue: { fontWeight: '800', marginTop: 2 },
+  summaryLabel: { color: Colors.textMuted, fontSize: 10, textAlign: 'center' },
+
+  filterRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
+  searchInput: {
+    flex: 1, backgroundColor: Colors.surface, borderRadius: 10, paddingHorizontal: 14,
+    paddingVertical: Platform.OS === 'web' ? 10 : 8, color: Colors.text ?? '#fff', fontSize: 13,
+  },
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10,
+  },
+  addBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+
+  pillRow: { maxHeight: 44, flexShrink: 0 },
+  deptPill: {
+    borderRadius: 20, borderWidth: 1, borderColor: Colors.surface,
+    paddingHorizontal: 12, paddingVertical: 6, marginRight: 6,
+    backgroundColor: Colors.surface,
+  },
+  deptPillActive: { borderColor: Colors.accent, backgroundColor: Colors.accent + '22' },
+  deptPillText: { color: Colors.textMuted, fontSize: 11, fontWeight: '500' },
+  deptPillTextActive: { color: Colors.accent, fontWeight: '700' },
+
+  infoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.accent + '15', marginHorizontal: 12, marginBottom: 4,
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+  },
+  infoBannerText: { color: Colors.accent, fontSize: 11, flex: 1 },
+
+  emptyCard: {
+    backgroundColor: Colors.surface, borderRadius: 14, padding: 32,
+    alignItems: 'center', marginVertical: 20, gap: 8,
+  },
+  emptyCardText: { color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '600', textAlign: 'center' },
+  emptyCardSub: { color: Colors.textMuted, fontSize: 12, textAlign: 'center' },
+
+  // Falta Card
+  faltaCard: {
+    backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 10,
+    overflow: 'hidden', borderLeftWidth: 3, borderLeftColor: Colors.danger,
+  },
+  faltaCardHeader: {
+    flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.surfaceLight ?? '#243A78',
+  },
+  faltaNome: { color: Colors.text ?? '#fff', fontSize: 14, fontWeight: '700' },
+  faltaCargo: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  tipoBadge: { borderRadius: 6, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 3 },
+  tipoBadgeText: { fontSize: 11, fontWeight: '700' },
+  faltaCardBody: { padding: 12, gap: 6 },
+  faltaInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  faltaInfoText: { color: Colors.textMuted, fontSize: 12 },
+  faltaFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  deleteBtn: { padding: 4 },
+
+  // Tempo Card
+  tempoCard: {
+    backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 10,
+    padding: 14, flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  tempoCardLeft: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  tempoCardRight: { alignItems: 'flex-end', gap: 4 },
+  avatarCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.accent + '22', justifyContent: 'center', alignItems: 'center',
+  },
+  avatarText: { color: Colors.accent, fontSize: 14, fontWeight: '800' },
+  tempoNome: { color: Colors.text ?? '#fff', fontSize: 13, fontWeight: '700' },
+  tempoCargo: { color: Colors.textMuted, fontSize: 11, marginTop: 2 },
+  tempoStat: { alignItems: 'flex-end' },
+  tempoStatNum: { color: Colors.text ?? '#fff', fontSize: 14, fontWeight: '800' },
+  tempoStatLabel: { color: Colors.textMuted, fontSize: 10 },
+  aprovadoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  aprovadoText: { color: Colors.success, fontSize: 10, fontWeight: '700' },
+  cardActions: { flexDirection: 'row', gap: 4, marginTop: 4 },
+  editIconBtn: { padding: 4 },
+  addTempoBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    borderWidth: 1, borderColor: Colors.accent, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6,
+  },
+  addTempoBtnText: { color: Colors.accent, fontSize: 12, fontWeight: '600' },
+
+  // Config
+  configSection: {
+    backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 12, gap: 12,
+  },
+  configSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  configSectionTitle: { color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' },
+  configSectionDesc: { color: Colors.textMuted, fontSize: 12, lineHeight: 18 },
+  configField: { gap: 6 },
+  configFieldLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  configInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  configIconBox: { width: 40, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  configInput: {
+    flex: 1, backgroundColor: Colors.surfaceLight ?? '#1A2B5F', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, color: Colors.text ?? '#fff', fontSize: 15,
+  },
+  previewBox: {
+    backgroundColor: Colors.background, borderRadius: 8, padding: 12,
+    borderLeftWidth: 3, borderLeftColor: Colors.accent,
+  },
+  previewBoxLabel: { color: Colors.textMuted, fontSize: 11, marginBottom: 4 },
+  previewBoxCalc: { color: Colors.accent, fontSize: 14, fontWeight: '700' },
+
+  guardarBtn: {
+    backgroundColor: Colors.accent, borderRadius: 14, paddingVertical: 16,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, marginTop: 8,
+  },
+  guardarBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+
+  // Modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center', alignItems: 'center', padding: 16,
+  },
+  modalBox: {
+    backgroundColor: Colors.surface, borderRadius: 18, padding: 20, width: '100%', maxWidth: 480,
+  },
+  modalTitle: { color: Colors.text ?? '#fff', fontSize: 17, fontWeight: '800', marginBottom: 16 },
+  fieldLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  input: {
+    backgroundColor: Colors.surfaceLight ?? '#1A2B5F', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, color: Colors.text ?? '#fff',
+    fontSize: 14, marginBottom: 12,
+  },
+  funcOption: { paddingHorizontal: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.surface },
+  funcOptionActive: { backgroundColor: Colors.accent + '22' },
+  funcOptionText: { color: Colors.textMuted, fontSize: 12 },
+  tipoRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  tipoPill: {
+    flex: 1, padding: 8, borderRadius: 8, borderWidth: 1.5,
+    borderColor: Colors.surface, alignItems: 'center',
+  },
+  tipoPillText: { color: Colors.textMuted, fontSize: 11, fontWeight: '600' },
+  switchRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16,
+  },
+  calcPreview: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: Colors.background, borderRadius: 8, padding: 12, marginBottom: 12,
+  },
+  calcPreviewLabel: { color: Colors.textMuted, fontSize: 12 },
+  calcPreviewValue: { color: Colors.accent, fontSize: 16, fontWeight: '800' },
+  modalBtns: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  cancelBtn: { flex: 1, borderWidth: 1, borderColor: Colors.textMuted, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  cancelBtnText: { color: Colors.textMuted, fontWeight: '600' },
+  saveBtn: { flex: 1, backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
+  saveBtnText: { color: '#fff', fontWeight: '700' },
+});
