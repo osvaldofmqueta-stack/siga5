@@ -25,13 +25,13 @@ args = "Start Frontend"
 name = "Start Backend"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "NODE_ENV=development node_modules/.bin/tsx server/index.ts"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Start Frontend"
