@@ -32,6 +32,7 @@ import {
 } from '@/shared/departamentos';
 import { api } from '@/lib/api';
 import { consultarNIF } from '@/lib/nifLookup';
+import DatePickerField from '@/components/DatePickerField';
 
 type Tab = 'pessoal' | 'sumarios' | 'solicitacoes' | 'calendario';
 type SumFiltro = 'todos' | 'pendente' | 'aceite' | 'rejeitado';
@@ -706,9 +707,12 @@ export default function RHControleScreen() {
                       ))}
                     </View>
                   </FormRow>
-                  <FormRow label="Data de Nascimento">
-                    <TextInput style={styles.input} placeholder="AAAA-MM-DD" placeholderTextColor={Colors.textMuted} value={funcForm.dataNascimento} onChangeText={v => updateField('dataNascimento', v)} />
-                  </FormRow>
+                  <DatePickerField
+                    label="Data de Nascimento"
+                    value={funcForm.dataNascimento}
+                    onChange={v => updateField('dataNascimento', v)}
+                    labelStyle={styles.fieldLabel}
+                  />
                   <FormRow label="Bilhete de Identidade (BI)">
                     <TextInput style={styles.input} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => updateField('bi', v)} autoCapitalize="characters" />
                   </FormRow>

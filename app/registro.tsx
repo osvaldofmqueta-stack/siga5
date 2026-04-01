@@ -616,7 +616,7 @@ export default function RegistroScreen() {
                 <Text style={styles.sectionLabelText}>Identificação Oficial</Text>
               </View>
 
-              <InputField label="Número do BI" value={form.numeroBi} onChangeText={v => set('numeroBi', v)} placeholder="Ex: 004123456LA042" autoCapitalize="characters" />
+              <InputField label="Número do BI" value={form.numeroBi} onChangeText={v => set('numeroBi', v)} placeholder="000000000LA000" autoCapitalize="characters" />
               <InputField label="Número da Cédula" value={form.numeroCedula} onChangeText={v => set('numeroCedula', v)} placeholder="Ex: 12345678" autoCapitalize="none" />
             </View>
           )}
