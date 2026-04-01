@@ -542,7 +542,7 @@ export default function DrawerLeft() {
         )}
 
         {/* Licence Status — estilo antivírus */}
-        {!isCeo && (
+        {!isCeo && !isAluno && (
           <TouchableOpacity
             style={styles.licCard}
             onPress={() => router.push('/licenca' as any)}
@@ -601,8 +601,8 @@ export default function DrawerLeft() {
           </TouchableOpacity>
         )}
 
-        {/* Year Selector — Smart Dropdown */}
-        {!isCeo && anos.length > 0 && (
+        {/* Year Selector — apenas CEO, PCA, Admin e Director podem alterar */}
+        {(isCeo || isPca || isAdmin || isDirector) && anos.length > 0 && (
           <View style={styles.yearSelector}>
             <Text style={styles.yearLabel}>Ano Académico</Text>
             <TouchableOpacity
@@ -627,6 +627,31 @@ export default function DrawerLeft() {
               </View>
               <Ionicons name="chevron-down" size={15} color={Colors.textMuted} />
             </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Ano Académico — leitura apenas para outros utilizadores (excepto alunos) */}
+        {!isCeo && !isPca && !isAdmin && !isDirector && !isAluno && anoSelecionado && (
+          <View style={styles.yearSelector}>
+            <Text style={styles.yearLabel}>Ano Académico</Text>
+            <View style={[styles.yearDropdownBtn, { opacity: 0.75 }]}>
+              <View style={styles.yearDropdownLeft}>
+                <View style={styles.yearDropdownIconWrap}>
+                  <Ionicons name="calendar" size={14} color={Colors.gold} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.yearDropdownValue} numberOfLines={1}>
+                    {anoSelecionado?.ano ?? '—'}
+                  </Text>
+                  {anoSelecionado?.id === anoAtivo?.id ? (
+                    <Text style={styles.yearDropdownBadgeActive}>● Ano activo</Text>
+                  ) : (
+                    <Text style={styles.yearDropdownBadgeHistory}>Histórico</Text>
+                  )}
+                </View>
+              </View>
+              <Ionicons name="lock-closed" size={13} color={Colors.textMuted} />
+            </View>
           </View>
         )}
 
