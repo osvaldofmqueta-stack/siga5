@@ -165,6 +165,8 @@ export default function RHControleScreen() {
   const [acessoSenha, setAcessoSenha] = useState('');
   const [acessoSaving, setAcessoSaving] = useState(false);
   const [formStep, setFormStep] = useState<'pessoal' | 'organizacao' | 'contrato' | 'salarial'>('pessoal');
+  const [funcFormErrors, setFuncFormErrors] = useState<Record<string, string>>({});
+  const [completedSteps, setCompletedSteps] = useState<Set<string>>(new Set());
   const [nifLookupLoading, setNifLookupLoading] = useState(false);
   const [nifLookupStatus, setNifLookupStatus] = useState<'idle' | 'found' | 'not_found' | 'error'>('idle');
   const [nifFoundName, setNifFoundName] = useState('');
@@ -248,6 +250,57 @@ export default function RHControleScreen() {
 
   function validarNIForBI(v: string): boolean {
     return /^\d{9}[A-Z]{2}\d{3}$/.test(v.trim().toUpperCase());
+  }
+
+  const FUNC_STEPS = ['pessoal', 'organizacao', 'contrato', 'salarial'] as const;
+
+  function validateFuncStep(step: typeof formStep): boolean {
+    const erros: Record<string, string> = {};
+
+    if (step === 'pessoal') {
+      if (!funcForm.nome?.trim()) erros.nome = 'O nome é obrigatório.';
+      if (funcForm.bi?.trim() && !validarNIForBI(funcForm.bi)) erros.bi = 'BI inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 000000000LA000).';
+      if (funcForm.nif?.trim() && !validarNIForBI(funcForm.nif)) erros.nif = 'NIF inválido. Formato: 9 dígitos + 2 letras + 3 dígitos (ex: 003519344HA042).';
+    } else if (step === 'organizacao') {
+      if (!funcForm.departamento) erros.departamento = 'Seleccione o departamento.';
+      if (!funcForm.cargo) erros.cargo = 'Seleccione o cargo.';
+    } else if (step === 'contrato') {
+      if (!funcForm.tipoContrato) erros.tipoContrato = 'Seleccione o tipo de vínculo.';
+    }
+
+    setFuncFormErrors(erros);
+    const valid = Object.keys(erros).length === 0;
+    if (valid) setCompletedSteps(prev => new Set([...prev, step]));
+    return valid;
+  }
+
+  function handleFuncNext() {
+    if (validateFuncStep(formStep)) {
+      const idx = FUNC_STEPS.indexOf(formStep);
+      setFormStep(FUNC_STEPS[Math.min(FUNC_STEPS.length - 1, idx + 1)]);
+      setFuncFormErrors({});
+    }
+  }
+
+  function handleStepTabClick(stepId: typeof formStep) {
+    const targetIdx = FUNC_STEPS.indexOf(stepId);
+    const currentIdx = FUNC_STEPS.indexOf(formStep);
+    if (targetIdx === currentIdx) return;
+    if (targetIdx < currentIdx) {
+      setFormStep(stepId);
+      setFuncFormErrors({});
+      return;
+    }
+    for (let i = currentIdx; i < targetIdx; i++) {
+      if (!completedSteps.has(FUNC_STEPS[i])) {
+        if (!validateFuncStep(formStep)) return;
+        break;
+      }
+    }
+    if (completedSteps.has(FUNC_STEPS[targetIdx - 1]) || validateFuncStep(formStep)) {
+      setFormStep(stepId);
+      setFuncFormErrors({});
+    }
   }
 
   async function saveFuncionario() {
@@ -550,7 +603,7 @@ export default function RHControleScreen() {
           {/* FAB */}
           <TouchableOpacity
             style={styles.fab}
-            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setFormStep('pessoal'); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
+            onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setFormStep('pessoal'); setFuncFormErrors({}); setCompletedSteps(new Set()); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
           >
             <Ionicons name="add" size={28} color="#fff" />
           </TouchableOpacity>
@@ -693,19 +746,40 @@ export default function RHControleScreen() {
                 { id: 'organizacao', label: 'Cargo' },
                 { id: 'contrato', label: 'Contrato' },
                 { id: 'salarial', label: 'Salarial' },
-              ] as const).map((s, idx) => (
-                <TouchableOpacity key={s.id} style={[styles.stepBtn, formStep === s.id && styles.stepBtnActive]} onPress={() => setFormStep(s.id)}>
-                  <Text style={[styles.stepText, formStep === s.id && styles.stepTextActive]}>{s.label}</Text>
-                </TouchableOpacity>
-              ))}
+              ] as const).map((s, idx) => {
+                const isActive = formStep === s.id;
+                const isDone = completedSteps.has(s.id) && !isActive;
+                const currentIdx = FUNC_STEPS.indexOf(formStep);
+                const isLocked = idx > currentIdx && !completedSteps.has(FUNC_STEPS[idx - 1] as typeof formStep);
+                return (
+                  <TouchableOpacity
+                    key={s.id}
+                    style={[
+                      styles.stepBtn,
+                      isActive && styles.stepBtnActive,
+                      isDone && styles.stepBtnDone,
+                      isLocked && styles.stepBtnLocked,
+                    ]}
+                    onPress={() => handleStepTabClick(s.id)}
+                  >
+                    {isDone
+                      ? <Ionicons name="checkmark-circle" size={13} color={Colors.success} />
+                      : isLocked
+                        ? <Ionicons name="lock-closed" size={12} color={Colors.textMuted} />
+                        : <Text style={[styles.stepNum, isActive && { color: '#fff' }]}>{idx + 1}</Text>
+                    }
+                    <Text style={[styles.stepText, isActive && styles.stepTextActive, isDone && { color: Colors.success }, isLocked && { color: Colors.textMuted }]}>{s.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
               {/* ── Step: Dados Pessoais ── */}
               {formStep === 'pessoal' && (
                 <>
-                  <FormRow label="Nome *">
-                    <TextInput style={styles.input} placeholder="Nome" placeholderTextColor={Colors.textMuted} value={funcForm.nome} onChangeText={v => updateField('nome', v)} />
+                  <FormRow label="Nome *" error={funcFormErrors.nome}>
+                    <TextInput style={[styles.input, !!funcFormErrors.nome && styles.inputError]} placeholder="Nome" placeholderTextColor={Colors.textMuted} value={funcForm.nome} onChangeText={v => { updateField('nome', v); if (funcFormErrors.nome) setFuncFormErrors(e => ({ ...e, nome: '' })); }} />
                   </FormRow>
                   <FormRow label="Apelido">
                     <TextInput style={styles.input} placeholder="Apelido" placeholderTextColor={Colors.textMuted} value={funcForm.apelido} onChangeText={v => updateField('apelido', v)} />
@@ -725,17 +799,17 @@ export default function RHControleScreen() {
                     onChange={v => updateField('dataNascimento', v)}
                     labelStyle={styles.fieldLabel}
                   />
-                  <FormRow label="Bilhete de Identidade (BI)">
-                    <TextInput style={styles.input} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => updateField('bi', v)} autoCapitalize="characters" />
+                  <FormRow label="Bilhete de Identidade (BI)" error={funcFormErrors.bi}>
+                    <TextInput style={[styles.input, !!funcFormErrors.bi && styles.inputError]} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => { updateField('bi', v); if (funcFormErrors.bi) setFuncFormErrors(e => ({ ...e, bi: '' })); }} autoCapitalize="characters" />
                   </FormRow>
-                  <FormRow label="NIF">
+                  <FormRow label="NIF" error={funcFormErrors.nif}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                       <TextInput
-                        style={[styles.input, { flex: 1 }]}
+                        style={[styles.input, { flex: 1 }, !!funcFormErrors.nif && styles.inputError]}
                         placeholder="Ex: 003519344HA042"
                         placeholderTextColor={Colors.textMuted}
                         value={funcForm.nif}
-                        onChangeText={v => updateField('nif', v)}
+                        onChangeText={v => { updateField('nif', v); if (funcFormErrors.nif) setFuncFormErrors(e => ({ ...e, nif: '' })); }}
                         onBlur={() => lookupNIFFuncionario(funcForm.nif ?? '')}
                         autoCapitalize="characters"
                       />
@@ -783,7 +857,10 @@ export default function RHControleScreen() {
               {/* ── Step: Organização ── */}
               {formStep === 'organizacao' && (
                 <>
-                  <Text style={styles.sectionLabel}>Departamento *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Text style={styles.sectionLabel}>Departamento *</Text>
+                    {!!funcFormErrors.departamento && <Text style={styles.inlineErrorText}>{funcFormErrors.departamento}</Text>}
+                  </View>
                   <View style={{ gap: 8, marginBottom: 16 }}>
                     {DEPARTAMENTOS.map(d => {
                       const color = DEPT_COLORS[d.key];
@@ -792,7 +869,7 @@ export default function RHControleScreen() {
                         <TouchableOpacity
                           key={d.key}
                           style={[styles.deptOption, isActive && { borderColor: color, backgroundColor: color + '15' }]}
-                          onPress={() => updateField('departamento', d.key)}
+                          onPress={() => { updateField('departamento', d.key); if (funcFormErrors.departamento) setFuncFormErrors(e => ({ ...e, departamento: '' })); }}
                         >
                           <View style={[styles.deptOptionIcon, { backgroundColor: color + '22' }]}>
                             <MaterialCommunityIcons name={DEPT_ICONS[d.key] as any} size={20} color={color} />
@@ -807,7 +884,10 @@ export default function RHControleScreen() {
                     })}
                   </View>
 
-                  <Text style={styles.sectionLabel}>Cargo / Categoria *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Text style={styles.sectionLabel}>Cargo / Categoria *</Text>
+                    {!!funcFormErrors.cargo && <Text style={styles.inlineErrorText}>{funcFormErrors.cargo}</Text>}
+                  </View>
                   <View style={{ gap: 8, marginBottom: 16 }}>
                     {cargosForForm.map(c => {
                       const isActive = funcForm.cargo === c.id;
@@ -817,7 +897,7 @@ export default function RHControleScreen() {
                         <TouchableOpacity
                           key={c.id}
                           style={[styles.cargoOption, isActive && { borderColor: deptColor, backgroundColor: deptColor + '12' }]}
-                          onPress={() => updateField('cargo', c.id)}
+                          onPress={() => { updateField('cargo', c.id); if (funcFormErrors.cargo) setFuncFormErrors(e => ({ ...e, cargo: '' })); }}
                         >
                           <View style={{ flex: 1 }}>
                             <Text style={[styles.cargoLabel, isActive && { color: deptColor }]}>{c.label}</Text>
@@ -849,10 +929,13 @@ export default function RHControleScreen() {
               {/* ── Step: Contrato ── */}
               {formStep === 'contrato' && (
                 <>
-                  <Text style={styles.sectionLabel}>Tipo de Vínculo *</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <Text style={styles.sectionLabel}>Tipo de Vínculo *</Text>
+                    {!!funcFormErrors.tipoContrato && <Text style={styles.inlineErrorText}>{funcFormErrors.tipoContrato}</Text>}
+                  </View>
                   <View style={styles.pillRow}>
                     {TIPO_CONTRATO.map(t => (
-                      <TouchableOpacity key={t.id} style={[styles.pill, funcForm.tipoContrato === t.id && styles.pillActive]} onPress={() => updateField('tipoContrato', t.id)}>
+                      <TouchableOpacity key={t.id} style={[styles.pill, funcForm.tipoContrato === t.id && styles.pillActive]} onPress={() => { updateField('tipoContrato', t.id); if (funcFormErrors.tipoContrato) setFuncFormErrors(e => ({ ...e, tipoContrato: '' })); }}>
                         <Text style={[styles.pillText, funcForm.tipoContrato === t.id && styles.pillTextActive]}>{t.label}</Text>
                       </TouchableOpacity>
                     ))}
@@ -911,11 +994,7 @@ export default function RHControleScreen() {
                   </TouchableOpacity>
                 )}
                 {formStep !== 'salarial' ? (
-                  <TouchableOpacity style={[styles.stepNavBtn, styles.stepNavBtnPrimary]} onPress={() => {
-                    const steps: typeof formStep[] = ['pessoal', 'organizacao', 'contrato', 'salarial'];
-                    const idx = steps.indexOf(formStep);
-                    setFormStep(steps[Math.min(steps.length - 1, idx + 1)]);
-                  }}>
+                  <TouchableOpacity style={[styles.stepNavBtn, styles.stepNavBtnPrimary]} onPress={handleFuncNext}>
                     <Text style={[styles.stepNavText, { color: '#fff' }]}>Próximo</Text>
                     <Ionicons name="arrow-forward" size={16} color="#fff" />
                   </TouchableOpacity>
@@ -1022,6 +1101,8 @@ export default function RHControleScreen() {
                         setEditingFunc(selectedFunc);
                         setFuncForm(selectedFunc);
                         setFormStep('pessoal');
+                        setFuncFormErrors({});
+                        setCompletedSteps(new Set(['pessoal', 'organizacao', 'contrato']));
                         setShowDetailModal(false);
                         setShowFuncForm(true);
                       }}>
@@ -1232,11 +1313,17 @@ function FuncCard({ f, onPress }: { f: Funcionario; onPress: () => void }) {
   );
 }
 
-function FormRow({ label, children }: { label: string; children: React.ReactNode }) {
+function FormRow({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
   return (
     <View style={{ marginBottom: 12 }}>
       <Text style={styles.fieldLabel}>{label}</Text>
       {children}
+      {!!error && (
+        <View style={styles.inlineError}>
+          <Ionicons name="alert-circle-outline" size={13} color={Colors.danger} />
+          <Text style={styles.inlineErrorText}>{error}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -1337,10 +1424,16 @@ const styles = StyleSheet.create({
 
   // Form
   stepRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  stepBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.surface, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
+  stepBtn: { flex: 1, paddingVertical: 7, borderRadius: 8, backgroundColor: Colors.surface, alignItems: 'center', borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', justifyContent: 'center', gap: 4 },
   stepBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
+  stepBtnDone: { backgroundColor: Colors.success + '18', borderColor: Colors.success },
+  stepBtnLocked: { backgroundColor: Colors.surface, borderColor: Colors.border, opacity: 0.6 },
+  stepNum: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textSecondary },
   stepText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   stepTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
+  inputError: { borderColor: Colors.danger, borderWidth: 1, backgroundColor: 'rgba(231,76,60,0.04)' },
+  inlineError: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 },
+  inlineErrorText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.danger, flex: 1 },
   fieldLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6 },
   sectionLabel: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 10 },
   sectionNote: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, backgroundColor: Colors.surface, padding: 10, borderRadius: 8, marginBottom: 14, lineHeight: 18 },
