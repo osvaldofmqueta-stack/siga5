@@ -497,6 +497,8 @@ export default function LoginScreen() {
     }
   }
 
+  const MIN_LOADING_MS = 2200;
+
   async function handleLogin() {
     setFieldError(null);
     if (!email.trim() && !senha.trim()) {
@@ -516,6 +518,12 @@ export default function LoginScreen() {
     }
     setIsLoading(true);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const loadingStart = Date.now();
+    const waitMinTime = () => {
+      const elapsed = Date.now() - loadingStart;
+      const remaining = MIN_LOADING_MS - elapsed;
+      return remaining > 0 ? new Promise(r => setTimeout(r, remaining)) : Promise.resolve();
+    };
     const emailTrimmed = email.toLowerCase().trim();
     const savedAvatar = lastUser?.email?.toLowerCase() === emailTrimmed ? lastUser?.avatar : undefined;
     try {
@@ -526,6 +534,7 @@ export default function LoginScreen() {
       });
       const data = await res.json();
       if (!res.ok) {
+        await waitMinTime();
         await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         const errField = data.field as 'email' | 'senha' | undefined;
         if (errField === 'email' || errField === 'senha') {
@@ -537,6 +546,7 @@ export default function LoginScreen() {
         return;
       }
       await saveAuthToken(data.token);
+      await waitMinTime();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const u: AuthUser = {
         id: data.user.id,
@@ -550,6 +560,7 @@ export default function LoginScreen() {
       await login(u);
       router.replace(getRouteForRole(data.user.role) as any);
     } catch (e) {
+      await waitMinTime();
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       showAlert('Erro de Ligação', 'Não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.');
       setIsLoading(false);
