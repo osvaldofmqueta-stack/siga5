@@ -1,6 +1,34 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Módulo Financeiro: Relatórios e Comprovativo)
+## Recent Changes (Latest Session — Pendências de Alunos em Tempo Real)
+
+### `components/PendenciasStream.tsx` *(new)*
+- Componente flutuante global de notificações em tempo real de pendências de alunos.
+- Visível apenas para utilizadores com papel: admin, ceo, pca, director, secretaria, chefe_secretaria, financeiro, pedagogico.
+- **Mini-card rotativo**: exibe cartões de alunos com pendências a rodar automaticamente a cada 6 segundos.
+- **Painel expansível**: clique no FAB (botão flutuante) para expandir o painel com todos os alunos e pendências.
+- **Cartão de Aluno (Student ID card)**: cada cartão mostra:
+  - Foto/avatar do aluno (iniciais com cor única se sem foto)
+  - Nome completo + número de matrícula (destaque dourado)
+  - Turma e curso
+  - Tipo de pendência com ícone e cor por severidade (Propina, Bloqueio, RUPE, Aviso Financeiro)
+  - Descrição da pendência
+  - Botões "Resolver" (→ pagamentos-hub) e "Ver Aluno" (→ alunos)
+- **Severidades**: `urgente` (vermelho pulsante), `aviso` (laranja), `info` (azul)
+- **Auto-refresh**: actualiza dados a cada 30 segundos via polling `GET /api/pendencias-alunos`
+- **Posicionamento**: canto inferior esquerdo (fixed) — não interfere com FloatingChatButton (canto inferior direito)
+- Integrado em `app/(main)/_layout.tsx`
+
+### `server/routes.ts`
+- Nova rota `GET /api/pendencias-alunos`: agrega pendências de alunos de múltiplas fontes:
+  1. **Propinas pendentes** — alunos com `pagamentos.status = 'pendente'` (INNER JOIN); conta total e classifica por urgência (≥3: urgente, ≥2: aviso, 1: info)
+  2. **Alunos bloqueados** — alunos com `bloqueado = true`; sempre urgente
+  3. **RUPEs activos** — alunos com referências bancárias `status = 'ativo'` por liquidar
+  4. **Mensagens financeiras** não lidas — avisos/bloqueios não lidos
+  - Ordenação: urgente → aviso → info; dentro de cada grupo: mais recente primeiro
+  - Acesso restrito aos papéis acima mencionados
+
+## Recent Changes (Previous Session — Módulo Financeiro: Relatórios e Comprovativo)
 
 ### `app/(main)/financeiro.tsx`
 - Adicionado estado `relPeriodo` ('mensal' | 'trimestral' | 'anual') para o selector de período do relatório.

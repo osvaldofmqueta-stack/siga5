@@ -11,6 +11,7 @@ import SessionTimeoutModal, { useSessionTimeout } from '@/components/SessionTime
 import ToastManager from '@/components/ToastManager';
 import WelcomeModal from '@/components/WelcomeModal';
 import FloatingChatButton from '@/components/FloatingChatButton';
+import PendenciasStream from '@/components/PendenciasStream';
 
 export default function MainLayout() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -126,6 +127,7 @@ export default function MainLayout() {
       />
       <ToastManager />
       <FloatingChatButton />
+      <PendenciasStream />
       <WelcomeModal
         visible={showWelcome}
         user={user}

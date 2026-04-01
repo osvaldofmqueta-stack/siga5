@@ -6817,6 +6817,205 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── PENDÊNCIAS DE ALUNOS (Real-time student issues stream) ─────────────────
+  app.get("/api/pendencias-alunos", requireAuth, async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const allowedRoles = ['admin', 'ceo', 'pca', 'director', 'secretaria', 'chefe_secretaria', 'financeiro', 'pedagogico'];
+    if (!allowedRoles.includes(user?.role)) {
+      return json(res, 403, { error: 'Acesso negado' });
+    }
+    try {
+      const pendencias: Array<{
+        id: string;
+        alunoId: string;
+        nome: string;
+        apelido: string;
+        numeroMatricula: string;
+        foto: string | null;
+        turma: string;
+        curso: string;
+        tipoPendencia: string;
+        descricao: string;
+        severidade: 'urgente' | 'aviso' | 'info';
+        area: string;
+        createdAt: string;
+      }> = [];
+
+      // 1. Propinas em atraso (pagamentos pendentes)
+      const propinasPendentes = await query(`
+        SELECT DISTINCT ON (a.id)
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          COUNT(p.id) as total_pendentes,
+          MIN(p."createdAt") as mais_antiga
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        INNER JOIN pagamentos p ON p."alunoId" = a.id AND p.status = 'pendente'
+        WHERE a.ativo = true AND a.falecido = false
+        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+        ORDER BY a.id, mais_antiga ASC
+        LIMIT 30
+      `, []);
+
+      for (const row of propinasPendentes.rows) {
+        const count = parseInt(row.total_pendentes);
+        pendencias.push({
+          id: `propina-${row.alunoId}-${Date.now()}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'propina',
+          descricao: count === 1 ? '1 propina pendente por regularizar' : `${count} propinas pendentes por regularizar`,
+          severidade: count >= 3 ? 'urgente' : count >= 2 ? 'aviso' : 'info',
+          area: 'Financeiro',
+          createdAt: row.mais_antiga,
+        });
+      }
+
+      // 2. Alunos bloqueados
+      const bloqueados = await query(`
+        SELECT
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          a."createdAt"
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        WHERE a.bloqueado = true AND a.ativo = true AND a.falecido = false
+        ORDER BY a."createdAt" DESC
+        LIMIT 15
+      `, []);
+
+      for (const row of bloqueados.rows) {
+        pendencias.push({
+          id: `bloqueado-${row.alunoId}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'bloqueio',
+          descricao: 'Acesso bloqueado — situação por regularizar',
+          severidade: 'urgente',
+          area: 'Secretaria',
+          createdAt: row.createdAt,
+        });
+      }
+
+      // 3. RUPEs activos (referências bancárias por pagar)
+      const rupesActivos = await query(`
+        SELECT DISTINCT ON (a.id)
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          COUNT(r.id) as total_rupes,
+          MAX(r."dataValidade") as validade
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        INNER JOIN rupes r ON r."alunoId" = a.id AND r.status = 'ativo'
+        WHERE a.ativo = true AND a.falecido = false
+        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+        ORDER BY a.id, validade ASC
+        LIMIT 15
+      `, []);
+
+      for (const row of rupesActivos.rows) {
+        const count = parseInt(row.total_rupes);
+        pendencias.push({
+          id: `rupe-${row.alunoId}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'rupe',
+          descricao: `${count} referência${count > 1 ? 's' : ''} bancária${count > 1 ? 's' : ''} activa${count > 1 ? 's' : ''} por liquidar`,
+          severidade: 'aviso',
+          area: 'Financeiro',
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // 4. Mensagens financeiras não lidas (avisos/bloqueios)
+      const mensagensNaoLidas = await query(`
+        SELECT DISTINCT ON (a.id)
+          a.id as "alunoId",
+          a.nome,
+          a.apelido,
+          a."numeroMatricula",
+          a.foto,
+          COALESCE(t.nome, 'Sem turma') as turma,
+          COALESCE(c.nome, '') as curso,
+          mf.tipo,
+          mf.texto,
+          mf."createdAt"
+        FROM alunos a
+        LEFT JOIN turmas t ON t.id = a."turmaId"
+        LEFT JOIN cursos c ON c.id = a."cursoId"
+        INNER JOIN mensagens_financeiras mf ON mf."alunoId" = a.id AND mf.lida = false AND mf.tipo IN ('aviso', 'bloqueio')
+        WHERE a.ativo = true AND a.falecido = false
+        ORDER BY a.id, mf."createdAt" DESC
+        LIMIT 15
+      `, []);
+
+      for (const row of mensagensNaoLidas.rows) {
+        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'bloqueio')) continue;
+        pendencias.push({
+          id: `msg-${row.alunoId}-${Date.now()}`,
+          alunoId: row.alunoId,
+          nome: row.nome,
+          apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula,
+          foto: row.foto,
+          turma: row.turma,
+          curso: row.curso,
+          tipoPendencia: 'aviso_financeiro',
+          descricao: row.texto.length > 80 ? row.texto.slice(0, 80) + '…' : row.texto,
+          severidade: row.tipo === 'bloqueio' ? 'urgente' : 'aviso',
+          area: 'Financeiro',
+          createdAt: row.createdAt,
+        });
+      }
+
+      // Sort: urgente first, then aviso, then info; within each group newest first
+      const order = { urgente: 0, aviso: 1, info: 2 };
+      pendencias.sort((a, b) => {
+        const sev = order[a.severidade] - order[b.severidade];
+        if (sev !== 0) return sev;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      json(res, 200, pendencias);
+    } catch (e) {
+      console.error('[pendencias-alunos]', e);
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
