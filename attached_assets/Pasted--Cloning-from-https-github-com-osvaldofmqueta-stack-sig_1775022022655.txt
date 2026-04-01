@@ -1,0 +1,68 @@
+==> Cloning from https://github.com/osvaldofmqueta-stack/siga5
+==> Checking out commit d93a4dc85cc305733923b08fee368224b74dea0f in branch main
+==> Using Node.js version 22.22.0 (default)
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install && npm run server:build'...
+> siga-v3@3.0.0 postinstall
+> node node_modules/.bin/patch-package || true
+patch-package 8.0.1
+Applying patches...
+expo-asset@12.0.12 ✔
+**ERROR** Failed to apply patch for package expo-font
+    
+  This happened because the patch file patches/expo-font+14.0.10.patch could not be parsed.
+   
+  If you just upgraded patch-package, you can try running:
+  
+    patch -p1 -i patches/expo-font+14.0.10.patch
+    npx patch-package expo-font
+    
+  Otherwise, try manually creating the patch file again.
+  
+  If the problem persists, please submit a bug report:
+  
+    https://github.com/ds300/patch-package/issues/new?title=Patch+file+parse+error&body=%3CPlease+attach+the+patch+file+in+question%3E
+added 1195 packages, and audited 1196 packages in 21s
+208 packages are looking for funding
+  run `npm fund` for details
+15 vulnerabilities (1 low, 6 moderate, 8 high)
+To address issues that do not require attention, run:
+  npm audit fix
+To address all issues possible (including breaking changes), run:
+  npm audit fix --force
+Some issues need review, and may require choosing
+a different dependency.
+Run `npm audit` for details.
+> siga-v3@3.0.0 server:build
+> esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=server_dist
+  server_dist/index.js  400.7kb
+⚡ Done in 76ms
+==> Uploading build...
+==> Uploaded in 9.2s. Compression took 10.8s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'node server_dist/index.js'
+[push] VAPID notifications temporarily disabled for Neon setup
+[push] VAPID keys not properly configured. Push notifications disabled.
+PWA assets served from /public
+(node:69) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///opt/render/project/src/server_dist/index.js is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /opt/render/project/src/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:69) Warning: SECURITY WARNING: The SSL modes 'prefer', 'require', and 'verify-ca' are treated as aliases for 'verify-full'.
+In the next major version (pg-connection-string v3.0.0 and pg v9.0.0), these modes will adopt standard libpq semantics, which have weaker security guarantees.
+To prepare for this change:
+- If you want the current behavior, explicitly use 'sslmode=verify-full'
+- If you want libpq compatibility now, use 'uselibpqcompat=true&sslmode=require'
+See https://www.postgresql.org/docs/current/libpq-ssl.html for libpq SSL mode definitions.
+[seed] Produção Vegetal disciplines seeded successfully.
+WARNING: dist/ folder not found. Run 'npx expo export -p web' to build.
+Express server running on port 10000
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://siga5.onrender.com
+==> 
+==> ///////////////////////////////////////////////////////////
