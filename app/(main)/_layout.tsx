@@ -10,6 +10,7 @@ import { useBreakpoint } from '@/hooks/useBreakpoint';
 import SessionTimeoutModal, { useSessionTimeout } from '@/components/SessionTimeoutModal';
 import ToastManager from '@/components/ToastManager';
 import WelcomeModal from '@/components/WelcomeModal';
+import FloatingChatButton from '@/components/FloatingChatButton';
 
 export default function MainLayout() {
   const { user, isLoading: authLoading, logout } = useAuth();
@@ -124,6 +125,7 @@ export default function MainLayout() {
         onLogout={handleLogout}
       />
       <ToastManager />
+      <FloatingChatButton />
       <WelcomeModal
         visible={showWelcome}
         user={user}

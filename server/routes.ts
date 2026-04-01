@@ -115,6 +115,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (seedErr) {
     console.warn('[seed] disciplinas seed warning:', (seedErr as Error).message);
   }
+  // ── Payroll tables ────────────────────────────────────────────────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.folhas_salarios (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        mes integer NOT NULL,
+        ano integer NOT NULL,
+        descricao text NOT NULL DEFAULT '',
+        status text NOT NULL DEFAULT 'rascunho',
+        "totalBruto" numeric NOT NULL DEFAULT 0,
+        "totalLiquido" numeric NOT NULL DEFAULT 0,
+        "totalInssEmpregado" numeric NOT NULL DEFAULT 0,
+        "totalInssPatronal" numeric NOT NULL DEFAULT 0,
+        "totalIrt" numeric NOT NULL DEFAULT 0,
+        "totalSubsidios" numeric NOT NULL DEFAULT 0,
+        "numFuncionarios" integer NOT NULL DEFAULT 0,
+        "processadaPor" text,
+        observacoes text,
+        "criadoEm" timestamp with time zone NOT NULL DEFAULT now(),
+        "atualizadoEm" timestamp with time zone NOT NULL DEFAULT now()
+      )
+    `, []);
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.itens_folha (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "folhaId" varchar NOT NULL REFERENCES public.folhas_salarios(id) ON DELETE CASCADE,
+        "professorId" varchar NOT NULL,
+        "professorNome" text NOT NULL,
+        cargo text NOT NULL DEFAULT '',
+        categoria text NOT NULL DEFAULT '',
+        "salarioBase" numeric NOT NULL DEFAULT 0,
+        "subsidioAlimentacao" numeric NOT NULL DEFAULT 0,
+        "subsidioTransporte" numeric NOT NULL DEFAULT 0,
+        "subsidioHabitacao" numeric NOT NULL DEFAULT 0,
+        "outrosSubsidios" numeric NOT NULL DEFAULT 0,
+        "salarioBruto" numeric NOT NULL DEFAULT 0,
+        "inssEmpregado" numeric NOT NULL DEFAULT 0,
+        "inssPatronal" numeric NOT NULL DEFAULT 0,
+        irt numeric NOT NULL DEFAULT 0,
+        "descontoFaltas" numeric NOT NULL DEFAULT 0,
+        "numFaltasInj" integer NOT NULL DEFAULT 0,
+        "numMeioDia" integer NOT NULL DEFAULT 0,
+        "remuneracaoTempos" numeric NOT NULL DEFAULT 0,
+        "numTempos" numeric NOT NULL DEFAULT 0,
+        "outrosDescontos" numeric NOT NULL DEFAULT 0,
+        "totalDescontos" numeric NOT NULL DEFAULT 0,
+        "salarioLiquido" numeric NOT NULL DEFAULT 0,
+        "tipoFuncionario" text NOT NULL DEFAULT 'funcionario',
+        departamento text NOT NULL DEFAULT '',
+        seccao text NOT NULL DEFAULT '',
+        observacao text
+      )
+    `, []);
+    console.log('[migration] payroll tables ensured.');
+  } catch (migErr) {
+    console.warn('[migration] payroll migration warning:', (migErr as Error).message);
+  }
+
   try {
     await query(`ALTER TABLE public.livros ADD COLUMN IF NOT EXISTS "capaUrl" text NOT NULL DEFAULT ''`, []);
     await query(`
