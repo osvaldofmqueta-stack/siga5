@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
   Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -53,6 +54,231 @@ const RH_ACCOUNT = {
   id: 'usr_rh_001',
   escola: 'SIGE — Sistema Integral de Gestão Escolar',
 };
+
+const AUTH_STEPS = [
+  { label: 'A verificar as suas credenciais', icon: 'shield-checkmark-outline' as const },
+  { label: 'A validar o acesso institucional', icon: 'server-outline' as const },
+  { label: 'A preparar o seu espaço de trabalho', icon: 'grid-outline' as const },
+];
+
+function AuthLoadingOverlay({ visible }: { visible: boolean }) {
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const ring1Scale = useRef(new Animated.Value(0.6)).current;
+  const ring1Opacity = useRef(new Animated.Value(0)).current;
+  const ring2Scale = useRef(new Animated.Value(0.6)).current;
+  const ring2Opacity = useRef(new Animated.Value(0)).current;
+  const ring3Scale = useRef(new Animated.Value(0.6)).current;
+  const ring3Opacity = useRef(new Animated.Value(0)).current;
+  const iconScale = useRef(new Animated.Value(0.7)).current;
+  const iconOpacity = useRef(new Animated.Value(0)).current;
+  const stepOpacities = useRef(AUTH_STEPS.map(() => new Animated.Value(0))).current;
+  const stepTranslations = useRef(AUTH_STEPS.map(() => new Animated.Value(12))).current;
+  const nd = Platform.OS !== 'web';
+
+  useEffect(() => {
+    if (visible) {
+      Animated.timing(overlayOpacity, { toValue: 1, duration: 280, useNativeDriver: nd }).start();
+
+      Animated.parallel([
+        Animated.spring(iconScale, { toValue: 1, damping: 14, stiffness: 120, useNativeDriver: nd }),
+        Animated.timing(iconOpacity, { toValue: 1, duration: 350, useNativeDriver: nd }),
+      ]).start();
+
+      const pulseRing = (scale: Animated.Value, opacity: Animated.Value, delay: number) => {
+        const loop = Animated.loop(
+          Animated.sequence([
+            Animated.delay(delay),
+            Animated.parallel([
+              Animated.timing(scale, { toValue: 1.8, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: nd }),
+              Animated.timing(opacity, { toValue: 0, duration: 1400, easing: Easing.out(Easing.ease), useNativeDriver: nd }),
+            ]),
+            Animated.parallel([
+              Animated.timing(scale, { toValue: 0.6, duration: 0, useNativeDriver: nd }),
+              Animated.timing(opacity, { toValue: 0.5, duration: 0, useNativeDriver: nd }),
+            ]),
+          ])
+        );
+        loop.start();
+        return loop;
+      };
+
+      setTimeout(() => pulseRing(ring1Scale, ring1Opacity, 0), 300);
+      setTimeout(() => pulseRing(ring2Scale, ring2Opacity, 0), 700);
+      setTimeout(() => pulseRing(ring3Scale, ring3Opacity, 0), 1100);
+
+      AUTH_STEPS.forEach((_, i) => {
+        setTimeout(() => {
+          Animated.parallel([
+            Animated.timing(stepOpacities[i], { toValue: 1, duration: 400, useNativeDriver: nd }),
+            Animated.spring(stepTranslations[i], { toValue: 0, damping: 18, stiffness: 160, useNativeDriver: nd }),
+          ]).start();
+        }, 500 + i * 420);
+      });
+    } else {
+      Animated.timing(overlayOpacity, { toValue: 0, duration: 220, useNativeDriver: nd }).start(() => {
+        ring1Scale.setValue(0.6); ring1Opacity.setValue(0);
+        ring2Scale.setValue(0.6); ring2Opacity.setValue(0);
+        ring3Scale.setValue(0.6); ring3Opacity.setValue(0);
+        iconScale.setValue(0.7); iconOpacity.setValue(0);
+        stepOpacities.forEach(a => a.setValue(0));
+        stepTranslations.forEach(a => a.setValue(12));
+      });
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[authLoadStyles.overlay, { opacity: overlayOpacity }]}>
+      <View style={authLoadStyles.card}>
+        <View style={authLoadStyles.orbitArea}>
+          <Animated.View style={[authLoadStyles.ring, { opacity: ring1Opacity, transform: [{ scale: ring1Scale }] }]} />
+          <Animated.View style={[authLoadStyles.ring, authLoadStyles.ring2, { opacity: ring2Opacity, transform: [{ scale: ring2Scale }] }]} />
+          <Animated.View style={[authLoadStyles.ring, authLoadStyles.ring3, { opacity: ring3Opacity, transform: [{ scale: ring3Scale }] }]} />
+          <Animated.View style={[authLoadStyles.iconWrap, { opacity: iconOpacity, transform: [{ scale: iconScale }] }]}>
+            <LinearGradient
+              colors={['rgba(240,165,0,0.25)', 'rgba(26,82,118,0.4)']}
+              style={authLoadStyles.iconGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="shield-checkmark" size={40} color={Colors.gold} />
+            </LinearGradient>
+          </Animated.View>
+        </View>
+
+        <View style={authLoadStyles.textBlock}>
+          <Text style={authLoadStyles.title}>A autenticar</Text>
+          <Text style={authLoadStyles.subtitle}>Aguarde um momento...</Text>
+        </View>
+
+        <View style={authLoadStyles.steps}>
+          {AUTH_STEPS.map((step, i) => (
+            <Animated.View
+              key={i}
+              style={[
+                authLoadStyles.stepRow,
+                {
+                  opacity: stepOpacities[i],
+                  transform: [{ translateY: stepTranslations[i] }],
+                },
+              ]}
+            >
+              <View style={authLoadStyles.stepDot}>
+                <Ionicons name={step.icon} size={13} color={Colors.gold} />
+              </View>
+              <Text style={authLoadStyles.stepLabel}>{step.label}</Text>
+            </Animated.View>
+          ))}
+        </View>
+      </View>
+    </Animated.View>
+  );
+}
+
+const authLoadStyles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(6,16,41,0.88)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+  },
+  card: {
+    width: 300,
+    backgroundColor: 'rgba(20,34,71,0.96)',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.18)',
+    padding: 32,
+    alignItems: 'center',
+    gap: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.5,
+    shadowRadius: 40,
+    elevation: 30,
+  },
+  orbitArea: {
+    width: 120,
+    height: 120,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ring: {
+    position: 'absolute',
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 1.5,
+    borderColor: 'rgba(240,165,0,0.55)',
+  },
+  ring2: {
+    borderColor: 'rgba(26,82,118,0.5)',
+  },
+  ring3: {
+    borderColor: 'rgba(240,165,0,0.3)',
+  },
+  iconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(240,165,0,0.35)',
+  },
+  iconGrad: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textBlock: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  subtitle: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.3,
+  },
+  steps: {
+    width: '100%',
+    gap: 10,
+  },
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.1)',
+  },
+  stepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: 'rgba(240,165,0,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepLabel: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    color: 'rgba(255,255,255,0.6)',
+    lineHeight: 16,
+  },
+});
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -542,22 +768,13 @@ export default function LoginScreen() {
         activeOpacity={0.88}
       >
         <LinearGradient
-          colors={isLoading ? ['#3a3a3a', '#2a2a2a'] : ['#1A5276', '#1F618D', '#2980B9']}
+          colors={['#1A5276', '#1F618D', '#2980B9']}
           style={styles.loginBtnGrad}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          {isLoading ? (
-            <>
-              <Ionicons name="ellipsis-horizontal" size={20} color={Colors.text} />
-              <Text style={styles.loginBtnText}>A autenticar...</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="log-in-outline" size={20} color="#fff" />
-              <Text style={styles.loginBtnText}>Entrar no Sistema</Text>
-            </>
-          )}
+          <Ionicons name="log-in-outline" size={20} color="#fff" />
+          <Text style={styles.loginBtnText}>Entrar no Sistema</Text>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -776,6 +993,7 @@ export default function LoginScreen() {
           </View>
         </View>
         {alertModalView}
+        <AuthLoadingOverlay visible={isLoading} />
       </ImageBackground>
     );
   }
@@ -816,6 +1034,7 @@ export default function LoginScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       {alertModalView}
+      <AuthLoadingOverlay visible={isLoading} />
     </ImageBackground>
   );
 }
