@@ -6437,6 +6437,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // -----------------------
+  // CONFIGURAÇÃO FISCAL (INSS + IRT) — editável pelo Financeiro
+  // -----------------------
+  app.get("/api/config-fiscal", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral LIMIT 1`
+      );
+      const cfg = rows[0] as any ?? {};
+      json(res, 200, {
+        inssEmpPerc:  Number(cfg.inssEmpPerc  ?? 3),
+        inssPatrPerc: Number(cfg.inssPatrPerc ?? 8),
+        irtTabela:    Array.isArray(cfg.irtTabela) ? cfg.irtTabela : [],
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/config-fiscal", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const parts: string[] = [];
+      const vals: unknown[] = [];
+      if (b.inssEmpPerc  !== undefined) { vals.push(Number(b.inssEmpPerc));  parts.push(`"inssEmpPerc"=$${vals.length}`); }
+      if (b.inssPatrPerc !== undefined) { vals.push(Number(b.inssPatrPerc)); parts.push(`"inssPatrPerc"=$${vals.length}`); }
+      if (b.irtTabela    !== undefined) { vals.push(JSON.stringify(b.irtTabela)); parts.push(`"irtTabela"=$${vals.length}::jsonb`); }
+      if (!parts.length) return json(res, 400, { error: "Nenhum campo para actualizar." });
+      const existing = await query<JsonObject>(`SELECT id FROM public.config_geral LIMIT 1`);
+      if (!existing[0]) return json(res, 404, { error: "Configuração não encontrada." });
+      await query(`UPDATE public.config_geral SET ${parts.join(",")} WHERE id=$${vals.length+1}`, [...vals, existing[0].id]);
+      const updated = await query<JsonObject>(`SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral WHERE id=$1`, [existing[0].id]);
+      json(res, 200, updated[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
   // ─── Estimativa salarial do próprio utilizador ───────────────────────────────
   // Acessível a qualquer utilizador autenticado (professor ou funcionário com acesso)
   app.get("/api/meu-recibo-estimado", requireAuth, async (req: Request, res: Response) => {
@@ -6489,12 +6523,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const semanasPorMes           = Number(rh.semanasPorMes ?? 4);
       const valorPorFalta           = Number(rh.valorPorFalta ?? 0);
 
-      // 4. Faltas do mês (de professores via faltas_funcionarios ou tabela de sumários)
+      // 4. Faltas + Tempos trabalhados do mês
       const pessoaId = profRow ? profRow.id : funcRow.id;
       let faltasMes = 0;
+      let temposRegistados: number | null = null; // null = sem registo na tabela tempos_lectivos
+
+      // Tentar encontrar o funcionarioId correspondente ao professor (para tempos_lectivos)
+      let funcionarioId: string | null = null;
+      if (profRow) {
+        const funcLink = await query<JsonObject>(
+          `SELECT id FROM public.funcionarios WHERE "professorId"=$1 AND ativo=true LIMIT 1`,
+          [pessoaId]
+        );
+        if (funcLink[0]) funcionarioId = String(funcLink[0].id);
+      } else {
+        funcionarioId = pessoaId;
+      }
+
+      // Tempos lectivos reais registados na tabela tempos_lectivos
+      if (funcionarioId) {
+        const temposRows = await query<JsonObject>(
+          `SELECT COALESCE(SUM("totalUnidades"), 0) AS total
+           FROM public.tempos_lectivos
+           WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3`,
+          [funcionarioId, mes, ano]
+        );
+        const totalRegistado = Number((temposRows[0] as any)?.total ?? 0);
+        if (totalRegistado > 0) temposRegistados = totalRegistado;
+      }
 
       if (profRow) {
-        // Professores: contar sumários rejeitados/ausentes no mês
+        // Professores: contar faltas via sumários rejeitados no mês
         const sumRows = await query<JsonObject>(
           `SELECT COUNT(*) AS cnt FROM public.sumarios
            WHERE "professorId"=$1 AND status='rejeitado'
@@ -6502,6 +6561,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [pessoaId, mes, ano]
         );
         faltasMes = Number((sumRows[0] as any)?.cnt ?? 0);
+        // Também contar faltas_funcionarios se tiver funcionarioId ligado
+        if (funcionarioId) {
+          const fRows = await query<JsonObject>(
+            `SELECT COUNT(*) AS cnt FROM public.faltas_funcionarios
+             WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3 AND descontavel=true`,
+            [funcionarioId, mes, ano]
+          );
+          const faltasRH = Number((fRows[0] as any)?.cnt ?? 0);
+          if (faltasRH > faltasMes) faltasMes = faltasRH;
+        }
       } else {
         // Funcionários: faltas registadas pela RH
         const fRows = await query<JsonObject>(
@@ -6524,18 +6593,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let salBaseEfectivo  = salBase;
       let descontoTempos   = 0;
-      let temposTrabalhados = temposEsperados; // assume todos feitos
+      // Se há registo real na tabela tempos_lectivos, usa esse valor; caso contrário infere pelos cálculos
+      let temposTrabalhados = temposRegistados !== null ? temposRegistados : temposEsperados;
       let salColaborador   = 0;
+      const temposComDadosReais = temposRegistados !== null;
 
       const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
 
       if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
-        const temposNaoDados = faltasMes; // cada falta = 1 tempo não dado (simplificado)
-        temposTrabalhados = Math.max(0, temposEsperados - temposNaoDados);
+        if (!temposComDadosReais) {
+          // Sem dados reais: inferir pelos sumários/faltas
+          temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+        }
+        const temposNaoDados = Math.max(0, temposEsperados - temposTrabalhados);
         descontoTempos = Math.round(temposNaoDados * descontoPorTempoNaoDado * 100) / 100;
         salBaseEfectivo = Math.max(0, salBase - descontoTempos);
-      } else if (isColaborador && valorTempoLectivo > 0 && temposSemanais > 0 && salBase === 0) {
-        temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+      } else if (isColaborador && valorTempoLectivo > 0 && salBase === 0) {
+        if (!temposComDadosReais) {
+          temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+        }
         salColaborador = Math.round(valorTempoLectivo * temposTrabalhados * 100) / 100;
         salBaseEfectivo = salColaborador;
       }
@@ -6556,6 +6632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         temposSemanais,
         temposEsperados,
         temposTrabalhados,
+        temposComDadosReais,
         faltasMes,
         // Valores
         salarioBase:       salBase,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   TextInput,
   FlatList,
   Platform,
-  RefreshControl
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { DonutChart, BarChart } from '@/components/Charts';
@@ -30,6 +31,8 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
 import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
+import { api } from '@/lib/api';
+import type { IrtEscalao } from '@/context/ConfigContext';
 
 const TIPO_LABEL: Record<string, string> = {
   propina: 'Propina', matricula: 'Matrícula', material: 'Material Didáctico', exame: 'Exame', multa: 'Multa', outro: 'Outro',
@@ -55,7 +58,7 @@ const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
 ];
-const TABS_MAIN = ['painel','propinas','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno'] as const;
+const TABS_MAIN = ['painel','propinas','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno','config_fiscal'] as const;
 type TabKey = typeof TABS_MAIN[number];
 
 const MESES_PAINEL = [
@@ -106,6 +109,27 @@ export default function FinanceiroScreen() {
   const nomeRemetente = user?.nome || 'Departamento Financeiro';
 
   const [tab, setTab]         = useState<TabKey>('painel');
+
+  // --- Config Fiscal state ---
+  interface ConfigFiscal { inssEmpPerc: number; inssPatrPerc: number; irtTabela: IrtEscalao[] }
+  const [cfgFiscal, setCfgFiscal]         = useState<ConfigFiscal | null>(null);
+  const [cfgFiscalLoading, setCfgLoading] = useState(false);
+  const [cfgFiscalSaving, setCfgSaving]   = useState(false);
+  const [cfgFiscalEdit, setCfgEdit]       = useState<ConfigFiscal | null>(null);
+
+  useEffect(() => {
+    if (tab !== 'config_fiscal' || cfgFiscal) return;
+    setCfgLoading(true);
+    api.get('/api/config-fiscal')
+      .then((d: any) => {
+        const data = d.data ?? d;
+        setCfgFiscal(data);
+        setCfgEdit(JSON.parse(JSON.stringify(data)));
+      })
+      .catch(() => alertErro('Erro', 'Não foi possível carregar a configuração fiscal.'))
+      .finally(() => setCfgLoading(false));
+  }, [tab]);
+
   const [statusFilter, setStatusFilter] = useState<'todos' | StatusPagamento>('todos');
   const [tipoFilter, setTipoFilter]     = useState<'todos' | TipoTaxa>('todos');
   const [searchAluno, setSearchAluno]   = useState('');
@@ -2050,6 +2074,157 @@ export default function FinanceiroScreen() {
     );
   }
 
+  function renderConfigFiscal() {
+    if (cfgFiscalLoading || !cfgFiscalEdit) {
+      return (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 60 }}>
+          <ActivityIndicator size="large" color={Colors.gold} />
+          <Text style={{ color: Colors.textMuted, marginTop: 12, fontFamily: 'Inter_500Medium' }}>A carregar configuração...</Text>
+        </View>
+      );
+    }
+
+    const updateIrt = (idx: number, field: keyof IrtEscalao, raw: string) => {
+      if (!cfgFiscalEdit) return;
+      const tbl = cfgFiscalEdit.irtTabela.map((e, i) => {
+        if (i !== idx) return e;
+        if (field === 'max') return { ...e, max: raw === '' ? null : Number(raw) };
+        return { ...e, [field]: Number(raw) };
+      });
+      setCfgEdit({ ...cfgFiscalEdit, irtTabela: tbl });
+    };
+
+    const removeIrt = (idx: number) => {
+      if (!cfgFiscalEdit) return;
+      setCfgEdit({ ...cfgFiscalEdit, irtTabela: cfgFiscalEdit.irtTabela.filter((_, i) => i !== idx) });
+    };
+
+    const addIrt = () => {
+      if (!cfgFiscalEdit) return;
+      const tbl = cfgFiscalEdit.irtTabela;
+      const last = tbl[tbl.length - 1];
+      const newEscalao: IrtEscalao = {
+        limiteAnterior: last ? (last.max ?? 0) : 0,
+        max: null,
+        taxa: 0,
+        baseFixa: 0,
+      };
+      setCfgEdit({ ...cfgFiscalEdit, irtTabela: [...tbl, newEscalao] });
+    };
+
+    const saveConfigFiscal = async () => {
+      if (!cfgFiscalEdit) return;
+      setCfgSaving(true);
+      try {
+        await api.put('/api/config-fiscal', cfgFiscalEdit);
+        setCfgFiscal(JSON.parse(JSON.stringify(cfgFiscalEdit)));
+        alertSucesso('Guardado', 'Configuração fiscal actualizada com sucesso.');
+      } catch {
+        alertErro('Erro', 'Não foi possível guardar a configuração fiscal.');
+      } finally {
+        setCfgSaving(false);
+      }
+    };
+
+    return (
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+        <Text style={[st.sectionTitle, { marginBottom: 4 }]}>Configuração Fiscal</Text>
+        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 20 }}>
+          Actualiza as taxas de INSS e a tabela de IRT de acordo com a legislação angolana em vigor.
+        </Text>
+
+        {/* INSS */}
+        <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border }}>
+          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 12 }}>INSS</Text>
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={st.fieldLabel}>Taxa Empregado (%)</Text>
+              <TextInput
+                style={st.input}
+                keyboardType="decimal-pad"
+                value={String(cfgFiscalEdit.inssEmpPerc)}
+                onChangeText={v => setCfgEdit({ ...cfgFiscalEdit, inssEmpPerc: Number(v) || 0 })}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={st.fieldLabel}>Taxa Patronal (%)</Text>
+              <TextInput
+                style={st.input}
+                keyboardType="decimal-pad"
+                value={String(cfgFiscalEdit.inssPatrPerc)}
+                onChangeText={v => setCfgEdit({ ...cfgFiscalEdit, inssPatrPerc: Number(v) || 0 })}
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* IRT */}
+        <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1, borderColor: Colors.border }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>Tabela IRT (Escalões)</Text>
+            <TouchableOpacity onPress={addIrt} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Ionicons name="add-circle" size={18} color={Colors.gold} />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>Adicionar</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Header */}
+          <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+            <Text style={[st.relTableHeaderTxt, { flex: 1.2 }]}>Lim. Inf. (Kz)</Text>
+            <Text style={[st.relTableHeaderTxt, { flex: 1.2 }]}>Lim. Sup. (Kz)</Text>
+            <Text style={[st.relTableHeaderTxt, { flex: 0.9 }]}>Taxa (%)</Text>
+            <Text style={[st.relTableHeaderTxt, { flex: 1.2 }]}>Base Fixa (Kz)</Text>
+            <View style={{ width: 28 }} />
+          </View>
+
+          {cfgFiscalEdit.irtTabela.map((e, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+              <TextInput
+                style={[st.input, { flex: 1.2, marginBottom: 0, fontSize: 12 }]}
+                keyboardType="decimal-pad"
+                value={String(e.limiteAnterior)}
+                onChangeText={v => updateIrt(idx, 'limiteAnterior', v)}
+              />
+              <TextInput
+                style={[st.input, { flex: 1.2, marginBottom: 0, fontSize: 12 }]}
+                keyboardType="decimal-pad"
+                placeholder="∞"
+                value={e.max !== null ? String(e.max) : ''}
+                onChangeText={v => updateIrt(idx, 'max', v)}
+              />
+              <TextInput
+                style={[st.input, { flex: 0.9, marginBottom: 0, fontSize: 12 }]}
+                keyboardType="decimal-pad"
+                value={String(e.taxa)}
+                onChangeText={v => updateIrt(idx, 'taxa', v)}
+              />
+              <TextInput
+                style={[st.input, { flex: 1.2, marginBottom: 0, fontSize: 12 }]}
+                keyboardType="decimal-pad"
+                value={String(e.baseFixa)}
+                onChangeText={v => updateIrt(idx, 'baseFixa', v)}
+              />
+              <TouchableOpacity onPress={() => removeIrt(idx)} style={{ width: 28, alignItems: 'center' }}>
+                <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          onPress={saveConfigFiscal}
+          disabled={cfgFiscalSaving}
+          style={{ backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+        >
+          {cfgFiscalSaving
+            ? <ActivityIndicator size="small" color="#fff" />
+            : <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' }}>Guardar Alterações</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+    );
+  }
+
   const tabsConfigAll = [
     ['painel', 'pie-chart', 'Painel'],
     ['resumo', 'stats-chart', 'Resumo'],
@@ -2059,10 +2234,11 @@ export default function FinanceiroScreen() {
     ['pagamentos', 'receipt', 'Pagamentos'],
     ['rubricas', 'pricetag', 'Rubricas'],
     ['por_aluno', 'person', 'Por Aluno'],
+    ['config_fiscal', 'settings', 'Config. Fiscal'],
   ] as const;
 
   const isFinanceiroRole = user?.role === 'financeiro';
-  const FINANCEIRO_TABS: TabKey[] = ['painel', 'pagamentos', 'relatorios'];
+  const FINANCEIRO_TABS: TabKey[] = ['painel', 'pagamentos', 'relatorios', 'config_fiscal'];
 
   const tabsConfig = (() => {
     const base = propinaHabilitada
@@ -2103,8 +2279,9 @@ export default function FinanceiroScreen() {
       {tab === 'em_atraso'   && renderEmAtraso()}
       {tab === 'mensagens'   && renderMensagens()}
       {tab === 'pagamentos'  && renderPagamentos()}
-      {tab === 'rubricas'    && renderRubricas()}
-      {tab === 'por_aluno'   && renderPorAluno()}
+      {tab === 'rubricas'       && renderRubricas()}
+      {tab === 'por_aluno'      && renderPorAluno()}
+      {tab === 'config_fiscal'  && renderConfigFiscal()}
 
       {/* Modal Mensagem */}
       <Modal visible={showMsgModal} transparent animationType="slide" onRequestClose={() => setShowMsgModal(false)}>

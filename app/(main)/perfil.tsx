@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useCallback as useCallbackAlias } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -25,7 +25,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso } from '@/utils/toast';
 import { webAlert } from '@/utils/webAlert';
-import api from '@/lib/api';
+import { api } from '@/lib/api';
 
 interface PapRecord {
   alunoId: string;
@@ -164,6 +164,25 @@ export default function PerfilScreen() {
   const [biometricEnabled, setBiometricState] = useState(user?.biometricEnabled || false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Salary estimation (for all non-aluno, non-encarregado users)
+  const [salEst, setSalEst] = useState<Record<string, any> | null>(null);
+  const [salEstLoading, setSalEstLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const skipRoles = ['aluno', 'encarregado'];
+    if (skipRoles.includes(user.role)) return;
+    const now = new Date();
+    setSalEstLoading(true);
+    api.get(`/api/meu-recibo-estimado?mes=${now.getMonth() + 1}&ano=${now.getFullYear()}`)
+      .then((d: any) => {
+        const data = d?.data ?? d;
+        if (data && !data.semPerfil) setSalEst(data);
+      })
+      .catch(() => {})
+      .finally(() => setSalEstLoading(false));
+  }, [user?.id]);
 
   // PAP data for professor with 13ª Classe turmas
   const [papData, setPapData] = useState<Record<string, PapRecord[]>>({});
@@ -582,6 +601,118 @@ export default function PerfilScreen() {
     return null;
   }
 
+  function renderSalaryCard() {
+    const skipRoles = ['aluno', 'encarregado'];
+    if (!user || skipRoles.includes(user.role)) return null;
+    // For professors the EstimativaSalarialCard is in professor-hub; skip duplicate
+    if (user.role === 'professor' && salEst) {
+      // Still show below as standalone mini card
+    }
+    if (salEstLoading) {
+      return (
+        <View style={[styles.card, { alignItems: 'center', paddingVertical: 20 }]}>
+          <ActivityIndicator size="small" color={Colors.gold} />
+          <Text style={{ color: Colors.textMuted, fontSize: 12, fontFamily: 'Inter_500Medium', marginTop: 8 }}>A calcular estimativa salarial...</Text>
+        </View>
+      );
+    }
+    if (!salEst) return null;
+
+    const fmt = (v: number) => v.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kz';
+    const mesNome = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(salEst.mes) - 1] ?? salEst.mes;
+    const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(salEst.tipoContrato);
+
+    return (
+      <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.gold }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Ionicons name="wallet-outline" size={18} color={Colors.gold} />
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>Estimativa Salarial</Text>
+          </View>
+          <View style={{ backgroundColor: Colors.gold + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>{mesNome} {salEst.ano}</Text>
+          </View>
+        </View>
+
+        {/* Tempos */}
+        {salEst.temposSemanais > 0 && (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, padding: 10, backgroundColor: Colors.primaryDark, borderRadius: 10 }}>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Esperados</Text>
+              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>{salEst.temposEsperados}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Trabalhados</Text>
+              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.success }}>{salEst.temposTrabalhados}</Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Faltas</Text>
+              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: salEst.faltasMes > 0 ? Colors.danger : Colors.success }}>{salEst.faltasMes}</Text>
+            </View>
+            {salEst.temposComDadosReais && (
+              <View style={{ backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'center' }}>
+                <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Dados Reais</Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Breakdown */}
+        <View style={{ gap: 4 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Salário Base</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>{fmt(salEst.salarioBase || salEst.salColaborador || 0)}</Text>
+          </View>
+          {salEst.subsidioAlimentacao > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Subsídio Alimentação</Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>+{fmt(salEst.subsidioAlimentacao)}</Text>
+            </View>
+          )}
+          {salEst.subsidioTransporte > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Subsídio Transporte</Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>+{fmt(salEst.subsidioTransporte)}</Text>
+            </View>
+          )}
+          {salEst.descontoTempos > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger }}>Desconto Tempos</Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger }}>-{fmt(salEst.descontoTempos)}</Text>
+            </View>
+          )}
+          {!isColaborador && salEst.descontoFaltas > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger }}>Desconto Faltas</Text>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger }}>-{fmt(salEst.descontoFaltas)}</Text>
+            </View>
+          )}
+          <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 4 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Salário Bruto</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{fmt(salEst.salarioBruto)}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>INSS ({salEst.inssEmpPerc}%)</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger }}>-{fmt(salEst.inssEmpregado)}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>IRT</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.danger }}>-{fmt(salEst.irt)}</Text>
+          </View>
+          <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 4 }} />
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>Salário Líquido</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success }}>{fmt(salEst.salarioLiquido)}</Text>
+          </View>
+        </View>
+        <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, textAlign: 'right' }}>
+          * Estimativa baseada nos dados actuais. Sujeito a revisão pelo departamento de RH.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <TopBar title="Perfil" subtitle="Dados pessoais e configurações" />
@@ -605,6 +736,9 @@ export default function PerfilScreen() {
 
         {/* Role-specific section */}
         {renderRoleSection()}
+
+        {/* Salary estimation card */}
+        {renderSalaryCard()}
 
         {/* Dados Pessoais */}
         <View style={styles.card}>
