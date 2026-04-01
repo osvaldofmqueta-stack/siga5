@@ -18,6 +18,7 @@ import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { useToast } from '../../context/ToastContext';
 import { webAlert } from '@/utils/webAlert';
+import { BarChart, DonutChart } from '@/components/Charts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface FolhaSalarios {
@@ -746,6 +747,75 @@ export default function RhPayrollScreen() {
                   color={Colors.accent ?? '#4FC3F7'}
                 />
               </View>
+
+              {/* ── Gráficos Salariais ─────────────────────────────────────── */}
+              {(latestFolha || totalMassaSalarial > 0) && (
+                <>
+                  <Text style={styles.sectionTitle}>Análise Visual</Text>
+
+                  {/* DonutChart: Distribuição da massa salarial */}
+                  {totalMassaSalarial > 0 && (() => {
+                    const inssPatr = totalMassaSalarial * (inssPatrPerc / 100);
+                    const inssEmp = totalMassaSalarial * (inssEmpPerc / 100);
+                    const estIRT = Math.max(0, totalMassaSalarial * 0.05);
+                    const liquido = Math.max(0, totalMassaSalarial - inssEmp - estIRT);
+                    const donutData = [
+                      { label: 'Líquido', value: Math.round(liquido), color: '#66BB6A' },
+                      { label: 'INSS Emp.', value: Math.round(inssEmp), color: '#FFA726' },
+                      { label: 'IRT (est.)', value: Math.round(estIRT), color: '#EF5350' },
+                    ].filter(d => d.value > 0);
+                    const fmtK = (v: number) => v >= 1000000
+                      ? `${(v / 1000000).toFixed(1)}M`
+                      : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v);
+                    return donutData.length > 0 ? (
+                      <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <MaterialCommunityIcons name="chart-donut" size={18} color="#66BB6A" />
+                          <Text style={{ color: Colors.text ?? '#fff', fontWeight: '700', fontSize: 13 }}>
+                            Distribuição da Massa Salarial
+                          </Text>
+                        </View>
+                        <View style={{ alignItems: 'center' }}>
+                          <DonutChart
+                            data={donutData}
+                            size={160}
+                            thickness={28}
+                            centerLabel={fmtK(totalMassaSalarial)}
+                            centerSub="Kz base"
+                          />
+                        </View>
+                      </View>
+                    ) : null;
+                  })()}
+
+                  {/* BarChart: Histórico de folhas (últimas 6) */}
+                  {folhas.length > 0 && (() => {
+                    const mesesAbrev = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+                    const last6 = [...folhas].reverse().slice(-6);
+                    const barData = last6.map(f => ({
+                      label: mesesAbrev[(f.mes - 1)] ?? `M${f.mes}`,
+                      value: Math.round(f.totalLiquido || 0),
+                      color: f.status === 'paga' ? '#66BB6A' : f.status === 'aprovada' ? '#4FC3F7' : '#FFA726',
+                    }));
+                    return barData.length >= 1 ? (
+                      <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                          <MaterialCommunityIcons name="chart-bar" size={18} color="#4FC3F7" />
+                          <Text style={{ color: Colors.text ?? '#fff', fontWeight: '700', fontSize: 13 }}>
+                            Líquido por Folha (últimas {last6.length})
+                          </Text>
+                        </View>
+                        <Text style={{ color: Colors.textMuted, fontSize: 10, marginBottom: 8 }}>
+                          Verde = Paga · Azul = Aprovada · Laranja = Em processamento
+                        </Text>
+                        <View style={{ alignItems: 'center' }}>
+                          <BarChart data={barData} height={160} width={320} />
+                        </View>
+                      </View>
+                    ) : null;
+                  })()}
+                </>
+              )}
 
               {profsComSalario.length > 0 && (
                 <>

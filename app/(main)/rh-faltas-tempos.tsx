@@ -12,6 +12,7 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
 import { DEPARTAMENTOS, getDepartamentoByKey, DepartamentoKey } from '@/shared/departamentos';
+import { BarChart, DonutChart, LineChart } from '@/components/Charts';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = 'faltas' | 'professores' | 'admin' | 'configuracao' | 'sumarios' | 'relatorios';
@@ -1093,6 +1094,64 @@ const MESES_LABELS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Jul
 function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
   const [loadingFaltas, setLoadingFaltas] = React.useState(false);
   const [loadingPayroll, setLoadingPayroll] = React.useState(false);
+  const [chartFaltas, setChartFaltas] = React.useState<any[]>([]);
+  const [chartLoading, setChartLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let active = true;
+    setChartLoading(true);
+    api.get(`/api/faltas-funcionarios?ano=${ano}`)
+      .then((data: any) => {
+        if (active) setChartFaltas(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setChartLoading(false); });
+    return () => { active = false; };
+  }, [ano]);
+
+  const faltasPorTipo = React.useMemo(() => {
+    const inj = chartFaltas.filter(f => f.tipo === 'injustificada').length;
+    const just = chartFaltas.filter(f => f.tipo === 'justificada').length;
+    const meio = chartFaltas.filter(f => f.tipo === 'meio_dia').length;
+    return [
+      { label: 'Injustificada', value: inj, color: '#EF5350' },
+      { label: 'Justificada', value: just, color: '#FFA726' },
+      { label: 'Meio-Dia', value: meio, color: '#AB47BC' },
+    ].filter(d => d.value > 0);
+  }, [chartFaltas]);
+
+  const faltasPorMes = React.useMemo(() => {
+    const mesesAbrev = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+    const counts: Record<string, number> = {};
+    chartFaltas.forEach(f => {
+      const m = f.data ? parseInt(f.data.split('-')[1], 10) : null;
+      if (m) counts[m] = (counts[m] || 0) + 1;
+    });
+    const result = [];
+    for (let i = Math.max(1, mes - 5); i <= mes; i++) {
+      result.push({ label: mesesAbrev[i - 1], value: counts[i] || 0 });
+    }
+    return result;
+  }, [chartFaltas, mes]);
+
+  const faltasPorDept = React.useMemo(() => {
+    const counts: Record<string, number> = {};
+    chartFaltas.forEach(f => {
+      const dept = f.departamento || 'outro';
+      counts[dept] = (counts[dept] || 0) + 1;
+    });
+    const colors = ['#4FC3F7','#66BB6A','#FFA726','#EF5350','#AB47BC','#26C6DA'];
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
+      .map(([key, val], i) => ({
+        label: getDeptLabel(key).slice(0, 6),
+        value: val,
+        color: colors[i % colors.length],
+      }));
+  }, [chartFaltas]);
+
+  const totalAno = chartFaltas.filter(f => f.data && f.data.startsWith(String(ano))).length;
 
   const fmtKz = (v: number) => v.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
 
@@ -1274,6 +1333,83 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 16 }}>
       <Text style={{ color: Colors.textMuted, fontSize: 12, marginBottom: 4 }}>
         Gere relatórios em PDF directamente do seu navegador. Seleccione o período pretendido.
+      </Text>
+
+      {/* ── Gráficos de Faltas ─────────────────────────────────────────────── */}
+      <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>
+        Análise Visual de Faltas — {ano}
+      </Text>
+
+      {chartLoading ? (
+        <ActivityIndicator color={Colors.accent} style={{ marginVertical: 16 }} />
+      ) : chartFaltas.length === 0 ? (
+        <View style={{ alignItems: 'center', padding: 24 }}>
+          <MaterialCommunityIcons name="chart-bar-stacked" size={40} color={Colors.textMuted} />
+          <Text style={{ color: Colors.textMuted, marginTop: 8, fontSize: 13 }}>
+            Sem dados de faltas para {ano}.
+          </Text>
+        </View>
+      ) : (
+        <>
+          {/* Faltas por Tipo */}
+          <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <MaterialCommunityIcons name="chart-donut" size={18} color="#EF5350" />
+              <Text style={{ color: Colors.text ?? '#fff', fontWeight: '700', fontSize: 13 }}>
+                Tipos de Faltas · Total {totalAno}
+              </Text>
+            </View>
+            <View style={{ alignItems: 'center' }}>
+              {faltasPorTipo.length > 0 ? (
+                <DonutChart
+                  data={faltasPorTipo}
+                  size={150}
+                  thickness={26}
+                  centerLabel={String(totalAno)}
+                  centerSub="faltas"
+                />
+              ) : (
+                <Text style={{ color: Colors.textMuted, fontSize: 12 }}>Sem faltas registadas</Text>
+              )}
+            </View>
+          </View>
+
+          {/* Evolução Mensal */}
+          {faltasPorMes.length >= 2 && (
+            <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <MaterialCommunityIcons name="chart-line" size={18} color="#4FC3F7" />
+                <Text style={{ color: Colors.text ?? '#fff', fontWeight: '700', fontSize: 13 }}>
+                  Evolução Mensal
+                </Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <LineChart data={faltasPorMes} color="#4FC3F7" height={140} width={320} />
+              </View>
+            </View>
+          )}
+
+          {/* Faltas por Departamento */}
+          {faltasPorDept.length > 0 && (
+            <View style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: Colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <MaterialCommunityIcons name="chart-bar" size={18} color="#66BB6A" />
+                <Text style={{ color: Colors.text ?? '#fff', fontWeight: '700', fontSize: 13 }}>
+                  Por Departamento
+                </Text>
+              </View>
+              <View style={{ alignItems: 'center' }}>
+                <BarChart data={faltasPorDept} height={160} width={320} />
+              </View>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Separador */}
+      <View style={{ height: 1, backgroundColor: Colors.border }} />
+      <Text style={{ color: Colors.text ?? '#fff', fontSize: 15, fontWeight: '700' }}>
+        Exportar Relatórios
       </Text>
 
       {/* Faltas */}
