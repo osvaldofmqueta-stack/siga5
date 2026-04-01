@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useCallback as useCallbackAlias } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   Switch,
   Platform,
   Image,
-  Animated
+  Animated,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -24,6 +25,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso } from '@/utils/toast';
 import { webAlert } from '@/utils/webAlert';
+import api from '@/lib/api';
 
 interface PapRecord {
   alunoId: string;

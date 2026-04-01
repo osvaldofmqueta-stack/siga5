@@ -6437,6 +6437,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── Estimativa salarial do próprio utilizador ───────────────────────────────
+  // Acessível a qualquer utilizador autenticado (professor ou funcionário com acesso)
+  app.get("/api/meu-recibo-estimado", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const jwtUser = req.jwtUser!;
+      const mes  = parseInt(String(req.query.mes  ?? new Date().getMonth() + 1));
+      const ano  = parseInt(String(req.query.ano  ?? new Date().getFullYear()));
+
+      // 1. Encontrar professor (por email) ou funcionário (por utilizadorId)
+      let profRow: any = null;
+      let funcRow: any = null;
+
+      const profRows = await query<JsonObject>(
+        `SELECT id, nome, apelido, cargo, "tipoContrato", "salarioBase",
+                "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao",
+                "valorPorTempoLectivo", "temposSemanais"
+         FROM public.professores WHERE email=$1 AND ativo=true LIMIT 1`,
+        [jwtUser.email]
+      );
+      if (profRows[0]) {
+        profRow = profRows[0];
+      } else {
+        const funcRows2 = await query<JsonObject>(
+          `SELECT id, nome, apelido, cargo, "tipoContrato", "salarioBase",
+                  "subsidioAlimentacao", "subsidioTransporte", "subsidioHabitacao",
+                  "valorPorTempoLectivo", "temposSemanais"
+           FROM public.funcionarios WHERE "utilizadorId"=$1 AND ativo=true LIMIT 1`,
+          [jwtUser.userId]
+        );
+        if (funcRows2[0]) funcRow = funcRows2[0];
+      }
+
+      const pessoa = profRow ?? funcRow;
+      if (!pessoa) {
+        return json(res, 200, { semPerfil: true });
+      }
+
+      // 2. Config geral (INSS + IRT)
+      const cfgRows = await query<JsonObject>(
+        `SELECT "inssEmpPerc","inssPatrPerc","irtTabela" FROM public.config_geral LIMIT 1`
+      );
+      const cfg = cfgRows[0] as any ?? {};
+      const inssEmpRate  = (Number(cfg.inssEmpPerc  ?? 3))  / 100;
+      const irtTabelaRaw = Array.isArray(cfg.irtTabela) && cfg.irtTabela.length > 0 ? cfg.irtTabela : undefined;
+
+      // 3. Config RH (desconto por tempo, semanas por mês)
+      const rhRows = await query<JsonObject>(`SELECT * FROM public.configuracao_rh WHERE id=1`);
+      const rh = rhRows[0] as any ?? {};
+      const descontoPorTempoNaoDado = Number(rh.descontoPorTempoNaoDado ?? 0);
+      const semanasPorMes           = Number(rh.semanasPorMes ?? 4);
+      const valorPorFalta           = Number(rh.valorPorFalta ?? 0);
+
+      // 4. Faltas do mês (de professores via faltas_funcionarios ou tabela de sumários)
+      const pessoaId = profRow ? profRow.id : funcRow.id;
+      let faltasMes = 0;
+
+      if (profRow) {
+        // Professores: contar sumários rejeitados/ausentes no mês
+        const sumRows = await query<JsonObject>(
+          `SELECT COUNT(*) AS cnt FROM public.sumarios
+           WHERE "professorId"=$1 AND status='rejeitado'
+           AND EXTRACT(MONTH FROM data::date)=$2 AND EXTRACT(YEAR FROM data::date)=$3`,
+          [pessoaId, mes, ano]
+        );
+        faltasMes = Number((sumRows[0] as any)?.cnt ?? 0);
+      } else {
+        // Funcionários: faltas registadas pela RH
+        const fRows = await query<JsonObject>(
+          `SELECT COUNT(*) AS cnt FROM public.faltas_funcionarios
+           WHERE "funcionarioId"=$1 AND mes=$2 AND ano=$3 AND descontavel=true`,
+          [pessoaId, mes, ano]
+        );
+        faltasMes = Number((fRows[0] as any)?.cnt ?? 0);
+      }
+
+      // 5. Calcular salário estimado
+      const tipoContrato         = String(pessoa.tipoContrato ?? 'efectivo');
+      const salBase              = Number(pessoa.salarioBase ?? 0);
+      const subAlim              = Number(pessoa.subsidioAlimentacao ?? 0);
+      const subTrans             = Number(pessoa.subsidioTransporte ?? 0);
+      const subHab               = Number(pessoa.subsidioHabitacao ?? 0);
+      const valorTempoLectivo    = Number(pessoa.valorPorTempoLectivo ?? 0);
+      const temposSemanais       = Number(pessoa.temposSemanais ?? 0);
+      const temposEsperados      = temposSemanais * semanasPorMes;
+
+      let salBaseEfectivo  = salBase;
+      let descontoTempos   = 0;
+      let temposTrabalhados = temposEsperados; // assume todos feitos
+      let salColaborador   = 0;
+
+      const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
+
+      if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
+        const temposNaoDados = faltasMes; // cada falta = 1 tempo não dado (simplificado)
+        temposTrabalhados = Math.max(0, temposEsperados - temposNaoDados);
+        descontoTempos = Math.round(temposNaoDados * descontoPorTempoNaoDado * 100) / 100;
+        salBaseEfectivo = Math.max(0, salBase - descontoTempos);
+      } else if (isColaborador && valorTempoLectivo > 0 && temposSemanais > 0 && salBase === 0) {
+        temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+        salColaborador = Math.round(valorTempoLectivo * temposTrabalhados * 100) / 100;
+        salBaseEfectivo = salColaborador;
+      }
+
+      const descontoFaltas = Math.round(faltasMes * valorPorFalta * 100) / 100;
+      const subs            = subAlim + subTrans + subHab;
+      const salBruto        = Math.round((salBaseEfectivo + subs) * 100) / 100;
+      const inssEmpregado   = Math.round(salBaseEfectivo * inssEmpRate * 100) / 100;
+      const irt             = Math.round(calcularIRT(salBaseEfectivo, irtTabelaRaw as any) * 100) / 100;
+      const salLiquido      = Math.round((salBruto - inssEmpregado - irt - (isColaborador ? 0 : descontoFaltas)) * 100) / 100;
+
+      json(res, 200, {
+        nome:              `${pessoa.nome} ${pessoa.apelido}`,
+        cargo:             pessoa.cargo ?? '',
+        tipoContrato,
+        mes, ano,
+        // Tempos
+        temposSemanais,
+        temposEsperados,
+        temposTrabalhados,
+        faltasMes,
+        // Valores
+        salarioBase:       salBase,
+        valorPorTempoLectivo: valorTempoLectivo,
+        subsidioAlimentacao: subAlim,
+        subsidioTransporte:  subTrans,
+        subsidioHabitacao:   subHab,
+        salColaborador,
+        descontoTempos,
+        descontoFaltas:    isColaborador ? 0 : descontoFaltas,
+        salarioBruto:      salBruto,
+        inssEmpregado,
+        irt,
+        salarioLiquido:    salLiquido,
+        // Meta
+        semanasPorMes,
+        inssEmpPerc:       Number(cfg.inssEmpPerc ?? 3),
+        semPerfil:         false,
+      });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

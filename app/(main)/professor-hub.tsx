@@ -1,8 +1,8 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
 } from 'react-native';
-import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
@@ -12,6 +12,14 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import api from '@/lib/api';
+
+const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+               'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-AO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kz';
+}
 
 function StatCard({ value, label, color, icon }: { value: string | number; label: string; color: string; icon: string }) {
   return (
@@ -40,6 +48,218 @@ function QuickAction({ icon, label, route, badge, color }: { icon: string; label
   );
 }
 
+// ─── Painel de Estimativa Salarial ────────────────────────────────────────────
+interface ReciboEstimado {
+  semPerfil?: boolean;
+  nome?: string;
+  cargo?: string;
+  tipoContrato?: string;
+  mes?: number;
+  ano?: number;
+  temposSemanais?: number;
+  temposEsperados?: number;
+  temposTrabalhados?: number;
+  faltasMes?: number;
+  salarioBase?: number;
+  valorPorTempoLectivo?: number;
+  salColaborador?: number;
+  descontoTempos?: number;
+  descontoFaltas?: number;
+  subsidioAlimentacao?: number;
+  subsidioTransporte?: number;
+  subsidioHabitacao?: number;
+  salarioBruto?: number;
+  inssEmpregado?: number;
+  irt?: number;
+  salarioLiquido?: number;
+  semanasPorMes?: number;
+  inssEmpPerc?: number;
+}
+
+const TIPO_LABEL: Record<string, string> = {
+  efectivo: 'Efectivo', colaborador: 'Colaborador',
+  contratado: 'Contratado', prestacao_servicos: 'Prestação de Serviços',
+};
+
+function EstimativaSalarialCard() {
+  const now = new Date();
+  const [mes, setMes] = useState(now.getMonth() + 1);
+  const [ano] = useState(now.getFullYear());
+  const [data, setData] = useState<ReciboEstimado | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async (m: number, a: number) => {
+    setLoading(true);
+    try {
+      const r = await api.get(`/api/meu-recibo-estimado?mes=${m}&ano=${a}`);
+      setData(r);
+    } catch {
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(mes, ano); }, [mes, ano]);
+
+  const mesAnterior = () => {
+    if (mes === 1) return;
+    setMes(m => m - 1);
+  };
+  const mesSeguinte = () => {
+    if (mes === now.getMonth() + 1 && ano === now.getFullYear()) return;
+    setMes(m => m + 1);
+  };
+
+  if (loading) {
+    return (
+      <View style={sal.card}>
+        <ActivityIndicator color={Colors.gold} style={{ padding: 20 }} />
+      </View>
+    );
+  }
+
+  if (!data || data.semPerfil) return null;
+
+  const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(data.tipoContrato ?? '');
+  const temFalta = (data.faltasMes ?? 0) > 0;
+
+  return (
+    <View style={sal.card}>
+      {/* Cabeçalho */}
+      <View style={sal.header}>
+        <View style={sal.headerLeft}>
+          <MaterialCommunityIcons name="cash-multiple" size={18} color={Colors.gold} />
+          <Text style={sal.title}>Estimativa de Vencimento</Text>
+        </View>
+        <View style={sal.mesNav}>
+          <TouchableOpacity onPress={mesAnterior} disabled={mes === 1}>
+            <Ionicons name="chevron-back" size={16} color={mes === 1 ? Colors.textMuted : Colors.gold} />
+          </TouchableOpacity>
+          <Text style={sal.mesLabel}>{MESES[mes - 1]}</Text>
+          <TouchableOpacity onPress={mesSeguinte} disabled={mes === now.getMonth() + 1}>
+            <Ionicons name="chevron-forward" size={16} color={mes === now.getMonth() + 1 ? Colors.textMuted : Colors.gold} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Tipo de contrato */}
+      <View style={sal.tipoBadge}>
+        <Text style={sal.tipoText}>{TIPO_LABEL[data.tipoContrato ?? ''] ?? data.tipoContrato}</Text>
+      </View>
+
+      {/* Tempos lectivos */}
+      {(data.temposSemanais ?? 0) > 0 && (
+        <View style={sal.temposBox}>
+          <View style={sal.temposRow}>
+            <Text style={sal.temposLabel}>Tempos esperados</Text>
+            <Text style={sal.temposVal}>{data.temposEsperados} ({data.temposSemanais}/sem × {data.semanasPorMes} sem)</Text>
+          </View>
+          <View style={sal.temposRow}>
+            <Text style={sal.temposLabel}>Tempos trabalhados</Text>
+            <Text style={[sal.temposVal, { color: temFalta ? Colors.warning : Colors.success }]}>
+              {data.temposTrabalhados}
+            </Text>
+          </View>
+          {temFalta && (
+            <View style={sal.temposRow}>
+              <Text style={[sal.temposLabel, { color: Colors.danger }]}>Faltas / tempos em falta</Text>
+              <Text style={[sal.temposVal, { color: Colors.danger }]}>{data.faltasMes}</Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Alerta de falta */}
+      {temFalta && (
+        <View style={sal.alertBox}>
+          <Ionicons name="warning" size={14} color={Colors.warning} />
+          <Text style={sal.alertText}>
+            {data.faltasMes} falta(s) registada(s) este mês — impacto no salário aplicado abaixo.
+          </Text>
+        </View>
+      )}
+
+      {/* Discriminação */}
+      <View style={sal.breakdown}>
+        {/* Créditos */}
+        {isColaborador && (data.salColaborador ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={sal.bLabel}>
+              {`Tempos dados (${data.temposTrabalhados} × ${fmt(data.valorPorTempoLectivo ?? 0)})`}
+            </Text>
+            <Text style={[sal.bVal, { color: Colors.success }]}>{fmt(data.salColaborador ?? 0)}</Text>
+          </View>
+        )}
+        {!isColaborador && (data.salarioBase ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={sal.bLabel}>Salário Base</Text>
+            <Text style={[sal.bVal, { color: Colors.success }]}>{fmt(data.salarioBase ?? 0)}</Text>
+          </View>
+        )}
+        {(data.subsidioAlimentacao ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={sal.bLabel}>Subsídio de Alimentação</Text>
+            <Text style={[sal.bVal, { color: Colors.success }]}>{fmt(data.subsidioAlimentacao ?? 0)}</Text>
+          </View>
+        )}
+        {(data.subsidioTransporte ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={sal.bLabel}>Subsídio de Transporte</Text>
+            <Text style={[sal.bVal, { color: Colors.success }]}>{fmt(data.subsidioTransporte ?? 0)}</Text>
+          </View>
+        )}
+        {(data.subsidioHabitacao ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={sal.bLabel}>Subsídio de Habitação</Text>
+            <Text style={[sal.bVal, { color: Colors.success }]}>{fmt(data.subsidioHabitacao ?? 0)}</Text>
+          </View>
+        )}
+
+        {/* Separador */}
+        <View style={sal.divider} />
+
+        {/* Descontos */}
+        {(data.descontoTempos ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={[sal.bLabel, { color: Colors.danger }]}>
+              {`Desconto tempos não dados (${data.faltasMes})`}
+            </Text>
+            <Text style={[sal.bVal, { color: Colors.danger }]}>- {fmt(data.descontoTempos ?? 0)}</Text>
+          </View>
+        )}
+        {(data.descontoFaltas ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={[sal.bLabel, { color: Colors.danger }]}>Desconto por faltas</Text>
+            <Text style={[sal.bVal, { color: Colors.danger }]}>- {fmt(data.descontoFaltas ?? 0)}</Text>
+          </View>
+        )}
+        {(data.inssEmpregado ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={[sal.bLabel, { color: '#FF7141' }]}>{`INSS Empregado (${data.inssEmpPerc}%)`}</Text>
+            <Text style={[sal.bVal, { color: '#FF7141' }]}>- {fmt(data.inssEmpregado ?? 0)}</Text>
+          </View>
+        )}
+        {(data.irt ?? 0) > 0 && (
+          <View style={sal.bRow}>
+            <Text style={[sal.bLabel, { color: Colors.danger }]}>IRT</Text>
+            <Text style={[sal.bVal, { color: Colors.danger }]}>- {fmt(data.irt ?? 0)}</Text>
+          </View>
+        )}
+
+        {/* Líquido */}
+        <View style={sal.liquidoRow}>
+          <Text style={sal.liquidoLabel}>Salário Líquido Estimado</Text>
+          <Text style={sal.liquidoVal}>{fmt(data.salarioLiquido ?? 0)}</Text>
+        </View>
+      </View>
+
+      <Text style={sal.nota}>* Estimativa baseada nos dados registados até ao momento. Sujeita a ajustes finais pela equipa de RH.</Text>
+    </View>
+  );
+}
+
+// ─── Ecrã Principal ───────────────────────────────────────────────────────────
 export default function ProfessorHubScreen() {
   const { user } = useAuth();
   const { professores, turmas, alunos, notas, presencas } = useData();
@@ -144,6 +364,10 @@ export default function ProfessorHubScreen() {
           <StatCard value={minhasTurmas.length} label="Turmas" color={Colors.accent} icon="people" />
         </ScrollView>
 
+        {/* Estimativa Salarial */}
+        <Text style={styles.sectionTitle}>Estimativa de Vencimento</Text>
+        <EstimativaSalarialCard />
+
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Acesso Rápido</Text>
         <View style={styles.quickGrid}>
@@ -241,6 +465,7 @@ export default function ProfessorHubScreen() {
   );
 }
 
+// ─── Estilos ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   banner: {
@@ -314,4 +539,61 @@ const styles = StyleSheet.create({
   sumDisciplina: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   sumTurma: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
   sumData: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+});
+
+const sal = StyleSheet.create({
+  card: {
+    marginHorizontal: 16, marginBottom: 4,
+    backgroundColor: Colors.backgroundCard,
+    borderRadius: 18, borderWidth: 1, borderColor: Colors.gold + '44',
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text },
+  mesNav: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  mesLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold, minWidth: 64, textAlign: 'center' },
+  tipoBadge: {
+    alignSelf: 'flex-start', marginHorizontal: 16, marginBottom: 10,
+    backgroundColor: Colors.accent + '22', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 3,
+  },
+  tipoText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.accent },
+  temposBox: {
+    marginHorizontal: 16, marginBottom: 10,
+    backgroundColor: Colors.background, borderRadius: 12, padding: 12, gap: 6,
+  },
+  temposRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  temposLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  temposVal: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  alertBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 10,
+    backgroundColor: Colors.warning + '18', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+    borderWidth: 1, borderColor: Colors.warning + '33',
+  },
+  alertText: { flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.warning },
+  breakdown: {
+    marginHorizontal: 16, marginBottom: 14, gap: 6,
+  },
+  bRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  bLabel: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1 },
+  bVal: { fontSize: 13, fontFamily: 'Inter_600SemiBold', textAlign: 'right' },
+  divider: { height: 1, backgroundColor: Colors.border, marginVertical: 4 },
+  liquidoRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: Colors.success + '14', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 10, marginTop: 4,
+    borderWidth: 1, borderColor: Colors.success + '33',
+  },
+  liquidoLabel: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
+  liquidoVal: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success },
+  nota: {
+    fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
+    marginHorizontal: 16, marginBottom: 14, fontStyle: 'italic',
+  },
 });
