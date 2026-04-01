@@ -55,6 +55,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch {
     // constraint already exists — ignore
   }
+
+  // Partial unique indexes for funcionarios — prevent duplicate BI, NIF, telefone, email
+  // (empty strings are excluded so legacy/missing values don't conflict)
+  for (const [col, idx] of [
+    ['bi',       'idx_func_bi_uniq'],
+    ['nif',      'idx_func_nif_uniq'],
+    ['telefone', 'idx_func_telefone_uniq'],
+    ['email',    'idx_func_email_uniq'],
+  ] as [string, string][]) {
+    try {
+      await query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS "${idx}"
+         ON public.funcionarios ("${col}")
+         WHERE "${col}" IS NOT NULL AND "${col}" <> ''`,
+        []
+      );
+    } catch {
+      // index may already exist with different definition — ignore
+    }
+  }
   // Seed — Produção Vegetal (idempotent via ON CONFLICT DO NOTHING)
   try {
     await query(`
@@ -1279,6 +1299,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows[0]);
   });
 
+  // Helper: verifica unicidade de BI/NIF/telefone/email em funcionarios antes de INSERT/UPDATE
+  async function checkFuncionarioDuplicados(
+    fields: { bi?: string; nif?: string; telefone?: string; email?: string },
+    excludeId?: string
+  ): Promise<string | null> {
+    const checks: { col: string; val: string; label: string }[] = [
+      { col: 'bi',       val: fields.bi       ?? '', label: 'Bilhete de Identidade' },
+      { col: 'nif',      val: fields.nif      ?? '', label: 'NIF'                  },
+      { col: 'telefone', val: fields.telefone ?? '', label: 'Telefone'              },
+      { col: 'email',    val: fields.email    ?? '', label: 'Email'                 },
+    ];
+    for (const { col, val, label } of checks) {
+      if (!val || val.trim() === '') continue;
+      const rows = excludeId
+        ? await query<JsonObject>(`SELECT id FROM public.funcionarios WHERE "${col}"=$1 AND id<>$2 LIMIT 1`, [val.trim(), excludeId])
+        : await query<JsonObject>(`SELECT id FROM public.funcionarios WHERE "${col}"=$1 LIMIT 1`, [val.trim()]);
+      if (rows.length > 0) return `Já existe um funcionário registado com este ${label}.`;
+    }
+    return null;
+  }
+
   // -----------------------
   // FUNCIONÁRIOS — Registo Central de Pessoal
   // -----------------------
@@ -1302,6 +1343,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/funcionarios", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      const dupErr = await checkFuncionarioDuplicados({ bi: b.bi, nif: b.nif, telefone: b.telefone, email: b.email });
+      if (dupErr) return json(res, 409, { error: dupErr });
       const rows = await query<JsonObject>(
         `INSERT INTO public.funcionarios (
           id, nome, apelido, "dataNascimento", genero, bi, nif, telefone, email, foto,
@@ -1336,6 +1379,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
+      const dupErr = await checkFuncionarioDuplicados({ bi: b.bi, nif: b.nif, telefone: b.telefone, email: b.email }, id);
+      if (dupErr) return json(res, 409, { error: dupErr });
       const allowed = [
         "nome","apelido","dataNascimento","genero","bi","nif","telefone","email","foto",
         "provincia","municipio","morada","departamento","seccao","cargo","especialidade",
