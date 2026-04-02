@@ -819,6 +819,11 @@ export default function NotasScreen() {
   const isProfessor = user?.role === 'professor';
   const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'].includes(user.role);
 
+  const prazoKey = `t${trimestreActivo}` as 't1' | 't2' | 't3';
+  const prazoData: string | undefined = (config.prazosLancamento as any)?.[prazoKey];
+  const prazoEncerrado = prazoData ? new Date() > new Date(prazoData + 'T23:59:59') : false;
+  const podeEditar = isPrivilegedRole || !prazoEncerrado;
+
   const professorActual = useMemo(() => {
     if (!isProfessor || !user) return null;
     return professores.find(p => p.id === user.id || p.email === user.email) || null;
@@ -931,7 +936,11 @@ export default function NotasScreen() {
     return (
       <TouchableOpacity
         style={[styles.card, isParcial && { borderColor: Colors.warning + '50', borderStyle: 'dashed' }]}
-        onPress={() => { setEditNota(item); setShowForm(true); }}
+        onPress={() => {
+          if (!podeEditar) return;
+          setEditNota(item);
+          setShowForm(true);
+        }}
         activeOpacity={0.7}
       >
         <View style={styles.cardLeft}>
@@ -990,14 +999,21 @@ export default function NotasScreen() {
             )}
           </View>
         </View>
-        <View style={[styles.nfBadge, { backgroundColor: isParcial ? Colors.warning + '12' : color + '18', borderColor: isParcial ? Colors.warning + '50' : color + '50' }]}>
-          <Text style={styles.nfLabel}>{isParcial ? 'AVAL' : 'NF'}</Text>
-          <Text style={[styles.nfVal, { color: isParcial ? Colors.warning : color }]}>
-            {isParcial ? `${avaisReg}/${numAval}` : (nf > 0 ? nf.toFixed(1) : '—')}
-          </Text>
-          <Text style={[styles.nfGrade, { color: isParcial ? Colors.warning : color }]}>
-            {isParcial ? 'Parcial' : (nf > 0 ? gradeLabel(nf) : '')}
-          </Text>
+        <View style={{ alignItems: 'center', gap: 6 }}>
+          {!podeEditar && (
+            <View style={styles.lockBadge}>
+              <Ionicons name="lock-closed" size={10} color={Colors.danger} />
+            </View>
+          )}
+          <View style={[styles.nfBadge, { backgroundColor: isParcial ? Colors.warning + '12' : color + '18', borderColor: isParcial ? Colors.warning + '50' : color + '50' }]}>
+            <Text style={styles.nfLabel}>{isParcial ? 'AVAL' : 'NF'}</Text>
+            <Text style={[styles.nfVal, { color: isParcial ? Colors.warning : color }]}>
+              {isParcial ? `${avaisReg}/${numAval}` : (nf > 0 ? nf.toFixed(1) : '—')}
+            </Text>
+            <Text style={[styles.nfGrade, { color: isParcial ? Colors.warning : color }]}>
+              {isParcial ? 'Parcial' : (nf > 0 ? gradeLabel(nf) : '')}
+            </Text>
+          </View>
         </View>
       </TouchableOpacity>
     );
@@ -1012,7 +1028,7 @@ export default function NotasScreen() {
       <TopBar
         title="Notas"
         subtitle="Sistema AVAL → NF"
-        rightAction={{ icon: 'add', onPress: () => { setEditNota(null); setShowForm(true); } }}
+        rightAction={podeEditar ? { icon: 'add', onPress: () => { setEditNota(null); setShowForm(true); } } : undefined}
       />
 
       {/* Contexto do Professor */}
@@ -1031,6 +1047,19 @@ export default function NotasScreen() {
         <View style={[styles.profContextBar, { backgroundColor: Colors.warning + '20', borderColor: Colors.warning + '50' }]}>
           <Ionicons name="warning-outline" size={16} color={Colors.warning} />
           <Text style={[styles.profContextName, { color: Colors.warning }]}>Sem turmas atribuídas. Contacte a direcção.</Text>
+        </View>
+      )}
+
+      {/* Banner de Prazo Encerrado */}
+      {prazoEncerrado && prazoData && (
+        <View style={styles.prazoBanner}>
+          <Ionicons name="lock-closed" size={14} color={Colors.danger} />
+          <Text style={styles.prazoBannerText}>
+            {podeEditar
+              ? `Prazo do ${trimestreActivo}º Trimestre encerrado em ${prazoData.split('-').reverse().join('/')} — acesso privilegiado activo.`
+              : `Prazo encerrado em ${prazoData.split('-').reverse().join('/')}. Lançamento de notas bloqueado para este trimestre.`}
+          </Text>
+          {podeEditar && <Ionicons name="shield-checkmark" size={12} color={Colors.success} />}
         </View>
       )}
 
@@ -1419,6 +1448,23 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, marginTop: 12, marginBottom: 6, textAlign: 'center' },
   emptyMsg: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
+  prazoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: 16, marginBottom: 4,
+    paddingHorizontal: 12, paddingVertical: 9,
+    backgroundColor: Colors.danger + '15',
+    borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '40',
+  },
+  prazoBannerText: {
+    flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium',
+    color: Colors.danger, lineHeight: 16,
+  },
+  lockBadge: {
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: Colors.danger + '22',
+    borderWidth: 1, borderColor: Colors.danger + '50',
+    alignItems: 'center', justifyContent: 'center',
+  },
   profContextBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 8,
