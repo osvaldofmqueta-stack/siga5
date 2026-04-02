@@ -82,27 +82,6 @@ export default function FloatingChatButton() {
   const [showNewChat, setShowNewChat] = useState(false);
   const [searchContact, setSearchContact] = useState('');
 
-  useEffect(() => {
-    if (unreadTotal > prevUnread.current) {
-      Animated.sequence([
-        Animated.spring(scaleAnim, { toValue: 1.25, useNativeDriver: true, speed: 20 }),
-        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20 }),
-      ]).start();
-      Animated.spring(badgeAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 14 }).start();
-    }
-    prevUnread.current = unreadTotal;
-  }, [unreadTotal]);
-
-  useEffect(() => {
-    if (selectedUserId) markConversationRead(selectedUserId);
-  }, [selectedUserId, conversations]);
-
-  useEffect(() => {
-    if (flatListRef.current && selectedConv?.msgs.length) {
-      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [selectedConv?.msgs?.length]);
-
   const staffContacts: StaffContact[] = useMemo(() => {
     if (!utilizadores) return [];
     const staffRoles = ['admin', 'director', 'secretaria', 'chefe_secretaria', 'professor', 'financeiro', 'rh', 'ceo', 'pca'];
@@ -129,6 +108,27 @@ export default function FloatingChatButton() {
     () => staffContacts.find(c => c.id === selectedUserId),
     [staffContacts, selectedUserId]
   );
+
+  useEffect(() => {
+    if (unreadTotal > prevUnread.current) {
+      Animated.sequence([
+        Animated.spring(scaleAnim, { toValue: 1.25, useNativeDriver: true, speed: 20 }),
+        Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, speed: 20 }),
+      ]).start();
+      Animated.spring(badgeAnim, { toValue: 1, useNativeDriver: true, speed: 20, bounciness: 14 }).start();
+    }
+    prevUnread.current = unreadTotal;
+  }, [unreadTotal]);
+
+  useEffect(() => {
+    if (selectedUserId) markConversationRead(selectedUserId);
+  }, [selectedUserId, conversations]);
+
+  useEffect(() => {
+    if (flatListRef.current && selectedConv?.msgs.length) {
+      setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+    }
+  }, [selectedConv?.msgs?.length]);
 
   const isHidden = HIDDEN_ROUTES.some(() => pathname?.includes('chat-interno'));
   if (isHidden) return null;
