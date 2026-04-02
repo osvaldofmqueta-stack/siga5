@@ -989,14 +989,17 @@ export default function LoginScreen() {
         <View style={styles.desktopRow}>
           <Animated.View style={[styles.desktopLeft, { opacity: logoOpacity }]}>
             <Text style={styles.desktopBrandTitle}>Sistema Integral de{'\n'}Gestão Escolar</Text>
-            <Text style={styles.desktopBrandSub}>Plataforma digital para a gestão académica e administrativa das escolas angolanas.</Text>
+            <Text style={styles.desktopBrandSub}>Solução completa para escolas angolanas — do processo de inscrição ao controlo financeiro e académico.</Text>
 
             <View style={styles.desktopFeatures}>
               {[
-                { icon: 'school-outline', text: 'Gestão de Alunos e Professores' },
-                { icon: 'document-text-outline', text: 'Lançamento de Notas e Presenças' },
-                { icon: 'bar-chart-outline', text: 'Relatórios e Estatísticas' },
-                { icon: 'cash-outline', text: 'Controlo Financeiro' },
+                { icon: 'people-outline',          text: 'Alunos, Turmas e Matrículas' },
+                { icon: 'school-outline',           text: 'Pautas, Notas e Controlo de Presenças' },
+                { icon: 'cash-outline',             text: 'Propinas, Multas, RUPE e Isenções' },
+                { icon: 'document-text-outline',    text: 'Declarações, Boletins e Documentos PDF' },
+                { icon: 'bar-chart-outline',        text: 'Relatórios e Exportação Excel' },
+                { icon: 'person-add-outline',       text: 'Inscrições Online de Novos Alunos' },
+                { icon: 'chatbubbles-outline',      text: 'Mensagens e Notificações às Famílias' },
               ].map((f, i) => (
                 <View key={i} style={styles.desktopFeatureRow}>
                   <View style={styles.desktopFeatureIcon}>
