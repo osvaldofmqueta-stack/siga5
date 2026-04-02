@@ -277,6 +277,11 @@ export default function ProfessorHubScreen() {
     [prof, turmas]
   );
 
+  const isDirector = useMemo(() =>
+    prof ? turmas.some(t => t.professorId === prof.id && t.ativo) : false,
+    [prof, turmas]
+  );
+
   const hoje = new Date();
   const mesAtual = hoje.getMonth();
   const anoAtual = hoje.getFullYear();
@@ -373,6 +378,9 @@ export default function ProfessorHubScreen() {
         <View style={styles.quickGrid}>
           <QuickAction icon="document-text" label="Pautas & Notas" route="/(main)/professor-pauta" color={Colors.gold} />
           <QuickAction icon="people" label="Minhas Turmas" route="/(main)/professor-turmas" color={Colors.info} />
+          {isDirector && (
+            <QuickAction icon="shield-checkmark" label="Director de Turma" route="/(main)/director-turma" color={Colors.gold} />
+          )}
           <QuickAction icon="stats-chart" label="Desempenho" route="/(main)/desempenho" color="#8B5CF6" />
           <QuickAction icon="chatbubbles" label="Mensagens" route="/(main)/professor-mensagens" badge={minhasMensagensNaoLidas} color={Colors.success} />
           <QuickAction icon="folder-open" label="Materiais" route="/(main)/professor-materiais" color={Colors.accent} />
