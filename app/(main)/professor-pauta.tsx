@@ -154,15 +154,17 @@ export default function ProfessorPautaScreen() {
     const defesa = parseFloat(form.notaDefesa.replace(',', '.'));
     if (isNaN(defesa)) return null;
     let soma = Math.min(20, Math.max(0, defesa));
-    // Always include estágio if present (manually entered or auto-loaded from curriculum)
+    let divisor = 1; // start with defesa as 1 component
+    // Always include estágio if present
     const e = parseFloat(form.notaEstagio.replace(',', '.'));
-    if (!isNaN(e)) soma += Math.min(20, Math.max(0, e));
+    if (!isNaN(e)) { soma += Math.min(20, Math.max(0, e)); divisor++; }
+    // Add avg of contributing disciplines if any are filled
     const discVals = papDiscContribuintes.map(nome => {
       const v = parseFloat((form.notasDisciplinas[nome] || '').replace(',', '.'));
       return isNaN(v) ? null : Math.min(20, Math.max(0, v));
     }).filter((v): v is number => v !== null);
-    if (discVals.length > 0) soma += discVals.reduce((a, b) => a + b, 0) / discVals.length;
-    return Math.round((soma / 3) * 10) / 10;
+    if (discVals.length > 0) { soma += discVals.reduce((a, b) => a + b, 0) / discVals.length; divisor++; }
+    return Math.round((soma / divisor) * 10) / 10;
   }
 
   function updatePapForm(alunoId: string, field: 'notaEstagio' | 'notaDefesa', value: string) {

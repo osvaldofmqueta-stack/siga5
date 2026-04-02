@@ -159,6 +159,17 @@ const VARIABLE_GROUPS = [
     ],
   },
   {
+    grupo: 'PAP — 13ª Classe',
+    icon: 'ribbon',
+    cor: '#a855f7',
+    vars: [
+      { tag: '{{NOTA_PAP}}', desc: 'Nota PAP final calculada', exemplo: '14.5' },
+      { tag: '{{NOTA_PAP_EXTENSO}}', desc: 'Nota PAP por extenso', exemplo: 'Catorze Valores' },
+      { tag: '{{NOTA_ESTAGIO}}', desc: 'Nota do Estágio', exemplo: '15' },
+      { tag: '{{NOTA_DEFESA}}', desc: 'Nota da Defesa / Oral', exemplo: '14' },
+    ],
+  },
+  {
     grupo: 'Funcionário / RH',
     icon: 'briefcase',
     cor: '#10b981',
@@ -1655,11 +1666,14 @@ Natural de {{NATURALIDADE}}, Município de {{MUNICIPIO}}, Província de {{PROVIN
 BI nº {{BI_NUMERO}}, emitido aos {{BI_DATA_EMISSAO}}, Arquivo de {{BI_LOCAL_EMISSAO}}
 
 Concluiu no Ano Lectivo {{ANO_LECTIVO}} o IIº Ciclo Ensino Secundário Técnico
-Especialidade: {{AREA}}
+Especialidade: {{AREA}} | Média Final: {{RESULTADO}} ({{RESULTADO_LETRA}})
+Pauta nº {{PAUTA_NUMERO}} | Processo nº {{PROCESSO_NUMERO}}
 
-Componente Sociocultural: LP, LE, Formação de Actitudes Integradoras, EF
-Componente Científica: Matemática, Física, Química, Biologia
-Componente Técnica: Informática, Empreendedorismo, Agricultura Geral, etc.
+{{TABELA_NOTAS}}
+
+PROVA DE APTIDÃO PROFISSIONAL (PAP)
+Nota de Estágio: {{NOTA_ESTAGIO}} | Nota de Defesa: {{NOTA_DEFESA}}
+Nota PAP Final: {{NOTA_PAP}} — {{NOTA_PAP_EXTENSO}}
 
 {{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
 };
@@ -1726,7 +1740,7 @@ const SEED_CERT_HAB_13: DocTemplate = {
   classeAlvo: '13ª',
   criadoEm: '2026-01-01T00:00:00.000Z',
   atualizadoEm: '2026-01-01T00:00:00.000Z',
-  conteudo: `CERTIFICADO DE HABILITAÇÕES — 13ª Classe (Pré-Universitário)
+  conteudo: `CERTIFICADO DE HABILITAÇÕES — 13ª Classe
 
 Director(a): {{NOME_DIRECTOR}} — {{NOME_ESCOLA}}
 Aluno: {{NOME_COMPLETO}}
@@ -1739,7 +1753,11 @@ Concluiu no Ano Lectivo de {{ANO_LECTIVO}} o IIº Ciclo — 13ª Classe
 Área: {{AREA}} | Média Final: {{RESULTADO}} ({{RESULTADO_LETRA}})
 Pauta nº {{PAUTA_NUMERO}} | Processo nº {{PROCESSO_NUMERO}}
 
-Disciplinas: LP, LE, MAT, FIL, EF, Dir. Empresarial, Eco. Avançada, Gestão Financeira, Cont. Avançada
+{{TABELA_NOTAS}}
+
+PROVA DE APTIDÃO PROFISSIONAL (PAP) — Ensino Técnico-Profissional
+Nota de Estágio: {{NOTA_ESTAGIO}} | Nota de Defesa: {{NOTA_DEFESA}}
+Nota PAP Final: {{NOTA_PAP}} — {{NOTA_PAP_EXTENSO}}
 
 {{NOME_ESCOLA}}, {{DATA_ACTUAL}}.`,
 };
@@ -2481,6 +2499,8 @@ export default function EditorDocumentos() {
   // Extracto de Propinas — date filter
   const [emitExtratoDataInicio, setEmitExtratoDataInicio] = useState('');
   const [emitExtratoDataFim, setEmitExtratoDataFim] = useState('');
+  // PAP data for 13ª Classe certificate
+  const [papAlunoData, setPapAlunoData] = useState<{ notaEstagio: number | null; notaDefesa: number | null; notaPAP: number | null } | null>(null);
 
   const inputRef = useRef<TextInput>(null);
 
@@ -2608,6 +2628,30 @@ export default function EditorDocumentos() {
       .then(data => setEmitAlunoHistorico(Array.isArray(data) ? data : []))
       .catch(() => setEmitAlunoHistorico([]));
   }, [emitAlunoId]);
+
+  // Fetch PAP data when a student is selected (for 13ª Classe certificates)
+  useEffect(() => {
+    if (!emitAlunoId) { setPapAlunoData(null); return; }
+    const alunoNotas = notas.filter(n => n.alunoId === emitAlunoId);
+    const anoLetivo = alunoNotas.length > 0
+      ? [...alunoNotas].sort((a, b) => b.anoLetivo.localeCompare(a.anoLetivo))[0].anoLetivo
+      : String(new Date().getFullYear());
+    fetch(`/api/pap-alunos?alunoId=${encodeURIComponent(emitAlunoId)}&anoLetivo=${encodeURIComponent(anoLetivo)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setPapAlunoData(data ? {
+        notaEstagio: data.notaEstagio ?? null,
+        notaDefesa: data.notaDefesa ?? null,
+        notaPAP: data.notaPAP ?? null,
+      } : null))
+      .catch(() => setPapAlunoData(null));
+  }, [emitAlunoId, notas]);
+
+  // Rebuild preview when PAP data arrives (for 13ª Classe templates)
+  useEffect(() => {
+    if (emitTemplate && emitAlunoId && !isExtratoPropinaType(emitTemplate)) {
+      setEmitPreview(buildPreview(emitTemplate, emitAlunoId));
+    }
+  }, [papAlunoData]);
 
   // Load templates + seed defaults from database
   useEffect(() => {
@@ -3963,6 +4007,11 @@ export default function EditorDocumentos() {
       '{{NOTA_ECO_AV}}': resolveNota('{{NOTA_ECO_AV}}'),
       '{{NOTA_GEST_FIN}}': resolveNota('{{NOTA_GEST_FIN}}'),
       '{{NOTA_CONT_AV}}': resolveNota('{{NOTA_CONT_AV}}'),
+      // PAP — Prova de Aptidão Profissional (13ª Classe)
+      '{{NOTA_PAP}}': papAlunoData?.notaPAP != null ? String(papAlunoData.notaPAP) : '____',
+      '{{NOTA_PAP_EXTENSO}}': papAlunoData?.notaPAP != null ? `${numExtensoLocal(papAlunoData.notaPAP)} Valores` : '________',
+      '{{NOTA_ESTAGIO}}': papAlunoData?.notaEstagio != null ? String(papAlunoData.notaEstagio) : '____',
+      '{{NOTA_DEFESA}}': papAlunoData?.notaDefesa != null ? String(papAlunoData.notaDefesa) : '____',
       // Smart table variables — resolved from actual student grades
       '{{TABELA_NOTAS}}': tabelaNotas,
       '{{TABELA_NOTAS_SIMPLES}}': tabelaNotasSimples,

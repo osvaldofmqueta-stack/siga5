@@ -6014,18 +6014,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const estagio = typeof notaEstagio === 'number' ? notaEstagio : (notaEstagio !== null && notaEstagio !== undefined ? parseFloat(String(notaEstagio)) : null);
       const defesa = typeof notaDefesa === 'number' ? notaDefesa : (notaDefesa !== null && notaDefesa !== undefined ? parseFloat(String(notaDefesa)) : null);
 
-      // Calcula Nota PAP: (notaEstagio + notaDefesa + avg(disciplinas)) / 3
-      // A divisão é SEMPRE por 3 (regulamento MED).
-      // Requer pelo menos a nota de defesa para calcular.
+      // Calcula Nota PAP: soma dos componentes / número de componentes presentes
+      // Sem disciplinas: (Estágio + Defesa) / 2
+      // Com disciplinas: (Estágio + Defesa + Média_Disciplinas) / 3
       let notaPAP: number | null = null;
       if (defesa !== null && !isNaN(defesa)) {
         let soma = defesa;
-        if (estagio !== null && !isNaN(estagio)) soma += estagio;
+        let divisor = 1;
+        if (estagio !== null && !isNaN(estagio)) { soma += estagio; divisor++; }
         if (disciplinas.length > 0) {
           const avgDisc = disciplinas.reduce((s: number, d: { nome: string; nota: number }) => s + d.nota, 0) / disciplinas.length;
           soma += avgDisc;
+          divisor++;
         }
-        notaPAP = Math.round((soma / 3) * 10) / 10;
+        notaPAP = Math.round((soma / divisor) * 10) / 10;
       }
 
       const existing = await query<JsonObject>(
