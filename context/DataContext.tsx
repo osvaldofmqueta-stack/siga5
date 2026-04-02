@@ -151,7 +151,7 @@ interface DataContextValue {
   addProfessor: (p: Omit<Professor, 'createdAt'>) => Promise<void>;
   updateProfessor: (id: string, p: Partial<Professor>) => Promise<void>;
   deleteProfessor: (id: string) => Promise<void>;
-  addTurma: (t: Omit<Turma, 'id'>) => Promise<void>;
+  addTurma: (t: Omit<Turma, 'id'>) => Promise<Turma>;
   updateTurma: (id: string, t: Partial<Turma>) => Promise<void>;
   deleteTurma: (id: string) => Promise<void>;
   addSala: (s: Omit<Sala, 'id'>) => Promise<void>;
@@ -444,7 +444,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function addTurma(t: Omit<Turma, 'id'>) {
+  async function addTurma(t: Omit<Turma, 'id'>): Promise<Turma> {
     const nova: Turma = { ...t, id: genId() };
     const updated = [...turmas, nova];
     setTurmas(updated);
@@ -454,6 +454,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.warn('Falha ao gravar turma no banco', e);
     }
+    return nova;
   }
 
   async function updateTurma(id: string, t: Partial<Turma>) {

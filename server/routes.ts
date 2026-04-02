@@ -93,6 +93,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // constraint already exists — ignore
   }
 
+  // ── turma_disciplinas: atribuição directa de disciplinas a turmas (Primário / I Ciclo) ──
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.turma_disciplinas (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "turmaId" varchar NOT NULL REFERENCES public.turmas(id) ON DELETE CASCADE,
+        "disciplinaId" varchar NOT NULL REFERENCES public.disciplinas(id) ON DELETE CASCADE,
+        ordem integer NOT NULL DEFAULT 0,
+        "createdAt" timestamp with time zone NOT NULL DEFAULT now(),
+        UNIQUE("turmaId", "disciplinaId")
+      )
+    `, []);
+    await query(`CREATE INDEX IF NOT EXISTS idx_turma_disc_turma ON public.turma_disciplinas ("turmaId")`, []);
+    console.log('[migration] turma_disciplinas ensured.');
+  } catch (e) {
+    console.warn('[migration] turma_disciplinas:', (e as Error).message);
+  }
+
   // Partial unique indexes for funcionarios — prevent duplicate BI, NIF, telefone, email
   // (empty strings are excluded so legacy/missing values don't conflict)
   for (const [col, idx] of [
@@ -3718,7 +3736,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  // GET disciplinas de uma turma (via cursoId da turma)
+  // GET disciplinas de uma turma (via cursoId para II Ciclo, ou turma_disciplinas para os outros)
   app.get("/api/turmas/:id/disciplinas", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -3728,17 +3746,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!turmaRows.length) return json(res, 404, { error: 'Turma não encontrada.' });
 
       const cursoId = turmaRows[0].cursoId as string | null;
-      if (!cursoId) return json(res, 200, []); // Turma sem curso não tem disciplinas via curso
 
+      if (cursoId) {
+        // II Ciclo: disciplinas via curso
+        const rows = await query<JsonObject>(
+          `SELECT cd."disciplinaId" AS id, d.nome, d.codigo, d.area, d.descricao, d.ativo,
+                  cd.obrigatoria, cd."cargaHoraria", cd.ordem
+           FROM public.curso_disciplinas cd
+           JOIN public.disciplinas d ON d.id = cd."disciplinaId"
+           WHERE cd."cursoId" = $1 AND d.ativo = true
+           ORDER BY cd.ordem ASC, d.nome ASC`,
+          [cursoId]
+        );
+        return json(res, 200, rows);
+      }
+
+      // Primário / I Ciclo: disciplinas via turma_disciplinas
       const rows = await query<JsonObject>(
-        `SELECT cd."disciplinaId" AS id, d.nome, d.codigo, d.area, d.descricao, d.ativo,
-                cd.obrigatoria, cd."cargaHoraria", cd.ordem
-         FROM public.curso_disciplinas cd
-         JOIN public.disciplinas d ON d.id = cd."disciplinaId"
-         WHERE cd."cursoId" = $1 AND d.ativo = true
-         ORDER BY cd.ordem ASC, d.nome ASC`,
-        [cursoId]
+        `SELECT td."disciplinaId" AS id, d.nome, d.codigo, d.area, d.descricao, d.ativo, td.ordem
+         FROM public.turma_disciplinas td
+         JOIN public.disciplinas d ON d.id = td."disciplinaId"
+         WHERE td."turmaId" = $1 AND d.ativo = true
+         ORDER BY td.ordem ASC, d.nome ASC`,
+        [id]
       );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/turmas/:id/disciplinas — atribuir disciplinas a uma turma (Primário / I Ciclo)
+  app.put("/api/turmas/:id/disciplinas", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { disciplinaIds } = req.body as { disciplinaIds: string[] };
+      if (!Array.isArray(disciplinaIds)) return json(res, 400, { error: 'disciplinaIds deve ser um array.' });
+
+      // Remove todas as atribuições actuais e reinsere
+      await query(`DELETE FROM public.turma_disciplinas WHERE "turmaId" = $1`, [id]);
+      for (let i = 0; i < disciplinaIds.length; i++) {
+        await query(
+          `INSERT INTO public.turma_disciplinas ("turmaId", "disciplinaId", ordem) VALUES ($1, $2, $3) ON CONFLICT ("turmaId","disciplinaId") DO UPDATE SET ordem=$3`,
+          [id, disciplinaIds[i], i]
+        );
+      }
+      json(res, 200, { ok: true, total: disciplinaIds.length });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET /api/disciplinas/por-classe — disciplinas do catálogo filtrando por classe
+  // Usa comparação numérica extraída do nome da classe (ex: "7ª Classe" → 7)
+  app.get("/api/disciplinas/por-classe", async (req: Request, res: Response) => {
+    try {
+      const { classe } = req.query as { classe?: string };
+      let rows: JsonObject[];
+      if (classe) {
+        // Extrai o número da classe passada (ex: "7ª Classe" → 7, "Iniciação" → 0)
+        const classeNumStr = classe.replace(/[^0-9]/g, '') || '0';
+        rows = await query<JsonObject>(
+          `SELECT id, nome, codigo, area, componente, tipo, "classeInicio", "classeFim"
+           FROM public.disciplinas
+           WHERE ativo = true
+             AND (
+               "classeInicio" = '' OR
+               (regexp_replace("classeInicio", '[^0-9]', '', 'g') = '' AND "classeInicio" != '') OR
+               CAST(NULLIF(regexp_replace("classeInicio", '[^0-9]', '', 'g'), '') AS integer) <= $1
+             )
+             AND (
+               "classeFim" = '' OR
+               (regexp_replace("classeFim", '[^0-9]', '', 'g') = '' AND "classeFim" != '') OR
+               CAST(NULLIF(regexp_replace("classeFim", '[^0-9]', '', 'g'), '') AS integer) >= $1
+             )
+           ORDER BY componente ASC, nome ASC`,
+          [parseInt(classeNumStr, 10)]
+        );
+      } else {
+        rows = await query<JsonObject>(
+          `SELECT id, nome, codigo, area, componente, tipo, "classeInicio", "classeFim"
+           FROM public.disciplinas WHERE ativo = true ORDER BY componente ASC, nome ASC`,
+          []
+        );
+      }
       json(res, 200, rows);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });

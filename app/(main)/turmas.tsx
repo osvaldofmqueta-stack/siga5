@@ -24,6 +24,7 @@ import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
 
 interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
+interface DisciplinaCatalogo { id: string; nome: string; codigo: string; area: string; componente: string; }
 
 const NIVEIS_FALLBACK = ['Primário', 'I Ciclo', 'II Ciclo'];
 const TURNOS_FALLBACK = ['Manhã', 'Tarde', 'Noite'];
@@ -238,6 +239,111 @@ function DirectorSelector({ professores, professoresIds, nivel, value, onChange 
   );
 }
 
+// ─── Selector de Disciplinas (Primário / I Ciclo) ─────────────────────────────
+function DisciplinasSelector({ disciplinas, selected, onChange }: {
+  disciplinas: DisciplinaCatalogo[]; selected: string[]; onChange: (ids: string[]) => void;
+}) {
+  const [search, setSearch] = useState('');
+  const grouped = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q ? disciplinas.filter(d => d.nome.toLowerCase().includes(q) || (d.componente || '').toLowerCase().includes(q)) : disciplinas;
+    const map: Record<string, DisciplinaCatalogo[]> = {};
+    for (const d of filtered) {
+      const key = d.componente || 'Geral';
+      if (!map[key]) map[key] = [];
+      map[key].push(d);
+    }
+    return map;
+  }, [disciplinas, search]);
+
+  function toggle(id: string) {
+    if (selected.includes(id)) onChange(selected.filter(x => x !== id));
+    else onChange([...selected, id]);
+  }
+  function toggleAll() {
+    if (selected.length === disciplinas.length) onChange([]);
+    else onChange(disciplinas.map(d => d.id));
+  }
+
+  const totalSel = selected.length;
+
+  return (
+    <View style={mS.selectorBox}>
+      {/* Barra de pesquisa + toggle-all */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+        <View style={[mS.directorSearch, { flex: 1, marginBottom: 0 }]}>
+          <Ionicons name="search-outline" size={14} color={Colors.textMuted} />
+          <TextInput
+            style={mS.directorSearchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Pesquisar disciplina..."
+            placeholderTextColor={Colors.textMuted}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch('')}>
+              <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity
+          onPress={toggleAll}
+          style={{ backgroundColor: totalSel === disciplinas.length ? `${Colors.gold}20` : Colors.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: totalSel === disciplinas.length ? Colors.gold : Colors.border }}
+        >
+          <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: totalSel === disciplinas.length ? Colors.goldLight : Colors.textMuted }}>
+            {totalSel === disciplinas.length ? 'Desmarcar' : 'Todas'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {disciplinas.length === 0 ? (
+        <View style={{ padding: 14, alignItems: 'center', gap: 6 }}>
+          <Ionicons name="book-outline" size={22} color={Colors.textMuted} />
+          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
+            Nenhuma disciplina disponível para esta classe no catálogo.{'\n'}Crie disciplinas primeiro.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView style={{ maxHeight: 280 }} showsVerticalScrollIndicator={false} nestedScrollEnabled>
+          {Object.entries(grouped).map(([componente, discs]) => (
+            <View key={componente}>
+              <View style={{ paddingHorizontal: 4, paddingVertical: 4, marginTop: 4 }}>
+                <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' }}>{componente}</Text>
+              </View>
+              {discs.map(d => {
+                const isSel = selected.includes(d.id);
+                return (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[mS.directorOption, isSel && mS.directorOptionActive]}
+                    onPress={() => toggle(d.id)}
+                  >
+                    <View style={[mS.directorOptionAvatar, isSel && { backgroundColor: `${Colors.gold}25` }]}>
+                      <Ionicons name="book-outline" size={13} color={isSel ? Colors.gold : Colors.textMuted} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[mS.directorOptionName, isSel && { color: Colors.goldLight }]}>{d.nome}</Text>
+                      {d.codigo ? <Text style={mS.directorOptionMeta}>{d.codigo}</Text> : null}
+                    </View>
+                    {isSel && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+
+      <View style={mS.directorFooter}>
+        <Ionicons name="book-outline" size={12} color={Colors.textMuted} />
+        <Text style={mS.directorFooterText}>
+          {totalSel} disciplina{totalSel !== 1 ? 's' : ''} seleccionada{totalSel !== 1 ? 's' : ''}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
   const { anoSelecionado } = useAnoAcademico();
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
@@ -253,17 +359,21 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
     nivel: defaultNivel, professorId: '', professoresIds: [], sala: '', capacidade: 35, ativo: true,
   });
   const [cursos, setCursos] = useState<Curso[]>([]);
+  const [disciplinasCatalogo, setDisciplinasCatalogo] = useState<DisciplinaCatalogo[]>([]);
+  const [selectedDisciplinaIds, setSelectedDisciplinaIds] = useState<string[]>([]);
   const set = (k: keyof Turma, v: any) => setForm(f => ({ ...f, [k]: v }));
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const classesDoNivel = classesPorNivel(form.nivel || defaultNivel, classes);
   const isIICiclo = (form.nivel || '').toLowerCase().includes('ii ciclo');
+  const isNaoIICiclo = !isIICiclo;
 
   function handleNivelChange(n: string) {
     const classesNivel = classesPorNivel(n, classes);
     const primeiraClasse = classesNivel[0] || classes[0] || '';
     setForm(f => ({ ...f, nivel: n, classe: primeiraClasse, professorId: '', professoresIds: [] }));
+    setSelectedDisciplinaIds([]);
   }
 
   useEffect(() => {
@@ -271,6 +381,26 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
       fetch('/api/cursos').then(r => r.json()).then((list: Curso[]) => setCursos(list.filter(c => c.ativo))).catch(() => {});
     }
   }, [visible]);
+
+  // Carregar catálogo de disciplinas para a classe seleccionada (só Primário/I Ciclo)
+  useEffect(() => {
+    if (!visible || isIICiclo) { setDisciplinasCatalogo([]); return; }
+    const classe = form.classe || '';
+    if (!classe) return;
+    fetch(`/api/disciplinas/por-classe?classe=${encodeURIComponent(classe)}`)
+      .then(r => r.json())
+      .then((list: DisciplinaCatalogo[]) => setDisciplinasCatalogo(Array.isArray(list) ? list : []))
+      .catch(() => setDisciplinasCatalogo([]));
+  }, [visible, form.classe, isIICiclo]);
+
+  // Carregar disciplinas já atribuídas (modo edição)
+  useEffect(() => {
+    if (!visible || isIICiclo || !turma?.id) { if (!turma) setSelectedDisciplinaIds([]); return; }
+    fetch(`/api/turmas/${turma.id}/disciplinas`)
+      .then(r => r.json())
+      .then((list: { id: string }[]) => setSelectedDisciplinaIds(Array.isArray(list) ? list.map(d => d.id) : []))
+      .catch(() => setSelectedDisciplinaIds([]));
+  }, [visible, turma?.id, isIICiclo]);
 
   const salasAtivas: Sala[] = (salas || []).filter((s: Sala) => s.ativo);
   const salaSelected = salasAtivas.find((s: Sala) => s.nome === form.sala);
@@ -292,7 +422,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
       webAlert('Director obrigatório', 'Seleccione primeiro os professores da turma e nomeie o Director de Turma. Uma turma não pode ser criada sem Director.');
       return;
     }
-    onSave(form);
+    onSave(form, isNaoIICiclo ? selectedDisciplinaIds : []);
   }
 
   const nivelAtual = form.nivel || defaultNivel;
@@ -452,6 +582,40 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
               />
             </View>
 
+            {/* ── Secção 3: Disciplinas (Primário / I Ciclo) ── */}
+            {isNaoIICiclo && (
+              <>
+                <View style={mS.sectionDivider}>
+                  <View style={mS.sectionDividerLine} />
+                  <Ionicons name="chevron-down" size={14} color={Colors.textMuted} style={{ marginHorizontal: 8 }} />
+                  <View style={mS.sectionDividerLine} />
+                </View>
+                <View style={mS.field}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={[mS.sectionNumBadge, { backgroundColor: `${Colors.accent}22` }]}>
+                        <Text style={[mS.sectionNumText, { color: Colors.accent }]}>3</Text>
+                      </View>
+                      <Text style={mS.fieldLabel}>Disciplinas desta Turma</Text>
+                    </View>
+                    {selectedDisciplinaIds.length > 0 && (
+                      <View style={{ backgroundColor: `${Colors.success}18`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${Colors.success}30` }}>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.success }}>{selectedDisciplinaIds.length} selec.</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={mS.sectionHint}>
+                    Seleccione as disciplinas que fazem parte do currículo desta turma. Só estas disciplinas aparecerão nas pautas e lançamento de notas.
+                  </Text>
+                  <DisciplinasSelector
+                    disciplinas={disciplinasCatalogo}
+                    selected={selectedDisciplinaIds}
+                    onChange={setSelectedDisciplinaIds}
+                  />
+                </View>
+              </>
+            )}
+
             {isIICiclo && cursos.length > 0 && (
               <View style={mS.field}>
                 <Text style={mS.fieldLabel}>Curso <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text></Text>
@@ -502,12 +666,23 @@ export default function TurmasScreen() {
     return turmas.filter(t => !filterNivel || t.nivel === filterNivel);
   }, [turmas, filterNivel]);
 
-  async function handleSave(form: Partial<Turma>) {
+  async function handleSave(form: Partial<Turma>, disciplinaIds: string[] = []) {
     try {
+      let turmaId: string;
       if (editTurma) {
         await updateTurma(editTurma.id, form);
+        turmaId = editTurma.id;
       } else {
-        await addTurma({ ...form } as any);
+        const nova = await addTurma({ ...form } as any);
+        turmaId = nova.id;
+      }
+      // Atribuir disciplinas (Primário / I Ciclo)
+      if (disciplinaIds.length >= 0 && !(form.nivel || '').toLowerCase().includes('ii ciclo')) {
+        fetch(`/api/turmas/${turmaId}/disciplinas`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ disciplinaIds }),
+        }).catch(() => {});
       }
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       alertSucesso(
