@@ -143,7 +143,7 @@ export default function SessionTimeoutModal({
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
-      <Animated.View style={[styles.overlay, { opacity: fadeIn }]}>
+      <Animated.View style={[styles.overlay, { opacity: fadeIn }, Platform.OS === 'web' && styles.overlayWeb]}>
         <Animated.View style={[styles.card, { transform: [{ scale: cardScale }] }]}>
           <View style={styles.topAccent} />
 
@@ -218,6 +218,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
+  },
+  overlayWeb: {
+    zIndex: 999999,
   },
   card: {
     backgroundColor: '#0F1E42',
