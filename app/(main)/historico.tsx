@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   FlatList, Dimensions, Modal, Platform,
@@ -9,6 +9,7 @@ import TopBar from '@/components/TopBar';
 import { LineChart } from '@/components/Charts';
 import { useData } from '@/context/DataContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
+import { useAuth } from '@/context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
@@ -111,12 +112,27 @@ function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
 export default function HistoricoScreen() {
   const { alunos, turmas, notas, presencas } = useData();
   const { anos, anoSelecionado } = useAnoAcademico();
+  const { user } = useAuth();
+
+  const isAlunoRole = user?.role === 'aluno';
+
   const [viewMode, setViewMode] = useState<ViewMode>('aluno');
   const [selectedAlunoId, setSelectedAlunoId] = useState<string | null>(null);
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>(turmas[0]?.id || '');
   const [showAlunoSelector, setShowAlunoSelector] = useState(false);
   const [showTurmaSelector, setShowTurmaSelector] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAlunoRole && user && alunos.length > 0 && !selectedAlunoId) {
+      const primeiroNome = user.nome?.split(' ')[0]?.toLowerCase() || '';
+      const alunoLogado = alunos.find(a =>
+        a.nome.toLowerCase().includes(primeiroNome) ||
+        `${a.nome} ${a.apelido}`.toLowerCase().includes(user.nome?.toLowerCase() || '')
+      );
+      if (alunoLogado) setSelectedAlunoId(alunoLogado.id);
+    }
+  }, [isAlunoRole, user, alunos]);
 
   const alunosAtivos = alunos.filter(a => a.ativo);
   const turmasAtivas = turmas.filter(t => t.ativo);
@@ -243,53 +259,59 @@ export default function HistoricoScreen() {
         </Text>
       </View>
 
-      <View style={styles.viewModeRow}>
-        <TouchableOpacity style={[styles.modeBtn, viewMode === 'aluno' && styles.modeBtnActive]} onPress={() => setViewMode('aluno')}>
-          <Ionicons name="person" size={15} color={viewMode === 'aluno' ? Colors.gold : Colors.textSecondary} />
-          <Text style={[styles.modeBtnText, viewMode === 'aluno' && styles.modeBtnTextActive]}>Por Aluno</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={[styles.modeBtn, viewMode === 'turma' && styles.modeBtnActive]} onPress={() => setViewMode('turma')}>
-          <MaterialIcons name="class" size={15} color={viewMode === 'turma' ? Colors.gold : Colors.textSecondary} />
-          <Text style={[styles.modeBtnText, viewMode === 'turma' && styles.modeBtnTextActive]}>Por Turma</Text>
-        </TouchableOpacity>
-      </View>
-
-      {viewMode === 'aluno' && (
-        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-          {/* Selector */}
-          <TouchableOpacity style={styles.selector} onPress={() => setShowAlunoSelector(v => !v)}>
-            <Ionicons name="person" size={18} color={Colors.gold} />
-            <Text style={selectedAluno ? styles.selectorVal : styles.selectorPlaceholder}>
-              {selectedAluno ? `${selectedAluno.nome} ${selectedAluno.apelido}` : 'Selecionar aluno...'}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
+      {!isAlunoRole && (
+        <View style={styles.viewModeRow}>
+          <TouchableOpacity style={[styles.modeBtn, viewMode === 'aluno' && styles.modeBtnActive]} onPress={() => setViewMode('aluno')}>
+            <Ionicons name="person" size={15} color={viewMode === 'aluno' ? Colors.gold : Colors.textSecondary} />
+            <Text style={[styles.modeBtnText, viewMode === 'aluno' && styles.modeBtnTextActive]}>Por Aluno</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.modeBtn, viewMode === 'turma' && styles.modeBtnActive]} onPress={() => setViewMode('turma')}>
+            <MaterialIcons name="class" size={15} color={viewMode === 'turma' ? Colors.gold : Colors.textSecondary} />
+            <Text style={[styles.modeBtnText, viewMode === 'turma' && styles.modeBtnTextActive]}>Por Turma</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-          {showAlunoSelector && (
-            <View style={styles.dropdownList}>
-              {alunosAtivos.map(a => {
-                const turma = turmas.find(t => t.id === a.turmaId);
-                return (
-                  <TouchableOpacity
-                    key={a.id}
-                    style={[styles.dropdownItem, selectedAlunoId === a.id && styles.dropdownActive]}
-                    onPress={() => { setSelectedAlunoId(a.id); setShowAlunoSelector(false); }}
-                  >
-                    <Text style={[styles.dropdownText, selectedAlunoId === a.id && styles.dropdownTextActive]}>
-                      {a.nome} {a.apelido}
-                    </Text>
-                    <Text style={styles.dropdownSub}>{turma?.nome || ''} — {a.numeroMatricula}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+      {(viewMode === 'aluno' || isAlunoRole) && (
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          {/* Selector — apenas visível para utilizadores não-aluno */}
+          {!isAlunoRole && (
+            <>
+              <TouchableOpacity style={styles.selector} onPress={() => setShowAlunoSelector(v => !v)}>
+                <Ionicons name="person" size={18} color={Colors.gold} />
+                <Text style={selectedAluno ? styles.selectorVal : styles.selectorPlaceholder}>
+                  {selectedAluno ? `${selectedAluno.nome} ${selectedAluno.apelido}` : 'Selecionar aluno...'}
+                </Text>
+                <Ionicons name="chevron-down" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+
+              {showAlunoSelector && (
+                <View style={styles.dropdownList}>
+                  {alunosAtivos.map(a => {
+                    const turma = turmas.find(t => t.id === a.turmaId);
+                    return (
+                      <TouchableOpacity
+                        key={a.id}
+                        style={[styles.dropdownItem, selectedAlunoId === a.id && styles.dropdownActive]}
+                        onPress={() => { setSelectedAlunoId(a.id); setShowAlunoSelector(false); }}
+                      >
+                        <Text style={[styles.dropdownText, selectedAlunoId === a.id && styles.dropdownTextActive]}>
+                          {a.nome} {a.apelido}
+                        </Text>
+                        <Text style={styles.dropdownSub}>{turma?.nome || ''} — {a.numeroMatricula}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+            </>
           )}
 
           {!selectedAluno && (
             <View style={styles.empty}>
               <Ionicons name="time-outline" size={52} color={Colors.textMuted} />
-              <Text style={styles.emptyTitle}>Selecione um aluno</Text>
-              <Text style={styles.emptyMsg}>Escolha um aluno para ver o seu histórico académico completo por trimestre.</Text>
+              <Text style={styles.emptyTitle}>{isAlunoRole ? 'A carregar histórico...' : 'Selecione um aluno'}</Text>
+              <Text style={styles.emptyMsg}>{isAlunoRole ? 'O seu histórico académico aparecerá aqui.' : 'Escolha um aluno para ver o seu histórico académico completo por trimestre.'}</Text>
             </View>
           )}
 
