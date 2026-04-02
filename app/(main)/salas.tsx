@@ -194,7 +194,7 @@ export default function SalasScreen() {
   }), [salas]);
 
   async function handleSave(form: Partial<Sala>) {
-    if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     try {
       if (editing) {
         await updateSala(editing.id, form);
@@ -231,7 +231,7 @@ export default function SalasScreen() {
           text: 'Remover',
           style: 'destructive',
           onPress: async () => {
-            if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
             try {
               await deleteSala(sala.id);
               alertSucesso('Sala removida', `"${sala.nome}" foi removida com sucesso.`);

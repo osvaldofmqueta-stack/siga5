@@ -198,7 +198,7 @@ export default function ProfessoresScreen() {
   async function handleSave(form: Partial<Professor>) {
     if (!editProf) return;
     await updateProfessor(editProf.id, form);
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     alertSucesso('Professor actualizado', `Os dados de ${form.nome} ${form.apelido} foram actualizados.`);
     setShowForm(false);
     setEditProf(null);

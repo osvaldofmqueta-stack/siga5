@@ -95,7 +95,7 @@ export default function RedefinirSenhaScreen() {
       }
 
       if (Platform.OS !== 'web') {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       }
       setStage('sucesso');
     } catch {

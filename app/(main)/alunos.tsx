@@ -311,7 +311,7 @@ export default function AlunosScreen() {
       }
     }
 
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     alertSucesso(
       editAluno ? 'Aluno actualizado' : 'Aluno registado',
       editAluno

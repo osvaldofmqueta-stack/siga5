@@ -196,12 +196,12 @@ export default function LicencaScreen() {
     const result = await ativarLicenca(codigo.trim(), user?.escola || 'Escola');
     setIsLoading(false);
     if (result.sucesso) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       webAlert('Licença Activada!', result.mensagem, [
         { text: 'Continuar', onPress: () => router.replace('/(main)/dashboard') },
       ]);
     } else {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       webAlert('Erro', result.mensagem);
     }
   }

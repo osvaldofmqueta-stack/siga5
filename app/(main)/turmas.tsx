@@ -503,20 +503,24 @@ export default function TurmasScreen() {
   }, [turmas, filterNivel]);
 
   async function handleSave(form: Partial<Turma>) {
-    if (editTurma) {
-      await updateTurma(editTurma.id, form);
-    } else {
-      await addTurma({ ...form } as any);
+    try {
+      if (editTurma) {
+        await updateTurma(editTurma.id, form);
+      } else {
+        await addTurma({ ...form } as any);
+      }
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      alertSucesso(
+        editTurma ? 'Turma actualizada' : 'Turma criada',
+        editTurma
+          ? `A turma "${form.nome}" foi actualizada com sucesso.`
+          : `A turma "${form.nome}" foi criada com sucesso.`
+      );
+      setShowForm(false);
+      setEditTurma(null);
+    } catch (e) {
+      alertErro('Erro', 'Não foi possível guardar a turma. Tente novamente.');
     }
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    alertSucesso(
-      editTurma ? 'Turma actualizada' : 'Turma criada',
-      editTurma
-        ? `A turma "${form.nome}" foi actualizada com sucesso.`
-        : `A turma "${form.nome}" foi criada com sucesso.`
-    );
-    setShowForm(false);
-    setEditTurma(null);
   }
 
   function confirmDelete(t: Turma) {

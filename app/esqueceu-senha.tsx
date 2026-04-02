@@ -109,7 +109,7 @@ export default function EsqueceuSenhaScreen() {
       });
       const data = await res.json();
       if (!res.ok) { setErro(data.error ?? 'Erro ao redefinir senha.'); return; }
-      if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setPasso('sucesso');
     } catch {
       setErro('Não foi possível contactar o servidor. Verifique a sua ligação.');

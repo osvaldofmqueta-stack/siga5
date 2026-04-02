@@ -428,7 +428,7 @@ export default function CeoScreen() {
       webAlert('Erro', 'Saldo deve ser maior que zero.');
       return;
     }
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     const cod = await gerarCodigo(formPlano, saldo, formNotas);
     setCodigoGerado(cod);
     setFormNotas('');
@@ -445,7 +445,7 @@ export default function CeoScreen() {
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Revogar', style: 'destructive', onPress: async () => {
         await revogarCodigo(cod.id);
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
       }},
     ]);
   }

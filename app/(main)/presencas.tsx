@@ -156,7 +156,7 @@ export default function PresencasScreen() {
         await addPresenca({ alunoId: aluno.id, turmaId: filterTurma, disciplina, data: date, status });
       }
     }
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     alertSucesso(
       status === 'P' ? 'Presenças registadas' : 'Faltas registadas',
       `Todos os alunos foram marcados como ${status === 'P' ? 'Presentes' : 'Faltosos'}.`

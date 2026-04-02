@@ -146,7 +146,7 @@ export default function EventosScreen() {
     } else {
       await addEvento(form as any);
     }
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     alertSucesso(
       editEvento ? 'Evento actualizado' : 'Evento criado',
       editEvento

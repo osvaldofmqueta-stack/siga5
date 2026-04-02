@@ -829,7 +829,7 @@ export default function NotasScreen() {
     } else {
       await addNota(form as any);
     }
-    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     if (parcial) {
       alertSucesso('Progresso guardado', 'Pode continuar a preencher as restantes avaliações mais tarde.');
     } else {

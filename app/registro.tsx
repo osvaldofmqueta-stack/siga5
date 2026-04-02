@@ -461,7 +461,7 @@ export default function RegistroScreen() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
-      if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (Platform.OS !== 'web') await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       setCredenciais({
         nomeCompleto: data.nomeCompleto,
         email: data.email,

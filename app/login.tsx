@@ -557,7 +557,7 @@ export default function LoginScreen() {
       });
 
       if (result.success) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         setIsLoading(true);
         const authUser: AuthUser = { ...lastUser, biometricEnabled: true, avatar: lastUser.avatar };
         await login(authUser);
@@ -588,7 +588,7 @@ export default function LoginScreen() {
         disableDeviceFallback: false,
       });
       if (result.success) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
         const emailTrimmed = email.toLowerCase().trim();
         if (!emailTrimmed) {
           showAlert('Email necessário', 'Introduza primeiro o seu email e depois use a autenticação biométrica.');
@@ -630,17 +630,17 @@ export default function LoginScreen() {
   async function handleLogin() {
     setFieldError(null);
     if (!email.trim() && !senha.trim()) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setFieldError({ field: 'email', message: 'Preencha o email para continuar.' });
       return;
     }
     if (!email.trim()) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setFieldError({ field: 'email', message: 'Introduza o seu email institucional.' });
       return;
     }
     if (!senha.trim()) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setFieldError({ field: 'senha', message: 'Introduza a sua senha de acesso.' });
       return;
     }
@@ -663,7 +663,7 @@ export default function LoginScreen() {
       const data = await res.json();
       if (!res.ok) {
         await waitMinTime();
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
         const errField = data.field as 'email' | 'senha' | undefined;
         if (errField === 'email' || errField === 'senha') {
           setFieldError({ field: errField, message: data.error ?? 'Erro de acesso.' });
@@ -675,7 +675,7 @@ export default function LoginScreen() {
       }
       await saveAuthToken(data.token);
       await waitMinTime();
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       const u: AuthUser = {
         id: data.user.id,
         nome: data.user.nome,
@@ -689,7 +689,7 @@ export default function LoginScreen() {
       router.replace(getRouteForRole(data.user.role) as any);
     } catch (e) {
       await waitMinTime();
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       showAlert('Erro de Ligação', 'Não foi possível contactar o servidor. Verifique a sua ligação e tente novamente.');
       setIsLoading(false);
     }
