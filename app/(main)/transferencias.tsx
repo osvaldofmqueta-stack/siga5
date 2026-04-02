@@ -201,7 +201,22 @@ function FormModal({
 }) {
   const [form, setForm] = useState<Partial<Transferencia>>(initial || emptyForm('saida'));
   const [docsOpen, setDocsOpen] = useState(false);
+  const [alunoSearch, setAlunoSearch] = useState('');
+  const [filterTurmaId, setFilterTurmaId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
+
+  const alunosFiltrados = useMemo(() => {
+    let list = alunos;
+    if (filterTurmaId) list = list.filter((a: any) => a.turmaId === filterTurmaId);
+    if (alunoSearch.trim()) {
+      const q = alunoSearch.trim().toLowerCase();
+      list = list.filter((a: any) =>
+        `${a.nome} ${a.apelido}`.toLowerCase().includes(q) ||
+        (a.numeroBi ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list.slice(0, 50);
+  }, [alunos, filterTurmaId, alunoSearch]);
 
   useEffect(() => {
     setForm(initial || emptyForm('saida'));
@@ -267,23 +282,101 @@ function FormModal({
             {isSaida ? (
               <>
                 <Text style={fStyles.label}>Aluno *</Text>
-                <View style={fStyles.selectWrap}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={{ flexDirection: 'row', gap: 8, paddingVertical: 4 }}>
-                      {alunos.slice(0, 60).map(a => (
+
+                {/* Selected student display */}
+                {form.alunoId ? (
+                  <View style={fStyles.alunoSelectedRow}>
+                    <View style={fStyles.alunoSelectedIcon}>
+                      <Ionicons name="person" size={16} color={Colors.gold} />
+                    </View>
+                    <Text style={fStyles.alunoSelectedName}>{form.nomeAluno}</Text>
+                    <TouchableOpacity onPress={() => { set('alunoId', null); set('nomeAluno', ''); }}>
+                      <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
+                {/* Search input */}
+                <View style={fStyles.searchBox}>
+                  <Ionicons name="search-outline" size={16} color={Colors.textMuted} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={fStyles.searchInput}
+                    placeholder="Pesquisar por nome ou BI..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={alunoSearch}
+                    onChangeText={setAlunoSearch}
+                  />
+                  {alunoSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => setAlunoSearch('')}>
+                      <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Turma filter chips */}
+                {turmas.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
+                      <TouchableOpacity
+                        style={[fStyles.filterChip, !filterTurmaId && fStyles.filterChipActive]}
+                        onPress={() => setFilterTurmaId(null)}
+                      >
+                        <Text style={[fStyles.filterChipText, !filterTurmaId && fStyles.filterChipTextActive]}>Todas</Text>
+                      </TouchableOpacity>
+                      {turmas.map((t: any) => (
                         <TouchableOpacity
-                          key={a.id}
-                          style={[fStyles.alunoChip, form.alunoId === a.id && fStyles.alunoChipActive]}
-                          onPress={() => { set('alunoId', a.id); set('nomeAluno', `${a.nome} ${a.apelido}`); }}
+                          key={t.id}
+                          style={[fStyles.filterChip, filterTurmaId === t.id && fStyles.filterChipActive]}
+                          onPress={() => setFilterTurmaId(t.id === filterTurmaId ? null : t.id)}
                         >
-                          <Text style={[fStyles.alunoChipText, form.alunoId === a.id && fStyles.alunoChipTextActive]}>
-                            {a.nome} {a.apelido}
+                          <Text style={[fStyles.filterChipText, filterTurmaId === t.id && fStyles.filterChipTextActive]}>
+                            {t.nome}
                           </Text>
                         </TouchableOpacity>
                       ))}
                     </View>
                   </ScrollView>
+                )}
+
+                {/* Filtered student list */}
+                <View style={fStyles.alunoList}>
+                  {alunosFiltrados.length === 0 ? (
+                    <View style={fStyles.alunoEmptyRow}>
+                      <Ionicons name="person-outline" size={20} color={Colors.textMuted} />
+                      <Text style={fStyles.alunoEmptyText}>
+                        {alunoSearch || filterTurmaId ? 'Nenhum aluno encontrado com esses filtros.' : 'Sem alunos registados.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    alunosFiltrados.map((a: any) => {
+                      const turma = turmas.find((t: any) => t.id === a.turmaId);
+                      const isSelected = form.alunoId === a.id;
+                      return (
+                        <TouchableOpacity
+                          key={a.id}
+                          style={[fStyles.alunoRow, isSelected && fStyles.alunoRowActive]}
+                          onPress={() => { set('alunoId', a.id); set('nomeAluno', `${a.nome} ${a.apelido}`); }}
+                        >
+                          <View style={[fStyles.alunoRowAvatar, isSelected && { backgroundColor: 'rgba(240,165,0,0.2)' }]}>
+                            <Text style={[fStyles.alunoRowInitials, isSelected && { color: Colors.gold }]}>
+                              {a.nome?.[0]}{a.apelido?.[0]}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[fStyles.alunoRowName, isSelected && { color: Colors.gold }]}>
+                              {a.nome} {a.apelido}
+                            </Text>
+                            {turma && (
+                              <Text style={fStyles.alunoRowSub}>{turma.nome}</Text>
+                            )}
+                          </View>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color={Colors.gold} />}
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
                 </View>
+
                 {alunos.length === 0 && (
                   <TextInput
                     style={fStyles.input}
@@ -913,11 +1006,24 @@ const fStyles = StyleSheet.create({
   tipoBtnActive: { backgroundColor: Colors.accent ?? '#4FC3F7', borderColor: Colors.accent ?? '#4FC3F7' },
   tipoBtnText: { color: Colors.textSecondary, fontWeight: '600', fontSize: 14 },
   tipoBtnTextActive: { color: '#fff' },
-  selectWrap: { marginBottom: 4 },
-  alunoChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  alunoChipActive: { backgroundColor: Colors.accent ?? '#4FC3F7', borderColor: Colors.accent ?? '#4FC3F7' },
-  alunoChipText: { color: Colors.textSecondary, fontSize: 13 },
-  alunoChipTextActive: { color: '#fff' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginBottom: 8 },
+  searchInput: { flex: 1, color: Colors.text, fontSize: 14, paddingVertical: 0 },
+  filterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  filterChipActive: { backgroundColor: 'rgba(240,165,0,0.2)', borderColor: Colors.gold },
+  filterChipText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '500' },
+  filterChipTextActive: { color: Colors.gold, fontWeight: '700' },
+  alunoList: { borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden', marginBottom: 4, maxHeight: 220 },
+  alunoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', backgroundColor: 'rgba(255,255,255,0.03)' },
+  alunoRowActive: { backgroundColor: 'rgba(240,165,0,0.1)', borderLeftWidth: 3, borderLeftColor: Colors.gold },
+  alunoRowAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' },
+  alunoRowInitials: { fontSize: 13, fontWeight: '700', color: Colors.textSecondary },
+  alunoRowName: { fontSize: 14, fontWeight: '600', color: Colors.text },
+  alunoRowSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
+  alunoEmptyRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 16, justifyContent: 'center' },
+  alunoEmptyText: { color: Colors.textMuted, fontSize: 13 },
+  alunoSelectedRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(240,165,0,0.1)', borderWidth: 1, borderColor: 'rgba(240,165,0,0.3)', borderRadius: 10, padding: 10, marginBottom: 8 },
+  alunoSelectedIcon: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(240,165,0,0.15)', alignItems: 'center', justifyContent: 'center' },
+  alunoSelectedName: { flex: 1, color: Colors.text, fontSize: 14, fontWeight: '600' },
   classeChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   classeChipActive: { backgroundColor: Colors.primary ?? '#3b5bdb', borderColor: Colors.primary ?? '#3b5bdb' },
   classeChipText: { color: Colors.textSecondary, fontSize: 12 },
