@@ -44,8 +44,13 @@ export default function DrawerLeft() {
   const { isDesktop } = useBreakpoint();
 
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  const toggleSection = (title: string) => {
+    setCollapsedSections(prev => ({ ...prev, [title]: !prev[title] }));
+  };
 
   useEffect(() => {
     if (isDesktop) return;
@@ -957,35 +962,55 @@ export default function DrawerLeft() {
 
           {(isCeo || isPca || isAdmin || isDirector) && <View style={styles.divider} />}
 
-          {NAV_SECTIONS.map((section) => (
-            <View key={section.title} style={styles.section}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
-              {section.items.map((item) => {
-                const active = isActive(item.route);
-                return (
+          {NAV_SECTIONS.map((section) => {
+            const isCollapsible = isCeo || isPca;
+            const isCollapsed = isCollapsible && !!collapsedSections[section.title];
+            return (
+              <View key={section.title} style={styles.section}>
+                {isCollapsible ? (
                   <TouchableOpacity
-                    key={item.route}
-                    style={[styles.navItem, active && styles.navItemActive]}
-                    onPress={() => navigate(item.route)}
+                    style={styles.sectionHeader}
+                    onPress={() => toggleSection(section.title)}
                     activeOpacity={0.7}
                   >
-                    <View style={[styles.navIcon, active && styles.navIconActive]}>
-                      {React.cloneElement(item.icon as React.ReactElement, {
-                        color: active ? Colors.gold : Colors.textSecondary,
-                      })}
-                    </View>
-                    <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
-                    {item.badgeCount !== undefined && item.badgeCount > 0 && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
-                      </View>
-                    )}
-                    {active && !item.badgeCount && <View style={styles.activeIndicator} />}
+                    <Text style={styles.sectionTitle}>{section.title}</Text>
+                    <Ionicons
+                      name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+                      size={13}
+                      color={Colors.textMuted}
+                      style={{ marginRight: 20 }}
+                    />
                   </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
+                ) : (
+                  <Text style={styles.sectionTitle}>{section.title}</Text>
+                )}
+                {!isCollapsed && section.items.map((item) => {
+                  const active = isActive(item.route);
+                  return (
+                    <TouchableOpacity
+                      key={item.route}
+                      style={[styles.navItem, active && styles.navItemActive]}
+                      onPress={() => navigate(item.route)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.navIcon, active && styles.navIconActive]}>
+                        {React.cloneElement(item.icon as React.ReactElement, {
+                          color: active ? Colors.gold : Colors.textSecondary,
+                        })}
+                      </View>
+                      <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
+                      {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
+                        </View>
+                      )}
+                      {active && !item.badgeCount && <View style={styles.activeIndicator} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            );
+          })}
         </ScrollView>
 
         {/* Footer */}
@@ -1344,6 +1369,11 @@ const styles = StyleSheet.create({
     paddingTop: 4,
     paddingBottom: 2,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   sectionTitle: {
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
@@ -1353,6 +1383,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 4,
     paddingTop: 8,
+    flex: 1,
   },
   navItem: {
     flexDirection: 'row',

@@ -3,7 +3,8 @@ import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions,
   Platform, ScrollView, Switch,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -13,7 +14,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 
 const { width } = Dimensions.get('window');
-const DRAWER_WIDTH = Math.min(width * 0.75, 290);
+const DRAWER_WIDTH = Math.min(width * 0.8, 310);
 
 const roleColors: Record<string, string> = {
   ceo: '#8B5CF6', pca: Colors.gold, admin: Colors.info, director: Colors.gold,
@@ -28,6 +29,15 @@ const roleLabels: Record<string, string> = {
   financeiro: 'Gestor Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 
+const CEO_SHORTCUTS = [
+  { label: 'Painel CEO', icon: 'crown' as const, color: '#FFD700', bg: 'rgba(255,215,0,0.12)', route: '/(main)/ceo' },
+  { label: 'Relatórios', icon: 'chart-bar' as const, color: '#34D399', bg: 'rgba(52,211,153,0.12)', route: '/(main)/relatorios' },
+  { label: 'Recursos Humanos', icon: 'account-tie' as const, color: '#60A5FA', bg: 'rgba(96,165,250,0.12)', route: '/(main)/rh-hub' },
+  { label: 'Financeiro', icon: 'cash-multiple' as const, color: '#4ADE80', bg: 'rgba(74,222,128,0.12)', route: '/(main)/financeiro' },
+  { label: 'Auditoria', icon: 'file-search-outline' as const, color: '#A78BFA', bg: 'rgba(167,139,250,0.12)', route: '/(main)/auditoria' },
+  { label: 'Configurações', icon: 'cog' as const, color: '#94A3B8', bg: 'rgba(148,163,184,0.12)', route: '/(main)/admin' },
+];
+
 export default function DrawerRight() {
   const { rightOpen, closeRight } = useDrawer();
   const insets = useSafeAreaInsets();
@@ -41,6 +51,9 @@ export default function DrawerRight() {
   const translateX = useRef(new Animated.Value(DRAWER_WIDTH)).current;
   const opacity = useRef(new Animated.Value(0)).current;
   const confirmAnim = useRef(new Animated.Value(0)).current;
+
+  const isCeo = user?.role === 'ceo';
+  const isPca = user?.role === 'pca';
 
   useEffect(() => {
     const nd = Platform.OS !== 'web';
@@ -98,7 +111,13 @@ export default function DrawerRight() {
     }
   }
 
+  function navigate(route: string) {
+    closeRight();
+    setTimeout(() => router.push(route as any), 150);
+  }
+
   const roleColor = roleColors[user?.role ?? ''] ?? Colors.success;
+  const initials = user?.nome?.split(' ').map((n: string) => n[0]).slice(0, 2).join('') ?? 'U';
 
   return (
     <View style={[StyleSheet.absoluteFill, { pointerEvents: rightOpen ? 'auto' : 'none' } as any]}>
@@ -113,25 +132,118 @@ export default function DrawerRight() {
             <Ionicons name="close" size={22} color={Colors.textSecondary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Perfil</Text>
+          {isCeo && (
+            <View style={styles.ceoHeaderBadge}>
+              <MaterialCommunityIcons name="crown" size={11} color="#FFD700" />
+              <Text style={styles.ceoHeaderBadgeText}>CEO</Text>
+            </View>
+          )}
         </View>
 
-        {/* Avatar */}
-        <View style={styles.avatarSection}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{user?.nome?.charAt(0) ?? 'U'}</Text>
-          </View>
-          <Text style={styles.userName}>{user?.nome}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-          <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>
-            <Text style={[styles.roleText, { color: roleColor }]}>
-              {roleLabels[user?.role ?? ''] ?? user?.role}
-            </Text>
-          </View>
-        </View>
+        <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
 
-        <View style={styles.divider} />
+          {/* Avatar Section — CEO premium version */}
+          {isCeo ? (
+            <LinearGradient
+              colors={['#2D1B69', '#1A0F3D', '#0D052A']}
+              style={styles.ceoAvatarSection}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.ceoAvatarGlow}>
+                <View style={styles.ceoAvatar}>
+                  <Text style={styles.ceoAvatarText}>{initials}</Text>
+                </View>
+                <View style={styles.crownBadge}>
+                  <MaterialCommunityIcons name="crown" size={12} color="#FFD700" />
+                </View>
+              </View>
+              <Text style={styles.ceoUserName}>{user?.nome}</Text>
+              <Text style={styles.ceoUserEmail}>{user?.email}</Text>
+              <View style={styles.ceoRoleBadge}>
+                <MaterialCommunityIcons name="shield-crown" size={12} color="#8B5CF6" />
+                <Text style={styles.ceoRoleText}>CEO — Controlo Total</Text>
+              </View>
+              <View style={styles.ceoEscolaRow}>
+                <Ionicons name="school-outline" size={13} color="rgba(255,255,255,0.5)" />
+                <Text style={styles.ceoEscolaText}>{user?.escola ?? 'SGAA Angola'}</Text>
+              </View>
+            </LinearGradient>
+          ) : (
+            <View style={styles.avatarSection}>
+              <View style={[styles.avatar, { borderColor: roleColor }]}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
+              <Text style={styles.userName}>{user?.nome}</Text>
+              <Text style={styles.userEmail}>{user?.email}</Text>
+              <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>
+                <Text style={[styles.roleText, { color: roleColor }]}>
+                  {roleLabels[user?.role ?? ''] ?? user?.role}
+                </Text>
+              </View>
+            </View>
+          )}
 
-        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.divider} />
+
+          {/* CEO Quick Access */}
+          {isCeo && (
+            <>
+              <Text style={styles.sectionTitle}>Acesso Rápido</Text>
+              <View style={styles.shortcutGrid}>
+                {CEO_SHORTCUTS.map((s) => (
+                  <TouchableOpacity
+                    key={s.route}
+                    style={[styles.shortcutItem, { backgroundColor: s.bg }]}
+                    onPress={() => navigate(s.route)}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.shortcutIcon, { borderColor: `${s.color}40` }]}>
+                      <MaterialCommunityIcons name={s.icon} size={20} color={s.color} />
+                    </View>
+                    <Text style={[styles.shortcutLabel, { color: s.color }]} numberOfLines={2}>{s.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.divider} />
+            </>
+          )}
+
+          {/* PCA Quick Access */}
+          {isPca && (
+            <>
+              <Text style={styles.sectionTitle}>Acesso Rápido</Text>
+              <View style={styles.quickRow}>
+                <TouchableOpacity style={styles.quickRowBtn} onPress={() => navigate('/(main)/dashboard')} activeOpacity={0.8}>
+                  <Ionicons name="grid" size={18} color={Colors.gold} />
+                  <Text style={styles.quickRowLabel}>Dashboard</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickRowBtn} onPress={() => navigate('/(main)/relatorios')} activeOpacity={0.8}>
+                  <Ionicons name="bar-chart" size={18} color={Colors.gold} />
+                  <Text style={styles.quickRowLabel}>Relatórios</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.quickRowBtn} onPress={() => navigate('/(main)/admin')} activeOpacity={0.8}>
+                  <Ionicons name="settings" size={18} color={Colors.gold} />
+                  <Text style={styles.quickRowLabel}>Configurações</Text>
+                </TouchableOpacity>
+              </View>
+              <View style={styles.divider} />
+            </>
+          )}
+
+          {/* Perfil completo button */}
+          <TouchableOpacity
+            style={styles.perfilCompletoBtn}
+            onPress={() => navigate('/(main)/perfil')}
+            activeOpacity={0.8}
+          >
+            <View style={styles.perfilCompletoLeft}>
+              <Ionicons name="person-circle-outline" size={20} color={Colors.textSecondary} />
+              <Text style={styles.perfilCompletoLabel}>Ver Perfil Completo</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+          </TouchableOpacity>
+
           <Text style={styles.sectionTitle}>Segurança</Text>
 
           <View style={styles.settingRow}>
@@ -184,6 +296,8 @@ export default function DrawerRight() {
               <Text style={styles.infoValue}>SGAA v1.0.0</Text>
             </View>
           </View>
+
+          <View style={{ height: 16 }} />
         </ScrollView>
 
         {/* Logout area */}
@@ -246,7 +360,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
@@ -255,7 +369,113 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Inter_700Bold',
     color: Colors.text,
+    flex: 1,
   },
+  ceoHeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,215,0,0.12)',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,215,0,0.25)',
+  },
+  ceoHeaderBadgeText: {
+    fontSize: 10,
+    fontFamily: 'Inter_700Bold',
+    color: '#FFD700',
+    letterSpacing: 0.5,
+  },
+
+  /* CEO Avatar Section */
+  ceoAvatarSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    marginHorizontal: 12,
+    borderRadius: 16,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.3)',
+  },
+  ceoAvatarGlow: {
+    position: 'relative',
+    marginBottom: 12,
+  },
+  ceoAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: 'rgba(139,92,246,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  ceoAvatarText: {
+    fontSize: 26,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  crownBadge: {
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(20,10,50,0.95)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#FFD700',
+  },
+  ceoUserName: {
+    fontSize: 16,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+    marginBottom: 3,
+    textAlign: 'center',
+  },
+  ceoUserEmail: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  ceoRoleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(139,92,246,0.2)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(139,92,246,0.4)',
+    marginBottom: 8,
+  },
+  ceoRoleText: {
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+    color: '#A78BFA',
+    letterSpacing: 0.3,
+  },
+  ceoEscolaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  ceoEscolaText: {
+    fontSize: 11,
+    fontFamily: 'Inter_400Regular',
+    color: 'rgba(255,255,255,0.45)',
+  },
+
+  /* Standard Avatar Section */
   avatarSection: {
     alignItems: 'center',
     paddingVertical: 16,
@@ -298,12 +518,98 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_600SemiBold',
   },
+
   divider: {
     height: 1,
     backgroundColor: Colors.border,
     marginHorizontal: 16,
-    marginBottom: 8,
+    marginVertical: 8,
   },
+
+  /* CEO Quick Access Grid */
+  shortcutGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 4,
+  },
+  shortcutItem: {
+    width: '30%',
+    flexGrow: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    gap: 6,
+  },
+  shortcutIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  shortcutLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+    lineHeight: 13,
+  },
+
+  /* PCA Quick Row */
+  quickRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    gap: 8,
+    marginBottom: 4,
+  },
+  quickRowBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(240,165,0,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.2)',
+    gap: 4,
+  },
+  quickRowLabel: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.gold,
+    textAlign: 'center',
+  },
+
+  /* Perfil Completo Button */
+  perfilCompletoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginHorizontal: 12,
+    marginBottom: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    borderRadius: 12,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  perfilCompletoLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  perfilCompletoLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: Colors.textSecondary,
+  },
+
   sectionTitle: {
     fontSize: 10,
     fontFamily: 'Inter_600SemiBold',
@@ -365,6 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginHorizontal: 16,
+    marginBottom: 8,
     paddingVertical: 14,
     borderRadius: 12,
     backgroundColor: 'rgba(231,76,60,0.1)',
@@ -376,9 +683,9 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     color: Colors.danger,
   },
-
   confirmBox: {
     marginHorizontal: 16,
+    marginBottom: 8,
     padding: 16,
     backgroundColor: Colors.backgroundCard,
     borderRadius: 16,
