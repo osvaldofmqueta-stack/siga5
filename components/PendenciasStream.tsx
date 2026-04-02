@@ -344,7 +344,7 @@ export default function PendenciasStream() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  if (!user || !VISIBLE_ROLES.includes(user.role)) return null;
+  const shouldRender = !!(user && VISIBLE_ROLES.includes(user.role));
 
   const visible = pendencias.filter(p => !dismissed.has(p.id));
   const urgente = visible.filter(p => p.severidade === 'urgente').length;
@@ -353,6 +353,7 @@ export default function PendenciasStream() {
   const total = visible.length;
 
   const load = useCallback(async () => {
+    if (!shouldRender) return;
     try {
       setIsLoading(true);
       const data = await api.get<Pendencia[]>('/api/pendencias-alunos');
@@ -363,16 +364,18 @@ export default function PendenciasStream() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [shouldRender]);
 
   useEffect(() => {
+    if (!shouldRender) return;
     load();
     const interval = setInterval(load, REFRESH_INTERVAL);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, shouldRender]);
 
   // Pulse when urgent and collapsed
   useEffect(() => {
+    if (!shouldRender) return;
     if (urgente > 0 && !expanded) {
       const pulse = Animated.loop(
         Animated.sequence([
@@ -385,11 +388,11 @@ export default function PendenciasStream() {
     } else {
       pulseAnim.setValue(1);
     }
-  }, [urgente, expanded]);
+  }, [urgente, expanded, shouldRender]);
 
   // Auto-rotate cards
   useEffect(() => {
-    if (expanded || total === 0) {
+    if (!shouldRender || expanded || total === 0) {
       if (rotateTimerRef.current) clearInterval(rotateTimerRef.current);
       return;
     }
@@ -399,17 +402,18 @@ export default function PendenciasStream() {
     return () => {
       if (rotateTimerRef.current) clearInterval(rotateTimerRef.current);
     };
-  }, [expanded, total]);
+  }, [expanded, total, shouldRender]);
 
   // Animate panel
   useEffect(() => {
+    if (!shouldRender) return;
     Animated.spring(slideAnim, {
       toValue: expanded ? 1 : 0,
       useNativeDriver: false,
       tension: 80,
       friction: 12,
     }).start();
-  }, [expanded]);
+  }, [expanded, shouldRender]);
 
   const handleDismiss = useCallback((id: string) => {
     setDismissed(prev => new Set([...prev, id]));
@@ -418,6 +422,7 @@ export default function PendenciasStream() {
   const panelWidth = slideAnim.interpolate({ inputRange: [0, 1], outputRange: [0, isDesktop ? 340 : 310] });
   const panelOpacity = slideAnim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.8, 1] });
 
+  if (!shouldRender) return null;
   if (total === 0 && !isLoading) return null;
 
   const currentCard = visible[currentIndex % Math.max(total, 1)];
