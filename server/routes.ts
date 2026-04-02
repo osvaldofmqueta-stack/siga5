@@ -3739,7 +3739,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/turmas/:id/alunos — lista de alunos activos de uma turma
-  app.get("/api/turmas/:id/alunos", requireAuth, async (req: Request, res: Response) => {
+  app.get("/api/turmas/:id/alunos", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const rows = await query<JsonObject>(

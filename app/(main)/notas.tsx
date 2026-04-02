@@ -292,14 +292,24 @@ function NotaFormModal({
     fetch(`/api/turmas/${selectedTurmaId}/alunos`)
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => {
-        setAlunosDaAPI(Array.isArray(data) ? data : []);
-        // Se não há aluno seleccionado ou não pertence a esta turma, seleccionar o primeiro
-        if (data.length > 0 && (!form.alunoId || !data.find((a: any) => a.id === form.alunoId))) {
+        const lista = Array.isArray(data) ? data : [];
+        // Fallback: se a turma não tem alunos atribuídos, usar todos os alunos activos disponíveis
+        const resultado = lista.length > 0
+          ? lista
+          : alunos.filter((a: any) => a.ativo && !a.bloqueado && !a.falecido);
+        setAlunosDaAPI(resultado);
+        // Auto-seleccionar o primeiro se não há aluno já seleccionado para esta turma
+        if (resultado.length > 0 && !resultado.find((a: any) => a.id === form.alunoId)) {
           autoKeyRef.current = '';
-          set('alunoId', data[0].id);
+          set('alunoId', resultado[0].id);
         }
       })
-      .catch(() => setAlunosDaAPI([]))
+      .catch(() => {
+        // Em caso de erro na API, usar a lista local
+        const fallback = alunos.filter((a: any) => a.ativo && !a.bloqueado && !a.falecido);
+        setAlunosDaAPI(fallback);
+        if (fallback.length > 0) { autoKeyRef.current = ''; set('alunoId', fallback[0].id); }
+      })
       .finally(() => setAlunosLoading(false));
   }, [selectedTurmaId]);
 
