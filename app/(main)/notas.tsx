@@ -166,6 +166,8 @@ function NotaFormModal({
   const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
 
   const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
+  const [alunoSearch, setAlunoSearch] = useState('');
+  const [disciplinaSearch, setDisciplinaSearch] = useState('');
 
   const makeEmpty = (): Partial<Nota> => ({
     alunoId: alunos[0]?.id || '',
@@ -264,14 +266,16 @@ function NotaFormModal({
   React.useEffect(() => {
     autoKeyRef.current = '';
     setAutoNota(null);
+    setAlunoSearch('');
+    setDisciplinaSearch('');
     if (nota) {
       setSelectedTurmaId(nota.turmaId || turmas[0]?.id || '');
       setForm({ ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() });
     } else {
       const defaultTurmaId = turmas[0]?.id || '';
       setSelectedTurmaId(defaultTurmaId);
-      const firstAluno = alunos.find(a => !defaultTurmaId || a.turmaId === defaultTurmaId);
-      setForm({ ...makeEmpty(), trimestre, alunoId: firstAluno?.id || alunos[0]?.id || '' });
+      const firstAluno = alunos.find(a => !defaultTurmaId || (a.turmaId === defaultTurmaId && !a.bloqueado && !a.falecido));
+      setForm({ ...makeEmpty(), trimestre, alunoId: firstAluno?.id || '' });
     }
   }, [nota, visible, trimestre]);
 
@@ -300,9 +304,21 @@ function NotaFormModal({
     return s;
   }, [allNotas, form.disciplina, trimestre]);
 
-  const alunosDaTurma = selectedTurmaId
-    ? alunos.filter((a: any) => a.turmaId === selectedTurmaId || !a.turmaId)
-    : alunos;
+  const alunosDaTurma = alunos.filter((a: any) =>
+    (!selectedTurmaId || a.turmaId === selectedTurmaId) &&
+    !a.bloqueado && !a.falecido
+  );
+
+  const alunosDaTurmaFiltered = alunoSearch.trim()
+    ? alunosDaTurma.filter((a: any) =>
+        `${a.nome} ${a.apelido}`.toLowerCase().includes(alunoSearch.toLowerCase()) ||
+        (a.numeroMatricula || '').toLowerCase().includes(alunoSearch.toLowerCase())
+      )
+    : alunosDaTurma;
+
+  const disciplinasFiltradas = disciplinaSearch.trim()
+    ? disciplinas.filter(d => d.toLowerCase().includes(disciplinaSearch.toLowerCase()))
+    : disciplinas;
 
   const lanc = form.lancamentos || buildEmptyLanc();
 
@@ -440,66 +456,112 @@ function NotaFormModal({
             {/* Aluno */}
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Aluno</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={mS.chips}>
-                  {alunosDaTurma.map((a: any) => {
-                    const jaLancado = alunosComNota.has(a.id);
-                    const isSelected = form.alunoId === a.id;
-                    return (
-                      <TouchableOpacity
-                        key={a.id}
-                        style={[
-                          mS.chip,
-                          isSelected && mS.chipActive,
-                          jaLancado && !isSelected && mS.chipLancado,
-                        ]}
-                        onPress={() => {
-                          autoKeyRef.current = '';
-                          set('alunoId', a.id);
-                        }}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                          {jaLancado && (
-                            <Ionicons
-                              name="checkmark-circle"
-                              size={13}
-                              color={isSelected ? Colors.goldLight : Colors.success}
-                            />
-                          )}
-                          <Text style={[
-                            mS.chipText,
-                            isSelected && mS.chipTextActive,
-                            jaLancado && !isSelected && { color: Colors.textMuted },
-                          ]}>
-                            {a.nome} {a.apelido}
-                          </Text>
+              <View style={mS.searchBox}>
+                <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+                <TextInput
+                  style={mS.searchInput}
+                  placeholder="Pesquisar aluno..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={alunoSearch}
+                  onChangeText={setAlunoSearch}
+                  autoCorrect={false}
+                />
+                {alunoSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setAlunoSearch('')}>
+                    <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={mS.pickerList}>
+                {alunosDaTurmaFiltered.map((a: any) => {
+                  const jaLancado = alunosComNota.has(a.id);
+                  const isSelected = form.alunoId === a.id;
+                  return (
+                    <TouchableOpacity
+                      key={a.id}
+                      style={[mS.pickerRow, isSelected && mS.pickerRowActive]}
+                      onPress={() => { autoKeyRef.current = ''; set('alunoId', a.id); }}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[mS.pickerAvatar, { backgroundColor: a.genero === 'F' ? Colors.accent + '30' : Colors.info + '30' }]}>
+                        <Text style={[mS.pickerAvatarText, { color: a.genero === 'F' ? Colors.accent : Colors.info }]}>
+                          {(a.nome || '').charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={[mS.pickerRowName, isSelected && { color: Colors.goldLight }]} numberOfLines={1}>
+                          {a.nome} {a.apelido}
+                        </Text>
+                        {a.numeroMatricula ? (
+                          <Text style={mS.pickerRowSub}>Nº {a.numeroMatricula}</Text>
+                        ) : null}
+                      </View>
+                      {jaLancado && (
+                        <View style={mS.pickerBadge}>
+                          <Ionicons name="checkmark-circle" size={14} color={isSelected ? Colors.goldLight : Colors.success} />
+                          <Text style={[mS.pickerBadgeText, { color: isSelected ? Colors.goldLight : Colors.success }]}>Nota lançada</Text>
                         </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                  {alunosDaTurma.length === 0 && (
-                    <Text style={[mS.chipText, { paddingHorizontal: 4 }]}>Nenhum aluno nesta turma</Text>
-                  )}
-                </View>
-              </ScrollView>
+                      )}
+                      {isSelected && !jaLancado && (
+                        <Ionicons name="radio-button-on" size={16} color={Colors.gold} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {alunosDaTurmaFiltered.length === 0 && (
+                  <View style={mS.pickerEmpty}>
+                    <Ionicons name="person-outline" size={22} color={Colors.textMuted} />
+                    <Text style={mS.pickerEmptyText}>
+                      {alunoSearch ? 'Nenhum aluno encontrado' : 'Nenhum aluno nesta turma'}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Disciplina */}
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Disciplina</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={mS.chips}>
-                  {disciplinas.map(d => (
+              <View style={mS.searchBox}>
+                <Ionicons name="search-outline" size={15} color={Colors.textMuted} />
+                <TextInput
+                  style={mS.searchInput}
+                  placeholder="Pesquisar disciplina..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={disciplinaSearch}
+                  onChangeText={setDisciplinaSearch}
+                  autoCorrect={false}
+                />
+                {disciplinaSearch.length > 0 && (
+                  <TouchableOpacity onPress={() => setDisciplinaSearch('')}>
+                    <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+              <View style={mS.pickerList}>
+                {disciplinasFiltradas.map(d => {
+                  const isSelected = form.disciplina === d;
+                  return (
                     <TouchableOpacity
                       key={d}
-                      style={[mS.chip, form.disciplina === d && mS.chipActive]}
+                      style={[mS.pickerRow, isSelected && mS.pickerRowActive]}
                       onPress={() => set('disciplina', d)}
+                      activeOpacity={0.75}
                     >
-                      <Text style={[mS.chipText, form.disciplina === d && mS.chipTextActive]}>{d}</Text>
+                      <View style={[mS.pickerAvatar, { backgroundColor: Colors.gold + '22' }]}>
+                        <Ionicons name="book-outline" size={14} color={Colors.gold} />
+                      </View>
+                      <Text style={[mS.pickerRowName, isSelected && { color: Colors.goldLight }]} numberOfLines={1}>{d}</Text>
+                      {isSelected && <Ionicons name="radio-button-on" size={16} color={Colors.gold} />}
                     </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+                  );
+                })}
+                {disciplinasFiltradas.length === 0 && (
+                  <View style={mS.pickerEmpty}>
+                    <Text style={mS.pickerEmptyText}>Nenhuma disciplina encontrada</Text>
+                  </View>
+                )}
+              </View>
             </View>
 
             {/* Bloco AVAL */}
@@ -517,21 +579,23 @@ function NotaFormModal({
               <View style={mS.gradesGrid}>
                 {activeAvalKeys.map((key, i) => {
                   const wasLanc = !!(lanc[key as keyof NotaLancamentos]);
+                  const prevLanc = i === 0 ? true : !!(lanc[activeAvalKeys[i - 1] as keyof NotaLancamentos]);
                   const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes(key);
+                  const isSequentialLocked = !wasLanc && !prevLanc;
                   const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest(key);
                   return (
                     <TouchableOpacity
                       key={key}
-                      activeOpacity={isLocked ? 0.7 : 1}
+                      activeOpacity={isLocked ? 0.7 : isSequentialLocked ? 1 : 1}
                       onPress={isLocked ? () => openLockedField(key, `AVAL ${i + 1}`) : undefined}
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, opacity: isSequentialLocked ? 0.35 : 1 }}
                     >
                       <GradeInput
                         label={`AVAL ${i + 1}`}
                         value={(form[key as keyof Nota] as number) || 0}
-                        onChange={isLocked ? undefined : v => set(key as keyof Nota, v)}
+                        onChange={(isLocked || isSequentialLocked) ? undefined : v => set(key as keyof Nota, v)}
                         registered={wasLanc}
-                        readonly={isLocked}
+                        readonly={isLocked || isSequentialLocked}
                         pending={isPending}
                         max={5}
                       />
@@ -567,16 +631,25 @@ function NotaFormModal({
 
             {/* Bloco Provas */}
             {(pp1Habilitado || pptHabilitado) && (
-              <View style={mS.blockCard}>
+              <View style={[mS.blockCard, !avaisCompletas && { opacity: 0.5 }]}>
                 <View style={mS.blockHeader}>
                   <View style={[mS.blockDot, { backgroundColor: Colors.info }]} />
                   <Text style={mS.blockTitle}>Provas do Trimestre</Text>
-                  <Text style={mS.blockSub}>Escala 0–20</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    {!avaisCompletas && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.warning + '20', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                        <Ionicons name="lock-closed-outline" size={10} color={Colors.warning} />
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.warning }}>Aguarda AVALs</Text>
+                      </View>
+                    )}
+                    <Text style={mS.blockSub}>Escala 0–20</Text>
+                  </View>
                 </View>
                 <View style={mS.gradesGrid}>
                   {pp1Habilitado && (() => {
                     const wasLanc = lanc.pp1;
                     const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes('pp1');
+                    const isDisabled = !avaisCompletas && !wasLanc;
                     const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest('pp1');
                     return (
                       <TouchableOpacity
@@ -584,13 +657,14 @@ function NotaFormModal({
                         onPress={isLocked ? () => openLockedField('pp1', 'PP (Prova do Professor)') : undefined}
                         style={{ flex: 1 }}
                       >
-                        <GradeInput label="PP" value={form.pp1 || 0} onChange={isLocked ? undefined : v => set('pp1', v)} registered={wasLanc} readonly={isLocked} pending={isPending} />
+                        <GradeInput label="PP" value={form.pp1 || 0} onChange={(isLocked || isDisabled) ? undefined : v => set('pp1', v)} registered={wasLanc} readonly={isLocked || isDisabled} pending={isPending} />
                       </TouchableOpacity>
                     );
                   })()}
                   {pptHabilitado && (() => {
                     const wasLanc = lanc.ppt;
                     const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes('ppt');
+                    const isDisabled = !avaisCompletas && !wasLanc;
                     const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest('ppt');
                     return (
                       <TouchableOpacity
@@ -598,7 +672,7 @@ function NotaFormModal({
                         onPress={isLocked ? () => openLockedField('ppt', 'PT (Prova de Trimestre)') : undefined}
                         style={{ flex: 1 }}
                       >
-                        <GradeInput label="PT" value={form.ppt || 0} onChange={isLocked ? undefined : v => set('ppt', v)} registered={wasLanc} readonly={isLocked} pending={isPending} />
+                        <GradeInput label="PT" value={form.ppt || 0} onChange={(isLocked || isDisabled) ? undefined : v => set('ppt', v)} registered={wasLanc} readonly={isLocked || isDisabled} pending={isPending} />
                       </TouchableOpacity>
                     );
                   })()}
@@ -801,10 +875,11 @@ export default function NotasScreen() {
   }, [filterTurma, turmasDoProf, isProfessor, professorActual, disciplinasFallback]);
 
   const alunosDisponiveis = useMemo(() => {
-    if (isPrivilegedRole) return alunos.filter(a => a.ativo);
-    if (!isProfessor || !professorActual) return alunos.filter(a => a.ativo);
+    const base = (a: any) => a.ativo && !a.bloqueado && !a.falecido;
+    if (isPrivilegedRole) return alunos.filter(base);
+    if (!isProfessor || !professorActual) return alunos.filter(base);
     const turmaIds = new Set(professorActual.turmasIds);
-    return alunos.filter(a => a.ativo && turmaIds.has(a.turmaId));
+    return alunos.filter(a => base(a) && turmaIds.has(a.turmaId));
   }, [isProfessor, professorActual, alunos, isPrivilegedRole]);
 
   const filtered = useMemo(() => {
@@ -1214,6 +1289,41 @@ const mS = StyleSheet.create({
     gap: 6, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.warning,
   },
   reaSubmitText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  searchBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: Colors.surface, borderRadius: 10,
+    borderWidth: 1, borderColor: Colors.border,
+    paddingHorizontal: 12, paddingVertical: 9, marginBottom: 8,
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, fontFamily: 'Inter_400Regular',
+    color: Colors.text, outlineStyle: 'none' as any,
+  },
+  pickerList: {
+    backgroundColor: Colors.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  pickerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingHorizontal: 12, paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
+  },
+  pickerRowActive: {
+    backgroundColor: Colors.gold + '18', borderLeftWidth: 3, borderLeftColor: Colors.gold,
+  },
+  pickerAvatar: {
+    width: 34, height: 34, borderRadius: 17,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pickerAvatarText: { fontSize: 15, fontFamily: 'Inter_700Bold' },
+  pickerRowName: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text },
+  pickerRowSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  pickerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  pickerBadgeText: { fontSize: 10, fontFamily: 'Inter_500Medium' },
+  pickerEmpty: { alignItems: 'center', justifyContent: 'center', gap: 6, padding: 20 },
+  pickerEmptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 });
 
 const styles = StyleSheet.create({
