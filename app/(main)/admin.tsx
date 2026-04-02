@@ -622,7 +622,7 @@ export default function AdminScreen() {
 
   return (
     <View style={styles.container}>
-      <TopBar title="Super Admin" subtitle="Gestão do Sistema SIGA" />
+      <TopBar title="Super Admin" subtitle="Gestão do Sistema QUETA" />
 
       {/* ── Hero Banner ───────────────────────────────────── */}
       <LinearGradient
@@ -2022,7 +2022,7 @@ export default function AdminScreen() {
             {[
               { label: 'Último Backup', value: ultimoBackup ?? 'Nenhum backup manual feito', valueColor: ultimoBackup ? Colors.success : undefined },
               { label: 'Tipo de Backup', value: 'Manual (download directo)' },
-              { label: 'Versão do Sistema', value: 'SIGE v1.0.0' },
+              { label: 'Versão do Sistema', value: 'QUETA v1.0.0' },
               { label: 'Base de Dados', value: 'Operacional', valueColor: Colors.success },
               { label: 'Destino do Backup', value: 'Ficheiro local (descarregamento)' },
             ].map(row => (

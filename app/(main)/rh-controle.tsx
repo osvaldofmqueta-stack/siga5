@@ -1286,7 +1286,7 @@ export default function RHControleScreen() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.sectionNote}>
-                Ao criar o acesso, o funcionário poderá iniciar sessão no SIGA com as permissões do cargo: <Text style={{ color: Colors.gold, fontFamily: 'Inter_600SemiBold' }}>{getCargoById(selectedFunc?.cargo || '')?.label}</Text>
+                Ao criar o acesso, o funcionário poderá iniciar sessão no QUETA com as permissões do cargo: <Text style={{ color: Colors.gold, fontFamily: 'Inter_600SemiBold' }}>{getCargoById(selectedFunc?.cargo || '')?.label}</Text>
               </Text>
               <Text style={styles.fieldLabel}>Email Institucional *</Text>
               <TextInput style={styles.input} placeholder="funcionario@escola.ao" placeholderTextColor={Colors.textMuted} value={acessoEmail} onChangeText={setAcessoEmail} keyboardType="email-address" autoCapitalize="none" />

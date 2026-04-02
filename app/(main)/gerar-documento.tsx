@@ -279,7 +279,7 @@ function buildVerifSection(docRef: string, qrPayload: string, barcodeId: string)
 function buildDeclaracaoMatricula(vars: Record<string, string>): string {
   const v = (k: string) => vars[k] || '—';
   const docRef = `DM-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
-  const qrPayload = `SIGA|DM|${v('{{NUMERO_MATRICULA}}')}|${v('{{NOME_COMPLETO}}')}|${v('{{NOME_ESCOLA}}')}|${docRef}`;
+  const qrPayload = `QUETA|DM|${v('{{NUMERO_MATRICULA}}')}|${v('{{NOME_COMPLETO}}')}|${v('{{NOME_ESCOLA}}')}|${docRef}`;
   return `<!DOCTYPE html><html><head>${BASE_PRINT_CSS}</head><body>
   <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
   <div class="page">

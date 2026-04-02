@@ -107,11 +107,11 @@ function buildQrData(reg: Registro): string {
 async function fetchNomeEscola(): Promise<string> {
   try {
     const res = await fetch('/api/config');
-    if (!res.ok) return 'ESCOLA — SIGA';
+    if (!res.ok) return 'QUETA';
     const data = await res.json();
-    return data.nomeEscola || 'ESCOLA — SIGA';
+    return data.nomeEscola || 'QUETA';
   } catch {
-    return 'ESCOLA — SIGA';
+    return 'QUETA';
   }
 }
 
@@ -491,7 +491,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
 
   <!-- RODAPÉ -->
   <div class="footer">
-    <span>${nomeEscola} — Sistema SIGA v3</span>
+    <span>${nomeEscola} — Sistema QUETA v3</span>
     <span>Código: ${codigo}</span>
     <span>Emitido em: ${hoje()}</span>
   </div>
@@ -527,7 +527,7 @@ export default function BoletimInscricaoScreen() {
   const registroId = params.id;
 
   const [registro, setRegistro] = useState<Registro | null>(null);
-  const [nomeEscola, setNomeEscola] = useState('ESCOLA — SIGA');
+  const [nomeEscola, setNomeEscola] = useState('QUETA');
   const [isLoading, setIsLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -607,7 +607,7 @@ export default function BoletimInscricaoScreen() {
     doOpen(qrUrl);
   }
 
-  const qrValue = registro ? buildQrData(registro) : 'SIGA-INSCRICAO';
+  const qrValue = registro ? buildQrData(registro) : 'QUETA-INSCRICAO';
   const codigo = registro ? codigoInscricao(registro) : '—';
 
   const statusMap: Record<string, { label: string; color: string }> = {

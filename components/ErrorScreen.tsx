@@ -56,7 +56,7 @@ const CONFIGS: Record<number | 'default', ErrorConfig> = {
     description: 'A página ou recurso que procura não existe ou foi movido. Verifique o endereço e tente novamente.',
     badge: '404 · Não Encontrado',
     steps: ['Pedido enviado ao servidor', 'Servidor recebeu o pedido', 'Recurso não encontrado no sistema'],
-    tip: 'Utilize o menu principal para navegar para as secções disponíveis do SIGA.',
+    tip: 'Utilize o menu principal para navegar para as secções disponíveis do QUETA.',
   },
   408: {
     iconName: 'timer-alert-outline',
@@ -87,7 +87,7 @@ const CONFIGS: Record<number | 'default', ErrorConfig> = {
     iconLib: 'mci',
     accentColor: Colors.danger,
     title: 'Erro Interno do Servidor',
-    subtitle: 'Falha no servidor SIGA',
+    subtitle: 'Falha no servidor QUETA',
     description: 'Ocorreu um problema inesperado no servidor. A equipa técnica foi notificada automaticamente e está a resolver.',
     badge: '500 · Erro Interno',
     steps: ['Pedido recebido pelo servidor', 'Falha durante o processamento', 'Erro interno não recuperado'],
@@ -112,7 +112,7 @@ const CONFIGS: Record<number | 'default', ErrorConfig> = {
     accentColor: '#8B9DC3',
     title: 'Sistema Indisponível',
     subtitle: 'Manutenção ou sobrecarga',
-    description: 'O SIGA está temporariamente fora de serviço para manutenção programada ou sobrecarga de acessos.',
+    description: 'O QUETA está temporariamente fora de serviço para manutenção programada ou sobrecarga de acessos.',
     badge: '503 · Indisponível',
     steps: ['Pedido recebido pelo balanceador', 'Nenhum servidor disponível', 'Serviço suspenso temporariamente'],
     tip: 'O sistema voltará ao normal em breve. Consulte os comunicados da escola para informações.',
@@ -267,7 +267,7 @@ export default function ErrorScreen({
         <View style={styles.headerBar}>
           <View style={styles.brandLockup}>
             <View style={[styles.brandSquare, { backgroundColor: cfg.accentColor }]} />
-            <Text style={styles.brandText}>SIGA</Text>
+            <Text style={styles.brandText}>QUETA</Text>
             <Text style={styles.brandSub}>Sistema de Gestão Escolar</Text>
           </View>
           <View style={[styles.statusPill, { backgroundColor: cfg.accentColor + '18', borderColor: cfg.accentColor + '35' }]}>
@@ -449,7 +449,7 @@ export default function ErrorScreen({
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
             <View style={[styles.footerDot, { backgroundColor: Colors.success }]} />
-            <Text style={styles.footerText}>SIGA v3.0 · Sistema Integral de Gestão Escolar · Angola</Text>
+            <Text style={styles.footerText}>QUETA, School · Angola</Text>
           </View>
           <Text style={styles.footerTime}>
             {new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}

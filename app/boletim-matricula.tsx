@@ -83,10 +83,10 @@ function buildQrData(reg: Registro): string {
 async function fetchNomeEscola(): Promise<string> {
   try {
     const res = await fetch('/api/config');
-    if (!res.ok) return 'ESCOLA — SIGA';
+    if (!res.ok) return 'QUETA';
     const data = await res.json();
-    return data.nomeEscola || 'ESCOLA — SIGA';
-  } catch { return 'ESCOLA — SIGA'; }
+    return data.nomeEscola || 'QUETA';
+  } catch { return 'QUETA'; }
 }
 
 function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataUrl: string, origin = ''): string {
@@ -242,7 +242,7 @@ function generateBoletimMatriculaHTML(reg: Registro, nomeEscola: string, qrDataU
   </div>
 
   <div class="footer">
-    <span>${nomeEscola} — Sistema SIGA v3</span>
+    <span>${nomeEscola} — Sistema QUETA v3</span>
     <span>Código: ${codigo}</span>
     <span>Emitido em: ${hoje()}</span>
   </div>
@@ -273,7 +273,7 @@ export default function BoletimMatriculaScreen() {
   const registroId = params.id;
 
   const [registro, setRegistro] = useState<Registro | null>(null);
-  const [nomeEscola, setNomeEscola] = useState('ESCOLA — SIGA');
+  const [nomeEscola, setNomeEscola] = useState('QUETA');
   const [isLoading, setIsLoading] = useState(true);
   const [isPrinting, setIsPrinting] = useState(false);
 

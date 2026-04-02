@@ -162,7 +162,7 @@ function assinaturasRodape(nomeEscola: string) {
   <div class="ass-col"><div class="ass-line"></div><div>O Director(a)</div></div>
 </div>
 <div class="rodape">
-  <span>${nomeEscola} — Sistema SIGA v3</span>
+  <span>${nomeEscola} — Sistema QUETA v3</span>
   <span>Emitido em: ${hoje()}</span>
 </div>`;
 }
@@ -358,7 +358,7 @@ export default function ListaInscritosScreen() {
       }
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
-        setNomeEscola(cfg.nomeEscola || 'ESCOLA — SIGA');
+        setNomeEscola(cfg.nomeEscola || 'QUETA');
         if (cfg.localEscola) setLocal(cfg.localEscola);
       }
     } catch {}

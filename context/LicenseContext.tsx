@@ -175,7 +175,7 @@ export function LicenseProvider({ children }: { children: ReactNode }) {
 
     if (!cod) return { sucesso: false, mensagem: 'Código de activação inválido. Verifique e tente novamente.' };
     if (cod.usado) return { sucesso: false, mensagem: 'Este código já foi utilizado.' };
-    if (diasAte(cod.dataExpiracaoCodigo) < 0) return { sucesso: false, mensagem: 'Este código expirou. Contacte o suporte SIGE.' };
+    if (diasAte(cod.dataExpiracaoCodigo) < 0) return { sucesso: false, mensagem: 'Este código expirou. Contacte o suporte QUETA.' };
 
     const novaLicenca: LicencaAtiva = {
       codigoUsado: codigoLimpo,

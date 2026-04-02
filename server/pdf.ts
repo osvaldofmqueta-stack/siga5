@@ -274,7 +274,7 @@ tbody tr:last-child td{border-bottom:2px solid #1a2540}
     <div class="doc-header-text">
       <div class="rep">República de Angola</div>
       <div class="escola-nome">${escola}</div>
-      <div style="font-size:9px;color:#888;margin-top:2px;">Sistema Integrado de Gestão Académica</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">QUETA, School</div>
     </div>
     <div class="doc-header-title">
       <div class="titulo">Extracto de Propinas</div>
@@ -421,7 +421,7 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number, multaInfo?
     `ESTADO: ${statusLabel}`,
     `DATA: ${fmtDate(dataPagto)}`,
     `EMITIDO: ${dataEmissaoRec}`,
-    `SISTEMA: SIGA v3`,
+    `SISTEMA: QUETA v3`,
   ].filter(Boolean).join('\n');
 
   const verifHtml = buildVerificationSection({
@@ -831,7 +831,7 @@ ${JSBARCODE_CDN}
     </div>
   </div>
 
-  <div class="rodape">Documento emitido em ${hoje} pelo sistema SIGA · ${escolaNome}${nif ? ' · NIF: ' + nif : ''}</div>
+  <div class="rodape">Documento emitido em ${hoje} pelo sistema QUETA · ${escolaNome}${nif ? ' · NIF: ' + nif : ''}</div>
 </div>
 ${autoprint ? `<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>` : ''}
 </body>
@@ -991,7 +991,7 @@ ${JSBARCODE_CDN}
     <tbody>${rows || '<tr><td colspan="100" style="text-align:center;color:#9ca3af;padding:16px">Sem dados de notas</td></tr>'}</tbody>
   </table>
 
-  <div class="rodape">Emitido em ${fmtDate(new Date().toISOString())} · ${escolaNome} · Relatório gerado automaticamente pelo SIGA</div>
+  <div class="rodape">Emitido em ${fmtDate(new Date().toISOString())} · ${escolaNome} · Relatório gerado automaticamente pelo QUETA</div>
 </div>
 ${autoprint ? `<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>` : ''}
 </body>
@@ -1133,7 +1133,7 @@ body{font-family:Arial,Helvetica,sans-serif;background:#f0f0f0;color:#111;font-s
     Esta referência é válida até <strong>${validade}</strong>. Após essa data deverá solicitar uma nova referência.
   </div>
 
-  <div class="rodape">Emitido em ${hoje} · ${escolaNome} · Referência gerada pelo sistema SIGA</div>
+  <div class="rodape">Emitido em ${hoje} · ${escolaNome} · Referência gerada pelo sistema QUETA</div>
 </div>
 ${autoprint ? `<script>window.onload=function(){setTimeout(function(){window.print()},600)}</script>` : ''}
 </body>

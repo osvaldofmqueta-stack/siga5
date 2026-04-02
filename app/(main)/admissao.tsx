@@ -230,7 +230,7 @@ function gerarListaResultadosPDF(registros: Registro[], nomeEscola: string) {
       <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
     </div>
     <div class="footer">
-      <span>${nomeEscola} — Sistema SIGA v3</span>
+      <span>${nomeEscola} — Sistema QUETA v3</span>
       <span>Resultados de Admissão ${anoAtual()}</span>
       <span>Emitido: ${hoje()}</span>
     </div>
@@ -246,7 +246,7 @@ async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
   if (Platform.OS !== 'web') return;
   const schoolRes = await fetch('/api/config').catch(() => null);
   const school = schoolRes?.ok ? await schoolRes.json() : {};
-  const nomeEscola = school.nomeEscola || 'ESCOLA — SIGA';
+  const nomeEscola = school.nomeEscola || 'QUETA';
 
   const _partes = String(reg.nomeCompleto || '').trim().split(/\s+/);
   const generoLabel = reg.genero === 'M' ? 'Masculino' : 'Feminino';
@@ -347,7 +347,7 @@ async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
       <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
     </div>
   </div>
-  <div class="footer"><span>${nomeEscola} — Sistema SIGA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido: ${hoje()}</span></div>
+  <div class="footer"><span>${nomeEscola} — Sistema QUETA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido: ${hoje()}</span></div>
 </div>
 </body></html>`;
 
@@ -422,7 +422,7 @@ export default function AdmissaoScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [registros, setRegistros] = useState<Registro[]>([]);
-  const [nomeEscola, setNomeEscola] = useState('ESCOLA — SIGA');
+  const [nomeEscola, setNomeEscola] = useState('QUETA');
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('pendentes');
   const [search, setSearch] = useState('');
@@ -448,7 +448,7 @@ export default function AdmissaoScreen() {
       setRegistros(Array.isArray(data) ? data : []);
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
-        setNomeEscola(cfg.nomeEscola || 'ESCOLA — SIGA');
+        setNomeEscola(cfg.nomeEscola || 'QUETA');
       }
     } catch { setRegistros([]); }
     finally { setIsLoading(false); }

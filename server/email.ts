@@ -40,7 +40,7 @@ export async function sendPasswordResetEmail(
 
   const transporter = createTransporter();
   const primeiroNome = nomeUtilizador.split(" ")[0] || nomeUtilizador;
-  const sistemaLabel = nomeEscola || "Sistema Integral de Gestão Escolar";
+  const sistemaLabel = nomeEscola || "QUETA, School";
 
   const htmlBody = `
 <!DOCTYPE html>
@@ -48,7 +48,7 @@ export async function sendPasswordResetEmail(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Redefinição de Senha — SIGE</title>
+  <title>Redefinição de Senha — QUETA</title>
 </head>
 <body style="margin:0;padding:0;background:#0D1B3E;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1B3E;padding:40px 20px;">
@@ -74,7 +74,7 @@ export async function sendPasswordResetEmail(
                 Olá, <strong style="color:#F0A500;">${primeiroNome}</strong>,
               </p>
               <p style="margin:0 0 24px;color:rgba(255,255,255,0.75);font-size:14px;line-height:1.7;">
-                Recebemos um pedido para redefinir a senha da sua conta no SIGE. Se não foi você, pode ignorar este email em segurança — a sua senha permanecerá inalterada.
+                Recebemos um pedido para redefinir a senha da sua conta no QUETA. Se não foi você, pode ignorar este email em segurança — a sua senha permanecerá inalterada.
               </p>
 
               <!-- CTA Button -->
@@ -111,7 +111,7 @@ export async function sendPasswordResetEmail(
           <tr>
             <td style="background:rgba(0,0,0,0.2);padding:20px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
               <p style="margin:0;color:rgba(255,255,255,0.3);font-size:11px;line-height:1.6;">
-                Este email foi enviado automaticamente pelo SIGE.<br />
+                Este email foi enviado automaticamente pelo QUETA.<br />
                 Por favor, não responda a este email.
               </p>
             </td>
@@ -185,7 +185,7 @@ export async function sendGuardianNotificationEmail(
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>${titulo} — SIGE</title>
+  <title>${titulo} — QUETA</title>
 </head>
 <body style="margin:0;padding:0;background:#0D1B3E;font-family:'Helvetica Neue',Arial,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1B3E;padding:40px 20px;">
@@ -198,7 +198,7 @@ export async function sendGuardianNotificationEmail(
                 <span style="font-size:28px;">${icon}</span>
               </div>
               <h1 style="margin:0;color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.5px;">${titulo}</h1>
-              <p style="margin:8px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">Portal do Encarregado — SIGE</p>
+              <p style="margin:8px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">Portal do Encarregado — QUETA</p>
             </td>
           </tr>
           <tr>
@@ -225,13 +225,13 @@ export async function sendGuardianNotificationEmail(
                 </tr>
               </table>
               <p style="margin:16px 0 0;color:rgba(255,255,255,0.35);font-size:11px;line-height:1.6;">
-                Este email foi enviado automaticamente pelo SIGE. Por favor, não responda a este email.
+                Este email foi enviado automaticamente pelo QUETA. Por favor, não responda a este email.
               </p>
             </td>
           </tr>
           <tr>
             <td style="background:rgba(0,0,0,0.2);padding:16px 40px;text-align:center;border-top:1px solid rgba(255,255,255,0.06);">
-              <p style="margin:0;color:rgba(255,255,255,0.25);font-size:11px;">Sistema Integral de Gestão Escolar — SIGE</p>
+              <p style="margin:0;color:rgba(255,255,255,0.25);font-size:11px;">QUETA, School — QUETA</p>
             </td>
           </tr>
         </table>
@@ -244,11 +244,11 @@ export async function sendGuardianNotificationEmail(
 
   try {
     await transporter.sendMail({
-      from: `"SIGE — Portal Encarregado" <${SMTP_FROM}>`,
+      from: `"QUETA — Portal Encarregado" <${SMTP_FROM}>`,
       to: toEmail,
-      subject: `${titulo} — SIGE`,
+      subject: `${titulo} — QUETA`,
       html: htmlBody,
-      text: `Olá ${primeiroNome},\n\n${mensagem}\n\nAceda ao Portal do Encarregado para mais detalhes.\n\n— SIGE`,
+      text: `Olá ${primeiroNome},\n\n${mensagem}\n\nAceda ao Portal do Encarregado para mais detalhes.\n\n— QUETA`,
     });
     return { success: true, message: "Email enviado com sucesso." };
   } catch (err) {

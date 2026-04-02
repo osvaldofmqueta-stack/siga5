@@ -284,7 +284,7 @@ export function buildExtratoProfinasHtml(data: ExtratoHtmlData, cfg: ExtratoHtml
       <div class="doc-header-text">
         <div class="rep">República de Angola — Ministério da Educação</div>
         <div class="escola-nome">${escola}</div>
-        <div class="siga-tag">Sistema Integrado de Gestão Académica — SIGA</div>
+        <div class="siga-tag">QUETA, School — QUETA</div>
       </div>
       <div class="doc-header-title">
         <div class="titulo">${titulo}</div>

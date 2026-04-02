@@ -390,7 +390,7 @@ export default function RhPayrollScreen() {
     const fmtKz = (n: number) => n.toLocaleString('pt-PT', { minimumFractionDigits: 2 }) + ' Kz';
     const mesAno = `${MESES[(folha.mes ?? 1) - 1]} ${folha.ano}`;
     const docRef = `REC-${folha.ano}-${String(folha.mes).padStart(2, '0')}-${item.id.slice(0, 6).toUpperCase()}`;
-    const qrData = encodeURIComponent(`SIGA|RECIBO|${docRef}|${item.professorNome}|${mesAno}`);
+    const qrData = encodeURIComponent(`QUETA|RECIBO|${docRef}|${item.professorNome}|${mesAno}`);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=90x90&data=${qrData}`;
 
     const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="utf-8"/>
@@ -440,7 +440,7 @@ export default function RhPayrollScreen() {
       <div style="display:flex;align-items:center;gap:12px">
         <div class="school-logo">E</div>
         <div>
-          <div class="school-name">SIGA — Gestão Académica</div>
+          <div class="school-name">QUETA, School</div>
           <div class="school-sub">SISTEMA INTEGRADO DE GESTÃO ESCOLAR</div>
         </div>
       </div>
@@ -503,7 +503,7 @@ export default function RhPayrollScreen() {
     </div>
 
     <div class="doc-footer">
-      Emitido em ${new Date().toLocaleDateString('pt-AO')} · SIGA v3 · Documento Oficial
+      Emitido em ${new Date().toLocaleDateString('pt-AO')} · QUETA · Documento Oficial
     </div>
     </body></html>`;
 
@@ -1348,7 +1348,7 @@ export default function RhPayrollScreen() {
 
                   {/* Rodapé */}
                   <Text style={reciboStyles.footer}>
-                    Documento gerado pelo SIGA · {new Date().toLocaleDateString('pt-AO')}
+                    Documento gerado pelo QUETA · {new Date().toLocaleDateString('pt-AO')}
                   </Text>
 
                   {/* Estado da folha */}

@@ -176,7 +176,7 @@ export default function OrganizarTurmasScreen() {
   function buildListasCicloHtml(ciclo: 'I Ciclo' | 'II Ciclo' | 'Todos'): string {
     const now = new Date();
     const dataActual = `${now.getDate()} de ${MESES[now.getMonth()]} de ${now.getFullYear()}`;
-    const escolaNome = (config as any).nomeEscola || 'ESCOLA — SIGA';
+    const escolaNome = (config as any).nomeEscola || 'QUETA';
     const directorNome = (config as any).nomeDirector || '___________________________';
 
     const I_CICLO_CLASSES = ['7', '8', '9'];

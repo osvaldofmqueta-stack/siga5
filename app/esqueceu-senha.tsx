@@ -234,7 +234,7 @@ export default function EsqueceuSenhaScreen() {
             {passo === 'email' && (
               <View>
                 <Text style={styles.instrucoes}>
-                  Introduza o email associado à sua conta no SIGE.
+                  Introduza o email associado à sua conta no QUETA.
                 </Text>
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Email da Conta</Text>

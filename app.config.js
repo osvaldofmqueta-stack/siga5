@@ -9,7 +9,7 @@ const origin = REPLIT_DOMAINS
 
 module.exports = {
   expo: {
-    name: "QUETA School Completo",
+    name: "QUETA, School",
     slug: "queta-school",
     version: "1.0.0",
     orientation: "portrait",

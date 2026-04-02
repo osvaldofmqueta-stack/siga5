@@ -253,7 +253,7 @@ function buildListaHTML(
   </div>
 
   <div class="footer">
-    <span>${nomeEscola} — Sistema SIGA v3</span>
+    <span>${nomeEscola} — Sistema QUETA v3</span>
     <span>Emitido em: ${hoje()}</span>
   </div>
 </body>
@@ -265,7 +265,7 @@ export default function ListaAdmitidosScreen() {
   const router = useRouter();
 
   const [registros, setRegistros] = useState<Registro[]>([]);
-  const [nomeEscola, setNomeEscola] = useState('ESCOLA — SIGA');
+  const [nomeEscola, setNomeEscola] = useState('QUETA');
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -288,7 +288,7 @@ export default function ListaAdmitidosScreen() {
       }
       if (cfgRes.ok) {
         const cfg = await cfgRes.json();
-        setNomeEscola(cfg.nomeEscola || 'ESCOLA — SIGA');
+        setNomeEscola(cfg.nomeEscola || 'QUETA');
       }
     } catch {}
     finally { setIsLoading(false); }

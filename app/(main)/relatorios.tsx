@@ -154,7 +154,7 @@ function gerarHTMLNotas(
     </table>`;
   });
 
-  html += `<p class="footer">Documento gerado pelo SIGA — ${hoje()}</p></body></html>`;
+  html += `<p class="footer">Documento gerado pelo QUETA — ${hoje()}</p></body></html>`;
   return html;
 }
 
@@ -225,7 +225,7 @@ function gerarHTMLPresencas(
     </table>`;
   });
 
-  html += `<p class="footer">Documento gerado pelo SIGA — ${hoje()}</p></body></html>`;
+  html += `<p class="footer">Documento gerado pelo QUETA — ${hoje()}</p></body></html>`;
   return html;
 }
 
@@ -335,7 +335,7 @@ function gerarHTMLAprovacao(
     </table>`;
   }
 
-  html += `<p class="footer">Documento gerado pelo SIGA — ${hoje()}</p></body></html>`;
+  html += `<p class="footer">Documento gerado pelo QUETA — ${hoje()}</p></body></html>`;
   return html;
 }
 

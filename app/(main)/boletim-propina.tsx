@@ -324,7 +324,7 @@ export default function BoletimPropinaScreen() {
 
   const qrValue = selectedAluno
     ? buildQRData(selectedAluno, turmaDoAluno, config.nomeEscola, mesAtualPago)
-    : 'SIGA-PROPINAS';
+    : 'QUETA-PROPINAS';
 
   // Stats
   const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);

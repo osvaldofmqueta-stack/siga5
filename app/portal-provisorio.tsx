@@ -169,7 +169,7 @@ function generateBoletimMatriculaHTML(reg: Registro, numeroMatricula: string, no
       <div class="sig-block"><div class="sig-line"></div><div>O Director(a) da Escola</div></div>
     </div>
   </div>
-  <div class="footer"><span>${nomeEscola} — Sistema SIGA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido em: ${hoje()}</span></div>
+  <div class="footer"><span>${nomeEscola} — Sistema QUETA v3</span><span>Nº Matrícula: ${numeroMatricula}</span><span>Emitido em: ${hoje()}</span></div>
 </div>
 </body>
 </html>`;
@@ -330,7 +330,7 @@ export default function PortalProvisorioScreen() {
     const matNum = numMatricula || matriculaNumero || 'SEM-NUMERO';
     const schoolRes = await fetch('/api/config').catch(() => null);
     const school = schoolRes?.ok ? (await schoolRes.json()) : {};
-    const nomeEscola = school.nomeEscola || 'ESCOLA — SIGA';
+    const nomeEscola = school.nomeEscola || 'QUETA';
     const html = generateBoletimMatriculaHTML(registro, matNum, nomeEscola);
     const win = window.open('', '_blank');
     if (win) {

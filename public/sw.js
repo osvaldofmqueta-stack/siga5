@@ -135,10 +135,10 @@ self.addEventListener('push', (event) => {
   try {
     data = event.data ? event.data.json() : {};
   } catch {
-    data = { title: 'SIGE', body: event.data ? event.data.text() : 'Nova notificação' };
+    data = { title: 'QUETA', body: event.data ? event.data.text() : 'Nova notificação' };
   }
 
-  const title = data.title || 'SIGE — Notificação';
+  const title = data.title || 'QUETA — Notificação';
   const options = {
     body: data.body || '',
     icon: data.icon || '/icons/icon-192.png',

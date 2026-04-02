@@ -257,10 +257,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AUTENTICAÇÃO (LOGIN)
   // -----------------------
   const HARDCODED_ACCOUNTS: Array<{ email: string; senha: string; id: string; nome: string; role: UserRole; escola: string }> = [
-    { email: "ceo@sige.ao",        senha: "Sige@2025",       id: "usr_ceo",            nome: "Administrador SIGE",           role: "ceo",       escola: "SIGE — Sistema Integral de Gestão Escolar" },
-    { email: "financeiro@sige.ao", senha: "Financeiro@2025", id: "usr_financeiro_001", nome: "Gestor Financeiro",            role: "financeiro", escola: "SIGE — Sistema Integral de Gestão Escolar" },
-    { email: "secretaria@sige.ao", senha: "Secretaria@2025", id: "usr_secretaria_001", nome: "Secretária Académica",         role: "secretaria", escola: "SIGE — Sistema Integral de Gestão Escolar" },
-    { email: "rh@sige.ao",         senha: "RH@2025",         id: "usr_rh_001",         nome: "Gestor de Recursos Humanos",  role: "rh",        escola: "SIGE — Sistema Integral de Gestão Escolar" },
+    { email: "ceo@sige.ao",        senha: "Sige@2025",       id: "usr_ceo",            nome: "Administrador QUETA",           role: "ceo",       escola: "QUETA, School" },
+    { email: "financeiro@sige.ao", senha: "Financeiro@2025", id: "usr_financeiro_001", nome: "Gestor Financeiro",            role: "financeiro", escola: "QUETA, School" },
+    { email: "secretaria@sige.ao", senha: "Secretaria@2025", id: "usr_secretaria_001", nome: "Secretária Académica",         role: "secretaria", escola: "QUETA, School" },
+    { email: "rh@sige.ao",         senha: "RH@2025",         id: "usr_rh_001",         nome: "Gestor de Recursos Humanos",  role: "rh",        escola: "QUETA, School" },
   ];
 
   app.post("/api/login", async (req: Request, res: Response) => {
@@ -3260,7 +3260,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (count > 0) return;
 
       const cfgEscola = await query<JsonObject>(`SELECT "nomeEscola" FROM public.config_geral LIMIT 1`, []);
-      const escola = (cfgEscola[0] as any)?.nomeEscola || 'Escola SIGA';
+      const escola = (cfgEscola[0] as any)?.nomeEscola || 'Escola QUETA';
       const agora = new Date().toISOString();
 
       const defaultUsers = [
@@ -7454,7 +7454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       const payload = {
-        sistema: 'SIGE v1.0.0',
+        sistema: 'QUETA v1.0.0',
         geradoEm: new Date().toISOString(),
         tabelas: Object.keys(backup).length,
         dados: backup,

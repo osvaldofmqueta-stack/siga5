@@ -529,7 +529,7 @@ export default function BoletimMatriculaScreen() {
 
   const qrValue = selectedAluno
     ? buildQrData(selectedAluno, turmaDoAluno, config.nomeEscola)
-    : 'SIGA';
+    : 'QUETA';
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPad }]}>

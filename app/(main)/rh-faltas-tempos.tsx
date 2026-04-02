@@ -1246,7 +1246,7 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
         </tr></thead>
         <tbody>${rows || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:20px">Sem registos</td></tr>'}</tbody>
       </table>
-      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3 · Recursos Humanos</p>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · QUETA v3 · Recursos Humanos</p>
       </body></html>`;
 
       const w = window.open('', '_blank');
@@ -1340,7 +1340,7 @@ function RelatoriosTab({ mes, ano }: { mes: number; ano: number }) {
           <td></td>
         </tr></tfoot>` : ''}
       </table>
-      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · SIGA v3 · Recursos Humanos</p>
+      <p class="footer">Gerado em ${new Date().toLocaleString('pt-PT')} · QUETA v3 · Recursos Humanos</p>
       </body></html>`;
 
       const w = window.open('', '_blank');

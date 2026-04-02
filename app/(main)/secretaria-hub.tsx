@@ -385,7 +385,7 @@ function CredenciaisModal({ visible, onClose }: { visible: boolean; onClose: () 
 
           <View style={styles.credBody}>
             <Text style={styles.credName}>Secretária Académica</Text>
-            <Text style={styles.credSchool}>SIGE — Sistema Integral de Gestão Escolar</Text>
+            <Text style={styles.credSchool}>QUETA — QUETA, School</Text>
 
             <View style={styles.credDivider} />
 

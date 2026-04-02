@@ -23,9 +23,9 @@ const CEO_ACCOUNT = {
   email: 'ceo@sige.ao',
   senha: 'Sige@2025',
   role: 'ceo' as const,
-  nome: 'Administrador SIGE',
+  nome: 'Administrador QUETA',
   id: 'usr_ceo',
-  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+  escola: 'QUETA, School',
 };
 
 const FINANCEIRO_ACCOUNT = {
@@ -34,7 +34,7 @@ const FINANCEIRO_ACCOUNT = {
   role: 'financeiro' as const,
   nome: 'Gestor Financeiro',
   id: 'usr_financeiro_001',
-  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+  escola: 'QUETA, School',
 };
 
 const SECRETARIA_ACCOUNT = {
@@ -43,7 +43,7 @@ const SECRETARIA_ACCOUNT = {
   role: 'secretaria' as const,
   nome: 'Secretária Académica',
   id: 'usr_secretaria_001',
-  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+  escola: 'QUETA, School',
 };
 
 const RH_ACCOUNT = {
@@ -52,7 +52,7 @@ const RH_ACCOUNT = {
   role: 'rh' as const,
   nome: 'Gestor de Recursos Humanos',
   id: 'usr_rh_001',
-  escola: 'SIGE — Sistema Integral de Gestão Escolar',
+  escola: 'QUETA, School',
 };
 
 const AUTH_STEPS = [
@@ -291,7 +291,7 @@ const ALL_FEATURES = [
   { icon: 'bar-chart-outline',        text: 'Relatórios e Exportação Excel' },
   { icon: 'person-add-outline',       text: 'Inscrições Online de Novos Alunos' },
   { icon: 'phone-portrait-outline',   text: 'Portal do Estudante e do Encarregado' },
-  { icon: 'globe-outline',            text: 'Integração com MED / SIGE Angola' },
+  { icon: 'globe-outline',            text: 'Integração com MED / SIGE Gov' },
   { icon: 'chatbubbles-outline',      text: 'Chat Interno e Notificações Push' },
   { icon: 'library-outline',          text: 'Biblioteca e Gestão de Recursos' },
   { icon: 'calendar-outline',         text: 'Calendário Académico e Horários' },
@@ -1037,7 +1037,7 @@ export default function LoginScreen() {
         <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
         <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
       </View>
-      <Text style={styles.footerText}>QUETA, School Completo</Text>
+      <Text style={styles.footerText}>QUETA, School</Text>
       <Text style={styles.footerSub}>Isaias Osvaldo & Gemima Delfina - Queta</Text>
     </Animated.View>
   );
@@ -1099,7 +1099,7 @@ export default function LoginScreen() {
 
         <View style={styles.desktopRow}>
           <Animated.View style={[styles.desktopLeft, { opacity: logoOpacity }]}>
-            <Text style={styles.desktopBrandTitle}>QUETA,{'\n'}School Completo</Text>
+            <Text style={styles.desktopBrandTitle}>QUETA,{'\n'}School</Text>
             <Text style={styles.desktopBrandSub}>Solução completa para escolas angolanas — do processo de inscrição ao controlo financeiro e académico.</Text>
 
             <CyclingFeatures />
@@ -1109,7 +1109,7 @@ export default function LoginScreen() {
                 <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
                 <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
               </View>
-              <Text style={styles.footerText}>QUETA, School Completo</Text>
+              <Text style={styles.footerText}>QUETA, School</Text>
             </View>
           </Animated.View>
 

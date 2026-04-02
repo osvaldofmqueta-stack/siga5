@@ -196,7 +196,7 @@ const VARIABLE_GROUPS = [
       { tag: '{{DESCONTO_FALTAS}}', desc: 'Valor descontado por faltas (Kz)', exemplo: '6.000,00 Kz' },
       { tag: '{{NUM_TEMPOS}}', desc: 'Nº tempos lectivos / dias trabalhados', exemplo: '42' },
       { tag: '{{REMUNERACAO_TEMPOS}}', desc: 'Remuneração por tempos lectivos (Kz)', exemplo: '21.000,00 Kz' },
-      { tag: '{{QR_CODE}}', desc: 'Código QR de autenticidade (imagem inline)', exemplo: '<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=SIGA-DOC-EXEMPLO" style="width:80px;height:80px"/>' },
+      { tag: '{{QR_CODE}}', desc: 'Código QR de autenticidade (imagem inline)', exemplo: '<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=QUETA-DOC-EXEMPLO" style="width:80px;height:80px"/>' },
     ],
   },
   {
@@ -421,7 +421,7 @@ const RECIBO_SALARIO_DEFAULT = `<div style="font-family:Arial,Helvetica,sans-ser
   </div>
 
   <div style="text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:6px;">
-    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · SIGA v3
+    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · QUETA v3
   </div>
 </div>`;
 
@@ -486,7 +486,7 @@ const TITULO_SALARIO_DEFAULT = `<div style="font-family:Arial,Helvetica,sans-ser
   </div>
 
   <div style="text-align:center;font-size:6.5pt;color:#9ca3af;margin-top:14px;border-top:1px dashed #e5e7eb;padding-top:6px;">
-    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · SIGA v3
+    Emitido em {{DATA_ACTUAL}} · {{NOME_ESCOLA}} · Documento Oficial · QUETA v3
   </div>
 </div>`;
 
@@ -1968,7 +1968,7 @@ const SEED_RECIBO_SALARIO: DocTemplate = {
 <hr style="border:1px solid #ddd;margin:16px 0;">
 
 <div style="display:flex;justify-content:space-between;align-items:center;">
-  <p style="font-size:9pt;color:#888;margin:0;">Documento gerado pelo SIGA · {{DATA_ACTUAL}}</p>
+  <p style="font-size:9pt;color:#888;margin:0;">Documento gerado pelo QUETA · {{DATA_ACTUAL}}</p>
   <span style="font-size:10pt;color:#555;">Estado: <strong>{{STATUS_FOLHA}}</strong></span>
 </div>
 
@@ -2231,7 +2231,7 @@ thead th{background:#1a2540;color:#fff;padding:7px 8px;font-size:9.5px;text-tran
     <div class="doc-header-text">
       <div class="rep">República de Angola</div>
       <div class="escola-nome">{{NOME_ESCOLA}}</div>
-      <div style="font-size:9px;color:#888;margin-top:2px;">Sistema Integrado de Gestão Académica</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">QUETA, School</div>
     </div>
     <div class="doc-header-title">
       <div class="titulo">Extracto de Propinas</div>
@@ -6898,7 +6898,7 @@ export default function EditorDocumentos() {
 
     const watermarkHtml = tplMarcaAgua
       ? `<img src="${tplMarcaAgua}" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:60%;opacity:0.05;pointer-events:none;z-index:0;" />`
-      : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${config.nomeEscola || 'SIGA'}</div>`;
+      : `<div style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-45deg);font-size:72px;font-weight:bold;color:rgba(0,0,0,0.04);white-space:nowrap;pointer-events:none;z-index:0;letter-spacing:8px;">${config.nomeEscola || 'QUETA'}</div>`;
 
     win.document.write(`
       <!DOCTYPE html>
@@ -8138,7 +8138,7 @@ export default function EditorDocumentos() {
                       </View>
                     ) : (
                       <View style={[styles.watermarkContainer, { pointerEvents: 'none' } as any]}>
-                        <Text style={styles.watermarkText}>{config.nomeEscola || 'SIGA'}</Text>
+                        <Text style={styles.watermarkText}>{config.nomeEscola || 'QUETA'}</Text>
                       </View>
                     )}
                     <ScrollView style={styles.previewScroll} showsVerticalScrollIndicator={false}>

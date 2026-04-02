@@ -288,7 +288,7 @@ export default function AlunosScreen() {
 
       if (isNew && form.nomeEncarregado) {
         try {
-          const escola = config?.nomeEscola || 'SIGE Escola';
+          const escola = config?.nomeEscola || 'Escola QUETA';
           const nomeEnc = form.nomeEncarregado.trim();
           const emailBase = normalizeEmail(nomeEnc);
           const emailEnc = form.emailEncarregado?.trim() || `enc.${emailBase}@escola.ao`;
@@ -336,7 +336,7 @@ export default function AlunosScreen() {
   async function handleVerCredenciais(aluno: Aluno) {
     setRegenerating(aluno.id);
     try {
-      const escola = config?.nomeEscola || 'SIGE Escola';
+      const escola = config?.nomeEscola || 'Escola QUETA';
       const encExistente = users.find(u => u.alunoId === aluno.id && u.role === 'encarregado');
 
       if (encExistente) {
