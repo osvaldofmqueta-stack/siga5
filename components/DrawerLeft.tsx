@@ -10,7 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import { useDrawer } from '@/context/DrawerContext';
 import { useAuth } from '@/context/AuthContext';
-import { useNotificacoes } from '@/context/NotificacoesContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
@@ -38,7 +37,6 @@ export default function DrawerLeft() {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-  const { unreadCount } = useNotificacoes();
   const { anos, anoAtivo, anoSelecionado, setAnoSelecionado } = useAnoAcademico();
   const { isLicencaValida, diasRestantes } = useLicense();
   const { isDesktop } = useBreakpoint();
@@ -102,7 +100,7 @@ export default function DrawerLeft() {
       title: 'Meu Portal',
       items: [
         { label: 'Portal do Estudante', route: '/(main)/portal-estudante', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'portal_estudante' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -146,7 +144,7 @@ export default function DrawerLeft() {
       title: 'Painel do Professor',
       items: [
         { label: 'Meu Painel', route: '/(main)/professor-hub', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'professor_hub' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -180,7 +178,7 @@ export default function DrawerLeft() {
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Documentos & Multicaixa', route: '/(main)/documentos-hub', icon: <MaterialCommunityIcons name="file-document-multiple" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
   ];
@@ -192,7 +190,7 @@ export default function DrawerLeft() {
         { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -219,7 +217,7 @@ export default function DrawerLeft() {
         { label: 'Organizar Alunos em Turmas', route: '/(main)/organizar-turmas', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'admissao' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -269,7 +267,7 @@ export default function DrawerLeft() {
         { label: 'Dashboard Escolar', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -333,7 +331,7 @@ export default function DrawerLeft() {
         { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -387,7 +385,7 @@ export default function DrawerLeft() {
         { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
         { label: 'Painel da Secretaria', route: '/(main)/secretaria-hub', icon: <MaterialCommunityIcons name="briefcase-account" size={20} color="inherit" />, permKey: 'secretaria_hub' },
         { label: 'Processo de Admissão', route: '/(main)/admissao', icon: <MaterialCommunityIcons name="account-school" size={20} color="inherit" />, permKey: 'admissao' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
@@ -449,7 +447,7 @@ export default function DrawerLeft() {
         { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
-        { label: 'Notificações', route: '/(main)/notificacoes', icon: <Ionicons name="notifications" size={20} color="inherit" />, badgeCount: unreadCount, permKey: 'notificacoes' },
+
       ],
     },
     {
