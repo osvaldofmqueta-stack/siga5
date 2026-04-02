@@ -50,6 +50,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (migErr) {
     console.warn('[migration] disciplinas componente:', (migErr as Error).message);
   }
+
+  // Add utilizadorId column to professores (links academic profile → user account)
+  try {
+    await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
+    console.log('[migration] professores.utilizadorId ensured.');
+  } catch (migErr) {
+    console.warn('[migration] professores utilizadorId:', (migErr as Error).message);
+  }
+
+  // Auto-create professor records for any utilizadores with role='professor' that don't have one yet
+  try {
+    const orphanUsers = await query<JsonObject>(
+      `SELECT u.* FROM public.utilizadores u
+       WHERE u.role = 'professor'
+         AND NOT EXISTS (SELECT 1 FROM public.professores p WHERE p."utilizadorId" = u.id)`,
+      []
+    );
+    for (const u of orphanUsers) {
+      const user = u as any;
+      const year = new Date().getFullYear();
+      const countRows = await query<JsonObject>(`SELECT COUNT(*) as c FROM public.professores`, []);
+      const count = parseInt((countRows[0] as any).c ?? '0') + 1;
+      const numeroProfessor = `PROF-${year}-${String(count).padStart(4, '0')}`;
+      const { v4: uuidv4 } = await import('uuid');
+      const parts = (user.nome as string ?? '').trim().split(/\s+/);
+      const nome = parts[0] ?? user.nome ?? '';
+      const apelido = parts.slice(1).join(' ') || '';
+      await query<JsonObject>(
+        `INSERT INTO public.professores (id,"numeroProfessor","nome","apelido","disciplinas","turmasIds","telefone","email","habilitacoes","ativo","utilizadorId","createdAt")
+         VALUES ($1,$2,$3,$4,'[]'::jsonb,'[]'::jsonb,$5,$6,'',$7,$8,NOW())`,
+        [uuidv4(), numeroProfessor, nome, apelido, '', user.email ?? '', true, user.id]
+      );
+      console.log(`[migration] Auto-created professor record for user ${user.id} (${user.nome})`);
+    }
+  } catch (migErr) {
+    console.warn('[migration] professor auto-creation:', (migErr as Error).message);
+  }
   try {
     await query(`ALTER TABLE public.disciplinas ADD CONSTRAINT disciplinas_nome_unique UNIQUE (nome)`, []);
   } catch {
@@ -1319,7 +1356,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
         [b.id ?? null, b.nome, b.email, b.senha, b.role, b.escola ?? '', b.ativo ?? true, b.alunoId ?? null, b.criadoEm ?? new Date().toISOString()],
       );
-      json(res, 201, rows[0]);
+      const newUser = rows[0] as any;
+
+      // Auto-create academic professor record when role is 'professor'
+      if (newUser && newUser.role === 'professor') {
+        try {
+          const year = new Date().getFullYear();
+          const countRows = await query<JsonObject>(`SELECT COUNT(*) as c FROM public.professores`, []);
+          const count = parseInt((countRows[0] as any).c ?? '0') + 1;
+          const numeroProfessor = `PROF-${year}-${String(count).padStart(4, '0')}`;
+          const { v4: uuidv4 } = await import('uuid');
+          const parts = ((newUser.nome as string) ?? '').trim().split(/\s+/);
+          const nomeParts = parts[0] ?? newUser.nome ?? '';
+          const apelidoParts = parts.slice(1).join(' ') || '';
+          await query<JsonObject>(
+            `INSERT INTO public.professores (id,"numeroProfessor","nome","apelido","disciplinas","turmasIds","telefone","email","habilitacoes","ativo","utilizadorId","createdAt")
+             VALUES ($1,$2,$3,$4,'[]'::jsonb,'[]'::jsonb,'',$5,'',$6,$7,NOW())`,
+            [uuidv4(), numeroProfessor, nomeParts, apelidoParts, newUser.email ?? '', true, newUser.id]
+          );
+        } catch (profErr) {
+          console.warn('[utilizadores] auto-create professor record failed:', (profErr as Error).message);
+        }
+      }
+
+      json(res, 201, newUser);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
     }
