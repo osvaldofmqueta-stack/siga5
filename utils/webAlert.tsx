@@ -94,48 +94,33 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
     <>
       {children}
 
-      {Platform.OS === 'web' ? (
-        config ? (
-          <View
-            style={s.webOverlay}
-            // @ts-ignore — position:'fixed' is web-only
-            pointerEvents="box-none"
-          >
-            <TouchableOpacity
-              style={StyleSheet.absoluteFill}
-              activeOpacity={1}
-              onPress={() => {
-                const cancel = config.buttons.find(b => b.style === 'cancel');
-                if (cancel) handleButton(cancel);
-              }}
-            />
-            <AlertContent config={config} onButton={handleButton} />
-          </View>
-        ) : null
-      ) : (
-        <Modal visible={!!config} transparent animationType="fade" statusBarTranslucent>
-          <View style={s.overlay}>
+      <Modal
+        visible={!!config}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        // @ts-ignore — web-only prop to force portal above other modals
+        style={Platform.OS === 'web' ? { zIndex: 99999 } : undefined}
+      >
+        <TouchableOpacity
+          style={s.overlay}
+          activeOpacity={1}
+          onPress={() => {
+            if (!config) return;
+            const cancel = config.buttons.find(b => b.style === 'cancel');
+            if (cancel) handleButton(cancel);
+          }}
+        >
+          <TouchableOpacity activeOpacity={1} onPress={() => {}}>
             {config && <AlertContent config={config} onButton={handleButton} />}
-          </View>
-        </Modal>
-      )}
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </>
   );
 }
 
 const s = StyleSheet.create({
-  webOverlay: {
-    position: 'fixed' as any,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 999999,
-    backgroundColor: 'rgba(0,0,0,0.72)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.72)',
