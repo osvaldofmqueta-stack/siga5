@@ -3738,6 +3738,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // GET /api/turmas/:id/alunos — lista de alunos activos de uma turma
+  app.get("/api/turmas/:id/alunos", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const rows = await query<JsonObject>(
+        `SELECT id, nome, apelido, "numeroMatricula", genero, foto, "turmaId", ativo, bloqueado, falecido
+         FROM public.alunos
+         WHERE "turmaId" = $1 AND ativo = true AND (bloqueado IS NULL OR bloqueado = false) AND (falecido IS NULL OR falecido = false)
+         ORDER BY apelido ASC, nome ASC`,
+        [id]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   // -----------------------
   // PLANIFICAÇÕES DE AULA
   // -----------------------

@@ -8,7 +8,8 @@ import {
   TextInput,
   Modal,
   ScrollView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -169,6 +170,10 @@ function NotaFormModal({
   const [alunoSearch, setAlunoSearch] = useState('');
   const [disciplinaSearch, setDisciplinaSearch] = useState('');
 
+  // Alunos carregados dinamicamente da API ao seleccionar turma
+  const [alunosDaAPI, setAlunosDaAPI] = useState<any[]>([]);
+  const [alunosLoading, setAlunosLoading] = useState(false);
+
   const makeEmpty = (): Partial<Nota> => ({
     alunoId: alunos[0]?.id || '',
     turmaId: '',
@@ -261,23 +266,42 @@ function NotaFormModal({
     return { ...next, mac1, mt1, nf, mac: nf };
   });
 
-  const selectedAluno = alunos.find((a: any) => a.id === form.alunoId);
+  const selectedAluno = alunosDaAPI.find((a: any) => a.id === form.alunoId)
+    ?? alunos.find((a: any) => a.id === form.alunoId);
 
   React.useEffect(() => {
     autoKeyRef.current = '';
     setAutoNota(null);
     setAlunoSearch('');
     setDisciplinaSearch('');
+    setAlunosDaAPI([]);
     if (nota) {
       setSelectedTurmaId(nota.turmaId || turmas[0]?.id || '');
       setForm({ ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() });
     } else {
       const defaultTurmaId = turmas[0]?.id || '';
       setSelectedTurmaId(defaultTurmaId);
-      const firstAluno = alunos.find(a => !defaultTurmaId || (a.turmaId === defaultTurmaId && !a.bloqueado && !a.falecido));
-      setForm({ ...makeEmpty(), trimestre, alunoId: firstAluno?.id || '' });
+      setForm({ ...makeEmpty(), trimestre, alunoId: '' });
     }
   }, [nota, visible, trimestre]);
+
+  // Carregar alunos da API dinamicamente quando a turma muda (igual às disciplinas)
+  useEffect(() => {
+    if (!selectedTurmaId) { setAlunosDaAPI([]); return; }
+    setAlunosLoading(true);
+    fetch(`/api/turmas/${selectedTurmaId}/alunos`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        setAlunosDaAPI(Array.isArray(data) ? data : []);
+        // Se não há aluno seleccionado ou não pertence a esta turma, seleccionar o primeiro
+        if (data.length > 0 && (!form.alunoId || !data.find((a: any) => a.id === form.alunoId))) {
+          autoKeyRef.current = '';
+          set('alunoId', data[0].id);
+        }
+      })
+      .catch(() => setAlunosDaAPI([]))
+      .finally(() => setAlunosLoading(false));
+  }, [selectedTurmaId]);
 
   // Auto-detect existing nota when selecting aluno+disciplina in new-launch mode
   useEffect(() => {
@@ -304,10 +328,10 @@ function NotaFormModal({
     return s;
   }, [allNotas, form.disciplina, trimestre]);
 
-  const alunosDaTurma = alunos.filter((a: any) =>
-    (!selectedTurmaId || a.turmaId === selectedTurmaId) &&
-    !a.bloqueado && !a.falecido
-  );
+  // Usar alunos da API se disponíveis, senão fallback para prop
+  const alunosDaTurma = alunosDaAPI.length > 0
+    ? alunosDaAPI
+    : alunos.filter((a: any) => (!selectedTurmaId || a.turmaId === selectedTurmaId) && !a.bloqueado && !a.falecido);
 
   const alunosDaTurmaFiltered = alunoSearch.trim()
     ? alunosDaTurma.filter((a: any) =>
@@ -440,9 +464,10 @@ function NotaFormModal({
                         key={t.id}
                         style={[mS.chip, selectedTurmaId === t.id && mS.chipActive]}
                         onPress={() => {
+                          setAlunosDaAPI([]);
+                          setAlunoSearch('');
+                          set('alunoId', '');
                           setSelectedTurmaId(t.id);
-                          const first = alunos.find((a: any) => a.turmaId === t.id);
-                          if (first) set('alunoId', first.id);
                         }}
                       >
                         <Text style={[mS.chipText, selectedTurmaId === t.id && mS.chipTextActive]}>{t.nome}</Text>
@@ -473,7 +498,7 @@ function NotaFormModal({
                 )}
               </View>
               <View style={mS.pickerList}>
-                {alunosDaTurmaFiltered.map((a: any) => {
+                {!alunosLoading && alunosDaTurmaFiltered.map((a: any) => {
                   const jaLancado = alunosComNota.has(a.id);
                   const isSelected = form.alunoId === a.id;
                   return (
@@ -508,7 +533,13 @@ function NotaFormModal({
                     </TouchableOpacity>
                   );
                 })}
-                {alunosDaTurmaFiltered.length === 0 && (
+                {alunosLoading && (
+                  <View style={mS.pickerEmpty}>
+                    <ActivityIndicator size="small" color={Colors.gold} />
+                    <Text style={[mS.pickerEmptyText, { marginTop: 8 }]}>A carregar alunos...</Text>
+                  </View>
+                )}
+                {!alunosLoading && alunosDaTurmaFiltered.length === 0 && (
                   <View style={mS.pickerEmpty}>
                     <Ionicons name="person-outline" size={22} color={Colors.textMuted} />
                     <Text style={mS.pickerEmptyText}>
