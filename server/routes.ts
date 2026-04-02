@@ -3021,12 +3021,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (reg.status !== 'admitido') return json(res, 400, { error: "Apenas estudantes admitidos podem completar a matrícula." });
       if (!reg.pagamentoMatriculaConfirmado) return json(res, 400, { error: "O pagamento da taxa de matrícula ainda não foi confirmado pela secretaria. Dirija-se à secretaria com o comprovativo de pagamento." });
 
-      // Find matching turma (optional — if not found, turmaId stays null and secretaria assigns later)
-      const turmas = await query<JsonObject>(
-        `SELECT id FROM public.turmas WHERE nome ILIKE $1 LIMIT 1`,
-        [`%${reg.classe}%`]
+      // Find matching turma by classe and current anoLetivo (optional — if not found, secretaria assigns later)
+      const anoAtual = new Date().getFullYear().toString();
+      const turmasMatch = await query<JsonObject>(
+        `SELECT id, nome FROM public.turmas
+         WHERE ("classe" = $1 OR nome ILIKE $2)
+           AND ("anoLetivo" ILIKE $3 OR "anoLetivo" IS NULL)
+         ORDER BY nome ASC LIMIT 10`,
+        [reg.classe, `%${reg.classe}%`, `%${anoAtual}%`]
       );
-      const turmaId = (turmas[0] as any)?.id ?? null;
+      // If exactly one match, use it; otherwise leave null for secretaria to assign
+      const turmaId = turmasMatch.length === 1 ? (turmasMatch[0] as any).id : null;
 
       // Parse name
       const partes = String(reg.nomeCompleto || '').trim().split(/\s+/);

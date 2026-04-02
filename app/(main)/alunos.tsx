@@ -250,17 +250,28 @@ export default function AlunosScreen() {
   const [credenciais, setCredenciais] = useState<{ nome: string; email: string; senha: string; nomeAluno: string } | null>(null);
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [atribuirTurmaAluno, setAtribuirTurmaAluno] = useState<Aluno | null>(null);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const alunosSemTurma = useMemo(() => alunos.filter(a => a.ativo && !a.turmaId), [alunos]);
 
   const filtered = useMemo(() => {
     return alunos.filter(a => {
       const nome = `${a.nome} ${a.apelido}`.toLowerCase();
       const searchMatch = nome.includes(search.toLowerCase()) || a.numeroMatricula.toLowerCase().includes(search.toLowerCase());
-      const turmaMatch = !filterTurma || a.turmaId === filterTurma;
+      const turmaMatch = filterTurma === 'sem-turma'
+        ? !a.turmaId
+        : !filterTurma || a.turmaId === filterTurma;
       return searchMatch && turmaMatch;
     });
   }, [alunos, search, filterTurma]);
+
+  async function handleAtribuirTurmaRapida(aluno: Aluno, turmaId: string) {
+    await updateAluno(aluno.id, { turmaId } as any);
+    setAtribuirTurmaAluno(null);
+    alertSucesso('Turma atribuída', `${aluno.nome} ${aluno.apelido} foi atribuído à turma.`);
+  }
 
   async function handleSave(form: Partial<Aluno>) {
     const isNew = !editAluno;
@@ -382,8 +393,9 @@ export default function AlunosScreen() {
   const renderAluno = ({ item }: { item: Aluno }) => {
     const turmaName = getClasseFromTurma(item.turmaId, turmas);
     const idade = calcIdade(item.dataNascimento);
+    const semTurma = !item.turmaId;
     return (
-      <View style={styles.alunoCard}>
+      <View style={[styles.alunoCard, semTurma && { borderLeftWidth: 3, borderLeftColor: Colors.warning }]}>
         <View style={[styles.avatar, { backgroundColor: item.genero === 'F' ? `${Colors.accent}30` : `${Colors.info}30` }]}>
           <Text style={[styles.avatarText, { color: item.genero === 'F' ? Colors.accent : Colors.info }]}>
             {item.nome.charAt(0)}{item.apelido.charAt(0)}
@@ -391,7 +403,20 @@ export default function AlunosScreen() {
         </View>
         <View style={styles.alunoInfo}>
           <Text style={styles.alunoNome}>{item.nome} {item.apelido}</Text>
-          <Text style={styles.alunoMeta}>{item.numeroMatricula} · {turmaName} · {idade} anos</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
+            <Text style={styles.alunoMeta}>{item.numeroMatricula} · {idade} anos</Text>
+            {semTurma ? (
+              <TouchableOpacity
+                onPress={() => setAtribuirTurmaAluno(item)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.warning + '20', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.warning + '50' }}
+              >
+                <Ionicons name="warning-outline" size={10} color={Colors.warning} />
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.warning }}>Sem turma — Toque para atribuir</Text>
+              </TouchableOpacity>
+            ) : (
+              <Text style={styles.alunoMeta}>· {turmaName}</Text>
+            )}
+          </View>
           <Text style={styles.alunoProvinvia}>{item.provincia} · {item.genero === 'M' ? 'Masculino' : 'Feminino'}</Text>
           {item.emailEncarregado && (
             <View style={styles.encRow}>
@@ -468,6 +493,21 @@ export default function AlunosScreen() {
         />
       </View>
 
+      {alunosSemTurma.length > 0 && (
+        <TouchableOpacity
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.warning + '15', borderRadius: 10, marginHorizontal: 16, marginBottom: 8, padding: 10, borderWidth: 1, borderColor: Colors.warning + '40' }}
+          onPress={() => setFilterTurma(filterTurma === 'sem-turma' ? '' : 'sem-turma')}
+        >
+          <Ionicons name="warning-outline" size={16} color={Colors.warning} />
+          <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.warning }}>
+            {alunosSemTurma.length} aluno{alunosSemTurma.length !== 1 ? 's' : ''} sem turma atribuída
+          </Text>
+          <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.warning, textDecorationLine: 'underline' }}>
+            {filterTurma === 'sem-turma' ? 'Ver todos' : 'Ver'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
         <TouchableOpacity style={[styles.filterChip, !filterTurma && styles.filterChipActive]} onPress={() => setFilterTurma('')}>
           <Text style={[styles.filterChipText, !filterTurma && styles.filterChipTextActive]}>Todas</Text>
@@ -477,6 +517,11 @@ export default function AlunosScreen() {
             <Text style={[styles.filterChipText, filterTurma === t.id && styles.filterChipTextActive]}>{t.nome}</Text>
           </TouchableOpacity>
         ))}
+        {alunosSemTurma.length > 0 && (
+          <TouchableOpacity style={[styles.filterChip, filterTurma === 'sem-turma' && { backgroundColor: Colors.warning, borderColor: Colors.warning }]} onPress={() => setFilterTurma(filterTurma === 'sem-turma' ? '' : 'sem-turma')}>
+            <Text style={[styles.filterChipText, filterTurma === 'sem-turma' && { color: '#000' }]}>Sem Turma ({alunosSemTurma.length})</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <FlatList
@@ -519,6 +564,46 @@ export default function AlunosScreen() {
         onClose={() => setShowCredenciais(false)}
         creds={credenciais}
       />
+
+      {/* Modal de atribuição rápida de turma */}
+      {atribuirTurmaAluno && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setAtribuirTurmaAluno(null)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, padding: 24, paddingBottom: bottomPad + 20 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text }}>Atribuir Turma</Text>
+                <TouchableOpacity onPress={() => setAtribuirTurmaAluno(null)}>
+                  <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 16 }}>
+                Seleccione a turma para <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{atribuirTurmaAluno.nome} {atribuirTurmaAluno.apelido}</Text>
+              </Text>
+              <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 320 }}>
+                {turmas.length === 0 ? (
+                  <Text style={{ textAlign: 'center', color: Colors.textMuted, fontFamily: 'Inter_400Regular', padding: 16 }}>
+                    Não existem turmas criadas. Crie uma turma primeiro.
+                  </Text>
+                ) : (
+                  turmas.map((t: any) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, backgroundColor: Colors.surface, borderRadius: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.border }}
+                      onPress={() => handleAtribuirTurmaRapida(atribuirTurmaAluno, t.id)}
+                    >
+                      <View>
+                        <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{t.nome}</Text>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>{t.classe} · {t.turno} · {t.anoLetivo}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  ))
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
