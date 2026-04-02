@@ -73,21 +73,48 @@ function getAvatarColor(nome: string) {
   return colors[Math.abs(hash) % colors.length];
 }
 
-// ─── Student ID Card ──────────────────────────────────────────────────────────
+// ─── Avatar Component ─────────────────────────────────────────────────────────
+function StudentAvatar({ foto, nome, apelido, size = 52 }: {
+  foto: string | null; nome: string; apelido: string; size?: number;
+}) {
+  const initials = getInitials(nome, apelido);
+  const color = getAvatarColor(nome);
+  const radius = size * 0.16;
+
+  if (foto) {
+    return (
+      <Image
+        source={{ uri: foto }}
+        style={{ width: size, height: size, borderRadius: radius, borderWidth: 2, borderColor: Colors.gold + '88' }}
+      />
+    );
+  }
+  return (
+    <View style={{
+      width: size, height: size, borderRadius: radius,
+      backgroundColor: color,
+      alignItems: 'center', justifyContent: 'center',
+      borderWidth: 2, borderColor: Colors.gold + '55',
+    }}>
+      <Text style={{ fontSize: size * 0.34, fontFamily: 'Inter_700Bold', color: '#fff' }}>
+        {initials}
+      </Text>
+    </View>
+  );
+}
+
+// ─── Student ID Card (full panel) ─────────────────────────────────────────────
 function StudentCard({ p, onDismiss }: { p: Pendencia; onDismiss: () => void }) {
   const router = useRouter();
   const sevColor = getSeveridadeColor(p.severidade);
   const icon = getTipoIcon(p.tipoPendencia);
   const tipoLabel = getTipoLabel(p.tipoPendencia);
-  const initials = getInitials(p.nome, p.apelido);
-  const avatarColor = getAvatarColor(p.nome);
 
   return (
     <View style={[styles.card, { borderLeftColor: sevColor }]}>
-      {/* Severity glow strip */}
       <View style={[styles.cardGlow, { backgroundColor: sevColor + '18' }]} />
 
-      {/* Header row */}
+      {/* Header */}
       <View style={styles.cardHeader}>
         <View style={[styles.severityBadge, { backgroundColor: sevColor + '22', borderColor: sevColor + '55' }]}>
           <View style={[styles.severityDot, { backgroundColor: sevColor }]} />
@@ -101,26 +128,14 @@ function StudentCard({ p, onDismiss }: { p: Pendencia; onDismiss: () => void }) 
         </TouchableOpacity>
       </View>
 
-      {/* Student identity row */}
+      {/* Student identity */}
       <View style={styles.identityRow}>
-        {/* Avatar */}
         <View style={styles.avatarWrapper}>
-          {p.foto ? (
-            <Image source={{ uri: p.foto }} style={styles.avatarImg} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, { backgroundColor: avatarColor }]}>
-              <Text style={styles.avatarInitials}>{initials}</Text>
-            </View>
-          )}
-          {/* ID card corner decoration */}
+          <StudentAvatar foto={p.foto} nome={p.nome} apelido={p.apelido} size={52} />
           <View style={styles.avatarCorner} />
         </View>
-
-        {/* Student info */}
         <View style={styles.studentInfo}>
-          <Text style={styles.studentName} numberOfLines={1}>
-            {p.nome} {p.apelido}
-          </Text>
+          <Text style={styles.studentName} numberOfLines={1}>{p.nome} {p.apelido}</Text>
           <View style={styles.matriculaRow}>
             <Ionicons name="card-outline" size={11} color={Colors.gold} />
             <Text style={styles.matriculaText}>{p.numeroMatricula}</Text>
@@ -153,7 +168,7 @@ function StudentCard({ p, onDismiss }: { p: Pendencia; onDismiss: () => void }) 
         </View>
       </View>
 
-      {/* Action row */}
+      {/* Actions */}
       <View style={styles.actionRow}>
         <TouchableOpacity
           style={[styles.resolverBtn, { borderColor: sevColor + '66', backgroundColor: sevColor + '18' }]}
@@ -208,6 +223,112 @@ function CounterBadge({ urgente, aviso, info }: { urgente: number; aviso: number
   );
 }
 
+// ─── Trigger Card (collapsed state) ───────────────────────────────────────────
+function TriggerCard({
+  p, total, currentIndex, pulseAnim, onExpand,
+}: {
+  p: Pendencia;
+  total: number;
+  currentIndex: number;
+  pulseAnim: Animated.Value;
+  onExpand: () => void;
+}) {
+  const router = useRouter();
+  const sevColor = getSeveridadeColor(p.severidade);
+  const icon = getTipoIcon(p.tipoPendencia);
+  const tipoLabel = getTipoLabel(p.tipoPendencia);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <View style={[styles.triggerCard, { borderLeftColor: sevColor }]}>
+        {/* Subtle glow */}
+        <View style={[styles.triggerGlow, { backgroundColor: sevColor + '10' }]} />
+
+        <View style={styles.triggerInner}>
+          {/* Avatar */}
+          <View style={styles.triggerAvatarWrap}>
+            <StudentAvatar foto={p.foto} nome={p.nome} apelido={p.apelido} size={46} />
+            {/* Severity indicator dot */}
+            <View style={[styles.triggerSevDot, { backgroundColor: sevColor }]} />
+          </View>
+
+          {/* Student info */}
+          <View style={styles.triggerContent}>
+            {/* Name + counter */}
+            <View style={styles.triggerTopRow}>
+              <Text style={styles.triggerName} numberOfLines={1}>{p.nome} {p.apelido}</Text>
+              {total > 1 && (
+                <View style={[styles.triggerCount, { backgroundColor: sevColor }]}>
+                  <Text style={styles.triggerCountText}>{total > 99 ? '99+' : total}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Matricula */}
+            <View style={styles.triggerMatriculaRow}>
+              <Ionicons name="card-outline" size={10} color={Colors.gold} />
+              <Text style={styles.triggerMatricula}>{p.numeroMatricula}</Text>
+              <Text style={styles.triggerTurma} numberOfLines={1}> · {p.turma}</Text>
+            </View>
+
+            {/* Issue pill */}
+            <View style={[styles.triggerIssuePill, { backgroundColor: sevColor + '1A', borderColor: sevColor + '44' }]}>
+              {icon.lib === 'ion' ? (
+                <Ionicons name={icon.name as any} size={10} color={sevColor} />
+              ) : (
+                <MaterialCommunityIcons name={icon.name as any} size={10} color={sevColor} />
+              )}
+              <Text style={[styles.triggerIssueLabel, { color: sevColor }]}>{tipoLabel}</Text>
+              <Text style={styles.triggerIssueDesc} numberOfLines={1}> · {p.descricao}</Text>
+            </View>
+
+            {/* Action row */}
+            <View style={styles.triggerActions}>
+              <TouchableOpacity
+                style={[styles.triggerResolverBtn, { borderColor: sevColor + '55', backgroundColor: sevColor + '18' }]}
+                onPress={() => {
+                  if (p.tipoPendencia === 'nota_negativa') router.push('/(main)/notas' as any);
+                  else if (p.tipoPendencia === 'faltas_excessivas') router.push('/(main)/presencas' as any);
+                  else router.push('/(main)/pagamentos-hub' as any);
+                }}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="checkmark-circle-outline" size={11} color={sevColor} />
+                <Text style={[styles.triggerResolverText, { color: sevColor }]}>Resolver</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.triggerExpandBtn}
+                onPress={onExpand}
+                activeOpacity={0.75}
+              >
+                <MaterialCommunityIcons name="alert-decagram" size={11} color={Colors.textMuted} />
+                <Text style={styles.triggerExpandText}>Ver todos</Text>
+                <Ionicons name="chevron-back" size={11} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+
+        {/* Pagination dots */}
+        {total > 1 && (
+          <View style={styles.triggerDots}>
+            {Array.from({ length: Math.min(total, 6) }).map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.triggerDot,
+                  i === (currentIndex % Math.min(total, 6)) && [styles.triggerDotActive, { backgroundColor: sevColor }],
+                ]}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+    </Animated.View>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function PendenciasStream() {
   const { user } = useAuth();
@@ -238,7 +359,7 @@ export default function PendenciasStream() {
       setPendencias(data);
       setCurrentIndex(0);
     } catch (_e) {
-      // silent fail — avoid disrupting the UI
+      // silent fail
     } finally {
       setIsLoading(false);
     }
@@ -250,13 +371,13 @@ export default function PendenciasStream() {
     return () => clearInterval(interval);
   }, [load]);
 
-  // Pulsate the button when there are urgent issues
+  // Pulse when urgent and collapsed
   useEffect(() => {
     if (urgente > 0 && !expanded) {
       const pulse = Animated.loop(
         Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.12, duration: 700, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1.03, duration: 900, useNativeDriver: true }),
+          Animated.timing(pulseAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
         ])
       );
       pulse.start();
@@ -266,7 +387,7 @@ export default function PendenciasStream() {
     }
   }, [urgente, expanded]);
 
-  // Auto-rotate cards in minimised mode
+  // Auto-rotate cards
   useEffect(() => {
     if (expanded || total === 0) {
       if (rotateTimerRef.current) clearInterval(rotateTimerRef.current);
@@ -280,7 +401,7 @@ export default function PendenciasStream() {
     };
   }, [expanded, total]);
 
-  // Animate panel open/close
+  // Animate panel
   useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: expanded ? 1 : 0,
@@ -307,7 +428,6 @@ export default function PendenciasStream() {
       <Animated.View style={[styles.panel, { width: panelWidth, opacity: panelOpacity }]}>
         {expanded && (
           <View style={styles.panelInner}>
-            {/* Panel header */}
             <View style={styles.panelHeader}>
               <View style={styles.panelTitleRow}>
                 <MaterialCommunityIcons name="alert-decagram" size={18} color={Colors.warning} />
@@ -324,7 +444,6 @@ export default function PendenciasStream() {
               <Text style={styles.refreshText}>{isLoading ? 'A actualizar...' : 'Actualizar agora'}</Text>
             </TouchableOpacity>
 
-            {/* Scrollable card list */}
             <ScrollView
               style={styles.cardList}
               showsVerticalScrollIndicator={false}
@@ -345,70 +464,27 @@ export default function PendenciasStream() {
         )}
       </Animated.View>
 
-      {/* Toggle button + mini card preview */}
-      <View style={styles.toggleArea}>
-        {!expanded && currentCard && (
-          <Animated.View style={[styles.miniCard, { borderLeftColor: getSeveridadeColor(currentCard.severidade) }]}>
-            <View style={styles.miniCardInner}>
-              {/* Mini avatar */}
-              <View style={[styles.miniAvatar, { backgroundColor: getAvatarColor(currentCard.nome) }]}>
-                {currentCard.foto ? (
-                  <Image source={{ uri: currentCard.foto }} style={styles.miniAvatarImg} />
-                ) : (
-                  <Text style={styles.miniAvatarText}>{getInitials(currentCard.nome, currentCard.apelido)}</Text>
-                )}
-              </View>
-              <View style={styles.miniInfo}>
-                <Text style={styles.miniName} numberOfLines={1}>{currentCard.nome} {currentCard.apelido}</Text>
-                <Text style={styles.miniMatricula}>{currentCard.numeroMatricula}</Text>
-                <Text style={[styles.miniDesc, { color: getSeveridadeColor(currentCard.severidade) }]} numberOfLines={1}>
-                  {currentCard.descricao}
-                </Text>
-              </View>
-            </View>
-            {/* Dots indicator */}
-            {total > 1 && (
-              <View style={styles.dotsRow}>
-                {Array.from({ length: Math.min(total, 5) }).map((_, i) => (
-                  <View
-                    key={i}
-                    style={[
-                      styles.dot,
-                      i === (currentIndex % Math.min(total, 5)) && styles.dotActive,
-                    ]}
-                  />
-                ))}
-              </View>
-            )}
-          </Animated.View>
-        )}
+      {/* Collapsed trigger card OR nothing when expanded */}
+      {!expanded && currentCard && (
+        <TriggerCard
+          p={currentCard}
+          total={total}
+          currentIndex={currentIndex}
+          pulseAnim={pulseAnim}
+          onExpand={() => setExpanded(true)}
+        />
+      )}
 
-        {/* FAB button */}
-        <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-          <TouchableOpacity
-            style={[
-              styles.fab,
-              urgente > 0 && styles.fabUrgente,
-              expanded && styles.fabExpanded,
-            ]}
-            onPress={() => setExpanded(v => !v)}
-            activeOpacity={0.85}
-          >
-            {expanded ? (
-              <Ionicons name="chevron-forward" size={20} color="#fff" />
-            ) : (
-              <>
-                <MaterialCommunityIcons name="alert-decagram" size={20} color="#fff" />
-                {total > 0 && (
-                  <View style={[styles.fabBadge, urgente > 0 ? styles.fabBadgeUrgente : styles.fabBadgeAviso]}>
-                    <Text style={styles.fabBadgeText}>{total > 99 ? '99+' : total}</Text>
-                  </View>
-                )}
-              </>
-            )}
-          </TouchableOpacity>
-        </Animated.View>
-      </View>
+      {/* Collapse button when panel is open */}
+      {expanded && (
+        <TouchableOpacity
+          style={styles.collapseFloatBtn}
+          onPress={() => setExpanded(false)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="chevron-forward" size={18} color="#fff" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -422,13 +498,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   } as any,
   containerDesktop: {
-    bottom: 28,
-    left: 24,
+    bottom: 90,
+    left: 16,
     flexDirection: 'row-reverse',
   } as any,
   containerMobile: {
-    bottom: 20,
-    left: 16,
+    bottom: 80,
+    left: 12,
     flexDirection: 'row-reverse',
   } as any,
 
@@ -537,7 +613,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_700Bold',
   },
 
-  // ── Student card ──
+  // ── Full student card (inside expanded panel) ──
   card: {
     backgroundColor: Colors.backgroundCard,
     borderRadius: 12,
@@ -549,10 +625,7 @@ const styles = StyleSheet.create({
   },
   cardGlow: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -603,8 +676,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // ── Identity row ──
   identityRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -614,27 +685,6 @@ const styles = StyleSheet.create({
   },
   avatarWrapper: {
     position: 'relative',
-  },
-  avatarImg: {
-    width: 52,
-    height: 52,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: Colors.gold + '88',
-  },
-  avatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: Colors.gold + '55',
-  },
-  avatarInitials: {
-    fontSize: 18,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
   },
   avatarCorner: {
     position: 'absolute',
@@ -686,8 +736,6 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     color: Colors.textMuted,
   },
-
-  // ── Pendência box ──
   pendenciaBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -720,8 +768,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     lineHeight: 15,
   },
-
-  // ── Action row ──
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -760,135 +806,177 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
 
-  // ── Toggle area ──
-  toggleArea: {
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-
-  // ── Mini card ──
-  miniCard: {
+  // ── Trigger card (collapsed state) ──
+  triggerCard: {
+    width: 270,
     backgroundColor: Colors.primaryDark,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: Colors.border,
-    borderLeftWidth: 3,
-    width: 220,
+    borderLeftWidth: 4,
     overflow: 'hidden',
+    position: 'relative',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.45,
+    shadowRadius: 16,
+    elevation: 16,
   },
-  miniCardInner: {
+  triggerGlow: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+  },
+  triggerInner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 10,
+    gap: 10,
+  },
+  triggerAvatarWrap: {
+    position: 'relative',
+  },
+  triggerSevDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.primaryDark,
+  },
+  triggerContent: {
+    flex: 1,
+    gap: 4,
+  },
+  triggerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    gap: 8,
+    gap: 6,
   },
-  miniAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  miniAvatarImg: {
-    width: 36,
-    height: 36,
-    borderRadius: 6,
-  },
-  miniAvatarText: {
-    fontSize: 13,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
-  },
-  miniInfo: {
+  triggerName: {
     flex: 1,
-    gap: 1,
-  },
-  miniName: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Inter_700Bold',
     color: Colors.text,
   },
-  miniMatricula: {
+  triggerCount: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 5,
+  },
+  triggerCountText: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    color: '#fff',
+  },
+  triggerMatriculaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  triggerMatricula: {
     fontSize: 9,
     fontFamily: 'Inter_600SemiBold',
     color: Colors.gold,
     letterSpacing: 0.4,
   },
-  miniDesc: {
+  triggerTurma: {
     fontSize: 9,
     fontFamily: 'Inter_400Regular',
-    lineHeight: 12,
+    color: Colors.textMuted,
+    flex: 1,
   },
-  dotsRow: {
+  triggerIssuePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    gap: 4,
+  },
+  triggerIssueLabel: {
+    fontSize: 9,
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.3,
+  },
+  triggerIssueDesc: {
+    fontSize: 9,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+    flex: 1,
+  },
+  triggerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  triggerResolverBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 4,
+  },
+  triggerResolverText: {
+    fontSize: 10,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  triggerExpandBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    paddingVertical: 4,
+    paddingHorizontal: 7,
+    gap: 3,
+  },
+  triggerExpandText: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
+  },
+  triggerDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 4,
-    paddingBottom: 6,
+    paddingBottom: 7,
   },
-  dot: {
+  triggerDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
     backgroundColor: Colors.border,
   },
-  dotActive: {
-    backgroundColor: Colors.gold,
-    width: 12,
+  triggerDotActive: {
+    width: 14,
+    height: 4,
+    borderRadius: 2,
   },
 
-  // ── FAB ──
-  fab: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: Colors.primary,
+  // ── Collapse float button (when expanded) ──
+  collapseFloatBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 12,
-    borderWidth: 2,
-    borderColor: Colors.surfaceLight,
-    position: 'relative',
-  },
-  fabUrgente: {
-    backgroundColor: Colors.danger,
-    borderColor: Colors.danger + 'AA',
-  },
-  fabExpanded: {
-    backgroundColor: Colors.accent,
-    borderColor: Colors.accentLight + '88',
-  },
-  fabBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 4,
-    borderWidth: 1.5,
-    borderColor: Colors.primaryDark,
-  },
-  fabBadgeUrgente: {
-    backgroundColor: Colors.danger,
-  },
-  fabBadgeAviso: {
-    backgroundColor: Colors.warning,
-  },
-  fabBadgeText: {
-    fontSize: 8,
-    fontFamily: 'Inter_700Bold',
-    color: '#fff',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
   },
 });
