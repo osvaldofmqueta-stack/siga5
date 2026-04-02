@@ -211,6 +211,8 @@ export const professores = pgTable("professores", {
   valorPorTempoLectivo: real("valorPorTempoLectivo").default(0), // valor por tempo lectivo (Kz) — para colaboradores
   temposSemanais: integer("temposSemanais").default(0),           // tempos lectivos por semana — para colaboradores
 
+  nivelEnsino: text("nivelEnsino").notNull().default('I Ciclo'), // 'Primário' | 'I Ciclo' | 'II Ciclo'
+
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 

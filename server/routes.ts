@@ -599,6 +599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "habilitacoes",
         "ativo",
         "createdAt",
+        "nivelEnsino",
         // Payroll fields
         "cargo",
         "categoria",

@@ -34,6 +34,7 @@ export interface Professor {
   habilitacoes: string;
   ativo: boolean;
   createdAt: string;
+  nivelEnsino: string;
 }
 
 export interface Turma {

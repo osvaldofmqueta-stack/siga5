@@ -26,10 +26,13 @@ import { webAlert } from '@/utils/webAlert';
 
 interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
 
+const NIVEIS_ENSINO = ['Primário', 'I Ciclo', 'II Ciclo'];
+
 function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
   const [form, setForm] = useState<Partial<Professor>>(professor || {
     nome: '', apelido: '', disciplinas: [], turmasIds: [],
     telefone: '', email: '', habilitacoes: 'Licenciatura', ativo: true,
+    nivelEnsino: 'I Ciclo',
   });
   const [catalogDisc, setCatalogDisc] = useState<DisciplinaCatalog[]>([]);
 
@@ -92,6 +95,28 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
             ))}
 
             <View style={mStyles.field}>
+              <Text style={mStyles.fieldLabel}>Nível de Ensino</Text>
+              <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                {NIVEIS_ENSINO.map(n => {
+                  const isActive = (form.nivelEnsino || 'I Ciclo') === n;
+                  return (
+                    <TouchableOpacity
+                      key={n}
+                      style={[mStyles.tag, isActive && { backgroundColor: `${Colors.gold}22`, borderWidth: 1, borderColor: Colors.gold + '80' }]}
+                      onPress={() => set('nivelEnsino', n)}
+                    >
+                      {isActive && <Ionicons name="checkmark-circle" size={13} color={Colors.gold} />}
+                      <Text style={[mStyles.tagText, isActive && { color: Colors.goldLight, fontFamily: 'Inter_600SemiBold' }]}>{n}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6, lineHeight: 14 }}>
+                Define em que nível este professor pode ser Director de Turma.
+              </Text>
+            </View>
+
+            <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Disciplinas que lecciona</Text>
               {catalogDisc.length === 0 ? (
                 <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>
@@ -142,6 +167,13 @@ export default function ProfessoresScreen() {
 
   const canManage = ['admin', 'ceo', 'pca', 'director', 'chefe_secretaria'].includes(user?.role ?? '');
 
+  const filtered = useMemo(() => {
+    return professores.filter(p => {
+      const nome = `${p.nome} ${p.apelido}`.toLowerCase();
+      return nome.includes(search.toLowerCase()) || p.numeroProfessor.toLowerCase().includes(search.toLowerCase());
+    });
+  }, [professores, search]);
+
   if (user?.role === 'professor') {
     return (
       <View style={{ flex: 1, backgroundColor: Colors.background, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
@@ -156,13 +188,6 @@ export default function ProfessoresScreen() {
       </View>
     );
   }
-
-  const filtered = useMemo(() => {
-    return professores.filter(p => {
-      const nome = `${p.nome} ${p.apelido}`.toLowerCase();
-      return nome.includes(search.toLowerCase()) || p.numeroProfessor.toLowerCase().includes(search.toLowerCase());
-    });
-  }, [professores, search]);
 
   async function handleSave(form: Partial<Professor>) {
     if (!editProf) return;

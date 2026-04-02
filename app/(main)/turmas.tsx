@@ -50,6 +50,133 @@ function classesPorNivel(nivel: string, allClasses: string[]): string[] {
   return allClasses;
 }
 
+function DirectorSelector({ professores, nivel, value, onChange }: { professores: any[]; nivel: string; value: string; onChange: (id: string) => void }) {
+  const [search, setSearch] = useState('');
+  const [expanded, setExpanded] = useState(false);
+
+  const nivelMatch = nivel?.toLowerCase() || '';
+  const profsFiltrados = useMemo(() => {
+    return professores.filter((p: any) => {
+      const pNivel = (p.nivelEnsino || 'I Ciclo').toLowerCase();
+      return pNivel === nivelMatch;
+    });
+  }, [professores, nivelMatch]);
+
+  const profsSearch = useMemo(() => {
+    if (!search.trim()) return profsFiltrados;
+    const q = search.toLowerCase();
+    return profsFiltrados.filter((p: any) => `${p.nome} ${p.apelido}`.toLowerCase().includes(q));
+  }, [profsFiltrados, search]);
+
+  const selected = professores.find((p: any) => p.id === value);
+
+  const nivelLabel: Record<string, string> = { 'primário': 'Primário', 'i ciclo': 'I Ciclo', 'ii ciclo': 'II Ciclo' };
+  const nivelNome = nivelLabel[nivelMatch] || nivel;
+
+  return (
+    <View>
+      <TouchableOpacity
+        style={mS.directorTrigger}
+        onPress={() => setExpanded(e => !e)}
+        activeOpacity={0.8}
+      >
+        <View style={mS.directorTriggerLeft}>
+          <View style={mS.directorAvatar}>
+            <Ionicons name={selected ? 'person' : 'person-outline'} size={16} color={selected ? Colors.gold : Colors.textMuted} />
+          </View>
+          <View style={{ flex: 1 }}>
+            {selected ? (
+              <>
+                <Text style={mS.directorName}>{selected.nome} {selected.apelido}</Text>
+                <Text style={mS.directorMeta}>{selected.nivelEnsino || nivel} · Director de Turma</Text>
+              </>
+            ) : (
+              <Text style={mS.directorPlaceholder}>Seleccionar Director de Turma</Text>
+            )}
+          </View>
+        </View>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+      </TouchableOpacity>
+
+      {expanded && (
+        <View style={mS.directorDropdown}>
+          <View style={mS.directorSearch}>
+            <Ionicons name="search-outline" size={14} color={Colors.textMuted} />
+            <TextInput
+              style={mS.directorSearchInput}
+              value={search}
+              onChangeText={setSearch}
+              placeholder={`Pesquisar em ${nivelNome}...`}
+              placeholderTextColor={Colors.textMuted}
+              autoFocus={false}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch('')}>
+                <Ionicons name="close-circle" size={14} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+            <TouchableOpacity
+              style={[mS.directorOption, !value && mS.directorOptionActive]}
+              onPress={() => { onChange(''); setExpanded(false); setSearch(''); }}
+            >
+              <View style={[mS.directorOptionAvatar, { backgroundColor: `${Colors.textMuted}15` }]}>
+                <Ionicons name="close-circle-outline" size={14} color={Colors.textMuted} />
+              </View>
+              <Text style={[mS.directorOptionName, !value && { color: Colors.goldLight }]}>Nenhum</Text>
+              {!value && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
+            </TouchableOpacity>
+
+            {profsFiltrados.length === 0 ? (
+              <View style={{ padding: 16, alignItems: 'center', gap: 6 }}>
+                <Ionicons name="people-outline" size={24} color={Colors.textMuted} />
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' }}>
+                  Nenhum professor do nível {nivelNome} registado.{'\n'}Edite o perfil do professor para definir o nível.
+                </Text>
+              </View>
+            ) : profsSearch.length === 0 ? (
+              <View style={{ padding: 12, alignItems: 'center' }}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Nenhum resultado para "{search}"</Text>
+              </View>
+            ) : (
+              profsSearch.map((p: any) => {
+                const isActive = value === p.id;
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[mS.directorOption, isActive && mS.directorOptionActive]}
+                    onPress={() => { onChange(p.id); setExpanded(false); setSearch(''); }}
+                  >
+                    <View style={[mS.directorOptionAvatar, isActive && { backgroundColor: `${Colors.gold}25` }]}>
+                      <Ionicons name="person" size={14} color={isActive ? Colors.gold : Colors.textSecondary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[mS.directorOptionName, isActive && { color: Colors.goldLight }]}>{p.nome} {p.apelido}</Text>
+                      <Text style={mS.directorOptionMeta}>{p.numeroProfessor} · {p.nivelEnsino || nivel}</Text>
+                    </View>
+                    {isActive && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+          </ScrollView>
+
+          {profsFiltrados.length > 0 && (
+            <View style={mS.directorFooter}>
+              <Ionicons name="information-circle-outline" size={12} color={Colors.textMuted} />
+              <Text style={mS.directorFooterText}>
+                {profsFiltrados.length} professor{profsFiltrados.length !== 1 ? 'es' : ''} do nível {nivelNome}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
   const { anoSelecionado } = useAnoAcademico();
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
@@ -75,7 +202,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
   function handleNivelChange(n: string) {
     const classesNivel = classesPorNivel(n, classes);
     const primeiraClasse = classesNivel[0] || classes[0] || '';
-    setForm(f => ({ ...f, nivel: n, classe: primeiraClasse }));
+    setForm(f => ({ ...f, nivel: n, classe: primeiraClasse, professorId: '' }));
   }
 
   useEffect(() => {
@@ -103,6 +230,8 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
     onSave(form);
   }
 
+  const nivelAtual = form.nivel || defaultNivel;
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={mS.overlay}>
@@ -111,7 +240,7 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
             <Text style={mS.title}>{turma ? 'Editar Turma' : 'Nova Turma'}</Text>
             <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color={Colors.textSecondary} /></TouchableOpacity>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             {[
               { label: 'Nome da Turma (ex: 7ª A)', key: 'nome' },
               { label: 'Ano Lectivo', key: 'anoLetivo' },
@@ -196,26 +325,22 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
             </View>
 
             <View style={mS.field}>
-              <Text style={mS.fieldLabel}>Director de Turma <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text></Text>
-              {professores.length === 0 ? (
-                <View style={mS.emptyRoomHint}>
-                  <Ionicons name="person-outline" size={15} color={Colors.warning} />
-                  <Text style={mS.emptyRoomText}>Nenhum professor registado.</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={mS.fieldLabel}>Director de Turma <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text></Text>
+                <View style={mS.nivelBadge}>
+                  <Ionicons name="filter-outline" size={10} color={Colors.info} />
+                  <Text style={mS.nivelBadgeText}>{nivelAtual}</Text>
                 </View>
-              ) : (
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={mS.toggleRow}>
-                    <TouchableOpacity style={[mS.toggleBtn, !form.professorId && mS.toggleActive]} onPress={() => set('professorId', '')}>
-                      <Text style={[mS.toggleText, !form.professorId && mS.toggleTextActive]}>Nenhum</Text>
-                    </TouchableOpacity>
-                    {professores.map((p: any) => (
-                      <TouchableOpacity key={p.id} style={[mS.toggleBtn, form.professorId === p.id && mS.toggleActive]} onPress={() => set('professorId', p.id)}>
-                        <Text style={[mS.toggleText, form.professorId === p.id && mS.toggleTextActive]}>{p.nome} {p.apelido}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
+              </View>
+              <DirectorSelector
+                professores={professores}
+                nivel={nivelAtual}
+                value={form.professorId || ''}
+                onChange={(id) => set('professorId', id)}
+              />
+              <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6, lineHeight: 14 }}>
+                Apenas professores registados no nível {nivelAtual} são apresentados. O director é responsável pela gestão disciplinar, comunicação com encarregados e coordenação pedagógica da turma.
+              </Text>
             </View>
 
             {isIICiclo && cursos.length > 0 && (
@@ -438,6 +563,24 @@ const mS = StyleSheet.create({
   salaInfoText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success, flex: 1 },
   emptyRoomHint: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: `${Colors.warning}12`, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, borderWidth: 1, borderColor: `${Colors.warning}25` },
   emptyRoomText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1 },
+  nivelBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: `${Colors.info}15`, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: `${Colors.info}30` },
+  nivelBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.info },
+  directorTrigger: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12, gap: 8 },
+  directorTriggerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  directorAvatar: { width: 34, height: 34, borderRadius: 10, backgroundColor: `${Colors.gold}15`, alignItems: 'center', justifyContent: 'center' },
+  directorName: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  directorMeta: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  directorPlaceholder: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  directorDropdown: { marginTop: 6, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  directorSearch: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  directorSearchInput: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text },
+  directorOption: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: `${Colors.border}60` },
+  directorOptionActive: { backgroundColor: `${Colors.gold}10` },
+  directorOptionAvatar: { width: 30, height: 30, borderRadius: 8, backgroundColor: `${Colors.textMuted}18`, alignItems: 'center', justifyContent: 'center' },
+  directorOptionName: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text },
+  directorOptionMeta: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  directorFooter: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: `${Colors.info}08`, borderTopWidth: 1, borderTopColor: Colors.border },
+  directorFooterText: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
 });
 
 const styles = StyleSheet.create({
