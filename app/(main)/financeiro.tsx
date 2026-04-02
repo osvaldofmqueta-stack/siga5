@@ -194,6 +194,31 @@ export default function FinanceiroScreen() {
   const [formPag,  setFormPag]  = useState(defaultFormPag);
   const [formTaxa, setFormTaxa] = useState(defaultFormTaxa);
 
+  // ── Criar novo tipo de rubrica ─────────────────────────────
+  const [showAddTipo, setShowAddTipo] = useState(false);
+  const [newTipoLabel, setNewTipoLabel] = useState('');
+  const [savingTipo, setSavingTipo] = useState(false);
+
+  async function criarNovoTipo() {
+    const label = newTipoLabel.trim();
+    if (!label) return;
+    setSavingTipo(true);
+    try {
+      const slug = label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      await api.post('/api/lookup', { categoria: 'tipos_taxa', valor: slug, label, ordem: 999 });
+      const { invalidateLookupCache } = await import('@/hooks/useLookup');
+      invalidateLookupCache('tipos_taxa');
+      setNewTipoLabel('');
+      setShowAddTipo(false);
+      setFormTaxa(f => ({ ...f, tipo: slug as TipoTaxa }));
+      alertSucesso('Tipo criado', `"${label}" foi adicionado com sucesso.`);
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível criar o tipo.');
+    } finally {
+      setSavingTipo(false);
+    }
+  }
+
   React.useEffect(() => {
     if (!propinaHabilitada && tab === 'em_atraso') {
       setTab('painel');
@@ -2533,18 +2558,58 @@ export default function FinanceiroScreen() {
                   Esta rubrica aparecerá automaticamente no perfil financeiro dos alunos do nível e ano lectivo seleccionados.
                 </Text>
               </View>
-              <Text style={st.fieldLabel}>Tipo</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
-                  {TIPOS.filter(t => propinaHabilitada || t !== 'propina').map(t => (
-                    <TouchableOpacity key={t} style={[st.tipoChip, formTaxa.tipo === t && { backgroundColor: TIPO_COLOR[t], borderColor: TIPO_COLOR[t] }]}
-                      onPress={() => setFormTaxa(f => ({ ...f, tipo: t }))}>
-                      <Ionicons name={TIPO_ICON[t] as any} size={12} color={formTaxa.tipo === t ? '#fff' : TIPO_COLOR[t]} />
-                      <Text style={[st.tipoChipTxt, formTaxa.tipo === t && { color: '#fff' }]}>{TIPO_LABEL[t]}</Text>
-                    </TouchableOpacity>
-                  ))}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, marginTop: 4 }}>
+                <Text style={st.fieldLabel}>Tipo</Text>
+                <TouchableOpacity onPress={() => { setShowAddTipo(v => !v); setNewTipoLabel(''); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: Colors.gold + '55', backgroundColor: Colors.gold + '11' }}>
+                  <Ionicons name={showAddTipo ? 'close' : 'add'} size={13} color={Colors.gold} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>{showAddTipo ? 'Cancelar' : 'Criar Tipo'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {showAddTipo && (
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  <TextInput
+                    style={[st.input, { flex: 1, marginBottom: 0 }]}
+                    placeholder="Nome do novo tipo (ex: Seguro)"
+                    placeholderTextColor={Colors.textMuted}
+                    value={newTipoLabel}
+                    onChangeText={setNewTipoLabel}
+                    autoFocus
+                  />
+                  <TouchableOpacity
+                    onPress={criarNovoTipo}
+                    disabled={savingTipo || !newTipoLabel.trim()}
+                    style={{ paddingHorizontal: 14, justifyContent: 'center', borderRadius: 10, backgroundColor: newTipoLabel.trim() ? Colors.gold : Colors.border, opacity: savingTipo ? 0.6 : 1 }}>
+                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 13, color: '#fff' }}>{savingTipo ? '...' : 'OK'}</Text>
+                  </TouchableOpacity>
                 </View>
-              </ScrollView>
+              )}
+
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {TIPOS.filter(t => propinaHabilitada || t !== 'propina').map(t => {
+                  const cor = TIPO_COLOR[t] ?? Colors.textMuted;
+                  const icone = TIPO_ICON[t] ?? 'pricetag';
+                  const label = TIPO_LABEL[t] ?? t;
+                  const selected = formTaxa.tipo === t;
+                  return (
+                    <TouchableOpacity key={t}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, minWidth: '45%', flex: 1,
+                        borderColor: selected ? cor : Colors.border,
+                        backgroundColor: selected ? cor + '22' : Colors.surface,
+                      }}
+                      onPress={() => setFormTaxa(f => ({ ...f, tipo: t }))}>
+                      <View style={{ width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: selected ? cor : cor + '22' }}>
+                        <Ionicons name={icone as any} size={14} color={selected ? '#fff' : cor} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontFamily: selected ? 'Inter_700Bold' : 'Inter_500Medium', color: selected ? cor : Colors.text }} numberOfLines={1}>{label}</Text>
+                      </View>
+                      {selected && <Ionicons name="checkmark-circle" size={16} color={cor} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
               <Text style={st.fieldLabel}>Descrição *</Text>
               <TextInput style={st.input} placeholder="Ex: Propina Mensal — I Ciclo" placeholderTextColor={Colors.textMuted}
                 value={formTaxa.descricao} onChangeText={v => setFormTaxa(f => ({ ...f, descricao: v }))} />
