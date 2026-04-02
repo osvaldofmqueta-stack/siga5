@@ -859,11 +859,22 @@ export default function NotasScreen() {
 
   const isProfessor = user?.role === 'professor';
   const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'].includes(user.role);
+  // Only CEO, PCA, admin and directors can bypass the trimestre lock
+  const canAccessFutureTrimesters = !!user?.role && ['ceo', 'pca', 'admin', 'director'].includes(user.role);
 
   const prazoKey = `t${trimestreActivo}` as 't1' | 't2' | 't3';
   const prazoData: string | undefined = (config.prazosLancamento as any)?.[prazoKey];
   const prazoEncerrado = prazoData ? new Date() > new Date(prazoData + 'T23:59:59') : false;
   const podeEditar = isPrivilegedRole || !prazoEncerrado;
+
+  // Determine which trimestres are accessible to non-privileged users:
+  // T2 is only unlocked after T1 deadline passes; T3 only after T2 deadline passes.
+  const prazos = (config.prazosLancamento as any) || {};
+  const agora = new Date();
+  const t1Passou = prazos.t1 ? agora > new Date(prazos.t1 + 'T23:59:59') : false;
+  const t2Passou = prazos.t2 ? agora > new Date(prazos.t2 + 'T23:59:59') : false;
+  // Maximum trimestre accessible to non-privileged users
+  const trimestreMaxNormal: 1 | 2 | 3 = t2Passou ? 3 : t1Passou ? 2 : 1;
 
   const professorActual = useMemo(() => {
     if (!isProfessor || !user) return null;
@@ -1106,32 +1117,48 @@ export default function NotasScreen() {
 
       {/* Selector de Trimestre */}
       <View style={styles.trimestreBar}>
-        {([1, 2, 3] as const).map(t => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.trimestreTab, trimestreActivo === t && styles.trimestreTabActive]}
-            onPress={() => { setTrimestreActivo(t); setFilterTurma(''); }}
-            activeOpacity={0.75}
-          >
-            <Text style={[styles.trimestreTabText, trimestreActivo === t && styles.trimestreTabTextActive]}>
-              {t}º Trimestre
-            </Text>
-            {trimestreActivo === t && (
-              <View style={styles.trimestreIndicator} />
-            )}
-            <View style={styles.trimestreCount}>
-              <Text style={[styles.trimestreCountText, trimestreActivo === t && { color: Colors.gold }]}>
-                {notas.filter(n => {
-                  if (!isProfessor || !professorActual) return n.trimestre === t;
-                  const aluno = alunos.find(a => a.id === n.alunoId);
-                  const profTurmaIds = new Set(professorActual.turmasIds);
-                  return n.trimestre === t && aluno && profTurmaIds.has(aluno.turmaId) &&
-                    (professorActual.disciplinas.length === 0 || professorActual.disciplinas.includes(n.disciplina));
-                }).length}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        ))}
+        {([1, 2, 3] as const).map(t => {
+          const tabLocked = !canAccessFutureTrimesters && t > trimestreMaxNormal;
+          return (
+            <TouchableOpacity
+              key={t}
+              style={[styles.trimestreTab, trimestreActivo === t && styles.trimestreTabActive, tabLocked && { opacity: 0.45 }]}
+              onPress={() => {
+                if (tabLocked) {
+                  webAlert(
+                    'Acesso Restrito',
+                    `O ${t}º Trimestre ainda não está disponível. O prazo do ${t - 1}º Trimestre ainda não encerrou. Apenas CEO, PCA, Administradores e Directores podem aceder antecipadamente.`
+                  );
+                  return;
+                }
+                setTrimestreActivo(t);
+                setFilterTurma('');
+              }}
+              activeOpacity={tabLocked ? 1 : 0.75}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                <Text style={[styles.trimestreTabText, trimestreActivo === t && styles.trimestreTabTextActive, tabLocked && { color: Colors.textMuted }]}>
+                  {t}º Trimestre
+                </Text>
+                {tabLocked && <Ionicons name="lock-closed" size={11} color={Colors.textMuted} />}
+              </View>
+              {trimestreActivo === t && (
+                <View style={styles.trimestreIndicator} />
+              )}
+              <View style={styles.trimestreCount}>
+                <Text style={[styles.trimestreCountText, trimestreActivo === t && { color: Colors.gold }, tabLocked && { color: Colors.textMuted }]}>
+                  {tabLocked ? '—' : notas.filter(n => {
+                    if (!isProfessor || !professorActual) return n.trimestre === t;
+                    const aluno = alunos.find(a => a.id === n.alunoId);
+                    const profTurmaIds = new Set(professorActual.turmasIds);
+                    return n.trimestre === t && aluno && profTurmaIds.has(aluno.turmaId) &&
+                      (professorActual.disciplinas.length === 0 || professorActual.disciplinas.includes(n.disciplina));
+                  }).length}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Filtro por Turma */}
