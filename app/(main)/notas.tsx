@@ -301,7 +301,7 @@ function NotaFormModal({
   }, [allNotas, form.disciplina, trimestre]);
 
   const alunosDaTurma = selectedTurmaId
-    ? alunos.filter((a: any) => a.turmaId === selectedTurmaId)
+    ? alunos.filter((a: any) => a.turmaId === selectedTurmaId || !a.turmaId)
     : alunos;
 
   const lanc = form.lancamentos || buildEmptyLanc();
@@ -327,7 +327,7 @@ function NotaFormModal({
       return;
     }
     const parcial = !isComplete();
-    onSave({ ...form, turmaId: selectedAluno?.turmaId || '', trimestre }, parcial && !asFinal ? true : parcial);
+    onSave({ ...form, turmaId: selectedAluno?.turmaId || selectedTurmaId || '', trimestre }, parcial && !asFinal ? true : parcial);
   }
 
   const mac1 = form.mac1 || 0;
@@ -810,11 +810,11 @@ export default function NotasScreen() {
   const filtered = useMemo(() => {
     return notas.filter(n => {
       const aluno = alunos.find(a => a.id === n.alunoId);
-      const turmaMatch = !filterTurma || aluno?.turmaId === filterTurma;
+      const turmaMatch = !filterTurma || aluno?.turmaId === filterTurma || n.turmaId === filterTurma;
       const trimestreMatch = n.trimestre === trimestreActivo;
       if (isProfessor && professorActual) {
         const profTurmaIds = new Set(professorActual.turmasIds);
-        const profTurmaMatch = aluno ? profTurmaIds.has(aluno.turmaId) : false;
+        const profTurmaMatch = aluno ? profTurmaIds.has(aluno.turmaId) || profTurmaIds.has(n.turmaId) : profTurmaIds.has(n.turmaId);
         const discMatch = professorActual.disciplinas.length === 0 || professorActual.disciplinas.includes(n.disciplina);
         return trimestreMatch && turmaMatch && profTurmaMatch && discMatch;
       }
