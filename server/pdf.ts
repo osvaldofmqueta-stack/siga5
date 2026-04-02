@@ -392,7 +392,7 @@ ${opts.autoprint ? `<script>window.onload=function(){setTimeout(function(){windo
 </html>`;
 }
 
-function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
+function buildReciboBody(p: any, aluno: any, turma: any, idx: number, multaInfo?: { valor: number; isento: boolean }): string {
   const numRef = `REC-${(p.id || '').toString().replace(/-/g,'').substring(0,8).toUpperCase()}`;
   const mesTxt = p.mes ? `${MESES[p.mes] || ''} ` : '';
   const tipoLabel = TIPO_LABEL[p.tipoTaxa] || 'Pagamento';
@@ -402,22 +402,45 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
   const statusLabel = statusOk ? '✓ PAGO' : p.status === 'pendente' ? '⏳ PENDENTE' : 'CANCELADO';
   const dataPagto = p.data || p.dataPagamento || p.createdAt;
   const dataEmissaoRec = fmtDate(new Date().toISOString());
+  const valorMulta = multaInfo?.valor ?? p.valorMulta ?? 0;
+  const isento = multaInfo?.isento ?? false;
+  const valorTotal = Number(p.valor || 0) + (isento ? 0 : valorMulta);
+
+  const qrLines = [
+    `REF: ${numRef}`,
+    `ESCOLA: ${p.escolaNome || 'N/D'}`,
+    `ALUNO: ${aluno?.nomeCompleto || aluno?.nome || 'N/D'}`,
+    `MATRICULA: ${aluno?.numeroMatricula || 'N/D'}`,
+    `TURMA: ${turma?.nome || 'N/D'}`,
+    `DESCRICAO: ${descricao}`,
+    `PROPINA: ${fmtMoney(Number(p.valor || 0))} AOA`,
+    valorMulta > 0 && !isento ? `MULTA: ${fmtMoney(valorMulta)} AOA` : null,
+    isento ? `MULTA: ISENTA (aprovado)` : null,
+    `TOTAL: ${fmtMoney(valorTotal)} AOA`,
+    `METODO: ${METODO_LABEL[p.metodoPagamento] || p.metodoPagamento || 'N/D'}`,
+    `ESTADO: ${statusLabel}`,
+    `DATA: ${fmtDate(dataPagto)}`,
+    `EMITIDO: ${dataEmissaoRec}`,
+    `SISTEMA: SIGA v3`,
+  ].filter(Boolean).join('\n');
+
   const verifHtml = buildVerificationSection({
     barcodeId: `rec-${idx}-${numRef}`,
     barcodeValue: numRef,
-    qrData: [
-      `REF: ${numRef}`,
-      `ALUNO: ${aluno?.nomeCompleto || aluno?.nome || 'N/D'}`,
-      `MATRICULA: ${aluno?.numeroMatricula || 'N/D'}`,
-      `DESCRICAO: ${tipoLabel}`,
-      `VALOR: ${fmtMoney(p.valor)} AOA`,
-      `ESTADO: ${statusLabel}`,
-      `DATA: ${fmtDate(dataPagto)}`,
-      `EMITIDO: ${dataEmissaoRec}`,
-    ].join('\n'),
+    qrData: qrLines,
     docRef: numRef,
     emitidoEm: dataEmissaoRec,
   });
+
+  const multaRow = valorMulta > 0
+    ? isento
+      ? `<div class="info-row" style="background:#d4edda;border-radius:4px;margin:2px 0"><span class="info-label" style="color:#155724">Multa (Isenta)</span><span class="info-value" style="color:#155724;font-weight:600">Dispensado por decisão da Direcção</span></div>`
+      : `<div class="info-row" style="background:#fff3cd;border-radius:4px;margin:2px 0"><span class="info-label" style="color:#856404">Multa por Atraso</span><span class="info-value" style="color:#d97706;font-weight:700">${fmtMoney(valorMulta)} AOA</span></div>`
+    : '';
+
+  const totalRow = valorMulta > 0 && !isento
+    ? `<div class="info-row highlight" style="background:#1a2b5f;border-radius:4px;margin-top:6px"><span class="info-label" style="color:#fff;font-weight:700">TOTAL A PAGAR</span><span class="info-value valor" style="color:#fff">${fmtMoney(valorTotal)} AOA</span></div>`
+    : '';
 
   return `<div class="recibo${idx > 0 ? ' page-break' : ''}">
   <div class="header">
@@ -447,7 +470,9 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
   <div class="section-title">DETALHES DO PAGAMENTO</div>
   <div class="info-grid">
     <div class="info-row"><span class="info-label">Descrição</span><span class="info-value">${descricao}</span></div>
-    <div class="info-row highlight"><span class="info-label">Valor Pago</span><span class="info-value valor">${fmtMoney(p.valor)} AOA</span></div>
+    <div class="info-row highlight"><span class="info-label">Propina</span><span class="info-value valor">${fmtMoney(Number(p.valor || 0))} AOA</span></div>
+    ${multaRow}
+    ${totalRow}
     <div class="info-row"><span class="info-label">Método</span><span class="info-value">${METODO_LABEL[p.metodoPagamento] || p.metodoPagamento || '—'}</span></div>
     ${p.referencia ? `<div class="info-row"><span class="info-label">Referência</span><span class="info-value mono">${p.referencia}</span></div>` : ''}
     <div class="info-row"><span class="info-label">Data</span><span class="info-value">${fmtDate(dataPagto)}</span></div>
@@ -459,7 +484,7 @@ function buildReciboBody(p: any, aluno: any, turma: any, idx: number): string {
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Responsável Financeiro</div></div>
     <div class="assinatura-block"><div class="assinatura-linha"></div><div class="assinatura-label">Encarregado de Educação</div></div>
   </div>
-  <div class="emitido">Emitido em ${fmtDate(new Date().toISOString())} · Este recibo é válido como comprovativo de pagamento</div>
+  <div class="emitido">Emitido em ${fmtDate(new Date().toISOString())} · Este recibo é válido como comprovativo de pagamento · Verificável pelo QR Code</div>
 </div>`;
 }
 
@@ -1311,7 +1336,26 @@ export function registerPDFRoutes(app: Express) {
       const configRows = await query<any>(`SELECT * FROM public.config_geral LIMIT 1`, []);
       const config = configRows[0] || {};
 
-      const body = buildReciboBody(p, aluno, turma, 0);
+      const multaCfg = (config.multaConfig || {}) as any;
+      const isencaoRows = await query<any>(`SELECT * FROM public.multa_isencoes WHERE "alunoId"=$1 AND status='aprovado' LIMIT 1`, [p.alunoId]).catch(() => []);
+      const isento = isencaoRows.length > 0;
+      let valorMulta = 0;
+      if (multaCfg.ativo && !isento && p.tipoTaxa === 'propina') {
+        const hoje = new Date();
+        const diaInicio = multaCfg.diaInicioMulta || 10;
+        const meses = p.mes ? Math.max(0, (hoje.getMonth() + 1) - p.mes) : 0;
+        if (meses > 0) {
+          if ((multaCfg.valorPorDia || 0) > 0) {
+            const diasDesdeInicio = Math.max(0, hoje.getDate() - diaInicio);
+            valorMulta = Math.round((multaCfg.valorPorDia || 0) * (diasDesdeInicio + meses * 30));
+          } else {
+            valorMulta = Math.round(Number(p.valor || 0) * ((multaCfg.percentagem || 10) / 100) * meses);
+          }
+        }
+      }
+      p.escolaNome = config.nomeEscola || '';
+      const multaInfo = { valor: valorMulta, isento };
+      const body = buildReciboBody(p, aluno, turma, 0, multaInfo);
       const escolaNome = config.nomeEscola || 'Escola';
 
       if (config.nomeEscola) {

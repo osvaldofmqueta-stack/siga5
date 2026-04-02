@@ -74,11 +74,11 @@ export default function ToastManager() {
 
 const styles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    zIndex: 9999,
+    zIndex: 99999,
     alignItems: 'center',
     paddingTop: Platform.OS === 'web' ? 16 : 50,
     gap: 8,

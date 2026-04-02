@@ -39,6 +39,19 @@ export interface MultaConfig {
   diasCarencia: number;
   ativo: boolean;
   dataLimitePagamento?: number;
+  diaInicioMulta?: number;
+  valorPorDia?: number;
+}
+
+export interface IsencaoMulta {
+  id: string;
+  alunoId: string;
+  solicitadoPor: string;
+  justificativa: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  aprovadoPor?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface MensagemFinanceira {
@@ -91,6 +104,7 @@ interface FinanceiroContextValue {
   bloqueados: string[];
   saldos: SaldoAluno[];
   movimentosSaldo: MovimentoSaldo[];
+  isencoes: IsencaoMulta[];
   isLoading: boolean;
   addTaxa: (t: Omit<Taxa, 'id'>) => Promise<void>;
   updateTaxa: (id: string, t: Partial<Taxa>) => Promise<void>;
@@ -115,11 +129,15 @@ interface FinanceiroContextValue {
   getRUPEsAluno: (alunoId: string) => RUPEGerado[];
   getMesesEmAtraso: (alunoId: string, anoAtual: string) => number;
   calcularMulta: (valorPropina: number, mesesAtraso: number) => number;
+  getMultaAluno: (alunoId: string, valorPropina: number, mesesAtraso: number) => { valor: number; isento: boolean };
   getUnreadMensagensAluno: (alunoId: string) => number;
   getSaldoAluno: (alunoId: string) => SaldoAluno | null;
   getMovimentosAluno: (alunoId: string) => MovimentoSaldo[];
   creditarSaldo: (alunoId: string, valor: number, descricao: string, dataProximaCobranca?: string, observacoes?: string, criadoPor?: string) => Promise<SaldoAluno>;
   debitarSaldo: (alunoId: string, valor: number, descricao: string, criadoPor?: string) => Promise<SaldoAluno>;
+  solicitarIsencaoMulta: (alunoId: string, justificativa: string, solicitadoPor: string) => Promise<void>;
+  responderIsencaoMulta: (id: string, status: 'aprovado' | 'rejeitado', aprovadoPor: string) => Promise<void>;
+  getIsencaoAluno: (alunoId: string) => IsencaoMulta | null;
 }
 
 const FinanceiroContext = createContext<FinanceiroContextValue | null>(null);
@@ -128,6 +146,8 @@ const DEFAULT_MULTA_CONFIG: MultaConfig = {
   percentagem: 10,
   diasCarencia: 5,
   ativo: true,
+  diaInicioMulta: 10,
+  valorPorDia: 0,
 };
 
 export function formatAOA(valor: number): string {
@@ -144,6 +164,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [bloqueados, setBloqueados] = useState<string[]>([]);
   const [saldos, setSaldos] = useState<SaldoAluno[]>([]);
   const [movimentosSaldo, setMovimentosSaldo] = useState<MovimentoSaldo[]>([]);
+  const [isencoes, setIsencoes] = useState<IsencaoMulta[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -153,7 +174,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
 
   async function loadData() {
     try {
-      const [t, p, msg, r, alunos, cfg, s, mv] = await Promise.all([
+      const [t, p, msg, r, alunos, cfg, s, mv, isen] = await Promise.all([
         api.get<Taxa[]>('/api/taxas'),
         api.get<Pagamento[]>('/api/pagamentos'),
         api.get<MensagemFinanceira[]>('/api/mensagens-financeiras'),
@@ -162,6 +183,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
         api.get<Record<string, unknown>>('/api/config'),
         api.get<SaldoAluno[]>('/api/saldo-alunos').catch(() => [] as SaldoAluno[]),
         api.get<MovimentoSaldo[]>('/api/movimentos-saldo').catch(() => [] as MovimentoSaldo[]),
+        api.get<IsencaoMulta[]>('/api/multa-isencoes').catch(() => [] as IsencaoMulta[]),
       ]);
       setTaxas(t);
       setPagamentos(p);
@@ -170,6 +192,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
       setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
       setSaldos(s);
       setMovimentosSaldo(mv);
+      setIsencoes(isen);
       if (cfg.multaConfig) {
         setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
       }
@@ -325,7 +348,36 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
 
   function calcularMulta(valorPropina: number, mesesAtraso: number): number {
     if (!multaConfig.ativo || mesesAtraso === 0) return 0;
+    if ((multaConfig.valorPorDia || 0) > 0) {
+      const hoje = new Date();
+      const diaInicio = multaConfig.diaInicioMulta || 10;
+      const diasDesdeInicio = Math.max(0, hoje.getDate() - diaInicio);
+      return Math.round((multaConfig.valorPorDia || 0) * (diasDesdeInicio + mesesAtraso * 30));
+    }
     return Math.round(valorPropina * (multaConfig.percentagem / 100) * mesesAtraso);
+  }
+
+  function getMultaAluno(alunoId: string, valorPropina: number, mesesAtraso: number): { valor: number; isento: boolean } {
+    const isencao = isencoes.find(i => i.alunoId === alunoId && i.status === 'aprovado');
+    if (isencao) return { valor: 0, isento: true };
+    return { valor: calcularMulta(valorPropina, mesesAtraso), isento: false };
+  }
+
+  function getIsencaoAluno(alunoId: string): IsencaoMulta | null {
+    return isencoes.find(i => i.alunoId === alunoId) || null;
+  }
+
+  async function solicitarIsencaoMulta(alunoId: string, justificativa: string, solicitadoPor: string): Promise<void> {
+    const nova = await api.post<IsencaoMulta>('/api/multa-isencoes', { alunoId, justificativa, solicitadoPor });
+    setIsencoes(prev => {
+      const sem = prev.filter(i => i.alunoId !== alunoId);
+      return [nova, ...sem];
+    });
+  }
+
+  async function responderIsencaoMulta(id: string, status: 'aprovado' | 'rejeitado', aprovadoPor: string): Promise<void> {
+    const updated = await api.put<IsencaoMulta>(`/api/multa-isencoes/${id}`, { status, aprovadoPor });
+    setIsencoes(prev => prev.map(i => i.id === id ? updated : i));
   }
 
   function getSaldoAluno(alunoId: string): SaldoAluno | null {
@@ -377,7 +429,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<FinanceiroContextValue>(() => ({
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isencoes, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
     addPagamento, addPagamentoSelf, updatePagamento, deletePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente, getPagamentosAluno, getTaxasByNivel,
@@ -385,9 +437,10 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
     bloquearAluno, desbloquearAluno, isAlunoBloqueado,
     enviarMensagem, getMensagensAluno, marcarMensagemLida, getUnreadMensagensAluno,
     gerarRUPE, getRUPEsAluno,
-    getMesesEmAtraso, calcularMulta,
+    getMesesEmAtraso, calcularMulta, getMultaAluno,
     getSaldoAluno, getMovimentosAluno, creditarSaldo, debitarSaldo,
-  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isLoading]);
+    solicitarIsencaoMulta, responderIsencaoMulta, getIsencaoAluno,
+  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isencoes, isLoading]);
 
   return <FinanceiroContext.Provider value={value}>{children}</FinanceiroContext.Provider>;
 }

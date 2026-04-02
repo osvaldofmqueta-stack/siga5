@@ -78,7 +78,7 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 export default function FinanceiroScreen() {
   const {
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, isencoes, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
     addPagamento, updatePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente,
@@ -86,8 +86,9 @@ export default function FinanceiroScreen() {
     bloquearAluno, desbloquearAluno, isAlunoBloqueado,
     enviarMensagem, getMensagensAluno, marcarMensagemLida,
     gerarRUPE, getRUPEsAluno,
-    getMesesEmAtraso, calcularMulta,
+    getMesesEmAtraso, calcularMulta, getMultaAluno, getIsencaoAluno,
     getSaldoAluno, getMovimentosAluno, creditarSaldo,
+    solicitarIsencaoMulta, responderIsencaoMulta,
   } = useFinanceiro();
   const { alunos, turmas } = useData();
   const { anoSelecionado } = useAnoAcademico();
@@ -156,6 +157,12 @@ export default function FinanceiroScreen() {
   const [showMultaModal, setShowMultaModal] = useState(false);
   const [multaPct, setMultaPct]             = useState(multaConfig.percentagem.toString());
   const [multaDias, setMultaDias]           = useState(multaConfig.diasCarencia.toString());
+  const [multaDiaInicio, setMultaDiaInicio] = useState((multaConfig.diaInicioMulta || 10).toString());
+  const [multaValorDia, setMultaValorDia]   = useState((multaConfig.valorPorDia || 0).toString());
+  const [showIsencaoModal, setShowIsencaoModal] = useState(false);
+  const [isencaoAlunoId, setIsencaoAlunoId]     = useState<string | null>(null);
+  const [isencaoJustif, setIsencaoJustif]       = useState('');
+  const [isencaoLoading, setIsencaoLoading]     = useState(false);
 
   const [showObituarioModal, setShowObituarioModal] = useState(false);
   const [obituarioAlunoId, setObituarioAlunoId]     = useState<string | null>(null);
@@ -564,12 +571,40 @@ export default function FinanceiroScreen() {
   }
 
   async function handleSalvarMulta() {
-    const pct  = parseFloat(multaPct) || 0;
-    const dias = parseInt(multaDias) || 0;
+    const pct      = parseFloat(multaPct) || 0;
+    const dias     = parseInt(multaDias) || 0;
+    const diaInicio = parseInt(multaDiaInicio) || 10;
+    const valorDia  = parseFloat(multaValorDia) || 0;
     if (pct < 0 || pct > 100) { webAlert('Erro', 'Percentagem inválida (0-100).'); return; }
-    await updateMultaConfig({ percentagem: pct, diasCarencia: dias });
+    if (diaInicio < 1 || diaInicio > 31) { webAlert('Erro', 'Dia de início inválido (1-31).'); return; }
+    await updateMultaConfig({ percentagem: pct, diasCarencia: dias, diaInicioMulta: diaInicio, valorPorDia: valorDia });
     setShowMultaModal(false);
-    webAlert('Guardado', 'Configuração de multa actualizada.');
+    alertSucesso('Guardado', 'Configuração de multa actualizada.');
+  }
+
+  async function handleSolicitarIsencao() {
+    if (!isencaoAlunoId || !isencaoJustif.trim()) { webAlert('Erro', 'Justificativa obrigatória.'); return; }
+    setIsencaoLoading(true);
+    try {
+      await solicitarIsencaoMulta(isencaoAlunoId, isencaoJustif.trim(), user?.nome || 'Financeiro');
+      alertSucesso('Pedido enviado', 'O pedido de isenção foi enviado para aprovação do Director.');
+      setShowIsencaoModal(false);
+      setIsencaoJustif('');
+      setIsencaoAlunoId(null);
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível enviar o pedido.');
+    } finally {
+      setIsencaoLoading(false);
+    }
+  }
+
+  async function handleResponderIsencao(id: string, status: 'aprovado' | 'rejeitado') {
+    try {
+      await responderIsencaoMulta(id, status, user?.nome || 'Director');
+      alertSucesso(status === 'aprovado' ? 'Isenção aprovada' : 'Isenção rejeitada', status === 'aprovado' ? 'A multa foi dispensada para este aluno.' : 'O pedido de isenção foi rejeitado.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível processar a resposta.');
+    }
   }
 
   const maxMes = Math.max(...Object.values(resumoPorMes), 1);
@@ -769,9 +804,9 @@ export default function FinanceiroScreen() {
           <Ionicons name="warning" size={16} color={Colors.warning} />
           <View style={{ flex: 1 }}>
             <Text style={st.multaBannerTitle}>Configuração de Multa por Atraso</Text>
-            <Text style={st.multaBannerSub}>{multaConfig.percentagem}% por mês · Carência: {multaConfig.diasCarencia} dias · {multaConfig.ativo ? 'Activa' : 'Inactiva'}</Text>
+            <Text style={st.multaBannerSub}>{(multaConfig.valorPorDia || 0) > 0 ? `${formatAOA(multaConfig.valorPorDia!)} /dia` : `${multaConfig.percentagem}% /mês`} · A partir do dia {multaConfig.diaInicioMulta || 10} · {multaConfig.ativo ? 'Activa' : 'Inactiva'}</Text>
           </View>
-          <TouchableOpacity style={st.multaEditBtn} onPress={() => { setMultaPct(multaConfig.percentagem.toString()); setMultaDias(multaConfig.diasCarencia.toString()); setShowMultaModal(true); }}>
+          <TouchableOpacity style={st.multaEditBtn} onPress={() => { setMultaPct(multaConfig.percentagem.toString()); setMultaDias(multaConfig.diasCarencia.toString()); setMultaDiaInicio((multaConfig.diaInicioMulta || 10).toString()); setMultaValorDia((multaConfig.valorPorDia || 0).toString()); setShowMultaModal(true); }}>
             <Ionicons name="settings" size={14} color={Colors.gold} />
           </TouchableOpacity>
         </View>
@@ -964,6 +999,52 @@ export default function FinanceiroScreen() {
                     <Text style={[st.atrasoActionTxt, { color: '#6B21A8' }]}>Óbito</Text>
                   </TouchableOpacity>
                 )}
+                {multa > 0 && multaConfig.ativo && (() => {
+                  const isencao = isencoes?.find(i => i.alunoId === aluno.id);
+                  if (isencao?.status === 'aprovado') {
+                    return (
+                      <View style={[st.atrasoActionBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '55' }]}>
+                        <Ionicons name="shield-checkmark" size={13} color={Colors.success} />
+                        <Text style={[st.atrasoActionTxt, { color: Colors.success }]}>Isento</Text>
+                      </View>
+                    );
+                  }
+                  if (isencao?.status === 'pendente') {
+                    const podeAprovacao = user?.role === 'director';
+                    if (podeAprovacao) {
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 4 }}>
+                          <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '55' }]}
+                            onPress={() => handleResponderIsencao(isencao.id, 'aprovado')}>
+                            <Ionicons name="checkmark" size={13} color={Colors.success} />
+                            <Text style={[st.atrasoActionTxt, { color: Colors.success }]}>Aprovar</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: Colors.danger + '22', borderColor: Colors.danger + '55' }]}
+                            onPress={() => handleResponderIsencao(isencao.id, 'rejeitado')}>
+                            <Ionicons name="close" size={13} color={Colors.danger} />
+                            <Text style={[st.atrasoActionTxt, { color: Colors.danger }]}>Rejeitar</Text>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    }
+                    return (
+                      <View style={[st.atrasoActionBtn, { backgroundColor: Colors.warning + '22', borderColor: Colors.warning + '55' }]}>
+                        <Ionicons name="hourglass" size={13} color={Colors.warning} />
+                        <Text style={[st.atrasoActionTxt, { color: Colors.warning }]}>Isenção pendente</Text>
+                      </View>
+                    );
+                  }
+                  if (user?.role === 'financeiro' || user?.role === 'director') {
+                    return (
+                      <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: Colors.primary + '22', borderColor: Colors.primary + '55' }]}
+                        onPress={() => { setIsencaoAlunoId(aluno.id); setIsencaoJustif(''); setShowIsencaoModal(true); }}>
+                        <Ionicons name="shield-checkmark-outline" size={13} color={Colors.primary} />
+                        <Text style={[st.atrasoActionTxt, { color: Colors.primary }]}>Isentar Multa</Text>
+                      </TouchableOpacity>
+                    );
+                  }
+                  return null;
+                })()}
               </View>
             </View>
           );
@@ -1202,11 +1283,11 @@ export default function FinanceiroScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={st.multaBanner} onPress={() => { setMultaPct(multaConfig.percentagem.toString()); setMultaDias(multaConfig.diasCarencia.toString()); setShowMultaModal(true); }}>
+          <TouchableOpacity style={st.multaBanner} onPress={() => { setMultaPct(multaConfig.percentagem.toString()); setMultaDias(multaConfig.diasCarencia.toString()); setMultaDiaInicio((multaConfig.diaInicioMulta || 10).toString()); setMultaValorDia((multaConfig.valorPorDia || 0).toString()); setShowMultaModal(true); }}>
             <Ionicons name="warning" size={16} color={Colors.warning} />
             <View style={{ flex: 1 }}>
-              <Text style={st.multaBannerTitle}>Multa por Atraso — {multaConfig.percentagem}% por mês</Text>
-              <Text style={st.multaBannerSub}>Carência: {multaConfig.diasCarencia} dias · {multaConfig.ativo ? 'Activa' : 'Inactiva'} · Toque para configurar</Text>
+              <Text style={st.multaBannerTitle}>Multa por Atraso — {(multaConfig.valorPorDia || 0) > 0 ? `${formatAOA(multaConfig.valorPorDia!)} /dia` : `${multaConfig.percentagem}% /mês`}</Text>
+              <Text style={st.multaBannerSub}>Início: dia {multaConfig.diaInicioMulta || 10} · {multaConfig.ativo ? 'Activa' : 'Inactiva'} · Toque para configurar</Text>
             </View>
             <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
           </TouchableOpacity>
@@ -1816,7 +1897,10 @@ export default function FinanceiroScreen() {
       const totPend   = pagsAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
       const mesesAtras = getMesesEmAtraso(alunoPerfilId, anoAtual);
       const taxaPropina = taxasAtivas.find(t => t.tipo === 'propina');
-      const multaTotal = calcularMulta(taxaPropina?.valor || 0, mesesAtras);
+      const isencaoPerfil = getIsencaoAluno(alunoPerfilId);
+      const multaInfo = getMultaAluno(alunoPerfilId, taxaPropina?.valor || 0, mesesAtras);
+      const multaTotal = multaInfo.valor;
+      const isento = multaInfo.isento;
       const bloqueado = isAlunoBloqueado(alunoPerfilId);
       const rupesAluno = getRUPEsAluno(alunoPerfilId);
       const msgsAluno  = getMensagensAluno(alunoPerfilId);
@@ -1851,9 +1935,57 @@ export default function FinanceiroScreen() {
             {mesesAtras > 0 && (
               <View style={[st.alertaBanner, { backgroundColor: Colors.warning + '18', borderColor: Colors.warning + '44' }]}>
                 <Ionicons name="time" size={16} color={Colors.warning} />
-                <Text style={[st.alertaBannerTxt, { color: Colors.warning }]}>{mesesAtras} mês(es) de propina em atraso{multaConfig.ativo && multaTotal > 0 ? ` · Multa estimada: ${formatAOA(multaTotal)}` : ''}</Text>
+                <Text style={[st.alertaBannerTxt, { color: Colors.warning }]}>{mesesAtras} mês(es) de propina em atraso{multaConfig.ativo && multaTotal > 0 && !isento ? ` · Multa: ${formatAOA(multaTotal)}` : isento ? ' · Multa: ISENTA' : ''}</Text>
               </View>
             )}
+            {multaConfig.ativo && mesesAtras > 0 && (() => {
+              if (isento) {
+                return (
+                  <View style={[st.alertaBanner, { backgroundColor: Colors.success + '18', borderLeftColor: Colors.success, borderLeftWidth: 4, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                    <Ionicons name="shield-checkmark" size={16} color={Colors.success} />
+                    <Text style={[st.alertaBannerTxt, { color: Colors.success }]}>Multa dispensada por decisão da Direcção</Text>
+                  </View>
+                );
+              }
+              if (isencaoPerfil?.status === 'pendente') {
+                if (user?.role === 'director') {
+                  return (
+                    <View style={[st.alertaBanner, { backgroundColor: Colors.warning + '18', borderLeftColor: Colors.warning, borderLeftWidth: 4 }]}>
+                      <Text style={[st.alertaBannerTxt, { color: Colors.warning, marginBottom: 6 }]}>Isenção de multa pendente — {isencaoPerfil.justificativa}</Text>
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                        <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: Colors.success + '22', borderColor: Colors.success + '55' }]}
+                          onPress={() => handleResponderIsencao(isencaoPerfil.id, 'aprovado')}>
+                          <Ionicons name="checkmark" size={13} color={Colors.success} />
+                          <Text style={[st.atrasoActionTxt, { color: Colors.success }]}>Aprovar Isenção</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: Colors.danger + '22', borderColor: Colors.danger + '55' }]}
+                          onPress={() => handleResponderIsencao(isencaoPerfil.id, 'rejeitado')}>
+                          <Ionicons name="close" size={13} color={Colors.danger} />
+                          <Text style={[st.atrasoActionTxt, { color: Colors.danger }]}>Rejeitar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }
+                return (
+                  <View style={[st.alertaBanner, { backgroundColor: Colors.warning + '18', borderLeftColor: Colors.warning, borderLeftWidth: 4, flexDirection: 'row', alignItems: 'center', gap: 8 }]}>
+                    <Ionicons name="hourglass" size={16} color={Colors.warning} />
+                    <Text style={[st.alertaBannerTxt, { color: Colors.warning }]}>Pedido de isenção de multa aguarda aprovação do Director</Text>
+                  </View>
+                );
+              }
+              if (user?.role === 'financeiro' || user?.role === 'director') {
+                return (
+                  <TouchableOpacity style={[st.alertaBanner, { backgroundColor: Colors.primary + '12', borderLeftColor: Colors.primary, borderLeftWidth: 4, flexDirection: 'row', alignItems: 'center', gap: 8 }]}
+                    onPress={() => { setIsencaoAlunoId(alunoPerfilId); setIsencaoJustif(''); setShowIsencaoModal(true); }}>
+                    <Ionicons name="shield-checkmark-outline" size={16} color={Colors.primary} />
+                    <Text style={[st.alertaBannerTxt, { color: Colors.primary }]}>Solicitar isenção de multa para este aluno</Text>
+                    <Ionicons name="chevron-forward" size={14} color={Colors.primary} />
+                  </TouchableOpacity>
+                );
+              }
+              return null;
+            })()}
 
             <View style={st.kpiRow}>
               <View style={st.kpiCard}>
@@ -2427,30 +2559,80 @@ export default function FinanceiroScreen() {
                 <Ionicons name="close" size={22} color={Colors.textMuted} />
               </TouchableOpacity>
             </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={st.rubricaInfoBanner}>
+                <Ionicons name="information-circle" size={14} color={Colors.info} />
+                <Text style={[st.rubricaInfoTxt, { fontSize: 11 }]}>
+                  A multa conta a partir do dia configurado após o fim do mês. Pode usar percentagem por mês OU valor fixo por dia (se valor por dia for {'>'} 0, tem prioridade).
+                </Text>
+              </View>
+              <Text style={st.fieldLabel}>Dia do mês em que começa a contar a multa</Text>
+              <TextInput style={st.input} placeholder="Ex: 10 (começa no dia 10 do mês seguinte)" placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric" value={multaDiaInicio} onChangeText={setMultaDiaInicio} />
+              <Text style={st.fieldLabel}>Valor fixo por dia de atraso (Kz)</Text>
+              <TextInput style={st.input} placeholder="Ex: 500 (0 = usa percentagem)" placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric" value={multaValorDia} onChangeText={setMultaValorDia} />
+              <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 12 }} />
+              <Text style={[st.fieldLabel, { color: Colors.textMuted }]}>Alternativa: Percentagem por mês de atraso (%)</Text>
+              <TextInput style={st.input} placeholder="Ex: 10 (ignorado se valor/dia > 0)" placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric" value={multaPct} onChangeText={setMultaPct} />
+              <Text style={st.fieldLabel}>Dias de carência após o dia de início</Text>
+              <TextInput style={st.input} placeholder="Ex: 5" placeholderTextColor={Colors.textMuted}
+                keyboardType="numeric" value={multaDias} onChangeText={setMultaDias} />
+              <Text style={st.fieldLabel}>Estado da multa</Text>
+              <View style={st.metodosRow}>
+                <TouchableOpacity style={[st.metodoBtn, multaConfig.ativo && st.metodoBtnActive]} onPress={() => updateMultaConfig({ ativo: true })}>
+                  <Text style={[st.metodoTxt, multaConfig.ativo && st.metodoTxtActive]}>Activa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[st.metodoBtn, !multaConfig.ativo && st.metodoBtnActive]} onPress={() => updateMultaConfig({ ativo: false })}>
+                  <Text style={[st.metodoTxt, !multaConfig.ativo && st.metodoTxtActive]}>Inactiva</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={[st.saveBtn, { marginTop: 16 }]} onPress={handleSalvarMulta}>
+                <Ionicons name="save" size={16} color="#fff" />
+                <Text style={st.saveBtnTxt}>Guardar Configuração</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Isenção de Multa */}
+      <Modal visible={showIsencaoModal} transparent animationType="slide" onRequestClose={() => setShowIsencaoModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalBox}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>Solicitar Isenção de Multa</Text>
+              <TouchableOpacity onPress={() => setShowIsencaoModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
             <View style={st.rubricaInfoBanner}>
-              <Ionicons name="information-circle" size={14} color={Colors.info} />
+              <Ionicons name="shield-checkmark" size={14} color={Colors.warning} />
               <Text style={[st.rubricaInfoTxt, { fontSize: 11 }]}>
-                A multa é calculada automaticamente com base nos meses de atraso e aparece no perfil financeiro do estudante.
+                Este pedido será enviado ao Director para aprovação. Após aprovação, a multa será dispensada para este aluno.
               </Text>
             </View>
-            <Text style={st.fieldLabel}>Percentagem por mês de atraso (%)</Text>
-            <TextInput style={st.input} placeholder="Ex: 10" placeholderTextColor={Colors.textMuted}
-              keyboardType="numeric" value={multaPct} onChangeText={setMultaPct} />
-            <Text style={st.fieldLabel}>Dias de carência (sem multa)</Text>
-            <TextInput style={st.input} placeholder="Ex: 5" placeholderTextColor={Colors.textMuted}
-              keyboardType="numeric" value={multaDias} onChangeText={setMultaDias} />
-            <Text style={st.fieldLabel}>Estado</Text>
-            <View style={st.metodosRow}>
-              <TouchableOpacity style={[st.metodoBtn, multaConfig.ativo && st.metodoBtnActive]} onPress={() => updateMultaConfig({ ativo: true })}>
-                <Text style={[st.metodoTxt, multaConfig.ativo && st.metodoTxtActive]}>Activa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[st.metodoBtn, !multaConfig.ativo && st.metodoBtnActive]} onPress={() => updateMultaConfig({ ativo: false })}>
-                <Text style={[st.metodoTxt, !multaConfig.ativo && st.metodoTxtActive]}>Inactiva</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={[st.saveBtn, { marginTop: 16 }]} onPress={handleSalvarMulta}>
-              <Ionicons name="save" size={16} color="#fff" />
-              <Text style={st.saveBtnTxt}>Guardar Configuração</Text>
+            {isencaoAlunoId && (() => {
+              const a = alunos.find(x => x.id === isencaoAlunoId);
+              return a ? <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text, fontSize: 14, marginBottom: 10 }}>{a.nome} {a.apelido}</Text> : null;
+            })()}
+            <Text style={st.fieldLabel}>Justificativa *</Text>
+            <TextInput
+              style={[st.input, { height: 90, textAlignVertical: 'top' }]}
+              placeholder="Ex: Situação de vulnerabilidade económica comprovada"
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              value={isencaoJustif}
+              onChangeText={setIsencaoJustif}
+            />
+            <TouchableOpacity
+              style={[st.saveBtn, { marginTop: 12, opacity: isencaoLoading ? 0.6 : 1 }]}
+              onPress={handleSolicitarIsencao}
+              disabled={isencaoLoading}
+            >
+              <Ionicons name="send" size={16} color="#fff" />
+              <Text style={st.saveBtnTxt}>{isencaoLoading ? 'A enviar...' : 'Enviar Pedido ao Director'}</Text>
             </TouchableOpacity>
           </View>
         </View>

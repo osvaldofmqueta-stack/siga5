@@ -2432,6 +2432,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // ISENÇÕES DE MULTA
+  // -----------------------
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.multa_isencoes (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "alunoId" varchar NOT NULL,
+        "solicitadoPor" text NOT NULL DEFAULT '',
+        "justificativa" text NOT NULL DEFAULT '',
+        status text NOT NULL DEFAULT 'pendente',
+        "aprovadoPor" text,
+        "createdAt" timestamptz NOT NULL DEFAULT NOW(),
+        "updatedAt" timestamptz
+      )
+    `, []);
+  } catch { }
+
+  app.get("/api/multa-isencoes", requireAuth, async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.multa_isencoes ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
+  app.post("/api/multa-isencoes", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.multa_isencoes ("alunoId","solicitadoPor","justificativa",status,"createdAt")
+         VALUES ($1,$2,$3,'pendente',NOW()) RETURNING *`,
+        [b.alunoId, b.solicitadoPor, b.justificativa],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/multa-isencoes/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `UPDATE public.multa_isencoes SET status=$1,"aprovadoPor"=$2,"updatedAt"=NOW() WHERE id=$3 RETURNING *`,
+        [b.status, b.aprovadoPor ?? null, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/multa-isencoes/:id", requireAuth, async (req: Request, res: Response) => {
+    const { id } = req.params;
+    await query(`DELETE FROM public.multa_isencoes WHERE id=$1`, [id]);
+    json(res, 200, { ok: true });
+  });
+
+  // -----------------------
   // NOTIFICAÇÕES
   // -----------------------
   app.get("/api/notificacoes", async (_req: Request, res: Response) => {
