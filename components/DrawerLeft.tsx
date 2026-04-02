@@ -510,9 +510,13 @@ export default function DrawerLeft() {
       <>
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.schoolBadge}>
+          <TouchableOpacity
+            style={styles.schoolBadge}
+            onPress={() => navigate('/(main)/dashboard')}
+            activeOpacity={0.75}
+          >
             <Ionicons name="school" size={22} color={Colors.gold} />
-          </View>
+          </TouchableOpacity>
           <View style={styles.headerText}>
             <Text style={styles.schoolName} numberOfLines={2}>{user?.escola ?? 'SGAA Angola'}</Text>
             <Text style={styles.anoLetivo}>
