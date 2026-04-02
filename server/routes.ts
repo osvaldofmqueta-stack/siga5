@@ -725,9 +725,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
+  // ─── Permissões automáticas do Director de Turma ─────────────────────────────
+  const DIRECTOR_TURMA_PERMS = [
+    // Base professor
+    'professor_hub', 'professor_turmas', 'professor_pauta', 'professor_sumario',
+    'professor_mensagens', 'professor_materiais',
+    'biblioteca', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
+    'horario', 'notificacoes', 'chat_interno', 'eventos',
+    // Extra por ser Director de Turma
+    'alunos', 'presencas', 'notas', 'exclusoes_faltas',
+    'pedagogico', 'editor_documentos', 'relatorios', 'boletim_matricula',
+    'turmas', 'salas',
+  ];
+  const DIRECTOR_TURMA_EXTRA_PERMS = [
+    'alunos', 'presencas', 'notas', 'exclusoes_faltas',
+    'pedagogico', 'editor_documentos', 'relatorios', 'boletim_matricula',
+    'turmas', 'salas',
+  ];
+
+  async function atribuirPermissoesDirector(professorId: string) {
+    try {
+      const profRows = await query<JsonObject>(
+        `SELECT "utilizadorId" FROM public.professores WHERE id=$1`, [professorId]
+      );
+      const utilizadorId = profRows[0]?.utilizadorId as string | null;
+      if (!utilizadorId) return;
+      const permRows = await query<JsonObject>(
+        `SELECT permissoes FROM public.user_permissions WHERE user_id=$1`, [utilizadorId]
+      );
+      const current = (permRows[0]?.permissoes as Record<string, boolean>) || {};
+      const merged: Record<string, boolean> = { ...current };
+      for (const p of DIRECTOR_TURMA_PERMS) merged[p] = true;
+      await query(
+        `INSERT INTO public.user_permissions (id, user_id, permissoes, atualizado_em)
+         VALUES (gen_random_uuid(),$1,$2::jsonb,NOW())
+         ON CONFLICT (user_id) DO UPDATE SET permissoes=$2::jsonb, atualizado_em=NOW()`,
+        [utilizadorId, JSON.stringify(merged)]
+      );
+    } catch { /* non-critical */ }
+  }
+
+  async function revogarPermissoesDirector(professorId: string) {
+    try {
+      // Only revoke if no longer director of ANY turma
+      const still = await query<JsonObject>(
+        `SELECT id FROM public.turmas WHERE "professorId"=$1 LIMIT 1`, [professorId]
+      );
+      if (still.length > 0) return;
+      const profRows = await query<JsonObject>(
+        `SELECT "utilizadorId" FROM public.professores WHERE id=$1`, [professorId]
+      );
+      const utilizadorId = profRows[0]?.utilizadorId as string | null;
+      if (!utilizadorId) return;
+      const permRows = await query<JsonObject>(
+        `SELECT permissoes FROM public.user_permissions WHERE user_id=$1`, [utilizadorId]
+      );
+      if (!permRows[0]) return;
+      const current = (permRows[0].permissoes as Record<string, boolean>) || {};
+      const updated: Record<string, boolean> = { ...current };
+      for (const p of DIRECTOR_TURMA_EXTRA_PERMS) updated[p] = false;
+      await query(
+        `UPDATE public.user_permissions SET permissoes=$1::jsonb, atualizado_em=NOW() WHERE user_id=$2`,
+        [JSON.stringify(updated), utilizadorId]
+      );
+    } catch { /* non-critical */ }
+  }
+  // ─────────────────────────────────────────────────────────────────────────────
+
   app.post("/api/turmas", requireAuth, requirePermission("turmas"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      if (!b.professorId) return json(res, 400, { error: 'O Director de Turma é obrigatório.' });
       const rows = await query<JsonObject>(
         `INSERT INTO public.turmas (
           id, "nome", "classe", "turno", "anoLetivo", "nivel",
@@ -742,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.turno,
           b.anoLetivo,
           b.nivel,
-          b.professorId || null,
+          b.professorId,
           JSON.stringify(Array.isArray(b.professoresIds) ? b.professoresIds : []),
           b.sala,
           b.capacidade,
@@ -750,6 +818,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.cursoId ?? null,
         ],
       );
+      // Atribuir permissões ao Director de Turma
+      await atribuirPermissoesDirector(b.professorId as string);
       json(res, 201, rows[0]);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
