@@ -2059,25 +2059,35 @@ export default function PortalEstudanteScreen() {
         </View>
       </View>
 
-      {/* Tab Bar */}
-      <View style={styles.tabBarWrapper}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
+      {/* Section Navigator */}
+      <View style={styles.sectionNavWrapper}>
+        <View style={styles.sectionNavGrid}>
           {TABS.map(tab => {
             const isActive = activeTab === tab.key;
             const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
             return (
               <TouchableOpacity
                 key={tab.key}
-                style={[styles.tabBtn, isActive && styles.tabBtnActive]}
+                style={[styles.sectionNavItem, isActive && styles.sectionNavItemActive]}
                 onPress={() => setActiveTab(tab.key)}
+                activeOpacity={0.7}
               >
-                <Ionicons name={tab.icon as any} size={16} color={isActive ? Colors.gold : Colors.textMuted} />
-                <Text style={[styles.tabBtnText, isActive && styles.tabBtnTextActive]}>{tab.label}</Text>
-                {hasBadge && <View style={styles.tabBadge}><Text style={styles.tabBadgeText}>{unreadMsgs}</Text></View>}
+                <View style={[styles.sectionNavIconWrap, isActive && styles.sectionNavIconWrapActive]}>
+                  <Ionicons name={tab.icon as any} size={19} color={isActive ? Colors.gold : Colors.textMuted} />
+                  {hasBadge && (
+                    <View style={styles.sectionNavBadge}>
+                      <Text style={styles.sectionNavBadgeText}>{unreadMsgs}</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.sectionNavLabel, isActive && styles.sectionNavLabelActive]} numberOfLines={1}>
+                  {tab.label}
+                </Text>
+                {isActive && <View style={styles.sectionNavActiveLine} />}
               </TouchableOpacity>
             );
           })}
-        </ScrollView>
+        </View>
       </View>
 
       {/* Content */}
@@ -2162,23 +2172,43 @@ const styles = StyleSheet.create({
   profileMat: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
   profileBadgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
 
-  tabBarWrapper: { backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tabBar: {},
-  tabBarContent: { paddingHorizontal: 12, paddingVertical: 8, gap: 6 },
-  tabBtn: {
+  sectionNavWrapper: {
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  sectionNavGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  sectionNavItem: {
+    width: '33.333%',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: Colors.surface + '66',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    borderRadius: 12,
+    gap: 4,
     position: 'relative',
   },
-  tabBtnActive: { backgroundColor: Colors.gold + '22', borderWidth: 1, borderColor: Colors.gold + '55' },
-  tabBtnText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-  tabBtnTextActive: { color: Colors.gold, fontFamily: 'Inter_700Bold' },
-  tabBadge: {
+  sectionNavItemActive: {
+    backgroundColor: Colors.gold + '14',
+  },
+  sectionNavIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.border + '66',
+    position: 'relative',
+  },
+  sectionNavIconWrapActive: {
+    backgroundColor: Colors.gold + '22',
+  },
+  sectionNavBadge: {
     position: 'absolute',
     top: -4,
     right: -4,
@@ -2190,7 +2220,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
-  tabBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+  sectionNavBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+  sectionNavLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
+  sectionNavLabelActive: { color: Colors.gold, fontFamily: 'Inter_700Bold' },
+  sectionNavActiveLine: {
+    position: 'absolute',
+    bottom: 0,
+    left: '20%',
+    right: '20%',
+    height: 2,
+    backgroundColor: Colors.gold,
+    borderRadius: 1,
+  },
 
   content: { flex: 1 },
   tabContent: { padding: 16, paddingBottom: 32 },

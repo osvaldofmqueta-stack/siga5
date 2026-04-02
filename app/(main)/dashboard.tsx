@@ -473,10 +473,10 @@ export default function DashboardScreen() {
               <SectionTitle label="Acesso Rápido" color={Colors.primaryLight} />
               <QuickActions actions={[
                 { label: 'Meu Portal', icon: 'grid', route: '/(main)/portal-estudante', color: Colors.gold },
-                { label: 'Minhas Notas', icon: 'document-text', route: '/(main)/portal-estudante', color: Colors.success },
-                { label: 'Horário', icon: 'time', route: '/(main)/portal-estudante', color: Colors.info },
+                { label: 'Horário', icon: 'time', route: '/(main)/horario', color: Colors.info },
                 { label: 'Mensagens', icon: 'chatbubbles', route: '/(main)/portal-estudante', color: Colors.accent },
                 { label: 'Financeiro', icon: 'cash', route: '/(main)/portal-estudante', color: Colors.warning },
+                { label: 'Histórico', icon: 'bar-chart', route: '/(main)/historico', color: Colors.success },
                 { label: 'Documentos', icon: 'library', route: '/(main)/portal-estudante', color: '#8B5CF6' },
               ]} />
             </View>
