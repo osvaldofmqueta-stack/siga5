@@ -284,11 +284,13 @@ function setupWebProxy(app: express.Application) {
         host: `localhost:${EXPO_WEB_PORT}`,
       },
       on: {
-        proxyRes: responseInterceptor(async (responseBuffer, proxyRes) => {
+        proxyRes: responseInterceptor(async (responseBuffer, proxyRes, _req, res) => {
           const contentType = proxyRes.headers["content-type"] || "";
           if (!contentType.includes("text/html")) {
             return responseBuffer;
           }
+          (res as Response).setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+          (res as Response).setHeader("Pragma", "no-cache");
           const html = responseBuffer.toString("utf-8");
           return injectPwaTags(html);
         }),
