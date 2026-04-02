@@ -176,7 +176,12 @@ export default function PortalEstudanteScreen() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
 
-  const aluno = alunos.find(a => a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || ''));
+  const aluno = alunos.find(a =>
+    (user?.alunoId && a.id === user.alunoId) ||
+    (a.utilizadorId && user?.id && a.utilizadorId === user.id)
+  ) ?? alunos.find(a =>
+    a.nome.toLowerCase().includes(user?.nome?.split(' ')[0]?.toLowerCase() || '')
+  );
   const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
   const anoLetivo = anoSelecionado?.ano || new Date().getFullYear().toString();
 

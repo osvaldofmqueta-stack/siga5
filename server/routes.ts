@@ -59,6 +59,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] professores utilizadorId:', (migErr as Error).message);
   }
 
+  // Add utilizadorId column to alunos (links aluno record → user account)
+  try {
+    await query(`ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
+    console.log('[migration] alunos.utilizadorId ensured.');
+  } catch (migErr) {
+    console.warn('[migration] alunos utilizadorId:', (migErr as Error).message);
+  }
+
+  // Auto-link existing aluno users: if utilizadores has alunoId set, update alunos.utilizadorId
+  try {
+    await query(
+      `UPDATE public.alunos a
+       SET "utilizadorId" = u.id
+       FROM public.utilizadores u
+       WHERE u."alunoId" = a.id
+         AND u.role = 'aluno'
+         AND (a."utilizadorId" IS NULL OR a."utilizadorId" = '')`,
+      []
+    );
+    console.log('[migration] alunos.utilizadorId auto-linked from utilizadores.');
+  } catch (migErr) {
+    console.warn('[migration] alunos auto-link:', (migErr as Error).message);
+  }
+
   // Auto-create professor records for any utilizadores with role='professor' that don't have one yet
   try {
     const orphanUsers = await query<JsonObject>(
@@ -328,9 +352,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${u.email}`,
         ipAddress: ip, userAgent: ua,
       }).catch(() => {});
+
+      let alunoId: string | null = null;
+      if (String(u.role) === 'aluno') {
+        const alunoRows = await query<JsonObject>(
+          `SELECT id FROM public.alunos WHERE "utilizadorId" = $1 LIMIT 1`,
+          [String(u.id)]
+        );
+        if (alunoRows[0]) alunoId = String(alunoRows[0].id);
+      }
+
       return json(res, 200, {
         token,
-        user: { id: u.id, nome: u.nome, email: u.email, role: u.role, escola: u.escola ?? "" },
+        user: {
+          id: u.id,
+          nome: u.nome,
+          email: u.email,
+          role: u.role,
+          escola: u.escola ?? "",
+          ...(alunoId ? { alunoId } : {}),
+        },
       });
     } catch (e: unknown) {
       return json(res, 500, { error: String(e) });
@@ -1499,6 +1540,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Auto-link aluno record when role is 'aluno' and alunoId is provided
+      if (newUser && newUser.role === 'aluno' && newUser.alunoId) {
+        try {
+          await query<JsonObject>(
+            `UPDATE public.alunos SET "utilizadorId" = $1 WHERE id = $2`,
+            [newUser.id, newUser.alunoId]
+          );
+          console.log(`[utilizadores] linked aluno ${newUser.alunoId} to user ${newUser.id}`);
+        } catch (alunoErr) {
+          console.warn('[utilizadores] auto-link aluno record failed:', (alunoErr as Error).message);
+        }
+      }
+
       json(res, 201, newUser);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
@@ -1527,7 +1581,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!setParts.length) return json(res, 400, { error: "No fields." });
       const rows = await query<JsonObject>(`UPDATE public.utilizadores SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
       if (!rows[0]) return json(res, 404, { error: "Not found." });
-      json(res, 200, rows[0]);
+      const updatedUser = rows[0] as any;
+      // Auto-link aluno record when alunoId is set and role is 'aluno'
+      if (updatedUser.role === 'aluno' && updatedUser.alunoId) {
+        try {
+          await query<JsonObject>(
+            `UPDATE public.alunos SET "utilizadorId" = $1 WHERE id = $2`,
+            [updatedUser.id, updatedUser.alunoId]
+          );
+        } catch (alunoErr) {
+          console.warn('[utilizadores] auto-link aluno on update failed:', (alunoErr as Error).message);
+        }
+      }
+      json(res, 200, updatedUser);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 

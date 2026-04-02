@@ -20,6 +20,7 @@ export interface Aluno {
   ativo: boolean;
   foto?: string;
   createdAt: string;
+  utilizadorId?: string;
 }
 
 export interface Professor {

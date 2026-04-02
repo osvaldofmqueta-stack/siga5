@@ -11,6 +11,7 @@ export interface AuthUser {
   escola: string;
   avatar?: string;
   biometricEnabled: boolean;
+  alunoId?: string;
 }
 
 interface AuthContextValue {
