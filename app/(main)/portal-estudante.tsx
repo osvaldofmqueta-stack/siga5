@@ -2059,36 +2059,67 @@ export default function PortalEstudanteScreen() {
         </View>
       </View>
 
-      {/* Section Navigator */}
-      <View style={styles.sectionNavWrapper}>
-        <View style={styles.sectionNavGrid}>
-          {TABS.map(tab => {
-            const isActive = activeTab === tab.key;
-            const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
-            return (
-              <TouchableOpacity
-                key={tab.key}
-                style={[styles.sectionNavItem, isActive && styles.sectionNavItemActive]}
-                onPress={() => setActiveTab(tab.key)}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.sectionNavIconWrap, isActive && styles.sectionNavIconWrapActive]}>
-                  <Ionicons name={tab.icon as any} size={19} color={isActive ? Colors.gold : Colors.textMuted} />
-                  {hasBadge && (
-                    <View style={styles.sectionNavBadge}>
-                      <Text style={styles.sectionNavBadgeText}>{unreadMsgs}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={[styles.sectionNavLabel, isActive && styles.sectionNavLabelActive]} numberOfLines={1}>
-                  {tab.label}
-                </Text>
-                {isActive && <View style={styles.sectionNavActiveLine} />}
-              </TouchableOpacity>
-            );
-          })}
+      {/* Section Navigator — grelha completa só no Painel, barra compacta nas restantes */}
+      {activeTab === 'painel' ? (
+        <View style={styles.sectionNavWrapper}>
+          <View style={styles.sectionNavGrid}>
+            {TABS.filter(t => t.key !== 'painel').map(tab => {
+              const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={styles.sectionNavItem}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sectionNavIconWrap}>
+                    <Ionicons name={tab.icon as any} size={20} color={Colors.textSecondary} />
+                    {hasBadge && (
+                      <View style={styles.sectionNavBadge}>
+                        <Text style={styles.sectionNavBadgeText}>{unreadMsgs}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.sectionNavLabel} numberOfLines={1}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
+      ) : (
+        <View style={styles.sectionBarCompact}>
+          <TouchableOpacity
+            style={styles.sectionBarBack}
+            onPress={() => setActiveTab('painel')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={18} color={Colors.gold} />
+            <Text style={styles.sectionBarBackText}>Painel</Text>
+          </TouchableOpacity>
+          <View style={styles.sectionBarCurrent}>
+            {(() => {
+              const t = TABS.find(t => t.key === activeTab)!;
+              return (
+                <>
+                  <Ionicons name={t.icon as any} size={15} color={Colors.gold} />
+                  <Text style={styles.sectionBarCurrentText}>{t.label}</Text>
+                </>
+              );
+            })()}
+          </View>
+          <View style={styles.sectionBarDots}>
+            {TABS.filter(t => t.key !== 'painel').map(t => (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.sectionBarDot, activeTab === t.key && styles.sectionBarDotActive]}
+                onPress={() => setActiveTab(t.key)}
+                activeOpacity={0.7}
+                hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
+              />
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Content */}
       <View style={[styles.content, { paddingBottom: bottomInset }]}>
@@ -2231,6 +2262,61 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: Colors.gold,
     borderRadius: 1,
+  },
+
+  sectionBarCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  sectionBarBack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: Colors.gold + '18',
+    borderWidth: 1,
+    borderColor: Colors.gold + '33',
+  },
+  sectionBarBackText: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    color: Colors.gold,
+  },
+  sectionBarCurrent: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+  },
+  sectionBarCurrentText: {
+    fontSize: 14,
+    fontFamily: 'Inter_700Bold',
+    color: Colors.text,
+  },
+  sectionBarDots: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  sectionBarDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.border,
+  },
+  sectionBarDotActive: {
+    width: 16,
+    backgroundColor: Colors.gold,
+    borderRadius: 3,
   },
 
   content: { flex: 1 },
