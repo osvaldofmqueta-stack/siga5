@@ -582,7 +582,7 @@ export default function LoginScreen() {
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Autentique-se para aceder ao SIGE',
+        promptMessage: 'Autentique-se para aceder ao QUETA',
         cancelLabel: 'Cancelar',
         fallbackLabel: 'Usar código',
         disableDeviceFallback: false,
@@ -812,7 +812,7 @@ export default function LoginScreen() {
         </View>
         <View style={styles.cardHeaderTexts}>
           <Text style={styles.cardTitle}>Iniciar Sessão</Text>
-          <Text style={styles.cardSubtitle}>Credenciais institucionais SIGE</Text>
+          <Text style={styles.cardSubtitle}>Credenciais institucionais QUETA</Text>
         </View>
       </View>
 
@@ -1037,7 +1037,7 @@ export default function LoginScreen() {
         <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
         <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
       </View>
-      <Text style={styles.footerText}>Desenvolvido por Isaias Osvaldo & Gemima Delfina  ·  SIGE v1.0</Text>
+      <Text style={styles.footerText}>QUETA, School Completo</Text>
       <Text style={styles.footerSub}>Isaias Osvaldo & Gemima Delfina - Queta</Text>
     </Animated.View>
   );
@@ -1099,7 +1099,7 @@ export default function LoginScreen() {
 
         <View style={styles.desktopRow}>
           <Animated.View style={[styles.desktopLeft, { opacity: logoOpacity }]}>
-            <Text style={styles.desktopBrandTitle}>Sistema Integral de{'\n'}Gestão Escolar</Text>
+            <Text style={styles.desktopBrandTitle}>QUETA,{'\n'}School Completo</Text>
             <Text style={styles.desktopBrandSub}>Solução completa para escolas angolanas — do processo de inscrição ao controlo financeiro e académico.</Text>
 
             <CyclingFeatures />
@@ -1109,7 +1109,7 @@ export default function LoginScreen() {
                 <View style={[styles.angolaStripe, { backgroundColor: '#CC0000' }]} />
                 <View style={[styles.angolaStripe, { backgroundColor: '#000000' }]} />
               </View>
-              <Text style={styles.footerText}>Desenvolvido por Isaias Osvaldo & Gemima Delfina  ·  SIGE v1.0</Text>
+              <Text style={styles.footerText}>QUETA, School Completo</Text>
             </View>
           </Animated.View>
 

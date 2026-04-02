@@ -202,7 +202,7 @@ export default function WelcomeModal({ visible, user, onFinish }: WelcomeModalPr
               <View style={[styles.angolaBar, { backgroundColor: '#CC0000' }]} />
               <View style={[styles.angolaBar, { backgroundColor: '#000' }]} />
             </View>
-            <Text style={styles.footerText}>SIGE · Sistema Integral de Gestão Escolar</Text>
+            <Text style={styles.footerText}>QUETA · School Completo</Text>
           </View>
         </Animated.View>
       </Animated.View>

@@ -9,12 +9,12 @@ const origin = REPLIT_DOMAINS
 
 module.exports = {
   expo: {
-    name: "SGAA Angola",
-    slug: "sgaa-angola",
+    name: "QUETA School Completo",
+    slug: "queta-school",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "sgaa",
+    scheme: "queta",
     userInterfaceStyle: "dark",
     newArchEnabled: true,
     splash: {

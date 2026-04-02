@@ -202,7 +202,7 @@ export default function SessionTimeoutModal({
           <View style={styles.footer}>
             <View style={styles.securityBadge}>
               <Ionicons name="shield-checkmark" size={12} color={Colors.textMuted} />
-              <Text style={styles.securityText}>SIGE · Protecção de Dados</Text>
+              <Text style={styles.securityText}>QUETA · Protecção de Dados</Text>
             </View>
           </View>
         </Animated.View>

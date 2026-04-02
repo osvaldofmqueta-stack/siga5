@@ -1,7 +1,7 @@
 {
-  "name": "SIGA - Sistema Integrado de Gestão Académica",
-  "short_name": "SIGA",
-  "description": "Plataforma digital para a gestão académica e administrativa das escolas angolanas.",
+  "name": "QUETA, School Completo",
+  "short_name": "QUETA",
+  "description": "Plataforma digital completa para a gestão académica e administrativa das escolas angolanas.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

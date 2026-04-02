@@ -83,7 +83,7 @@ const DEFAULT_IRT: IrtEscalao[] = [
 ];
 
 const DEFAULT_CONFIG: ConfigGeral = {
-  nomeEscola: 'Escola SIGA',
+  nomeEscola: 'Escola QUETA',
   propinaHabilitada: true,
   pp1Habilitado: true,
   pptHabilitado: true,
