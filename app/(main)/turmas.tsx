@@ -205,17 +205,6 @@ function DirectorSelector({ professores, professoresIds, nivel, value, onChange 
       {expanded && (
         <View style={mS.directorDropdown}>
           <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-            <TouchableOpacity
-              style={[mS.directorOption, !value && mS.directorOptionActive]}
-              onPress={() => { onChange(''); setExpanded(false); }}
-            >
-              <View style={[mS.directorOptionAvatar, { backgroundColor: `${Colors.textMuted}15` }]}>
-                <Ionicons name="close-circle-outline" size={14} color={Colors.textMuted} />
-              </View>
-              <Text style={[mS.directorOptionName, !value && { color: Colors.goldLight }]}>Nenhum (por agora)</Text>
-              {!value && <Ionicons name="checkmark-circle" size={16} color={Colors.gold} />}
-            </TouchableOpacity>
-
             {candidatos.map((p: any) => {
               const isActive = value === p.id;
               return (
@@ -297,6 +286,10 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
     }
     if (!form.sala) {
       webAlert('Sala obrigatória', 'Seleccione uma sala para a turma.');
+      return;
+    }
+    if (!form.professorId) {
+      webAlert('Director obrigatório', 'Seleccione primeiro os professores da turma e nomeie o Director de Turma. Uma turma não pode ser criada sem Director.');
       return;
     }
     onSave(form);
@@ -444,11 +437,11 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
                 </View>
                 <Text style={mS.fieldLabel}>
                   Director de Turma{' '}
-                  <Text style={{ color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>(opcional)</Text>
+                  <Text style={{ color: Colors.danger, fontFamily: 'Inter_600SemiBold' }}>*</Text>
                 </Text>
               </View>
               <Text style={mS.sectionHint}>
-                Entre os professores acima seleccionados, nomeie um Director. O Director recebe permissões adicionais: gestão disciplinar, comunicação com encarregados e coordenação pedagógica da turma.
+                Obrigatório. Entre os professores acima seleccionados, nomeie um Director. O Director recebe permissões adicionais: gestão disciplinar, comunicação com encarregados e coordenação pedagógica da turma.
               </Text>
               <DirectorSelector
                 professores={professores}

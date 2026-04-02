@@ -831,6 +831,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const b = requireBodyObject(req);
 
+      // Fetch existing turma to compare director
+      const existing = await query<JsonObject>(
+        `SELECT "professorId" FROM public.turmas WHERE id=$1`, [id]
+      );
+      if (!existing[0]) return json(res, 404, { error: "Turma não encontrada." });
+      const oldProfessorId = existing[0].professorId as string | null;
+
+      // If professorId is being updated, it cannot be cleared
+      if ('professorId' in b && (!b.professorId || b.professorId === '')) {
+        return json(res, 400, { error: 'O Director de Turma é obrigatório. Uma turma não pode ficar sem Director.' });
+      }
+
       const allowed = [
         "nome",
         "classe",
@@ -850,9 +862,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const values: unknown[] = [];
 
       for (const key of allowed) {
-        let v = b[key as keyof typeof b];
+        const v = b[key as keyof typeof b];
         if (v === undefined) continue;
-        if (key === 'professorId' && v === '') v = null;
         if (jsonbKeys.has(key)) {
           values.push(JSON.stringify(Array.isArray(v) ? v : []));
           setParts.push(`"${key}" = $${values.length}::jsonb`);
@@ -871,6 +882,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [...values, id],
       );
       if (!rows[0]) return json(res, 404, { error: "Not found." });
+
+      // Handle permission changes when director changes
+      const newProfessorId = (rows[0].professorId as string | null) || null;
+      if (newProfessorId && newProfessorId !== oldProfessorId) {
+        // Assign permissions to the new director
+        await atribuirPermissoesDirector(newProfessorId);
+        // Revoke from old director if changed
+        if (oldProfessorId && oldProfessorId !== newProfessorId) {
+          await revogarPermissoesDirector(oldProfessorId);
+        }
+      }
+
       json(res, 200, rows[0]);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
