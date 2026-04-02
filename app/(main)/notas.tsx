@@ -165,6 +165,23 @@ function NotaFormModal({
   const isEditingExisting = effectiveNota !== null;
   const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvaliacoes);
 
+  const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
+
+  const makeEmpty = (): Partial<Nota> => ({
+    alunoId: alunos[0]?.id || '',
+    turmaId: '',
+    disciplina: disciplinas[0] || '',
+    trimestre,
+    aval1: 0, aval2: 0, aval3: 0, aval4: 0, aval5: 0, aval6: 0, aval7: 0, aval8: 0,
+    mac1: 0, pp1: 0, ppt: 0, mt1: 0, nf: 0, mac: 0,
+    anoLetivo: new Date().getFullYear().toString(),
+    professorId,
+    data: new Date().toISOString().split('T')[0],
+    lancamentos: buildEmptyLanc(),
+  });
+
+  const [form, setForm] = useState<Partial<Nota>>(nota ? { ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() } : makeEmpty());
+
   // Reabertura de campos bloqueados
   const [reaberturaModal, setReaberturaModal] = useState<{ campo: string; label: string } | null>(null);
   const [reaberturaMotivo, setReaberturaMotivo] = useState('');
@@ -214,23 +231,6 @@ function NotaFormModal({
       setIsSubmittingRea(false);
     }
   }
-
-  const [selectedTurmaId, setSelectedTurmaId] = useState<string>(nota?.turmaId || turmas[0]?.id || '');
-
-  const makeEmpty = (): Partial<Nota> => ({
-    alunoId: alunos[0]?.id || '',
-    turmaId: '',
-    disciplina: disciplinas[0] || '',
-    trimestre,
-    aval1: 0, aval2: 0, aval3: 0, aval4: 0, aval5: 0, aval6: 0, aval7: 0, aval8: 0,
-    mac1: 0, pp1: 0, ppt: 0, mt1: 0, nf: 0, mac: 0,
-    anoLetivo: new Date().getFullYear().toString(),
-    professorId,
-    data: new Date().toISOString().split('T')[0],
-    lancamentos: buildEmptyLanc(),
-  });
-
-  const [form, setForm] = useState<Partial<Nota>>(nota ? { ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() } : makeEmpty());
 
   const set = (k: keyof Nota, v: any) => setForm(f => {
     const next = { ...f, [k]: v };
