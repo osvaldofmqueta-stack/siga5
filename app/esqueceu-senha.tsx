@@ -34,7 +34,20 @@ export default function EsqueceuSenhaScreen() {
   useEffect(() => {
     fetch('/api/public/inscricoes-status')
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.abertas) setInscricoesAbertas(true); })
+      .then(data => {
+        if (!data?.abertas) return;
+        const parsePT = (s: string | null) => {
+          if (!s) return null;
+          const [d, m, y] = s.split('/').map(Number);
+          return d && m && y ? new Date(y, m - 1, d) : null;
+        };
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        const fim = parsePT(data.dataFim ?? null);
+        const ini = parsePT(data.dataInicio ?? null);
+        if (fim && hoje > fim) return;
+        if (ini && hoje < ini) return;
+        setInscricoesAbertas(true);
+      })
       .catch(() => {});
   }, []);
 

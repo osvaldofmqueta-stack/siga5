@@ -347,9 +347,26 @@ export default function LoginScreen() {
       const res = await fetch('/api/public/inscricoes-status');
       if (res.ok) {
         const data = await res.json();
-        setInscricoesAbertas(!!data.abertas);
-        setInscricaoDataInicio(data.dataInicio ?? null);
-        setInscricaoDataFim(data.dataFim ?? null);
+        const dataInicio = data.dataInicio ?? null;
+        const dataFim = data.dataFim ?? null;
+        setInscricaoDataInicio(dataInicio);
+        setInscricaoDataFim(dataFim);
+        // Enrollment is only truly open if the flag is on AND
+        // today is within the configured date range (if dates are set)
+        let dentroDoPeríodo = !!data.abertas;
+        if (dentroDoPeríodo && (dataInicio || dataFim)) {
+          const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+          const parsePT = (s: string | null) => {
+            if (!s) return null;
+            const [d, m, y] = s.split('/').map(Number);
+            return d && m && y ? new Date(y, m - 1, d) : null;
+          };
+          const fim = parsePT(dataFim);
+          const ini = parsePT(dataInicio);
+          if (fim && hoje > fim) dentroDoPeríodo = false;
+          if (ini && hoje < ini) dentroDoPeríodo = false;
+        }
+        setInscricoesAbertas(dentroDoPeríodo);
       }
     } catch { /* network silencioso */ }
 
@@ -844,6 +861,7 @@ export default function LoginScreen() {
   }
 
   const countdown = calcularDiasRestantes(inscricaoDataFim, inscricaoDataInicio);
+  const mostrarCardInscricao = inscricoesAbertas || !!(inscricaoDataInicio || inscricaoDataFim);
 
   const registerCard = (
     <Animated.View style={[styles.registerSection, { opacity: fadeAnim }]}>
@@ -874,14 +892,21 @@ export default function LoginScreen() {
             )}
           </View>
         </View>
-        <TouchableOpacity
-          style={styles.registerBtn}
-          onPress={() => router.push('/registro' as any)}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.registerBtnText}>Inscrição</Text>
-          <Ionicons name="arrow-forward" size={13} color="#3498DB" />
-        </TouchableOpacity>
+        {inscricoesAbertas ? (
+          <TouchableOpacity
+            style={styles.registerBtn}
+            onPress={() => router.push('/registro' as any)}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.registerBtnText}>Inscrição</Text>
+            <Ionicons name="arrow-forward" size={13} color="#3498DB" />
+          </TouchableOpacity>
+        ) : (
+          <View style={[styles.registerBtn, { backgroundColor: '#EF444418', borderColor: '#EF444444', borderWidth: 1, opacity: 0.7 }]}>
+            <Ionicons name="lock-closed" size={12} color="#EF4444" />
+            <Text style={[styles.registerBtnText, { color: '#EF4444', marginLeft: 4 }]}>Encerrado</Text>
+          </View>
+        )}
       </View>
       <TouchableOpacity
         style={styles.provisorioBtn}
@@ -999,7 +1024,7 @@ export default function LoginScreen() {
               showsVerticalScrollIndicator={false}
             >
               {formCard}
-              {inscricoesAbertas && registerCard}
+              {mostrarCardInscricao && registerCard}
             </ScrollView>
           </View>
         </View>
@@ -1040,7 +1065,7 @@ export default function LoginScreen() {
           </Animated.View>
 
           {showBiometricWelcome ? biometricWelcomeScreen : formCard}
-          {!showBiometricWelcome && inscricoesAbertas && registerCard}
+          {!showBiometricWelcome && mostrarCardInscricao && registerCard}
           {footerView}
         </ScrollView>
       </KeyboardAvoidingView>

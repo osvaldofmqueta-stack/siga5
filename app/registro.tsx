@@ -185,6 +185,18 @@ function CredenciaisModal({ visible, dados, onClose }: {
 export default function RegistroScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
+  useEffect(() => {
+    fetch('/api/public/inscricoes-status')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && !data.abertas) {
+          router.replace('/login' as any);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [isLoading, setIsLoading] = useState(false);
   const [step, setStep] = useState(1);
   const [errorMsg, setErrorMsg] = useState('');
