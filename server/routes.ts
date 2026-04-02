@@ -731,9 +731,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rows = await query<JsonObject>(
         `INSERT INTO public.turmas (
           id, "nome", "classe", "turno", "anoLetivo", "nivel",
-          "professorId", "sala", "capacidade", "ativo", "cursoId"
+          "professorId", "professoresIds", "sala", "capacidade", "ativo", "cursoId"
         ) VALUES (
-          $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+          $1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12
         ) RETURNING *`,
         [
           b.id,
@@ -743,6 +743,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.anoLetivo,
           b.nivel,
           b.professorId || null,
+          JSON.stringify(Array.isArray(b.professoresIds) ? b.professoresIds : []),
           b.sala,
           b.capacidade,
           b.ativo,
@@ -767,12 +768,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "anoLetivo",
         "nivel",
         "professorId",
+        "professoresIds",
         "sala",
         "capacidade",
         "ativo",
         "cursoId",
       ] as const;
 
+      const jsonbKeys = new Set(["professoresIds"]);
       const setParts: string[] = [];
       const values: unknown[] = [];
 
@@ -780,6 +783,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         let v = b[key as keyof typeof b];
         if (v === undefined) continue;
         if (key === 'professorId' && v === '') v = null;
+        if (jsonbKeys.has(key)) {
+          values.push(JSON.stringify(Array.isArray(v) ? v : []));
+          setParts.push(`"${key}" = $${values.length}::jsonb`);
+          continue;
+        }
         values.push(v);
         setParts.push(`"${key}" = $${values.length}`);
       }

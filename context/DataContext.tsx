@@ -45,6 +45,7 @@ export interface Turma {
   anoLetivo: string;
   nivel: 'Primário' | 'I Ciclo' | 'II Ciclo';
   professorId: string;
+  professoresIds: string[];
   sala: string;
   capacidade: number;
   ativo: boolean;

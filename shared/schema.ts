@@ -372,6 +372,8 @@ export const turmas = pgTable("turmas", {
   professorId: varchar("professorId")
     .references(() => professores.id),
 
+  professoresIds: jsonb("professoresIds").notNull().default(sql`'[]'::jsonb`),
+
   cursoId: varchar("cursoId").references(() => cursos.id),
 
   sala: text("sala").notNull(),
