@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
   Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
@@ -277,6 +277,117 @@ const authLoadStyles = StyleSheet.create({
     fontFamily: 'Inter_500Medium',
     color: 'rgba(255,255,255,0.6)',
     lineHeight: 16,
+  },
+});
+
+const ALL_FEATURES = [
+  { icon: 'people-outline',           text: 'Gestão de Alunos, Turmas e Matrículas' },
+  { icon: 'school-outline',           text: 'Pautas, Notas e Controlo de Presenças' },
+  { icon: 'qr-code-outline',          text: 'Registo de Presenças por QR Code' },
+  { icon: 'cash-outline',             text: 'Propinas, Multas, RUPE e Isenções' },
+  { icon: 'receipt-outline',          text: 'Folha Salarial, IRT e INSS (RH)' },
+  { icon: 'document-text-outline',    text: 'Boletins, Declarações e Documentos PDF' },
+  { icon: 'create-outline',           text: 'Editor de Documentos Oficiais' },
+  { icon: 'bar-chart-outline',        text: 'Relatórios e Exportação Excel' },
+  { icon: 'person-add-outline',       text: 'Inscrições Online de Novos Alunos' },
+  { icon: 'phone-portrait-outline',   text: 'Portal do Estudante e do Encarregado' },
+  { icon: 'globe-outline',            text: 'Integração com MED / SIGE Angola' },
+  { icon: 'chatbubbles-outline',      text: 'Chat Interno e Notificações Push' },
+  { icon: 'library-outline',          text: 'Biblioteca e Gestão de Recursos' },
+  { icon: 'calendar-outline',         text: 'Calendário Académico e Horários' },
+  { icon: 'shield-checkmark-outline', text: 'Controlo de Acessos por Perfil (12 Funções)' },
+  { icon: 'analytics-outline',        text: 'Auditoria, Supervisão e Relatórios CEO' },
+  { icon: 'star-outline',             text: 'Quadro de Honra e Avaliação de Professores' },
+  { icon: 'briefcase-outline',        text: 'Gestão de RH — Faltas, Férias e Contratos' },
+];
+
+const VISIBLE_COUNT = 5;
+const CYCLE_INTERVAL = 3000;
+
+function CyclingFeatures() {
+  const [offset, setOffset] = useState(0);
+  const fadeAnims = useRef(Array.from({ length: VISIBLE_COUNT }, () => new Animated.Value(1))).current;
+  const nd = Platform.OS !== 'web';
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const exitIdx = 0;
+      Animated.timing(fadeAnims[exitIdx], { toValue: 0, duration: 250, useNativeDriver: nd }).start(() => {
+        setOffset(prev => (prev + 1) % ALL_FEATURES.length);
+        fadeAnims[exitIdx].setValue(0);
+        Animated.timing(fadeAnims[exitIdx], { toValue: 1, duration: 350, useNativeDriver: nd }).start();
+      });
+    }, CYCLE_INTERVAL);
+    return () => clearInterval(timer);
+  }, []);
+
+  const visible = useMemo(() => {
+    return Array.from({ length: VISIBLE_COUNT }, (_, i) => ALL_FEATURES[(offset + i) % ALL_FEATURES.length]);
+  }, [offset]);
+
+  return (
+    <View style={cycleStyles.container}>
+      {visible.map((f, i) => (
+        <Animated.View key={`${offset}-${i}`} style={[cycleStyles.row, { opacity: i === 0 ? fadeAnims[0] : 1 }]}>
+          <View style={cycleStyles.iconWrap}>
+            <Ionicons name={f.icon as any} size={15} color={Colors.gold} />
+          </View>
+          <Text style={cycleStyles.text}>{f.text}</Text>
+        </Animated.View>
+      ))}
+      <View style={cycleStyles.dotsRow}>
+        {ALL_FEATURES.map((_, i) => (
+          <View
+            key={i}
+            style={[
+              cycleStyles.dot,
+              i >= offset && i < offset + VISIBLE_COUNT ? cycleStyles.dotActive : null,
+            ]}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const cycleStyles = StyleSheet.create({
+  container: { gap: 12, marginBottom: 40 },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+  },
+  iconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    backgroundColor: 'rgba(240,165,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  text: {
+    fontSize: 13,
+    fontFamily: 'Inter_500Medium',
+    color: 'rgba(255,255,255,0.65)',
+    flex: 1,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 4,
+  },
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  dotActive: {
+    backgroundColor: Colors.gold,
+    opacity: 0.75,
   },
 });
 
@@ -991,24 +1102,7 @@ export default function LoginScreen() {
             <Text style={styles.desktopBrandTitle}>Sistema Integral de{'\n'}Gestão Escolar</Text>
             <Text style={styles.desktopBrandSub}>Solução completa para escolas angolanas — do processo de inscrição ao controlo financeiro e académico.</Text>
 
-            <View style={styles.desktopFeatures}>
-              {[
-                { icon: 'people-outline',          text: 'Alunos, Turmas e Matrículas' },
-                { icon: 'school-outline',           text: 'Pautas, Notas e Controlo de Presenças' },
-                { icon: 'cash-outline',             text: 'Propinas, Multas, RUPE e Isenções' },
-                { icon: 'document-text-outline',    text: 'Declarações, Boletins e Documentos PDF' },
-                { icon: 'bar-chart-outline',        text: 'Relatórios e Exportação Excel' },
-                { icon: 'person-add-outline',       text: 'Inscrições Online de Novos Alunos' },
-                { icon: 'chatbubbles-outline',      text: 'Mensagens e Notificações às Famílias' },
-              ].map((f, i) => (
-                <View key={i} style={styles.desktopFeatureRow}>
-                  <View style={styles.desktopFeatureIcon}>
-                    <Ionicons name={f.icon as any} size={16} color={Colors.gold} />
-                  </View>
-                  <Text style={styles.desktopFeatureText}>{f.text}</Text>
-                </View>
-              ))}
-            </View>
+            <CyclingFeatures />
 
             <View style={styles.desktopLeftFooter}>
               <View style={styles.angolaBanner}>
