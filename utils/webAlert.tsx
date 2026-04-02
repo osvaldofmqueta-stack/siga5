@@ -1,6 +1,12 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform, Animated } from 'react-native';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { Colors } from '@/constants/colors';
+
+// react-dom is only available on web — import conditionally to avoid native errors
+let _createPortal: ((children: React.ReactNode, container: Element) => React.ReactNode) | null = null;
+if (Platform.OS === 'web') {
+  try { _createPortal = require('react-dom').createPortal; } catch {}
+}
 
 export interface AlertButton {
   text: string;
@@ -74,6 +80,62 @@ function AlertContent({
   );
 }
 
+// ─── Web Portal overlay (always on top via DOM portal) ──────────────────────
+function WebPortalAlert({
+  config,
+  onButton,
+}: {
+  config: AlertConfig | null;
+  onButton: (btn: AlertButton) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const div = document.createElement('div');
+    div.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:999999',
+      'display:flex',
+      'align-items:center',
+      'justify-content:center',
+      'padding:24px',
+      'background:rgba(0,0,0,0.72)',
+    ].join(';');
+    document.body.appendChild(div);
+    containerRef.current = div;
+    setMounted(true);
+    return () => {
+      document.body.removeChild(div);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.style.display = config ? 'flex' : 'none';
+    }
+  }, [config]);
+
+  if (!mounted || !containerRef.current || !config || !_createPortal) return null;
+
+  return _createPortal(
+    <TouchableOpacity
+      activeOpacity={1}
+      style={s.overlayInner}
+      onPress={() => {
+        const cancel = config.buttons.find(b => b.style === 'cancel');
+        if (cancel) onButton(cancel);
+      }}
+    >
+      <TouchableOpacity activeOpacity={1} onPress={() => {}}>
+        <AlertContent config={config} onButton={onButton} />
+      </TouchableOpacity>
+    </TouchableOpacity>,
+    containerRef.current
+  );
+}
+
 export function WebAlertProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<AlertConfig | null>(null);
 
@@ -90,17 +152,23 @@ export function WebAlertProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  if (Platform.OS === 'web') {
+    return (
+      <>
+        {children}
+        <WebPortalAlert config={config} onButton={handleButton} />
+      </>
+    );
+  }
+
   return (
     <>
       {children}
-
       <Modal
         visible={!!config}
         transparent
         animationType="fade"
         statusBarTranslucent
-        // @ts-ignore — web-only prop to force portal above other modals
-        style={Platform.OS === 'web' ? { zIndex: 99999 } : undefined}
       >
         <TouchableOpacity
           style={s.overlay}
@@ -128,6 +196,12 @@ const s = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
+  overlayInner: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  } as any,
   box: {
     backgroundColor: Colors.backgroundCard,
     borderRadius: 20,
