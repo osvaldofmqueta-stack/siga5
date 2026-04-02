@@ -59,6 +59,15 @@ export default function TopBar({ title, subtitle, rightAction }: TopBarProps) {
         </TouchableOpacity>
       )}
 
+      {/* Home button — always visible */}
+      <TouchableOpacity
+        style={styles.homeBtn}
+        onPress={() => router.push('/(main)/dashboard' as any)}
+        activeOpacity={0.75}
+      >
+        <Ionicons name="home" size={19} color={Colors.gold} />
+      </TouchableOpacity>
+
       <View style={styles.titleArea}>
         <Text style={[styles.title, isDesktop && styles.titleDesktop]} numberOfLines={1}>{title}</Text>
         <Text style={styles.subtitle} numberOfLines={1}>{greetingText}</Text>
@@ -127,6 +136,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+  },
+  homeBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(240,165,0,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(240,165,0,0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titleArea: {
     flex: 1,
