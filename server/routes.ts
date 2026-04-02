@@ -7108,6 +7108,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── BACKUP & EXPORT ─────────────────────────────────────────────────────────
+  app.get('/api/admin/backup', requireAuth, requirePermission('admin'), async (req: Request, res: Response) => {
+    try {
+      const tables = [
+        'utilizadores', 'alunos', 'funcionarios', 'turmas', 'notas',
+        'presencas', 'pagamentos', 'taxas', 'eventos', 'horarios',
+        'disciplinas', 'cursos', 'curso_disciplinas', 'salas',
+        'anos_academicos', 'materiais', 'sumarios', 'planificacoes',
+        'ocorrencias', 'documentos_emitidos', 'registros', 'pautas',
+        'folhas_salarios', 'mensagens',
+      ];
+      const backup: Record<string, unknown[]> = {};
+      for (const table of tables) {
+        try {
+          const result = await query(`SELECT * FROM public.${table} LIMIT 50000`, []);
+          backup[table] = result.rows;
+        } catch {
+          backup[table] = [];
+        }
+      }
+      const payload = {
+        sistema: 'SIGE v1.0.0',
+        geradoEm: new Date().toISOString(),
+        tabelas: Object.keys(backup).length,
+        dados: backup,
+      };
+      const filename = `sige-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send(JSON.stringify(payload, null, 2));
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.get('/api/admin/export-csv', requireAuth, requirePermission('admin'), async (req: Request, res: Response) => {
+    try {
+      const table = (req.query.tabela as string) || 'alunos';
+      const allowed = ['alunos', 'funcionarios', 'utilizadores', 'notas', 'presencas', 'pagamentos', 'turmas'];
+      if (!allowed.includes(table)) return json(res, 400, { error: 'Tabela não permitida.' });
+      const result = await query(`SELECT * FROM public.${table} LIMIT 50000`, []);
+      if (result.rows.length === 0) {
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="${table}.csv"`);
+        return res.status(200).send('sem dados\n');
+      }
+      const headers = Object.keys(result.rows[0]);
+      const escape = (v: unknown) => {
+        if (v === null || v === undefined) return '';
+        const s = String(v).replace(/"/g, '""');
+        return /[",\n\r]/.test(s) ? `"${s}"` : s;
+      };
+      const csvLines = [
+        headers.join(','),
+        ...result.rows.map(row => headers.map(h => escape(row[h])).join(',')),
+      ];
+      const filename = `sige-${table}-${new Date().toISOString().slice(0, 10)}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.status(200).send('\uFEFF' + csvLines.join('\r\n'));
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

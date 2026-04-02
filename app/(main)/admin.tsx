@@ -162,6 +162,78 @@ export default function AdminScreen() {
   const { config, updateConfig, updateFlashScreen } = useConfig();
   const { values: areasFormacao } = useLookup('areas_curso', AREAS_FORMACAO_DEFAULT);
 
+  // ── Backup & Export ───────────────────────────────────────
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportTabela, setExportTabela] = useState('alunos');
+  const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
+
+  useEffect(() => {
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sige_ultimo_backup') : null;
+    if (stored) setUltimoBackup(stored);
+  }, []);
+
+  async function handleBackup() {
+    if (backupLoading) return;
+    setBackupLoading(true);
+    try {
+      const { getAuthToken } = await import('@/context/AuthContext');
+      const { getApiUrl } = await import('@/lib/query-client');
+      const token = await getAuthToken();
+      const url = new URL('/api/admin/backup', getApiUrl()).toString();
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      const filename = `sige-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      const agora = new Date().toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+      setUltimoBackup(agora);
+      if (typeof localStorage !== 'undefined') localStorage.setItem('sige_ultimo_backup', agora);
+      alertSucesso('Backup concluído', `Ficheiro ${filename} descarregado com sucesso.`);
+    } catch (e: any) {
+      alertErro('Erro no Backup', e.message ?? 'Ocorreu um erro ao gerar o backup.');
+    } finally {
+      setBackupLoading(false);
+    }
+  }
+
+  async function handleExportCSV() {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      const { getAuthToken } = await import('@/context/AuthContext');
+      const { getApiUrl } = await import('@/lib/query-client');
+      const token = await getAuthToken();
+      const url = new URL(`/api/admin/export-csv?tabela=${exportTabela}`, getApiUrl()).toString();
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const link = document.createElement('a');
+      const filename = `sige-${exportTabela}-${new Date().toISOString().slice(0, 10)}.csv`;
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      alertSucesso('Exportação concluída', `Ficheiro ${filename} descarregado com sucesso.`);
+    } catch (e: any) {
+      alertErro('Erro na Exportação', e.message ?? 'Ocorreu um erro ao exportar os dados.');
+    } finally {
+      setExportLoading(false);
+    }
+  }
+
   // ── Reabertura de Campos de Notas ─────────────────────────
   interface ReaNotaRow {
     id: string; alunoId: string; turmaId: string; disciplina: string; trimestre: number;
@@ -1948,30 +2020,56 @@ export default function AdminScreen() {
           <View style={styles.card}>
             <SectionHeader title="Segurança e Backups" icon="shield-checkmark" color={Colors.danger} />
             {[
-              { label: 'Último Backup', value: 'Hoje, 03:00', valueColor: Colors.success },
-              { label: 'Tipo de Backup', value: 'Automático (Diário)' },
+              { label: 'Último Backup', value: ultimoBackup ?? 'Nenhum backup manual feito', valueColor: ultimoBackup ? Colors.success : undefined },
+              { label: 'Tipo de Backup', value: 'Manual (download directo)' },
               { label: 'Versão do Sistema', value: 'SIGE v1.0.0' },
               { label: 'Base de Dados', value: 'Operacional', valueColor: Colors.success },
+              { label: 'Destino do Backup', value: 'Ficheiro local (descarregamento)' },
             ].map(row => (
               <View key={row.label} style={styles.infoRow}>
                 <Text style={styles.infoLabel}>{row.label}</Text>
                 <Text style={[styles.infoValue, row.valueColor ? { color: row.valueColor } : {}]}>{row.value}</Text>
               </View>
             ))}
+
+            <Text style={{ fontFamily: 'Inter_500Medium', color: Colors.textMuted, fontSize: 12, marginTop: 16, marginBottom: 6 }}>
+              EXPORTAR TABELA ESPECÍFICA (CSV)
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 }}>
+              {['alunos', 'funcionarios', 'utilizadores', 'notas', 'presencas', 'pagamentos', 'turmas'].map(t => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setExportTabela(t)}
+                  style={{
+                    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1,
+                    borderColor: exportTabela === t ? Colors.gold : Colors.border,
+                    backgroundColor: exportTabela === t ? Colors.gold + '22' : 'transparent',
+                  }}
+                >
+                  <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 12, color: exportTabela === t ? Colors.gold : Colors.textMuted, textTransform: 'capitalize' }}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <TouchableOpacity
-              style={styles.exportBtn}
-              onPress={() => webAlert('Exportar Dados', 'A funcionalidade de exportação estará disponível na versão 1.1.0.')}
+              style={[styles.exportBtn, exportLoading && { opacity: 0.6 }]}
+              onPress={handleExportCSV}
+              disabled={exportLoading}
             >
               <Ionicons name="download-outline" size={17} color={Colors.gold} />
-              <Text style={styles.exportText}>Exportar Dados (CSV/Excel)</Text>
+              <Text style={styles.exportText}>{exportLoading ? 'A exportar...' : `Exportar "${exportTabela}" (CSV)`}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={[styles.exportBtn, { borderColor: Colors.info + '44', backgroundColor: Colors.info + '11' }]}
-              onPress={() => webAlert('Backup Manual', 'Backup iniciado. Concluído em breve.')}
+              style={[styles.exportBtn, { borderColor: Colors.info + '44', backgroundColor: Colors.info + '11' }, backupLoading && { opacity: 0.6 }]}
+              onPress={handleBackup}
+              disabled={backupLoading}
             >
-              <Ionicons name="cloud-upload-outline" size={17} color={Colors.info} />
-              <Text style={[styles.exportText, { color: Colors.info }]}>Executar Backup Manual</Text>
+              <Ionicons name="cloud-download-outline" size={17} color={Colors.info} />
+              <Text style={[styles.exportText, { color: Colors.info }]}>{backupLoading ? 'A gerar backup...' : 'Descarregar Backup Completo (JSON)'}</Text>
             </TouchableOpacity>
+            <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 11, marginTop: 8 }}>
+              O backup inclui todas as tabelas do sistema e é guardado como ficheiro JSON no seu dispositivo.
+            </Text>
           </View>
         )}
 
