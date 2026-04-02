@@ -241,15 +241,23 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
             <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color={Colors.textSecondary} /></TouchableOpacity>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            {[
-              { label: 'Nome da Turma (ex: 7ª A)', key: 'nome' },
-              { label: 'Ano Lectivo', key: 'anoLetivo' },
-            ].map(f => (
-              <View key={f.key} style={mS.field}>
-                <Text style={mS.fieldLabel}>{f.label}</Text>
-                <TextInput style={mS.input} value={(form as any)[f.key] ?? ''} onChangeText={v => set(f.key as keyof Turma, v)} placeholder={f.label} placeholderTextColor={Colors.textMuted} />
-              </View>
-            ))}
+            <View style={mS.field}>
+              <Text style={mS.fieldLabel}>Nome da Turma (ex: 7ª A)</Text>
+              <TextInput
+                style={mS.input}
+                value={form.nome ?? ''}
+                onChangeText={v => set('nome', v)}
+                placeholder="Nome da Turma (ex: 7ª A)"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            <View style={[mS.field, { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: `${Colors.info}10`, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: `${Colors.info}25` }]}>
+              <Ionicons name="calendar-outline" size={14} color={Colors.info} />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.info, flex: 1 }}>
+                Ano Lectivo: <Text style={{ fontFamily: 'Inter_700Bold' }}>{anoAtual}</Text>
+              </Text>
+            </View>
 
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Sala</Text>

@@ -29,20 +29,26 @@ interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: st
 const NIVEIS_ENSINO = ['Primário', 'I Ciclo', 'II Ciclo'];
 
 function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
-  const [form, setForm] = useState<Partial<Professor>>(professor || {
+  const getDefault = () => professor ? {
+    ...professor,
+    nivelEnsino: professor.nivelEnsino || 'I Ciclo',
+  } : {
     nome: '', apelido: '', disciplinas: [], turmasIds: [],
     telefone: '', email: '', habilitacoes: 'Licenciatura', ativo: true,
     nivelEnsino: 'I Ciclo',
-  });
+  };
+
+  const [form, setForm] = useState<Partial<Professor>>(getDefault);
   const [catalogDisc, setCatalogDisc] = useState<DisciplinaCatalog[]>([]);
 
   useEffect(() => {
     if (visible) {
+      setForm(getDefault());
       fetch('/api/disciplinas').then(r => r.json()).then((list: DisciplinaCatalog[]) => {
         setCatalogDisc(list.filter((d: any) => d.ativo !== false));
       }).catch(() => {});
     }
-  }, [visible]);
+  }, [visible, professor?.id]);
 
   const set = (k: keyof Professor, v: any) => setForm(f => ({ ...f, [k]: v }));
 
