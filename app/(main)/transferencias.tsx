@@ -389,14 +389,92 @@ function FormModal({
               </>
             ) : (
               <>
-                <Text style={fStyles.label}>Nome do Aluno *</Text>
-                <TextInput
-                  style={fStyles.input}
-                  placeholder="Nome completo do aluno transferido"
-                  placeholderTextColor={Colors.textMuted}
-                  value={form.nomeAluno}
-                  onChangeText={v => set('nomeAluno', v)}
-                />
+                <Text style={fStyles.label}>Aluno *</Text>
+
+                {/* Selected student display */}
+                {form.alunoId ? (
+                  <View style={fStyles.alunoSelectedRow}>
+                    <View style={fStyles.alunoSelectedIcon}>
+                      <Ionicons name="person" size={16} color={Colors.gold} />
+                    </View>
+                    <Text style={fStyles.alunoSelectedName}>{form.nomeAluno}</Text>
+                    <TouchableOpacity onPress={() => { set('alunoId', null); set('nomeAluno', ''); }}>
+                      <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
+                {/* Search input */}
+                <View style={fStyles.searchBox}>
+                  <Ionicons name="search-outline" size={16} color={Colors.textMuted} style={{ marginRight: 8 }} />
+                  <TextInput
+                    style={fStyles.searchInput}
+                    placeholder="Pesquisar aluno existente ou escreva o nome..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={alunoSearch}
+                    onChangeText={v => { setAlunoSearch(v); if (!form.alunoId) set('nomeAluno', v); }}
+                  />
+                  {alunoSearch.length > 0 && (
+                    <TouchableOpacity onPress={() => { setAlunoSearch(''); if (!form.alunoId) set('nomeAluno', ''); }}>
+                      <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Turma filter chips */}
+                {turmas.length > 0 && (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 6, paddingVertical: 2 }}>
+                      <TouchableOpacity
+                        style={[fStyles.filterChip, !filterTurmaId && fStyles.filterChipActive]}
+                        onPress={() => setFilterTurmaId(null)}
+                      >
+                        <Text style={[fStyles.filterChipText, !filterTurmaId && fStyles.filterChipTextActive]}>Todas</Text>
+                      </TouchableOpacity>
+                      {turmas.map((t: any) => (
+                        <TouchableOpacity
+                          key={t.id}
+                          style={[fStyles.filterChip, filterTurmaId === t.id && fStyles.filterChipActive]}
+                          onPress={() => setFilterTurmaId(t.id === filterTurmaId ? null : t.id)}
+                        >
+                          <Text style={[fStyles.filterChipText, filterTurmaId === t.id && fStyles.filterChipTextActive]}>
+                            {t.nome}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                )}
+
+                {/* Filtered student list (existing students — e.g. re-enrolment) */}
+                {alunosFiltrados.length > 0 && (
+                  <View style={fStyles.alunoList}>
+                    {alunosFiltrados.map((a: any) => {
+                      const turma = turmas.find((t: any) => t.id === a.turmaId);
+                      const isSelected = form.alunoId === a.id;
+                      return (
+                        <TouchableOpacity
+                          key={a.id}
+                          style={[fStyles.alunoRow, isSelected && fStyles.alunoRowActive]}
+                          onPress={() => { set('alunoId', a.id); set('nomeAluno', `${a.nome} ${a.apelido}`); setAlunoSearch(`${a.nome} ${a.apelido}`); }}
+                        >
+                          <View style={[fStyles.alunoRowAvatar, isSelected && { backgroundColor: 'rgba(240,165,0,0.2)' }]}>
+                            <Text style={[fStyles.alunoRowInitials, isSelected && { color: Colors.gold }]}>
+                              {a.nome?.[0]}{a.apelido?.[0]}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[fStyles.alunoRowName, isSelected && { color: Colors.gold }]}>
+                              {a.nome} {a.apelido}
+                            </Text>
+                            {turma && <Text style={fStyles.alunoRowSub}>{turma.nome}</Text>}
+                          </View>
+                          {isSelected && <Ionicons name="checkmark-circle" size={18} color={Colors.gold} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
               </>
             )}
 
