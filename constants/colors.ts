@@ -27,6 +27,9 @@ export const Colors = {
   approved: "#27AE60",
   failed: "#E74C3C",
   pending: "#F39C12",
+  card: "#132145",
+  cardAlt: "#1C3060",
+  dark: "#0D1B3E",
 };
 
 export default {
