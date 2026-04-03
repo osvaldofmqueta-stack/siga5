@@ -286,6 +286,12 @@ function setupWebProxy(app: express.Application) {
       on: {
         proxyRes: responseInterceptor(async (responseBuffer, proxyRes, _req, res) => {
           const contentType = proxyRes.headers["content-type"] || "";
+          // Disable caching for JS bundles too so updates are always picked up
+          if (contentType.includes("javascript") || contentType.includes("application/json")) {
+            (res as Response).setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+            (res as Response).setHeader("Pragma", "no-cache");
+            return responseBuffer;
+          }
           if (!contentType.includes("text/html")) {
             return responseBuffer;
           }
