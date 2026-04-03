@@ -34,7 +34,7 @@ export class ErrorBoundary extends Component<
     console.error("[ErrorBoundary] Caught error:", msg);
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('__siga_last_error', msg);
+        window.localStorage.setItem('__sgaa_last_error', msg);
       }
     } catch {}
     if (typeof this.props.onError === "function") {

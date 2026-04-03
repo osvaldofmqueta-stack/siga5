@@ -169,7 +169,7 @@ export default function AdminScreen() {
   const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
 
   useEffect(() => {
-    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sige_ultimo_backup') : null;
+    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('sgaa_ultimo_backup') : null;
     if (stored) setUltimoBackup(stored);
   }, []);
 
@@ -196,7 +196,7 @@ export default function AdminScreen() {
       link.remove();
       const agora = new Date().toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
       setUltimoBackup(agora);
-      if (typeof localStorage !== 'undefined') localStorage.setItem('sige_ultimo_backup', agora);
+      if (typeof localStorage !== 'undefined') localStorage.setItem('sgaa_ultimo_backup', agora);
       alertSucesso('Backup concluído', `Ficheiro ${filename} descarregado com sucesso.`);
     } catch (e: any) {
       alertErro('Erro no Backup', e.message ?? 'Ocorreu um erro ao gerar o backup.');
