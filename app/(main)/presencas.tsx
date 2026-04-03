@@ -94,7 +94,9 @@ export default function PresencasScreen() {
   const { config } = useConfig();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
-  const [filterTurma, setFilterTurma] = useState(turmas[0]?.id || '');
+  const [filterTurma, setFilterTurma] = useState('');
+  const [showTurmaModal, setShowTurmaModal] = useState(false);
+  const [showDisciplinaModal, setShowDisciplinaModal] = useState(false);
   const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
     'Matemática', 'Português', 'Física', 'Química', 'Biologia',
     'História', 'Geografia', 'Inglês', 'Educação Física', 'Filosofia',
@@ -105,6 +107,12 @@ export default function PresencasScreen() {
   ]);
   const [disciplina, setDisciplina] = useState('Matemática');
   const [date] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    if (!filterTurma && turmas.length > 0) {
+      setFilterTurma(turmas[0].id);
+    }
+  }, [turmas]);
 
   useEffect(() => {
     if (!filterTurma) {
@@ -225,25 +233,58 @@ export default function PresencasScreen() {
     );
   };
 
+  const turmaAtualNome = turmaAtual?.nome ?? 'Seleccionar Turma';
+
   return (
     <View style={styles.screen}>
       <TopBar title="Presenças" subtitle={date} rightAction={{ icon: 'qr-code-outline', onPress: () => setShowScanner(true) }} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-        {turmas.map(t => (
-          <TouchableOpacity key={t.id} style={[styles.chip, filterTurma === t.id && styles.chipActive]} onPress={() => setFilterTurma(t.id)}>
-            <Text style={[styles.chipText, filterTurma === t.id && styles.chipTextActive]}>{t.nome}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.selectorsRow}>
+        <TouchableOpacity style={styles.selectorBtn} onPress={() => setShowTurmaModal(true)}>
+          <Ionicons name="people-outline" size={15} color={Colors.gold} />
+          <Text style={styles.selectorLabel} numberOfLines={1}>{turmaAtualNome}</Text>
+          <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.selectorBtn} onPress={() => setShowDisciplinaModal(true)}>
+          <Ionicons name="book-outline" size={15} color={Colors.accent} />
+          <Text style={styles.selectorLabel} numberOfLines={1}>{disciplina}</Text>
+          <Ionicons name="chevron-down" size={14} color={Colors.textMuted} />
+        </TouchableOpacity>
+      </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
-        {disciplinasDisponiveis.map(d => (
-          <TouchableOpacity key={d} style={[styles.chip, disciplina === d && styles.chipActive]} onPress={() => setDisciplina(d)}>
-            <Text style={[styles.chipText, disciplina === d && styles.chipTextActive]}>{d}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <Modal visible={showTurmaModal} transparent animationType="fade" onRequestClose={() => setShowTurmaModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowTurmaModal(false)}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Seleccionar Turma</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {turmas.map(t => (
+                <TouchableOpacity key={t.id} style={[styles.pickerItem, filterTurma === t.id && styles.pickerItemActive]}
+                  onPress={() => { setFilterTurma(t.id); setShowTurmaModal(false); }}>
+                  <Text style={[styles.pickerItemText, filterTurma === t.id && styles.pickerItemTextActive]}>{t.nome}</Text>
+                  {filterTurma === t.id && <Ionicons name="checkmark" size={16} color={Colors.gold} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <Modal visible={showDisciplinaModal} transparent animationType="fade" onRequestClose={() => setShowDisciplinaModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowDisciplinaModal(false)}>
+          <View style={styles.pickerSheet}>
+            <Text style={styles.pickerTitle}>Seleccionar Disciplina</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {disciplinasDisponiveis.map(d => (
+                <TouchableOpacity key={d} style={[styles.pickerItem, disciplina === d && styles.pickerItemActive]}
+                  onPress={() => { setDisciplina(d); setShowDisciplinaModal(false); }}>
+                  <Text style={[styles.pickerItemText, disciplina === d && styles.pickerItemTextActive]}>{d}</Text>
+                  {disciplina === d && <Ionicons name="checkmark" size={16} color={Colors.accent} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       {faltasBloqueadas && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, margin: 12, padding: 12, backgroundColor: Colors.danger + '18', borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '44' }}>
@@ -349,12 +390,16 @@ const scanStyles = StyleSheet.create({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
-  filterScroll: { maxHeight: 46 },
-  filterContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  chipActive: { backgroundColor: `${Colors.gold}20`, borderColor: Colors.gold },
-  chipText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  chipTextActive: { color: Colors.goldLight, fontFamily: 'Inter_600SemiBold' },
+  selectorsRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 16, paddingVertical: 10 },
+  selectorBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10 },
+  selectorLabel: { flex: 1, fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  pickerSheet: { backgroundColor: Colors.backgroundCard, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, width: '100%', maxWidth: 380, maxHeight: 420, padding: 8, paddingTop: 4 },
+  pickerTitle: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 4 },
+  pickerItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 10 },
+  pickerItemActive: { backgroundColor: `${Colors.gold}15` },
+  pickerItemText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  pickerItemTextActive: { color: Colors.text, fontFamily: 'Inter_600SemiBold' },
   statsBar: { flexDirection: 'row', backgroundColor: Colors.backgroundCard, marginHorizontal: 16, marginVertical: 8, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingVertical: 12 },
   statItem: { flex: 1, alignItems: 'center', gap: 2 },
   statValue: { fontSize: 20, fontFamily: 'Inter_700Bold' },
