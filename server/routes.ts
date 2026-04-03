@@ -2983,24 +2983,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // NOTIFICAÇÕES
   // -----------------------
-  app.get("/api/notificacoes", async (_req: Request, res: Response) => {
-    const rows = await query<JsonObject>(`SELECT * FROM public.notificacoes ORDER BY "createdAt" DESC`, []);
+  app.get("/api/notificacoes", requireAuth, async (req: Request, res: Response) => {
+    const userId = req.jwtUser!.userId;
+    const rows = await query<JsonObject>(
+      `SELECT * FROM public.notificacoes
+       WHERE "utilizadorId" = $1 OR "utilizadorId" IS NULL
+       ORDER BY "createdAt" DESC LIMIT 100`,
+      [userId]
+    );
     json(res, 200, rows);
   });
 
-  app.post("/api/notificacoes", async (req: Request, res: Response) => {
+  app.post("/api/notificacoes", requireAuth, async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+      const userId = req.jwtUser!.userId;
+      const utilizadorId = (b.utilizadorId as string | undefined) ?? userId;
+      const hoje = new Date().toISOString().slice(0, 10);
       const rows = await query<JsonObject>(
-        `INSERT INTO public.notificacoes (id,"titulo","mensagem","tipo","data","lida","link")
+        `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
          VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [b.id??null,b.titulo,b.mensagem,b.tipo??'info',b.data,b.lida??false,b.link??null],
+        [utilizadorId, b.titulo, b.mensagem, b.tipo ?? 'info', b.data ?? hoje, b.lida ?? false, b.link ?? null],
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/notificacoes/:id", async (req: Request, res: Response) => {
+  app.put("/api/notificacoes/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -3017,14 +3026,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/notificacoes/:id", async (req: Request, res: Response) => {
+  app.delete("/api/notificacoes/:id", requireAuth, async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.notificacoes WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
   });
 
-  app.delete("/api/notificacoes", async (_req: Request, res: Response) => {
-    await query(`DELETE FROM public.notificacoes`, []);
+  app.delete("/api/notificacoes", requireAuth, async (req: Request, res: Response) => {
+    const userId = req.jwtUser!.userId;
+    await query(`DELETE FROM public.notificacoes WHERE "utilizadorId" = $1 OR "utilizadorId" IS NULL`, [userId]);
     json(res, 200, { ok: true });
   });
 

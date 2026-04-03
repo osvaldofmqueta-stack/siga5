@@ -759,6 +759,7 @@ export const notificacoes = pgTable("notificacoes", {
     .primaryKey()
     .default(sql`gen_random_uuid()`),
 
+  utilizadorId: varchar("utilizadorId"), // null = global/broadcast; set = user-specific
   titulo: text("titulo").notNull(),
   mensagem: text("mensagem").notNull(),
   tipo: text("tipo").notNull().default('info'), // 'info' | 'aviso' | 'urgente' | 'sucesso'

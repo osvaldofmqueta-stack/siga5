@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useUsers } from '@/context/UsersContext';
+import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import TopBar from '@/components/TopBar';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { webAlert } from '@/utils/webAlert';
@@ -80,9 +81,19 @@ export default function PortalEncarregadoScreen() {
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
   const { pushState, subscribe, unsubscribe, isSupported } = usePushNotifications();
+  const { notificacoes: alertas, unreadCount, marcarLida, load: reloadAlertas } = useNotificacoes();
   const [pushLoading, setPushLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
+
+  // Auto-refresh notifications every 60 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (typeof reloadAlertas === 'function') reloadAlertas();
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [reloadAlertas]);
+
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
   const [diaHorario, setDiaHorario] = useState(0);
   const [faltaFiltroDisc, setFaltaFiltroDisc] = useState<string>('todas');
@@ -246,9 +257,46 @@ export default function PortalEncarregadoScreen() {
           </>
         )}
 
+        {alertas.length > 0 && (
+          <>
+            <View style={styles.alertasSectionHeader}>
+              <SectionTitle title="Alertas Recentes" icon="notifications" />
+              {unreadCount > 0 && (
+                <TouchableOpacity onPress={() => alertas.filter((a: any) => !a.lida).forEach((a: any) => marcarLida(a.id))}>
+                  <Text style={styles.marcarLidasBtn}>Marcar todas como lidas</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {alertas.slice(0, 5).map((a: any) => {
+              const corMap: Record<string, string> = { urgente: Colors.danger, aviso: Colors.warning, sucesso: Colors.success, info: Colors.info };
+              const iconMap: Record<string, string> = { urgente: 'alert-circle', aviso: 'warning', sucesso: 'checkmark-circle', info: 'information-circle' };
+              const cor = corMap[a.tipo] ?? Colors.info;
+              const icon = iconMap[a.tipo] ?? 'notifications';
+              return (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.alertaCard, !a.lida && { borderLeftColor: cor, borderLeftWidth: 3 }]}
+                  onPress={() => { if (!a.lida) marcarLida(a.id); }}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.alertaIconBox, { backgroundColor: `${cor}18` }]}>
+                    <Ionicons name={icon as any} size={20} color={cor} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={[styles.alertaTitulo, !a.lida && { color: Colors.text }]} numberOfLines={1}>{a.titulo}</Text>
+                    <Text style={styles.alertaMensagem} numberOfLines={2}>{a.mensagem}</Text>
+                    <Text style={styles.alertaTempo}>{timeAgo(a.createdAt)}</Text>
+                  </View>
+                  {!a.lida && <View style={[styles.alertaDot, { backgroundColor: cor }]} />}
+                </TouchableOpacity>
+              );
+            })}
+          </>
+        )}
+
         {isSupported && (
           <>
-            <SectionTitle title="Alertas & Notificações" icon="notifications" />
+            <SectionTitle title="Notificações Push" icon="notifications" />
             <View style={styles.pushCard}>
               <View style={styles.pushCardRow}>
                 <View style={styles.pushIconWrap}>
@@ -1212,4 +1260,13 @@ const styles = StyleSheet.create({
   pushBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff' },
   pushDenied: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: `${Colors.warning}15`, borderRadius: 8, padding: 10 },
   pushDeniedText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 15 },
+
+  alertasSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: -4 },
+  marcarLidasBtn: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.gold, paddingRight: 2 },
+  alertaCard: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.backgroundCard, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 8 },
+  alertaIconBox: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  alertaTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  alertaMensagem: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, lineHeight: 16 },
+  alertaTempo: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  alertaDot: { width: 8, height: 8, borderRadius: 4, marginTop: 4, flexShrink: 0 },
 });

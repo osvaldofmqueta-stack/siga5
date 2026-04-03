@@ -6,8 +6,6 @@ const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY ?? "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
 const VAPID_SUBJECT = process.env.VAPID_SUBJECT ?? "mailto:sige@escola.ao";
 
-// Temporarily disable VAPID to allow server startup
-// TODO: Fix VAPID key generation
 console.log("[push] VAPID notifications temporarily disabled for Neon setup");
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && VAPID_PUBLIC_KEY.length > 50) {
@@ -114,6 +112,26 @@ async function sendPushToUser(utilizadorId: string, payload: GuardianNotificatio
   }
 }
 
+// Save an in-app notification to the database for a specific user
+async function saveNotificacaoParaUtilizador(
+  utilizadorId: string,
+  titulo: string,
+  mensagem: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    const hoje = new Date().toISOString().slice(0, 10);
+    await query(
+      `INSERT INTO public.notificacoes ("utilizadorId", "titulo", "mensagem", "tipo", "data", "lida", "link")
+       VALUES ($1, $2, $3, $4, $5, false, $6)`,
+      [utilizadorId, titulo, mensagem, tipo, hoje, link ?? "/portal-encarregado"]
+    );
+  } catch (err) {
+    console.error("[notify] Failed to save in-app notification:", err);
+  }
+}
+
 export async function notifyGuardianAboutNota(
   alunoId: string,
   disciplina: string,
@@ -125,9 +143,12 @@ export async function notifyGuardianAboutNota(
     const { userId } = await getGuardianByAlunoId(alunoId);
 
     const nfDisplay = nf !== null ? `${nf} valores` : "lançada";
+    const titulo = "📋 Nova Nota Lançada";
+    const mensagem = `A nota de ${aluno.nomeAluno ?? "seu educando"} em ${disciplina} (${trimestre}) foi ${nfDisplay}.`;
+
     const payload: GuardianNotificationPayload = {
-      titulo: "📋 Nova Nota Lançada",
-      mensagem: `A nota de ${aluno.nomeAluno ?? "seu educando"} em ${disciplina} (${trimestre}) foi ${nfDisplay}.`,
+      titulo,
+      mensagem,
       tipo: "nota",
       url: "/portal-encarregado",
       alunoId,
@@ -138,6 +159,7 @@ export async function notifyGuardianAboutNota(
 
     if (userId) {
       tasks.push(sendPushToUser(userId, payload));
+      tasks.push(saveNotificacaoParaUtilizador(userId, titulo, mensagem, "info", "/portal-encarregado"));
     }
 
     if (aluno.emailEncarregado) {
@@ -145,8 +167,8 @@ export async function notifyGuardianAboutNota(
         sendGuardianNotificationEmail(
           aluno.emailEncarregado,
           aluno.nomeEncarregado ?? "Encarregado",
-          payload.titulo,
-          payload.mensagem,
+          titulo,
+          mensagem,
           "nota",
           aluno.nomeAluno ?? undefined
         )
@@ -165,15 +187,18 @@ export async function notifyGuardianAboutFalta(
   data: string,
   status: string
 ) {
-  if (status !== "falta") return;
+  if (status !== "falta" && status !== "F") return;
 
   try {
     const aluno = await getAlunoEmailEncarregado(alunoId);
     const { userId } = await getGuardianByAlunoId(alunoId);
 
+    const titulo = "⚠️ Falta Registada";
+    const mensagem = `${aluno.nomeAluno ?? "Seu educando"} teve falta em ${disciplina} no dia ${data}.`;
+
     const payload: GuardianNotificationPayload = {
-      titulo: "⚠️ Falta Registada",
-      mensagem: `${aluno.nomeAluno ?? "Seu educando"} teve falta em ${disciplina} no dia ${data}.`,
+      titulo,
+      mensagem,
       tipo: "falta",
       url: "/portal-encarregado",
       alunoId,
@@ -184,6 +209,7 @@ export async function notifyGuardianAboutFalta(
 
     if (userId) {
       tasks.push(sendPushToUser(userId, payload));
+      tasks.push(saveNotificacaoParaUtilizador(userId, titulo, mensagem, "aviso", "/portal-encarregado"));
     }
 
     if (aluno.emailEncarregado) {
@@ -191,8 +217,8 @@ export async function notifyGuardianAboutFalta(
         sendGuardianNotificationEmail(
           aluno.emailEncarregado,
           aluno.nomeEncarregado ?? "Encarregado",
-          payload.titulo,
-          payload.mensagem,
+          titulo,
+          mensagem,
           "falta",
           aluno.nomeAluno ?? undefined
         )
@@ -234,6 +260,13 @@ export async function notifyGuardianAboutPropina(
 
     if (userId) {
       tasks.push(sendPushToUser(userId, payload));
+      tasks.push(saveNotificacaoParaUtilizador(
+        userId,
+        titulo,
+        mensagem,
+        isPendente ? "urgente" : "sucesso",
+        "/portal-encarregado"
+      ));
     }
 
     if (aluno.emailEncarregado) {
@@ -241,8 +274,8 @@ export async function notifyGuardianAboutPropina(
         sendGuardianNotificationEmail(
           aluno.emailEncarregado,
           aluno.nomeEncarregado ?? "Encarregado",
-          payload.titulo,
-          payload.mensagem,
+          titulo,
+          mensagem,
           "propina",
           aluno.nomeAluno ?? undefined
         )
@@ -275,6 +308,7 @@ export async function notifyGuardianGeneric(
 
     if (userId) {
       tasks.push(sendPushToUser(userId, payload));
+      tasks.push(saveNotificacaoParaUtilizador(userId, titulo, mensagem, "info", "/portal-encarregado"));
     }
 
     if (aluno.emailEncarregado) {

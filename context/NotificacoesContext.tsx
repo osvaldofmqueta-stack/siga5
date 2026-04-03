@@ -18,6 +18,7 @@ interface NotificacoesContextValue {
   notificacoes: Notificacao[];
   unreadCount: number;
   isLoading: boolean;
+  load: () => Promise<void>;
   addNotificacao: (n: Omit<Notificacao, 'id' | 'createdAt' | 'lida'>) => Promise<void>;
   marcarLida: (id: string) => Promise<void>;
   marcarTodasLidas: () => Promise<void>;
@@ -87,6 +88,7 @@ export function NotificacoesProvider({ children }: { children: ReactNode }) {
   return (
     <NotificacoesContext.Provider value={{
       notificacoes, unreadCount, isLoading,
+      load,
       addNotificacao, marcarLida, marcarTodasLidas,
       deletarNotificacao, limparTodas,
     }}>
