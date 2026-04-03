@@ -11,6 +11,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
@@ -42,17 +43,17 @@ interface AulaHorario {
 const DIAS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
 const DIAS_FULL = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
 
-const PERIODOS = [
-  { numero: 1, inicio: '07:00', fim: '07:45' },
-  { numero: 2, inicio: '07:45', fim: '08:30' },
-  { numero: 3, inicio: '08:30', fim: '09:15' },
-  { numero: 4, inicio: '09:45', fim: '10:30' },
-  { numero: 5, inicio: '10:30', fim: '11:15' },
-  { numero: 6, inicio: '11:15', fim: '12:00' },
+const PERIODOS_DEFAULT = [
+  { numero: 1, inicio: '07:30', fim: '08:15' },
+  { numero: 2, inicio: '08:20', fim: '09:15' },
+  { numero: 3, inicio: '09:15', fim: '10:00' },
+  { numero: 4, inicio: '10:05', fim: '10:50' },
+  { numero: 5, inicio: '10:55', fim: '11:40' },
+  { numero: 6, inicio: '11:45', fim: '12:35' },
 ];
 
-
-const CELL_W = Math.max(64, (width - 52) / 5);
+const STORAGE_KEY = 'horario_periodos_config';
+const CELL_W = 130;
 
 function genId() {
   return Date.now().toString() + Math.random().toString(36).substr(2, 9);
@@ -100,6 +101,32 @@ export default function HorarioScreen() {
   const [showDisciplinaList, setShowDisciplinaList] = useState(false);
   const [showProfList, setShowProfList] = useState(false);
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
+  const [periodos, setPeriodos] = useState(PERIODOS_DEFAULT);
+  const [showPeriodosModal, setShowPeriodosModal] = useState(false);
+  const [editPeriodos, setEditPeriodos] = useState(PERIODOS_DEFAULT);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then(val => {
+      if (val) {
+        try { setPeriodos(JSON.parse(val)); } catch {}
+      }
+    });
+  }, []);
+
+  async function salvarPeriodos() {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(editPeriodos));
+    setPeriodos(editPeriodos);
+    setShowPeriodosModal(false);
+    alertSucesso('Horários actualizados', 'Os horários dos períodos foram guardados.');
+  }
+
+  async function resetPeriodos() {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+    setPeriodos(PERIODOS_DEFAULT);
+    setEditPeriodos(PERIODOS_DEFAULT);
+    setShowPeriodosModal(false);
+    alertSucesso('Horários repostos', 'Os horários foram repostos para os valores predefinidos.');
+  }
 
   const turmasAtivas = turmas.filter(t => {
     const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
@@ -187,7 +214,7 @@ export default function HorarioScreen() {
   async function salvar() {
     if (!form.disciplina || !selectedCell || !turmaAtual) return;
     const prof = professores.find(p => p.id === form.professorId);
-    const periodo = PERIODOS[selectedCell.periodo - 1];
+    const periodo = periodos[selectedCell.periodo - 1];
 
     if (modalMode === 'add') {
       const duplicada = horariosTurma.find(h => h.disciplina === form.disciplina);
@@ -306,7 +333,11 @@ export default function HorarioScreen() {
 
   return (
     <View style={styles.container}>
-      <TopBar title="Horário" subtitle={turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : 'Selecione uma turma'} />
+      <TopBar
+        title="Horário"
+        subtitle={turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : 'Selecione uma turma'}
+        rightAction={!isProf && !isAluno ? { icon: 'settings-outline', onPress: () => { setEditPeriodos(periodos); setShowPeriodosModal(true); } } : undefined}
+      />
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
         <View style={styles.turmaTabs}>
@@ -351,7 +382,7 @@ export default function HorarioScreen() {
               ))}
             </View>
 
-            {PERIODOS.map((periodo) => (
+            {periodos.map((periodo) => (
               <View key={periodo.numero} style={styles.gridRow}>
                 <View style={styles.periodoLabel}>
                   <Text style={styles.periodoNum}>{periodo.numero}º</Text>
@@ -401,7 +432,7 @@ export default function HorarioScreen() {
 
         <View style={styles.legendaContainer}>
           <Text style={styles.legendaTitle}>Legenda de Períodos</Text>
-          {PERIODOS.map(p => {
+          {periodos.map(p => {
             const aulasNoPeriodo = horariosTurma.filter(h => h.periodo === p.numero);
             const seen = new Set<string>();
             const aulasUnicas = aulasNoPeriodo.filter(h => {
@@ -460,7 +491,7 @@ export default function HorarioScreen() {
               </Text>
               {selectedCell && (
                 <Text style={styles.modalSubtitle}>
-                  {DIAS_FULL[selectedCell.dia - 1]} — {PERIODOS[selectedCell.periodo - 1]?.inicio}
+                  {DIAS_FULL[selectedCell.dia - 1]} — {periodos[selectedCell.periodo - 1]?.inicio}
                 </Text>
               )}
               <TouchableOpacity onPress={() => setModalMode(null)} style={styles.modalClose}>
@@ -536,6 +567,66 @@ export default function HorarioScreen() {
               >
                 <Ionicons name="checkmark" size={18} color="#fff" />
                 <Text style={styles.saveBtnText}>Guardar</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Configurar Períodos Modal */}
+      <Modal visible={showPeriodosModal} transparent animationType="slide" onRequestClose={() => setShowPeriodosModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '85%' }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Configurar Períodos</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>
+                  Define os horários de início e fim de cada período lectivo
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowPeriodosModal(false)} style={styles.modalClose}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {editPeriodos.map((p, idx) => (
+                <View key={p.numero} style={{ marginBottom: 12, backgroundColor: Colors.surface, borderRadius: 12, padding: 12 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.gold, marginBottom: 8 }}>
+                    {p.numero}º Período
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>Início</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editPeriodos[idx].inicio}
+                        onChangeText={v => setEditPeriodos(prev => prev.map((x, i) => i === idx ? { ...x, inicio: v } : x))}
+                        placeholder="HH:MM"
+                        placeholderTextColor={Colors.textMuted}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.fieldLabel}>Fim</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editPeriodos[idx].fim}
+                        onChangeText={v => setEditPeriodos(prev => prev.map((x, i) => i === idx ? { ...x, fim: v } : x))}
+                        placeholder="HH:MM"
+                        placeholderTextColor={Colors.textMuted}
+                        keyboardType="numbers-and-punctuation"
+                      />
+                    </View>
+                  </View>
+                </View>
+              ))}
+              <TouchableOpacity style={styles.saveBtn} onPress={salvarPeriodos}>
+                <Ionicons name="checkmark" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Guardar Horários</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: Colors.surface, marginTop: 8 }]} onPress={resetPeriodos}>
+                <Ionicons name="refresh" size={16} color={Colors.textSecondary} />
+                <Text style={[styles.saveBtnText, { color: Colors.textSecondary }]}>Repor Valores Predefinidos</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
