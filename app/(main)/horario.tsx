@@ -104,6 +104,8 @@ export default function HorarioScreen() {
   const [periodos, setPeriodos] = useState(PERIODOS_DEFAULT);
   const [showPeriodosModal, setShowPeriodosModal] = useState(false);
   const [editPeriodos, setEditPeriodos] = useState(PERIODOS_DEFAULT);
+  // Professor view: 'meu' = consolidated (my classes only), 'turma' = per-class tab view
+  const [profView, setProfView] = useState<'meu' | 'turma'>('meu');
 
   useEffect(() => {
     AsyncStorage.getItem(STORAGE_KEY).then(val => {
@@ -128,10 +130,14 @@ export default function HorarioScreen() {
     alertSucesso('Horários repostos', 'Os horários foram repostos para os valores predefinidos.');
   }
 
+  // Compute turmasAtivas: for professors use BOTH turmasIds AND actual horário assignments
   const turmasAtivas = turmas.filter(t => {
     const anoOk = !anoSelecionado || t.anoLetivo === anoSelecionado.ano;
     if (isProf && profData) {
-      return t.ativo && anoOk && toArray(profData.turmasIds).includes(t.id);
+      const minhasTurmasDoHorario = horarios.filter(h => h.professorId === profData.id).map(h => h.turmaId);
+      return t.ativo && anoOk && (
+        toArray(profData.turmasIds).includes(t.id) || minhasTurmasDoHorario.includes(t.id)
+      );
     }
     if (isAluno && alunoData) {
       return t.ativo && anoOk && t.id === alunoData.turmaId;
@@ -139,6 +145,15 @@ export default function HorarioScreen() {
     return t.ativo && anoOk;
   });
   const turmaAtual = turmasAtivas[turmaIdx] || turmasAtivas[0];
+
+  // Professor: classes across ALL turmas (for the "Meu Horário" consolidated view)
+  const minhasAulas = isProf && profData
+    ? horarios.filter(h => h.professorId === profData.id && (!anoSelecionado || h.anoAcademico === anoSelecionado.ano))
+    : [];
+
+  function getMinhaAula(dia: number, periodo: number): AulaHorario[] {
+    return minhasAulas.filter(h => h.diaSemana === dia && h.periodo === periodo);
+  }
 
   useEffect(() => {
     loadHorarios();
@@ -331,29 +346,76 @@ export default function HorarioScreen() {
     );
   }
 
+  const topBarSubtitle = isProf
+    ? (profView === 'meu' ? 'Meu Horário' : (turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : ''))
+    : isAluno
+      ? (turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : '')
+      : (turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : 'Selecione uma turma');
+
   return (
     <View style={styles.container}>
       <TopBar
         title="Horário"
-        subtitle={turmaAtual ? `${turmaAtual.nome} — ${turmaAtual.turno}` : 'Selecione uma turma'}
+        subtitle={topBarSubtitle}
         rightAction={!isProf && !isAluno ? { icon: 'settings-outline', onPress: () => { setEditPeriodos(periodos); setShowPeriodosModal(true); } } : undefined}
       />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
-        <View style={styles.turmaTabs}>
-          {turmasAtivas.map((t, i) => (
-            <TouchableOpacity
-              key={t.id}
-              style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
-              onPress={() => setTurmaIdx(i)}
-            >
-              <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
-            </TouchableOpacity>
-          ))}
+      {/* Professor: toggle between "Meu Horário" and "Por Turma" */}
+      {isProf && (
+        <View style={styles.profViewToggle}>
+          <TouchableOpacity
+            style={[styles.profViewBtn, profView === 'meu' && styles.profViewBtnActive]}
+            onPress={() => setProfView('meu')}
+          >
+            <Ionicons name="person-circle-outline" size={14} color={profView === 'meu' ? Colors.gold : Colors.textMuted} />
+            <Text style={[styles.profViewBtnText, profView === 'meu' && styles.profViewBtnTextActive]}>Meu Horário</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.profViewBtn, profView === 'turma' && styles.profViewBtnActive]}
+            onPress={() => setProfView('turma')}
+          >
+            <Ionicons name="people-outline" size={14} color={profView === 'turma' ? Colors.gold : Colors.textMuted} />
+            <Text style={[styles.profViewBtnText, profView === 'turma' && styles.profViewBtnTextActive]}>Por Turma</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      )}
 
-      {turmaAtual && (
+      {/* Admin/Student: turma tabs (students only have one, so tabs don't appear) */}
+      {!isProf && turmasAtivas.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
+          <View style={styles.turmaTabs}>
+            {turmasAtivas.map((t, i) => (
+              <TouchableOpacity
+                key={t.id}
+                style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
+                onPress={() => setTurmaIdx(i)}
+              >
+                <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Professor: per-turma tab selector (only in "Por Turma" mode) */}
+      {isProf && profView === 'turma' && turmasAtivas.length > 1 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
+          <View style={styles.turmaTabs}>
+            {turmasAtivas.map((t, i) => (
+              <TouchableOpacity
+                key={t.id}
+                style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
+                onPress={() => setTurmaIdx(i)}
+              >
+                <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )}
+
+      {/* Info bar for current turma */}
+      {turmaAtual && (!isProf || profView === 'turma') && (
         <View style={styles.infoBar}>
           <View style={styles.infoBadge}>
             <MaterialIcons name="class" size={13} color={Colors.gold} />
@@ -370,12 +432,26 @@ export default function HorarioScreen() {
         </View>
       )}
 
+      {/* Professor: "Meu Horário" info bar */}
+      {isProf && profView === 'meu' && profData && (
+        <View style={styles.infoBar}>
+          <View style={styles.infoBadge}>
+            <Ionicons name="person" size={13} color={Colors.gold} />
+            <Text style={styles.infoText}>{profData.nome} {profData.apelido}</Text>
+          </View>
+          <View style={styles.infoBadge}>
+            <Ionicons name="book" size={13} color={Colors.info} />
+            <Text style={styles.infoText}>{minhasAulas.length} aulas atribuídas</Text>
+          </View>
+        </View>
+      )}
+
       <ScrollView style={styles.gridContainer} showsVerticalScrollIndicator={false}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           <View>
             <View style={styles.gridHeader}>
               <View style={styles.periodoLabel} />
-              {DIAS.map((dia, i) => (
+              {DIAS.map((dia) => (
                 <View key={dia} style={[styles.diaHeader, { width: CELL_W }]}>
                   <Text style={styles.diaHeaderText}>{dia}</Text>
                 </View>
@@ -390,6 +466,33 @@ export default function HorarioScreen() {
                 </View>
                 {DIAS.map((_, diaIdx) => {
                   const dia = diaIdx + 1;
+
+                  // PROFESSOR "MEU HORÁRIO" MODE: show only their classes across all turmas
+                  if (isProf && profView === 'meu') {
+                    const minhasAulasCelula = getMinhaAula(dia, periodo.numero);
+                    if (minhasAulasCelula.length > 0) {
+                      return (
+                        <View key={dia} style={[styles.cell, styles.cellMinha, { width: CELL_W }]}>
+                          {minhasAulasCelula.map((aula, ai) => {
+                            const t = turmas.find(x => x.id === aula.turmaId);
+                            return (
+                              <TouchableOpacity key={ai} style={{ width: '100%', alignItems: 'center' }}
+                                onPress={() => openProfCell(aula)}>
+                                <View style={styles.turmaBadge}>
+                                  <Text style={styles.turmaBadgeText}>{t?.nome ?? '—'}</Text>
+                                </View>
+                                <Text style={styles.cellDisciplina} numberOfLines={1}>{aula.disciplina}</Text>
+                                <Text style={styles.cellSala} numberOfLines={1}>{aula.sala}</Text>
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      );
+                    }
+                    return <View key={dia} style={[styles.cell, styles.cellEmpty, { width: CELL_W }]} />;
+                  }
+
+                  // NORMAL VIEW (admin per-turma, student, professor per-turma)
                   const aula = getAula(dia, periodo.numero);
                   const isMyClass = isProf && aula && aula.professorId === profData?.id;
                   return aula ? (
@@ -430,6 +533,8 @@ export default function HorarioScreen() {
           </View>
         </ScrollView>
 
+        {/* Legend: only in turma/student/admin view */}
+        {(!isProf || profView === 'turma') && (
         <View style={styles.legendaContainer}>
           <Text style={styles.legendaTitle}>Legenda de Períodos</Text>
           {periodos.map(p => {
@@ -480,6 +585,47 @@ export default function HorarioScreen() {
             );
           })}
         </View>
+        )}
+
+        {/* Professor "Meu Horário" summary list */}
+        {isProf && profView === 'meu' && (
+          <View style={styles.legendaContainer}>
+            <Text style={styles.legendaTitle}>Resumo das Minhas Aulas</Text>
+            {minhasAulas.length === 0 ? (
+              <Text style={styles.legendaVazio}>Ainda não tens aulas atribuídas no horário.</Text>
+            ) : (
+              DIAS_FULL.map((diaFull, diaIdx) => {
+                const dia = diaIdx + 1;
+                const aulasDia = minhasAulas.filter(h => h.diaSemana === dia);
+                if (aulasDia.length === 0) return null;
+                return (
+                  <View key={dia} style={styles.legendaRow}>
+                    <Text style={[styles.legendaNum, { marginBottom: 6 }]}>{diaFull}</Text>
+                    {aulasDia.sort((a, b) => a.periodo - b.periodo).map((aula, i) => {
+                      const t = turmas.find(x => x.id === aula.turmaId);
+                      const per = periodos[aula.periodo - 1];
+                      return (
+                        <View key={i} style={styles.legendaAulaCard}>
+                          <View style={styles.legendaAulaRow}>
+                            <Ionicons name="book-outline" size={11} color={Colors.gold} />
+                            <Text style={styles.legendaAulaDisciplina}>{aula.disciplina}</Text>
+                            <View style={[styles.turmaBadge, { marginLeft: 4 }]}>
+                              <Text style={styles.turmaBadgeText}>{t?.nome ?? '—'}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.legendaAulaRow}>
+                            <Ionicons name="time-outline" size={11} color={Colors.textMuted} />
+                            <Text style={styles.legendaAulaHab}>{per?.inicio} — {per?.fim} · {aula.sala}</Text>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                );
+              })
+            )}
+          </View>
+        )}
       </ScrollView>
 
       <Modal visible={modalMode !== null} transparent animationType="slide">
@@ -748,5 +894,12 @@ const styles = StyleSheet.create({
   saveBtnDisabled: { opacity: 0.4 },
   saveBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
   cellMinha: { backgroundColor: Colors.primaryLight, borderWidth: 1, borderColor: Colors.gold + '55' },
+  profViewToggle: { flexDirection: 'row', backgroundColor: Colors.primaryDark, paddingHorizontal: 16, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  profViewBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 7, borderRadius: 10, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  profViewBtnActive: { backgroundColor: `${Colors.gold}18`, borderColor: Colors.gold },
+  profViewBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
+  profViewBtnTextActive: { color: Colors.gold },
+  turmaBadge: { backgroundColor: `${Colors.info}22`, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2 },
+  turmaBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.info },
   sumarioBadge: { position: 'absolute', top: 4, right: 4 },
 });
