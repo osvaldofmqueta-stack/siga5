@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import DatePickerField from '@/components/DatePickerField';
@@ -29,7 +28,6 @@ import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
 import { api } from '@/lib/api';
 
-const ESCOLA_STORAGE = '@sgaa_escola_config';
 
 interface EscolaConfig {
   nome: string;
@@ -447,16 +445,38 @@ export default function AdminScreen() {
   const isApprover = user && AUTHORIZED_APPROVER_ROLES.includes(user.role);
 
   useEffect(() => {
-    AsyncStorage.getItem(ESCOLA_STORAGE).then(raw => {
-      if (raw) setEscola(JSON.parse(raw));
+    setEscola({
+      nome: config.nomeEscola || '',
+      codigoMED: config.codigoMED || '',
+      morada: config.morada || '',
+      municipio: config.municipio || '',
+      provincia: config.provincia || '',
+      telefone: config.telefoneEscola || '',
+      email: config.emailEscola || '',
+      directorGeral: config.directorGeral || '',
+      subdirectorPedagogico: config.subdirectorPedagogico || '',
+      maxAlunosTurma: String(config.maxAlunosTurma || 35),
+      horarioFuncionamento: config.horarioFuncionamento || '',
     });
-  }, []);
+  }, [config]);
 
   async function salvarEscola() {
-    await AsyncStorage.setItem(ESCOLA_STORAGE, JSON.stringify(tempEscola));
+    await updateConfig({
+      nomeEscola: tempEscola.nome,
+      codigoMED: tempEscola.codigoMED || undefined,
+      morada: tempEscola.morada || undefined,
+      municipio: tempEscola.municipio || undefined,
+      provincia: tempEscola.provincia || undefined,
+      telefoneEscola: tempEscola.telefone || undefined,
+      emailEscola: tempEscola.email || undefined,
+      directorGeral: tempEscola.directorGeral || undefined,
+      subdirectorPedagogico: tempEscola.subdirectorPedagogico || undefined,
+      maxAlunosTurma: parseInt(tempEscola.maxAlunosTurma) || 35,
+      horarioFuncionamento: tempEscola.horarioFuncionamento,
+    });
     setEscola(tempEscola);
     setEditEscola(false);
-    alertSucesso('Escola actualizada', 'Os dados da escola foram actualizados com sucesso.');
+    alertSucesso('Escola actualizada', 'Os dados da escola foram guardados na base de dados.');
   }
 
   async function criarUser() {

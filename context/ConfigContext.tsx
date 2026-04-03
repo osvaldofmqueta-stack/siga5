@@ -21,6 +21,13 @@ export interface IrtEscalao {
 
 export interface ConfigGeral {
   nomeEscola: string;
+  codigoMED?: string;
+  morada?: string;
+  municipio?: string;
+  provincia?: string;
+  telefoneEscola?: string;
+  emailEscola?: string;
+  subdirectorPedagogico?: string;
   logoUrl?: string;
   pp1Habilitado: boolean;
   pptHabilitado: boolean;
@@ -124,6 +131,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
       .then(raw => {
         const parsed: ConfigGeral = {
           nomeEscola: (raw.nomeEscola as string) || DEFAULT_CONFIG.nomeEscola,
+          codigoMED: (raw.codigoMED as string) || undefined,
+          morada: (raw.morada as string) || undefined,
+          municipio: (raw.municipio as string) || undefined,
+          provincia: (raw.provincia as string) || undefined,
+          telefoneEscola: (raw.telefoneEscola as string) || undefined,
+          emailEscola: (raw.emailEscola as string) || undefined,
+          subdirectorPedagogico: (raw.subdirectorPedagogico as string) || undefined,
           logoUrl: raw.logoUrl as string | undefined,
           propinaHabilitada: raw.propinaHabilitada !== undefined ? Boolean(raw.propinaHabilitada) : DEFAULT_CONFIG.propinaHabilitada,
           pp1Habilitado: raw.pp1Habilitado !== undefined ? Boolean(raw.pp1Habilitado) : DEFAULT_CONFIG.pp1Habilitado,

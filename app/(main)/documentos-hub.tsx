@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useData } from '@/context/DataContext';
+import { useFinanceiro } from '@/context/FinanceiroContext';
 import { useConfig } from '@/context/ConfigContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { api } from '@/lib/api';
@@ -64,6 +65,7 @@ export default function DocumentosHub() {
   const insets = useSafeAreaInsets();
   const { alunos, turmas } = useData();
   const { config } = useConfig();
+  const { taxas } = useFinanceiro();
 
   const [tab, setTab] = useState<Tab>('PDFs');
   const [search, setSearch] = useState('');
@@ -164,7 +166,7 @@ export default function DocumentosHub() {
       const res = await api.post<any>('/api/pdf/multicaixa/gerar', {
         alunoId: mcxAluno,
         taxaId: taxasSelecionadas[0],
-        valor: 15000,
+        valor: taxas.find(t => t.id === taxasSelecionadas[0])?.valor ?? 0,
         mes: new Date().getMonth() + 1,
         ano: new Date().getFullYear().toString(),
       });

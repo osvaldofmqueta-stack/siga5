@@ -18,10 +18,8 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { webAlert } from '@/utils/webAlert';
 
-const HORARIO_KEY = '@sgaa_horarios';
 const PERIODOS = [
   { numero: 1, inicio: '07:00', fim: '07:45' },
   { numero: 2, inicio: '07:45', fim: '08:30' },
