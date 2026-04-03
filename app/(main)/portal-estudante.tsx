@@ -437,6 +437,141 @@ export default function PortalEstudanteScreen() {
     webAlert('Comprovativo Enviado', 'O seu comprovativo foi registado. O departamento financeiro irá validar o pagamento.');
   }
 
+  function imprimirComprovativo(pag: any) {
+    const taxa = taxas.find((t: any) => t.id === pag.taxaId);
+    const nomeEscola = config?.nomeEscola || 'Escola';
+    const logoUrl = config?.logoUrl || '';
+    const morada = (config as any)?.morada || '';
+    const telefone = (config as any)?.telefoneEscola || '';
+    const emailEscola = (config as any)?.emailEscola || '';
+    const nif = (config as any)?.nifEscola || '';
+    const nomeAluno = aluno ? `${aluno.nome} ${aluno.apelido}` : (user?.nome || '—');
+    const matricula = aluno?.numeroMatricula || '—';
+    const turma = turmaAluno ? `${turmaAluno.nome} — ${turmaAluno.classe}ª Classe` : '—';
+    const descricao = taxa?.descricao || pag.observacao?.replace(/\s*\|\s*Comprovativo:.*$/, '') || 'Pagamento';
+    const valor = formatAOA(pag.valor);
+    const dataFormatada = pag.data ? new Date(pag.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+    const metodo = pag.metodoPagamento === 'multicaixa' ? 'Multicaixa Express' : pag.metodoPagamento === 'rupe' ? 'RUPE / Referência Bancária' : pag.metodoPagamento || '—';
+    const referencia = pag.referencia || '—';
+    const comprProof = pag.observacao?.match(/Comprovativo:\s*(.+)/)?.[1] || null;
+    const recibo = `REC-${pag.id?.toString().slice(-8).toUpperCase() || Date.now().toString().slice(-8)}`;
+    const dataEmissao = new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    const html = `<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Comprovativo de Pagamento — ${recibo}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;color:#1a1a2e;padding:30px;}
+    .page{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);}
+    .header{background:linear-gradient(135deg,#0D1B3E 0%,#1a3060 100%);padding:32px 36px;display:flex;align-items:center;gap:20px;}
+    .logo{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#fff;padding:4px;}
+    .logo-placeholder{width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;font-weight:700;flex-shrink:0;}
+    .header-text{flex:1;}
+    .header-escola{font-size:20px;font-weight:700;color:#fff;margin-bottom:4px;}
+    .header-sub{font-size:12px;color:rgba(255,255,255,0.7);}
+    .stamp-bar{background:#C9A84C;padding:10px 36px;display:flex;align-items:center;justify-content:space-between;}
+    .stamp-title{font-size:15px;font-weight:700;color:#fff;letter-spacing:1.5px;text-transform:uppercase;}
+    .stamp-recibo{font-size:12px;color:rgba(255,255,255,0.85);font-weight:600;}
+    .body{padding:32px 36px;}
+    .section{margin-bottom:24px;}
+    .section-title{font-size:10px;font-weight:700;color:#C9A84C;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px;padding-bottom:6px;border-bottom:1px solid #eee;}
+    .row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+    .label{font-size:12px;color:#888;min-width:140px;}
+    .value{font-size:13px;font-weight:600;color:#1a1a2e;text-align:right;flex:1;}
+    .value.big{font-size:22px;font-weight:700;color:#C9A84C;}
+    .status-badge{display:inline-block;background:#d4edda;color:#155724;border:1.5px solid #c3e6cb;border-radius:20px;padding:5px 18px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+    .divider{border:none;border-top:1px dashed #ddd;margin:20px 0;}
+    .footer{background:#f9f9f9;border-top:1px solid #eee;padding:20px 36px;font-size:11px;color:#999;text-align:center;line-height:1.8;}
+    .footer strong{color:#666;}
+    .print-actions{text-align:center;padding:24px 36px 32px;gap:12px;display:flex;justify-content:center;}
+    .btn{padding:12px 32px;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;}
+    .btn-primary{background:#C9A84C;color:#fff;}
+    .btn-secondary{background:#eee;color:#444;}
+    .verification{background:#f0f7ff;border:1px solid #cce0ff;border-radius:8px;padding:12px 16px;margin-top:16px;font-size:11px;color:#2563eb;text-align:center;}
+    @media print{
+      body{background:#fff;padding:0;}
+      .page{box-shadow:none;border-radius:0;}
+      .print-actions{display:none!important;}
+      @page{size:A4;margin:15mm;}
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    ${logoUrl
+      ? `<img src="${logoUrl}" class="logo" alt="Logo"/>`
+      : `<div class="logo-placeholder">${nomeEscola.charAt(0)}</div>`
+    }
+    <div class="header-text">
+      <div class="header-escola">${nomeEscola}</div>
+      <div class="header-sub">${morada || ''}${morada && (telefone || emailEscola) ? ' &nbsp;·&nbsp; ' : ''}${telefone || ''}${nif ? ' &nbsp;·&nbsp; NIF: ' + nif : ''}</div>
+    </div>
+  </div>
+
+  <div class="stamp-bar">
+    <span class="stamp-title">Comprovativo de Pagamento</span>
+    <span class="stamp-recibo">${recibo}</span>
+  </div>
+
+  <div class="body">
+    <div class="section">
+      <div class="section-title">Dados do Estudante</div>
+      <div class="row"><span class="label">Nome Completo</span><span class="value">${nomeAluno}</span></div>
+      <div class="row"><span class="label">N.º Matrícula</span><span class="value">${matricula}</span></div>
+      <div class="row"><span class="label">Turma / Classe</span><span class="value">${turma}</span></div>
+      <div class="row"><span class="label">Ano Lectivo</span><span class="value">${pag.ano || anoLetivo || '—'}</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Detalhes do Pagamento</div>
+      <div class="row"><span class="label">Rubrica</span><span class="value">${descricao}${pag.mes ? ' — Mês ' + pag.mes : ''}</span></div>
+      <div class="row"><span class="label">Valor Pago</span><span class="value big">${valor}</span></div>
+      <div class="row"><span class="label">Data de Pagamento</span><span class="value">${dataFormatada}</span></div>
+      <div class="row"><span class="label">Método</span><span class="value">${metodo}</span></div>
+      <div class="row"><span class="label">Referência</span><span class="value">${referencia}</span></div>
+      ${comprProof ? `<div class="row"><span class="label">Comprovativo</span><span class="value">${comprProof}</span></div>` : ''}
+    </div>
+
+    <hr class="divider"/>
+
+    <div class="row" style="align-items:center;">
+      <span class="label" style="font-size:13px;font-weight:600;color:#1a1a2e;">Estado</span>
+      <span class="status-badge">✓ Quitado</span>
+    </div>
+
+    <div class="verification">
+      Documento emitido electronicamente em ${dataEmissao} · ${nomeEscola}${nif ? ' · NIF ' + nif : ''}
+    </div>
+  </div>
+
+  <div class="footer">
+    ${emailEscola ? `<strong>Email:</strong> ${emailEscola} &nbsp;&nbsp;` : ''}
+    ${telefone ? `<strong>Tel:</strong> ${telefone} &nbsp;&nbsp;` : ''}
+    ${morada ? `<strong>Morada:</strong> ${morada}` : ''}
+    <br/>Este documento serve como comprovativo oficial de pagamento emitido por ${nomeEscola}.
+  </div>
+
+  <div class="print-actions">
+    <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>
+    <button class="btn btn-secondary" onclick="window.close()">Fechar</button>
+  </div>
+</div>
+</body>
+</html>`;
+
+    if (typeof window !== 'undefined') {
+      const win = window.open('', '_blank', 'width=760,height=900');
+      if (win) {
+        win.document.write(html);
+        win.document.close();
+      }
+    }
+  }
+
   async function handleReconfirmacao() {
     if (!aluno) return;
     const already = reconfirmacoes.find(r => r.alunoId === aluno.id && r.anoLetivo === anoLetivo);
@@ -1785,6 +1920,17 @@ export default function PortalEstudanteScreen() {
                     <Ionicons name="document-attach-outline" size={14} color={Colors.info} />
                     <Text style={{ color: Colors.info, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
                       {comprProof ? 'Actualizar Comprovativo' : 'Submeter Comprovativo'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                {pag.status === 'pago' && (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, padding: 8, backgroundColor: Colors.success + '14', borderRadius: 8, borderWidth: 1, borderColor: Colors.success + '44' }}
+                    onPress={() => imprimirComprovativo(pag)}
+                  >
+                    <Ionicons name="print-outline" size={14} color={Colors.success} />
+                    <Text style={{ color: Colors.success, fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>
+                      Imprimir Comprovativo
                     </Text>
                   </TouchableOpacity>
                 )}
