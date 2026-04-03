@@ -28,9 +28,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const STORAGE_KEY = '@sgaa_user';
-const LAST_USER_KEY = '@sgaa_last_user';
-const TOKEN_KEY = '@sgaa_token';
+const STORAGE_KEY = '@siga_user';
+const LAST_USER_KEY = '@siga_last_user';
+const TOKEN_KEY = '@siga_token';
 
 export async function saveAuthToken(token: string) {
   await AsyncStorage.setItem(TOKEN_KEY, token);

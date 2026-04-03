@@ -511,7 +511,7 @@ export default function AlunosScreen() {
           <TouchableOpacity style={styles.actionBtn} onPress={() => router.push('/(main)/boletim-matricula' as any)}>
             <Ionicons name="newspaper-outline" size={18} color={Colors.warning} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SGAA|ALUNO|${item.id}|${item.numeroMatricula}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroMatricula })}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SIGA|ALUNO|${item.id}|${item.numeroMatricula}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroMatricula })}>
             <Ionicons name="qr-code-outline" size={18} color={Colors.gold} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => openAnotacoes(item)}>

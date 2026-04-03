@@ -166,7 +166,7 @@ export default function DrawerRight() {
               </View>
               <View style={styles.ceoEscolaRow}>
                 <Ionicons name="school-outline" size={13} color="rgba(255,255,255,0.5)" />
-                <Text style={styles.ceoEscolaText}>{user?.escola ?? 'SGAA Angola'}</Text>
+                <Text style={styles.ceoEscolaText}>{user?.escola ?? 'SIGA v3'}</Text>
               </View>
             </LinearGradient>
           ) : (
@@ -293,7 +293,7 @@ export default function DrawerRight() {
             <Ionicons name="information-circle-outline" size={18} color={Colors.textSecondary} />
             <View style={styles.infoContent}>
               <Text style={styles.infoLabel}>Versão</Text>
-              <Text style={styles.infoValue}>SGAA v1.0.0</Text>
+              <Text style={styles.infoValue}>SIGA v3.0.0</Text>
             </View>
           </View>
 

@@ -171,7 +171,8 @@ export default function PresencasScreen() {
   function handleQRScan(data: string) {
     setShowScanner(false);
     const parts = data.split('|');
-    if (parts[0] === 'SGAA' && parts[1] === 'ALUNO') {
+    const isValido = (parts[0] === 'SIGA' || parts[0] === 'SGAA') && parts[1] === 'ALUNO';
+    if (isValido) {
       const alunoId = parts[2];
       const aluno = alunos.find(a => a.id === alunoId);
       if (aluno) {
@@ -181,7 +182,7 @@ export default function PresencasScreen() {
         showToast('QR Code não reconhecido. Aluno não encontrado.', 'error');
       }
     } else {
-      showToast('QR Code inválido. Não pertence ao SGAA.', 'error');
+      showToast('QR Code inválido. Não pertence ao SIGA.', 'error');
     }
   }
 

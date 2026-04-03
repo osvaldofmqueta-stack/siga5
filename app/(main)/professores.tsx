@@ -241,7 +241,7 @@ export default function ProfessoresScreen() {
           </ScrollView>
         </View>
         <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SGAA|PROF|${item.id}|${item.numeroProfessor}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroProfessor })}>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SIGA|PROF|${item.id}|${item.numeroProfessor}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroProfessor })}>
             <Ionicons name="qr-code-outline" size={18} color={Colors.gold} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => { setEditProf(item); setShowForm(true); }}>

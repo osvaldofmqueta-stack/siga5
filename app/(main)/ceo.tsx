@@ -582,7 +582,7 @@ export default function CeoScreen() {
     <View style={styles.container}>
       <TopBar
         title="Painel CEO"
-        subtitle="Gestão do Sistema SGAA"
+        subtitle="Gestão do Sistema SIGA"
         rightAction={mainTab === 'ceo' ? { icon: 'add-circle', onPress: () => setShowGerar(true) } : undefined}
       />
 

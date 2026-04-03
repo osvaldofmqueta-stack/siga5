@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const QUEUE_KEY = '@sgaa_offline_queue';
+const QUEUE_KEY = '@siga_offline_queue';
 
 export interface QueuedOperation {
   id: string;

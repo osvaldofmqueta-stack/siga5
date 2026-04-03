@@ -7,7 +7,7 @@ import { useConfig } from '@/context/ConfigContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width, height } = Dimensions.get('window');
-const SEEN_KEY = '@sgaa_flash_seen';
+const SEEN_KEY = '@siga_flash_seen';
 
 export default function FlashScreenOverlay() {
   const { config } = useConfig();

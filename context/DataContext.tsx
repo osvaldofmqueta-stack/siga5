@@ -178,16 +178,16 @@ function genId(): string {
 }
 
 const STORAGE_KEYS = {
-  alunos:      '@sgaa_alunos',
-  professores: '@sgaa_professores',
-  turmas:      '@sgaa_turmas',
-  salas:       '@sgaa_salas_v1',
-  notas:       '@sgaa_notas',
-  presencas:   '@sgaa_presencas',
-  eventos:     '@sgaa_eventos',
+  alunos:      '@siga_alunos',
+  professores: '@siga_professores',
+  turmas:      '@siga_turmas',
+  salas:       '@siga_salas_v1',
+  notas:       '@siga_notas',
+  presencas:   '@siga_presencas',
+  eventos:     '@siga_eventos',
 };
 
-const CLEANUP_DEMO_DATA_KEY = '@sgaa_cleanup_demo_data_v1';
+const CLEANUP_DEMO_DATA_KEY = '@siga_cleanup_demo_data_v1';
 
 const DEMO_PROF_IDS    = new Set(['prof_demo_001']);
 const DEMO_TURMA_IDS   = new Set(['turma_demo_10a']);
@@ -230,34 +230,34 @@ async function cleanupDemoData() {
   await cleanList<Presenca>(STORAGE_KEYS.presencas,
     p => !p.id.startsWith(DEMO_PRES_PREFIX));
 
-  await cleanList<any>('@sgaa_taxas',
+  await cleanList<any>('@siga_taxas',
     t => !DEMO_TAXA_IDS.has(t.id));
 
-  await cleanList<any>('@sgaa_pagamentos',
+  await cleanList<any>('@siga_pagamentos',
     p => !p.id.startsWith(DEMO_PAG_PREFIX));
 
-  await cleanList<any>('@sgaa_pautas',
+  await cleanList<any>('@siga_pautas',
     p => !DEMO_PAUTA_IDS.includes(p.id));
 
-  await cleanList<any>('@sgaa_mensagens_prof',
+  await cleanList<any>('@siga_mensagens_prof',
     m => !DEMO_MSG_IDS.has(m.id));
 
-  await cleanList<any>('@sgaa_materiais',
+  await cleanList<any>('@siga_materiais',
     m => !DEMO_MAT_IDS.has(m.id));
 
-  await cleanList<any>('@sgaa_sumarios',
+  await cleanList<any>('@siga_sumarios',
     s => !DEMO_SUM_IDS.has(s.id));
 
-  await cleanList<any>('@sgaa_horarios',
+  await cleanList<any>('@siga_horarios',
     h => !DEMO_HOR_IDS.has(h.id));
 
-  await cleanList<any>('@sgaa_anos_academicos',
+  await cleanList<any>('@siga_anos_academicos',
     a => !DEMO_ANO_IDS.has(a.id));
 
   await AsyncStorage.multiRemove([
-    '@sgaa_data_v2',
-    '@sgaa_seed_v1',
-    '@sgaa_seed_v2',
+    '@siga_data_v2',
+    '@siga_seed_v1',
+    '@siga_seed_v2',
   ]);
 
   await AsyncStorage.setItem(CLEANUP_DEMO_DATA_KEY, '1');

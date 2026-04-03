@@ -224,7 +224,7 @@ export default function LicencaScreen() {
             <View style={[styles.logoRing, { borderColor: info.cor + '44' }]}>
               <MaterialCommunityIcons name={info.icon} size={36} color={info.cor} />
             </View>
-            <Text style={styles.appName}>SGAA Angola</Text>
+            <Text style={styles.appName}>SIGA v3</Text>
             <Text style={styles.appSub}>Sistema de Gestão Académica Angolana</Text>
           </View>
 
@@ -279,7 +279,7 @@ export default function LicencaScreen() {
               <Text style={styles.activateTitle}>Activar Nova Licença</Text>
             </View>
             <Text style={styles.activateMsg}>
-              Introduza o código de activação fornecido pelo distribuidor SGAA.
+              Introduza o código de activação fornecido pelo distribuidor SIGA.
             </Text>
             <View style={styles.inputContainer}>
               <MaterialCommunityIcons name="key" size={20} color={Colors.gold} style={styles.inputIcon} />
@@ -287,7 +287,7 @@ export default function LicencaScreen() {
                 style={styles.input}
                 value={codigo}
                 onChangeText={v => setCodigo(v.toUpperCase())}
-                placeholder="SGAA-XXX-XXXXXXXX"
+                placeholder="SIGE-XXX-XXXXXXXX"
                 placeholderTextColor={Colors.textMuted}
                 autoCapitalize="characters"
                 autoCorrect={false}
@@ -333,7 +333,7 @@ export default function LicencaScreen() {
             ))}
             <Text style={styles.contacto}>
               Para adquirir um código, contacte:{'\n'}
-              <Text style={{ color: Colors.gold }}>suporte@sgaa.ao</Text>
+              <Text style={{ color: Colors.gold }}>suporte@siga.ao</Text>
             </Text>
           </View>
 

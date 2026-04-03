@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { getApiUrl } from '@/lib/query-client';
 
-export const PROVISORIO_KEY = '@sgaa_provisorio';
+export const PROVISORIO_KEY = '@siga_provisorio';
 
 export default function LoginProvisorioScreen() {
   const insets = useSafeAreaInsets();

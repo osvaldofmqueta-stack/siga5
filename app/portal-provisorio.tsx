@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { PROVISORIO_KEY } from './login-provisorio';
 
-const MATRICULA_NUM_KEY = '@sgaa_matricula_numero';
+const MATRICULA_NUM_KEY = '@siga_matricula_numero';
 
 function buildQrImageUrl(data: string, size = 100): string {
   return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(data)}&bgcolor=132145&color=ffffff&margin=4&ecc=M`;

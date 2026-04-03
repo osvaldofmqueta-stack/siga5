@@ -36,7 +36,7 @@ export default function QRCodeModal({ visible, onClose, data, title, subtitle }:
 
           <View style={styles.qrWrapper}>
             <QRCode
-              value={data || 'SGAA-ANGOLA'}
+              value={data || 'SIGA-V3'}
               size={size}
               color={Colors.primaryDark}
               backgroundColor="white"

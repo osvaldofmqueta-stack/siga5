@@ -515,9 +515,9 @@ export default function DrawerLeft() {
             <Ionicons name="school" size={22} color={Colors.gold} />
           </TouchableOpacity>
           <View style={styles.headerText}>
-            <Text style={styles.schoolName} numberOfLines={2}>{user?.escola ?? 'SGAA Angola'}</Text>
+            <Text style={styles.schoolName} numberOfLines={2}>{user?.escola ?? 'SIGA v3'}</Text>
             <Text style={styles.anoLetivo}>
-              {anoSelecionado ? `Ano Lectivo ${anoSelecionado.ano}` : 'SGAA Angola'}
+              {anoSelecionado ? `Ano Lectivo ${anoSelecionado.ano}` : 'SIGA v3'}
             </Text>
           </View>
           {showClose && (

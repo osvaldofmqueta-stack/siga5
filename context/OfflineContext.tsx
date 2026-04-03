@@ -31,7 +31,7 @@ const OfflineContext = createContext<OfflineContextValue>({
   triggerSync: async () => {},
 });
 
-const TOKEN_KEY = '@sgaa_token';
+const TOKEN_KEY = '@siga_token';
 
 async function getAuthToken(): Promise<string | null> {
   try {

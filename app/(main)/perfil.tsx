@@ -784,7 +784,7 @@ export default function PerfilScreen() {
           <SectionHeader title="Sessão" icon="time" />
           <InfoRow label="Último acesso" value={new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
           <InfoRow label="Dispositivo" value={Platform.OS === 'web' ? 'Navegador Web' : Platform.OS === 'ios' ? 'iPhone' : 'Android'} />
-          <InfoRow label="Versão da app" value="SGAA v1.0.0" />
+          <InfoRow label="Versão da app" value="SIGA v3.0.0" />
         </View>
 
         {/* Logout */}

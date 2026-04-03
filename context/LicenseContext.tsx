@@ -41,8 +41,8 @@ interface LicenseContextValue {
 
 const LicenseContext = createContext<LicenseContextValue | null>(null);
 
-const STORAGE_LICENCA = '@sgaa_licenca';
-const STORAGE_CODIGOS = '@sgaa_codigos_ceo';
+const STORAGE_LICENCA = '@siga_licenca';
+const STORAGE_CODIGOS = '@siga_codigos_ceo';
 
 export const PLANO_DIAS: Record<TipoPlano, number> = {
   avaliacao: 30,
