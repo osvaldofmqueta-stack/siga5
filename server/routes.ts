@@ -3873,16 +3873,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/cursos", async (req: Request, res: Response) => {
     try {
       const body = requireBodyObject(req);
-      const { nome, codigo, areaFormacao, descricao } = body as Record<string, string>;
+      const { nome, codigo, areaFormacao, descricao, duracao, ementa, portaria } = body as Record<string, string>;
+      const cargaHoraria = parseInt((body.cargaHoraria as any) || '0') || 0;
       if (!nome?.trim()) return json(res, 400, { error: 'Nome é obrigatório.' });
       if (!areaFormacao?.trim()) return json(res, 400, { error: 'Área de formação é obrigatória.' });
       
       const id = body.id || Date.now().toString() + Math.random().toString(36).slice(2, 7);
       
       const rows = await query<JsonObject>(
-        `INSERT INTO public.cursos (id, nome, codigo, "areaFormacao", descricao, ativo)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [id, nome.trim(), (codigo || '').trim(), areaFormacao.trim(), (descricao || '').trim(), true]
+        `INSERT INTO public.cursos (id, nome, codigo, "areaFormacao", descricao, ativo, "cargaHoraria", duracao, ementa, portaria)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+        [id, nome.trim(), (codigo || '').trim(), areaFormacao.trim(), (descricao || '').trim(), true,
+         cargaHoraria, (duracao || '').trim(), (ementa || '').trim(), (portaria || '').trim()]
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
@@ -3892,11 +3894,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const body = requireBodyObject(req);
-      const { nome, codigo, areaFormacao, descricao, ativo } = body as Record<string, any>;
+      const { nome, codigo, areaFormacao, descricao, ativo, duracao, ementa, portaria } = body as Record<string, any>;
+      const cargaHoraria = parseInt((body.cargaHoraria as any) || '0') || 0;
       const rows = await query<JsonObject>(
-        `UPDATE public.cursos SET nome=$1, codigo=$2, "areaFormacao"=$3, descricao=$4, ativo=$5
-         WHERE id=$6 RETURNING *`,
-        [nome?.trim(), (codigo || '').trim(), areaFormacao?.trim(), (descricao || '').trim(), ativo !== false, id]
+        `UPDATE public.cursos SET nome=$1, codigo=$2, "areaFormacao"=$3, descricao=$4, ativo=$5,
+         "cargaHoraria"=$6, duracao=$7, ementa=$8, portaria=$9
+         WHERE id=$10 RETURNING *`,
+        [nome?.trim(), (codigo || '').trim(), areaFormacao?.trim(), (descricao || '').trim(), ativo !== false,
+         cargaHoraria, (duracao || '').trim(), (ementa || '').trim(), (portaria || '').trim(), id]
       );
       if (!rows.length) return json(res, 404, { error: 'Curso não encontrado.' });
       json(res, 200, rows[0]);
@@ -3930,16 +3935,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // CURSO_DISCIPLINAS (ligação curso ↔ disciplina)
   // -----------------------
 
-  // GET disciplinas de um curso específico (com detalhes da disciplina)
+  // GET disciplinas de um curso específico (com detalhes da disciplina) — exclui removidas
   app.get("/api/cursos/:id/disciplinas", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const incluirRemovidas = req.query.incluirRemovidas === 'true';
       const rows = await query<JsonObject>(
         `SELECT cd.id, cd."cursoId", cd."disciplinaId", cd.obrigatoria, cd."cargaHoraria", cd.ordem,
-                d.nome, d.codigo, d.area, d.descricao, d.ativo
+                cd.removida, d.nome, d.codigo, d.area, d.descricao, d.ativo
          FROM public.curso_disciplinas cd
          JOIN public.disciplinas d ON d.id = cd."disciplinaId"
-         WHERE cd."cursoId" = $1
+         WHERE cd."cursoId" = $1 ${incluirRemovidas ? '' : 'AND cd.removida = false'}
          ORDER BY cd.ordem ASC, d.nome ASC`,
         [id]
       );
@@ -3947,34 +3953,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  // PUT — repõe a lista de disciplinas de um curso (substitui tudo)
+  // Relatório de cursos com carga horária e matriz
+  app.get("/api/cursos/relatorio", async (_req: Request, res: Response) => {
+    try {
+      const cursos = await query<JsonObject>(
+        `SELECT c.*, 
+                COUNT(cd.id) FILTER (WHERE cd.removida = false) AS "numDisciplinas",
+                COALESCE(SUM(cd."cargaHoraria") FILTER (WHERE cd.removida = false), 0) AS "cargaHorariaMatriz"
+         FROM public.cursos c
+         LEFT JOIN public.curso_disciplinas cd ON cd."cursoId" = c.id
+         WHERE c.ativo = true
+         GROUP BY c.id
+         ORDER BY c."areaFormacao" ASC, c.nome ASC`,
+        []
+      );
+      json(res, 200, cursos);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PUT — actualiza a lista de disciplinas de um curso com soft-delete (preserva histórico)
   app.put("/api/cursos/:id/disciplinas", async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const body = requireBodyObject(req);
-      const disciplinaIds = (body.disciplinaIds as string[]) || [];
+      // Suporta formato rico: [{ disciplinaId, cargaHoraria, obrigatoria }] ou simples: string[]
+      type DiscEntry = { disciplinaId: string; cargaHoraria?: number; obrigatoria?: boolean };
+      const entradas: DiscEntry[] = Array.isArray(body.disciplinas)
+        ? (body.disciplinas as DiscEntry[])
+        : ((body.disciplinaIds as string[]) || []).map(did => ({ disciplinaId: did }));
 
-      // Remove todas as existentes e re-insere
-      await query(`DELETE FROM public.curso_disciplinas WHERE "cursoId"=$1`, [id]);
+      const idsActivos = new Set(entradas.map(e => e.disciplinaId));
 
-      if (disciplinaIds.length > 0) {
-        for (let i = 0; i < disciplinaIds.length; i++) {
-          await query(
-            `INSERT INTO public.curso_disciplinas ("cursoId","disciplinaId",obrigatoria,"cargaHoraria",ordem)
-             VALUES ($1,$2,true,0,$3)
-             ON CONFLICT DO NOTHING`,
-            [id, disciplinaIds[i], i]
-          );
-        }
+      // Soft-delete: marcar removida=true para disciplinas que saíram da matriz
+      await query(
+        `UPDATE public.curso_disciplinas SET removida=true
+         WHERE "cursoId"=$1 AND removida=false AND "disciplinaId" NOT IN (${
+           idsActivos.size > 0 ? [...idsActivos].map((_,i) => `$${i+2}`).join(',') : 'NULL'
+         })`,
+        [id, ...[...idsActivos]]
+      );
+
+      // Inserir novas ou reactivar removidas + actualizar cargaHoraria/obrigatoria
+      for (let i = 0; i < entradas.length; i++) {
+        const e = entradas[i];
+        const carga = parseInt(String(e.cargaHoraria || 0)) || 0;
+        const obrig = e.obrigatoria !== false;
+        await query(
+          `INSERT INTO public.curso_disciplinas ("cursoId","disciplinaId",obrigatoria,"cargaHoraria",ordem,removida)
+           VALUES ($1,$2,$3,$4,$5,false)
+           ON CONFLICT ON CONSTRAINT uq_curso_disciplina DO UPDATE
+             SET removida=false, "cargaHoraria"=$4, obrigatoria=$3, ordem=$5`,
+          [id, e.disciplinaId, obrig, carga, i]
+        );
       }
 
-      // Retorna a lista actualizada
+      // Retorna a lista activa actualizada
       const rows = await query<JsonObject>(
         `SELECT cd.id, cd."cursoId", cd."disciplinaId", cd.obrigatoria, cd."cargaHoraria", cd.ordem,
-                d.nome, d.codigo, d.area, d.descricao, d.ativo
+                cd.removida, d.nome, d.codigo, d.area, d.descricao, d.ativo
          FROM public.curso_disciplinas cd
          JOIN public.disciplinas d ON d.id = cd."disciplinaId"
-         WHERE cd."cursoId" = $1
+         WHERE cd."cursoId" = $1 AND cd.removida = false
          ORDER BY cd.ordem ASC, d.nome ASC`,
         [id]
       );
@@ -8072,6 +8111,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('[migration] feriados nacionais de Angola semeados.');
     }
   } catch (e) { console.warn('[migration] feriados:', (e as Error).message); }
+
+  // Cursos — new fields: cargaHoraria, duracao, ementa, portaria
+  try {
+    await query(`ALTER TABLE public.cursos ADD COLUMN IF NOT EXISTS "cargaHoraria" integer NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.cursos ADD COLUMN IF NOT EXISTS "duracao" text NOT NULL DEFAULT ''`, []);
+    await query(`ALTER TABLE public.cursos ADD COLUMN IF NOT EXISTS "ementa" text NOT NULL DEFAULT ''`, []);
+    await query(`ALTER TABLE public.cursos ADD COLUMN IF NOT EXISTS "portaria" text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] cursos — cargaHoraria, duracao, ementa, portaria ensured.');
+  } catch (e) { console.warn('[migration] cursos new fields:', (e as Error).message); }
+
+  // curso_disciplinas — soft-delete flag: removida + unique constraint for upsert
+  try {
+    await query(`ALTER TABLE public.curso_disciplinas ADD COLUMN IF NOT EXISTS "removida" boolean NOT NULL DEFAULT false`, []);
+    // Deduplicate before adding unique constraint (keep lowest id row)
+    await query(
+      `DELETE FROM public.curso_disciplinas a
+       USING public.curso_disciplinas b
+       WHERE a.id > b.id AND a."cursoId"=b."cursoId" AND a."disciplinaId"=b."disciplinaId"`,
+      []
+    );
+    // Add unique constraint so we can upsert on (cursoId, disciplinaId)
+    await query(
+      `DO $$ BEGIN
+         IF NOT EXISTS (
+           SELECT 1 FROM pg_constraint WHERE conname='uq_curso_disciplina'
+         ) THEN
+           ALTER TABLE public.curso_disciplinas
+           ADD CONSTRAINT uq_curso_disciplina UNIQUE ("cursoId","disciplinaId");
+         END IF;
+       END $$`,
+      []
+    );
+    console.log('[migration] curso_disciplinas.removida + unique constraint ensured.');
+  } catch (e) { console.warn('[migration] curso_disciplinas.removida:', (e as Error).message); }
 
   // ─── PLANO DE CONTAS ROUTES ─────────────────────────────────────────────────
   app.get('/api/plano-contas', requireAuth, async (req, res) => {

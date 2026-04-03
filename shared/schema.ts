@@ -900,6 +900,11 @@ export const cursos = pgTable("cursos", {
   descricao: text("descricao").notNull().default(''),
   ativo: boolean("ativo").notNull().default(true),
 
+  cargaHoraria: integer("cargaHoraria").notNull().default(0),
+  duracao: text("duracao").notNull().default(''),
+  ementa: text("ementa").notNull().default(''),
+  portaria: text("portaria").notNull().default(''),
+
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1154,6 +1159,7 @@ export const cursoDisciplinas = pgTable("curso_disciplinas", {
   obrigatoria: boolean("obrigatoria").notNull().default(true),
   cargaHoraria: integer("cargaHoraria").notNull().default(0),
   ordem: integer("ordem").notNull().default(0),
+  removida: boolean("removida").notNull().default(false),
 
   createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
 });

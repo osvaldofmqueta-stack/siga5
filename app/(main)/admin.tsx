@@ -68,6 +68,7 @@ const AREAS_FORMACAO_DEFAULT = [
 
 interface Curso {
   id: string; nome: string; codigo: string; areaFormacao: string; descricao: string; ativo: boolean;
+  cargaHoraria?: number; duracao?: string; ementa?: string; portaria?: string;
 }
 
 const SECTION_COLORS: Record<string, string> = {
@@ -285,27 +286,36 @@ export default function AdminScreen() {
   const [showCursoForm, setShowCursoForm] = useState(false);
   const [editingCurso, setEditingCurso] = useState<Curso | null>(null);
   const [savingCurso, setSavingCurso] = useState(false);
-  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO_DEFAULT[0], descricao: '' });
+  const [cursoForm, setCursoForm] = useState({ nome: '', codigo: '', areaFormacao: AREAS_FORMACAO_DEFAULT[0], descricao: '', cargaHoraria: '', duracao: '', ementa: '', portaria: '' });
+  const [showRelatorio, setShowRelatorio] = useState(false);
+  const [relatorioData, setRelatorioData] = useState<any[]>([]);
+  const [loadingRelatorio, setLoadingRelatorio] = useState(false);
 
   interface DisciplinaCat { id: string; nome: string; codigo: string; area: string; ativo: boolean; }
+  interface DiscMeta { cargaHoraria: number; obrigatoria: boolean; }
   const [gDiscCurso, setGDiscCurso] = useState<Curso | null>(null);
   const [gDiscCatalogo, setGDiscCatalogo] = useState<DisciplinaCat[]>([]);
   const [gDiscSelected, setGDiscSelected] = useState<string[]>([]);
+  const [gDiscMeta, setGDiscMeta] = useState<Record<string, DiscMeta>>({});
   const [gDiscSaving, setGDiscSaving] = useState(false);
 
   async function abrirGestaoDisciplinas(c: Curso) {
     setGDiscCurso(c);
     setGDiscSelected([]);
     setGDiscCatalogo([]);
+    setGDiscMeta({});
     try {
       const [catRes, selRes] = await Promise.all([
         fetch('/api/disciplinas'),
         fetch(`/api/cursos/${c.id}/disciplinas`),
       ]);
       const cat: DisciplinaCat[] = catRes.ok ? await catRes.json() : [];
-      const sel: { disciplinaId: string }[] = selRes.ok ? await selRes.json() : [];
+      const sel: { disciplinaId: string; cargaHoraria: number; obrigatoria: boolean }[] = selRes.ok ? await selRes.json() : [];
       setGDiscCatalogo(cat.filter(d => d.ativo));
       setGDiscSelected(sel.map(s => s.disciplinaId));
+      const meta: Record<string, DiscMeta> = {};
+      sel.forEach(s => { meta[s.disciplinaId] = { cargaHoraria: s.cargaHoraria || 0, obrigatoria: s.obrigatoria !== false }; });
+      setGDiscMeta(meta);
     } catch {}
   }
 
@@ -313,20 +323,44 @@ export default function AdminScreen() {
     setGDiscSelected(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }
 
+  function setDiscCarga(id: string, val: string) {
+    const n = parseInt(val) || 0;
+    setGDiscMeta(prev => ({ ...prev, [id]: { ...(prev[id] || { obrigatoria: true }), cargaHoraria: n } }));
+  }
+
+  function toggleDiscObrig(id: string) {
+    setGDiscMeta(prev => ({ ...prev, [id]: { ...(prev[id] || { cargaHoraria: 0 }), obrigatoria: !(prev[id]?.obrigatoria !== false) } }));
+  }
+
   async function guardarDiscCurso() {
     if (!gDiscCurso) return;
     setGDiscSaving(true);
     try {
+      const disciplinas = gDiscSelected.map(did => ({
+        disciplinaId: did,
+        cargaHoraria: gDiscMeta[did]?.cargaHoraria || 0,
+        obrigatoria: gDiscMeta[did]?.obrigatoria !== false,
+      }));
       const res = await fetch(`/api/cursos/${gDiscCurso.id}/disciplinas`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ disciplinaIds: gDiscSelected }),
+        body: JSON.stringify({ disciplinas }),
       });
       if (!res.ok) throw new Error('Erro ao guardar');
-      alertSucesso('Disciplinas guardadas', `As disciplinas do curso "${gDiscCurso.nome}" foram actualizadas.`);
+      alertSucesso('Matriz actualizada', `A matriz curricular do curso "${gDiscCurso.nome}" foi actualizada. As disciplinas removidas foram preservadas no histórico.`);
       setGDiscCurso(null);
     } catch (e: any) { alertErro('Erro', e.message); }
     setGDiscSaving(false);
+  }
+
+  async function abrirRelatorio() {
+    setShowRelatorio(true);
+    setLoadingRelatorio(true);
+    try {
+      const res = await fetch('/api/cursos/relatorio');
+      if (res.ok) setRelatorioData(await res.json());
+    } catch {}
+    setLoadingRelatorio(false);
   }
 
   async function fetchCursos() {
@@ -340,14 +374,14 @@ export default function AdminScreen() {
 
   function abrirNovoCurso() {
     setEditingCurso(null);
-    setCursoForm({ nome: '', codigo: '', areaFormacao: areasFormacao[0] || AREAS_FORMACAO_DEFAULT[0], descricao: '' });
+    setCursoForm({ nome: '', codigo: '', areaFormacao: areasFormacao[0] || AREAS_FORMACAO_DEFAULT[0], descricao: '', cargaHoraria: '', duracao: '', ementa: '', portaria: '' });
     setShowNovoAno(false); // Garantir que outros modais estão fechados
     setShowCursoForm(true);
   }
 
   function abrirEditarCurso(c: Curso) {
     setEditingCurso(c);
-    setCursoForm({ nome: c.nome, codigo: c.codigo, areaFormacao: c.areaFormacao, descricao: c.descricao });
+    setCursoForm({ nome: c.nome, codigo: c.codigo, areaFormacao: c.areaFormacao, descricao: c.descricao, cargaHoraria: String(c.cargaHoraria || ''), duracao: c.duracao || '', ementa: c.ementa || '', portaria: c.portaria || '' });
     setShowCursoForm(true);
   }
 
@@ -359,7 +393,7 @@ export default function AdminScreen() {
       const url = editingCurso ? `/api/cursos/${editingCurso.id}` : '/api/cursos';
       const res = await fetch(url, {
         method, headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...cursoForm, ativo: true }),
+        body: JSON.stringify({ ...cursoForm, cargaHoraria: parseInt(cursoForm.cargaHoraria) || 0, ativo: true }),
       });
       if (!res.ok) throw new Error('Erro ao guardar');
       await fetchCursos();
@@ -865,13 +899,22 @@ export default function AdminScreen() {
           <View style={styles.card}>
             <View style={styles.cardHeaderRow}>
               <SectionHeader title="Parametrizar Cursos" icon="library" color="#A78BFA" />
-              <TouchableOpacity
-                style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
-                onPress={() => abrirNovoCurso()}
-              >
-                <Ionicons name="add" size={15} color="#A78BFA" />
-                <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                <TouchableOpacity
+                  style={[styles.editBtn, { backgroundColor: 'rgba(34,211,238,0.1)', borderColor: 'rgba(34,211,238,0.3)', borderWidth: 1 }]}
+                  onPress={abrirRelatorio}
+                >
+                  <Ionicons name="document-text-outline" size={15} color="#22D3EE" />
+                  <Text style={[styles.editBtnText, { color: '#22D3EE' }]}>Relatório</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.editBtn, { backgroundColor: '#A78BFA22', borderColor: '#A78BFA55', borderWidth: 1 }]}
+                  onPress={() => abrirNovoCurso()}
+                >
+                  <Ionicons name="add" size={15} color="#A78BFA" />
+                  <Text style={[styles.editBtnText, { color: '#A78BFA' }]}>Novo Curso</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(167,139,250,0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)', padding: 12, marginBottom: 4 }}>
@@ -914,12 +957,25 @@ export default function AdminScreen() {
                     {lista.map(c => (
                       <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12, marginBottom: 8 }}>
                         <View style={{ flex: 1 }}>
-                          {!!c.codigo && (
-                            <View style={{ alignSelf: 'flex-start', backgroundColor: 'rgba(167,139,250,0.18)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2, marginBottom: 4 }}>
-                              <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{c.codigo}</Text>
-                            </View>
-                          )}
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                            {!!c.codigo && (
+                              <View style={{ backgroundColor: 'rgba(167,139,250,0.18)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{c.codigo}</Text>
+                              </View>
+                            )}
+                            {!!c.duracao && (
+                              <View style={{ backgroundColor: 'rgba(34,211,238,0.12)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#22D3EE' }}>{c.duracao}</Text>
+                              </View>
+                            )}
+                            {!!c.cargaHoraria && (
+                              <View style={{ backgroundColor: 'rgba(251,191,36,0.12)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 2 }}>
+                                <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>{c.cargaHoraria}h</Text>
+                              </View>
+                            )}
+                          </View>
                           <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{c.nome}</Text>
+                          {!!c.portaria && <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 }}>Portaria: {c.portaria}</Text>}
                           {!!c.descricao && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }} numberOfLines={1}>{c.descricao}</Text>}
                         </View>
                         <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -2289,13 +2345,57 @@ export default function AdminScreen() {
                     ))}
                   </View>
                 </View>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.fieldLabel}>Carga Horária (horas)</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={cursoForm.cargaHoraria}
+                      onChangeText={v => setCursoForm(f => ({ ...f, cargaHoraria: v.replace(/[^0-9]/g, '') }))}
+                      placeholder="Ex: 2400"
+                      placeholderTextColor={Colors.textMuted}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.fieldLabel}>Duração</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={cursoForm.duracao}
+                      onChangeText={v => setCursoForm(f => ({ ...f, duracao: v }))}
+                      placeholder="Ex: 3 anos"
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Portaria / Decreto</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={cursoForm.portaria}
+                    onChangeText={v => setCursoForm(f => ({ ...f, portaria: v }))}
+                    placeholder="Ex: Portaria nº 123/2024"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
                 <View style={styles.inputGroup}>
                   <Text style={styles.fieldLabel}>Descrição</Text>
                   <TextInput
-                    style={[styles.input, { minHeight: 70, textAlignVertical: 'top', paddingTop: 12 }]}
+                    style={[styles.input, { minHeight: 60, textAlignVertical: 'top', paddingTop: 12 }]}
                     value={cursoForm.descricao}
                     onChangeText={v => setCursoForm(f => ({ ...f, descricao: v }))}
                     placeholder="Breve descrição do curso..."
+                    placeholderTextColor={Colors.textMuted}
+                    multiline
+                  />
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.fieldLabel}>Ementa</Text>
+                  <TextInput
+                    style={[styles.input, { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 }]}
+                    value={cursoForm.ementa}
+                    onChangeText={v => setCursoForm(f => ({ ...f, ementa: v }))}
+                    placeholder="Conteúdo programático / ementa do curso..."
                     placeholderTextColor={Colors.textMuted}
                     multiline
                   />
@@ -2319,20 +2419,26 @@ export default function AdminScreen() {
         </View>
       </Modal>
 
-      {/* Modal Gerir Disciplinas de Curso */}
+      {/* Modal Gerir Matriz Curricular de Curso */}
       <Modal visible={!!gDiscCurso} transparent animationType="slide" onRequestClose={() => setGDiscCurso(null)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { maxHeight: '85%' }]}>
+          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Disciplinas — {gDiscCurso?.nome}</Text>
+              <Text style={styles.modalTitle}>Matriz Curricular — {gDiscCurso?.nome}</Text>
               <TouchableOpacity onPress={() => setGDiscCurso(null)}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 12, lineHeight: 18 }}>
-              Seleccione as disciplinas que fazem parte deste curso. Serão usadas automaticamente nas turmas associadas.
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 8, lineHeight: 18 }}>
+              Configure a matriz curricular deste curso. Disciplinas removidas são preservadas no histórico.
             </Text>
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 360 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(251,191,36,0.08)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(251,191,36,0.2)', padding: 9, marginBottom: 12 }}>
+              <Ionicons name="information-circle-outline" size={14} color={Colors.gold} />
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1, lineHeight: 16 }}>
+                Seleccione as disciplinas, defina a carga horária de cada uma e se são obrigatórias.
+              </Text>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
               {gDiscCatalogo.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingVertical: 32, gap: 8 }}>
                   <Ionicons name="book-outline" size={40} color={Colors.textMuted} />
@@ -2344,20 +2450,44 @@ export default function AdminScreen() {
                 <View style={{ gap: 8 }}>
                   {gDiscCatalogo.map(d => {
                     const sel = gDiscSelected.includes(d.id);
+                    const meta = gDiscMeta[d.id] || { cargaHoraria: 0, obrigatoria: true };
                     return (
-                      <TouchableOpacity
-                        key={d.id}
-                        onPress={() => toggleGDisc(d.id)}
-                        style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: sel ? Colors.success + '66' : Colors.border, backgroundColor: sel ? Colors.success + '10' : Colors.surface }}
-                      >
-                        <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: sel ? Colors.success : Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? Colors.success + '22' : 'transparent' }}>
-                          {sel && <Ionicons name="checkmark" size={14} color={Colors.success} />}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: sel ? Colors.text : Colors.textSecondary }}>{d.nome}</Text>
-                          {!!d.codigo && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{d.codigo} · {d.area}</Text>}
-                        </View>
-                      </TouchableOpacity>
+                      <View key={d.id} style={{ borderRadius: 10, borderWidth: 1, borderColor: sel ? Colors.success + '55' : Colors.border, backgroundColor: sel ? Colors.success + '08' : Colors.surface, overflow: 'hidden' }}>
+                        <TouchableOpacity
+                          onPress={() => toggleGDisc(d.id)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12 }}
+                        >
+                          <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 1.5, borderColor: sel ? Colors.success : Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: sel ? Colors.success + '22' : 'transparent' }}>
+                            {sel && <Ionicons name="checkmark" size={14} color={Colors.success} />}
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: sel ? Colors.text : Colors.textSecondary }}>{d.nome}</Text>
+                            {!!d.codigo && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{d.codigo} · {d.area}</Text>}
+                          </View>
+                        </TouchableOpacity>
+                        {sel && (
+                          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingBottom: 10, alignItems: 'center' }}>
+                            <View style={{ flex: 1 }}>
+                              <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginBottom: 4 }}>Carga Horária (h)</Text>
+                              <TextInput
+                                style={[styles.input, { height: 34, fontSize: 12, paddingHorizontal: 10 }]}
+                                value={meta.cargaHoraria > 0 ? String(meta.cargaHoraria) : ''}
+                                onChangeText={v => setDiscCarga(d.id, v.replace(/[^0-9]/g, ''))}
+                                placeholder="0"
+                                placeholderTextColor={Colors.textMuted}
+                                keyboardType="numeric"
+                              />
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => toggleDiscObrig(d.id)}
+                              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: meta.obrigatoria ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: meta.obrigatoria ? '#A78BFA55' : Colors.border }}
+                            >
+                              <Ionicons name={meta.obrigatoria ? 'lock-closed-outline' : 'lock-open-outline'} size={13} color={meta.obrigatoria ? '#A78BFA' : Colors.textMuted} />
+                              <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: meta.obrigatoria ? '#A78BFA' : Colors.textMuted }}>{meta.obrigatoria ? 'Obrigatória' : 'Opcional'}</Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
                     );
                   })}
                 </View>
@@ -2373,7 +2503,87 @@ export default function AdminScreen() {
                 disabled={gDiscSaving}
               >
                 <Ionicons name="checkmark" size={16} color="#fff" />
-                <Text style={styles.submitBtnText}>{gDiscSaving ? 'A guardar...' : `Guardar (${gDiscSelected.length} selec.)`}</Text>
+                <Text style={styles.submitBtnText}>{gDiscSaving ? 'A guardar...' : `Guardar (${gDiscSelected.length} disc.)`}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Relatório de Cursos */}
+      <Modal visible={showRelatorio} transparent animationType="slide" onRequestClose={() => setShowRelatorio(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Relatório de Cursos</Text>
+              <TouchableOpacity onPress={() => setShowRelatorio(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 500 }}>
+              {loadingRelatorio ? (
+                <Text style={{ textAlign: 'center', color: Colors.textMuted, fontFamily: 'Inter_400Regular', fontSize: 13, paddingVertical: 24 }}>A carregar...</Text>
+              ) : relatorioData.length === 0 ? (
+                <Text style={{ textAlign: 'center', color: Colors.textMuted, fontFamily: 'Inter_400Regular', fontSize: 13, paddingVertical: 24 }}>Nenhum curso activo.</Text>
+              ) : (
+                <View style={{ gap: 10 }}>
+                  {/* Totais */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(167,139,250,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(167,139,250,0.25)', padding: 12, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{relatorioData.length}</Text>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>Cursos activos</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(251,191,36,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(251,191,36,0.25)', padding: 12, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.gold }}>{relatorioData.reduce((s, c) => s + (c.cargaHoraria || 0), 0)}h</Text>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>Carga total</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: 'rgba(34,211,238,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(34,211,238,0.25)', padding: 12, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: '#22D3EE' }}>{relatorioData.reduce((s, c) => s + parseInt(c.numDisciplinas || '0'), 0)}</Text>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>Disciplinas</Text>
+                    </View>
+                  </View>
+                  {relatorioData.map((c: any) => (
+                    <View key={c.id} style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 8 }}>
+                        <View style={{ flex: 1 }}>
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                            {!!c.codigo && <View style={{ backgroundColor: 'rgba(167,139,250,0.18)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1 }}><Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: '#A78BFA' }}>{c.codigo}</Text></View>}
+                            {!!c.areaFormacao && <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 1 }}><Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{c.areaFormacao}</Text></View>}
+                          </View>
+                          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{c.nome}</Text>
+                          {!!c.portaria && <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>Portaria: {c.portaria}</Text>}
+                        </View>
+                      </View>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="time-outline" size={13} color={Colors.gold} />
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>{c.cargaHoraria || 0}h carga horária</Text>
+                        </View>
+                        {!!c.duracao && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Ionicons name="calendar-outline" size={13} color='#22D3EE' />
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#22D3EE' }}>{c.duracao}</Text>
+                          </View>
+                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Ionicons name="book-outline" size={13} color={Colors.success} />
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>{c.numDisciplinas || 0} disciplinas na matriz</Text>
+                        </View>
+                        {parseInt(c.cargaHorariaMatriz || '0') > 0 && (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <Ionicons name="layers-outline" size={13} color={Colors.textMuted} />
+                            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{c.cargaHorariaMatriz}h na matriz</Text>
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+            <View style={{ marginTop: 16 }}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowRelatorio(false)}>
+                <Text style={styles.cancelBtnText}>Fechar</Text>
               </TouchableOpacity>
             </View>
           </View>
