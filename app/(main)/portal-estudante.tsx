@@ -1076,6 +1076,22 @@ export default function PortalEstudanteScreen() {
       return p?.status === 'fechada';
     });
 
+    const notasPublicadas = aluno?.publicarNotas ?? true;
+
+    if (!notasPublicadas) {
+      return (
+        <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.emptyState, { paddingTop: 60 }]}>
+            <Ionicons name="eye-off-outline" size={52} color={Colors.textMuted} />
+            <Text style={[styles.emptyStateText, { fontFamily: 'Inter_700Bold', fontSize: 16 }]}>Notas não disponíveis</Text>
+            <Text style={[styles.emptyStateText, { fontSize: 13, lineHeight: 19 }]}>
+              O Director de Turma ainda não publicou as suas notas neste portal. Contacte a secretaria ou o seu director de turma para mais informações.
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
+
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <View style={styles.trimestreSelector}>

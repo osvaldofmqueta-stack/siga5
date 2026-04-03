@@ -125,6 +125,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] alunos.permitirAcessoComPendencia:', (migErr as Error).message);
   }
 
+  // Add publicarNotas column to alunos (controls whether grades are visible to the student in portal)
+  try {
+    await query(`ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS "publicarNotas" boolean NOT NULL DEFAULT true`, []);
+    console.log('[migration] alunos.publicarNotas ensured.');
+  } catch (migErr) {
+    console.warn('[migration] alunos.publicarNotas:', (migErr as Error).message);
+  }
+
+  // Add faltasBloqueadas column to turmas (director de turma can block attendance entry)
+  try {
+    await query(`ALTER TABLE public.turmas ADD COLUMN IF NOT EXISTS "faltasBloqueadas" boolean NOT NULL DEFAULT false`, []);
+    console.log('[migration] turmas.faltasBloqueadas ensured.');
+  } catch (migErr) {
+    console.warn('[migration] turmas.faltasBloqueadas:', (migErr as Error).message);
+  }
+
   // ── solicitacoes_documentos: student document requests ──────────────────────
   try {
     await query(`
@@ -666,6 +682,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       json(res, 500, { error: (e as Error).message });
     }
+  });
+
+  // PATCH publicar notas per student
+  app.patch("/api/alunos/:id/publicar-notas", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca', 'secretaria', 'professor', 'director_turma'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) return json(res, 403, { error: 'Sem permissão.' });
+      const { id } = req.params;
+      const b = requireBodyObject(req) as any;
+      const valor = !!b.publicarNotas;
+      const rows = await query<JsonObject>(
+        `UPDATE public.alunos SET "publicarNotas" = $1 WHERE id = $2 RETURNING *`,
+        [valor, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Aluno não encontrado.' });
+      return json(res, 200, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PATCH block/unblock attendance entry per turma
+  app.patch("/api/turmas/:id/faltas-bloqueadas", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca', 'secretaria', 'professor', 'director_turma'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) return json(res, 403, { error: 'Sem permissão.' });
+      const { id } = req.params;
+      const b = requireBodyObject(req) as any;
+      const valor = !!b.faltasBloqueadas;
+      const rows = await query<JsonObject>(
+        `UPDATE public.turmas SET "faltasBloqueadas" = $1 WHERE id = $2 RETURNING *`,
+        [valor, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Turma não encontrada.' });
+      return json(res, 200, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // PATCH approve/reject a lesson plan
+  app.patch("/api/planos-aula/:id/status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca', 'secretaria', 'professor', 'director_turma'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) return json(res, 403, { error: 'Sem permissão.' });
+      const { id } = req.params;
+      const b = requireBodyObject(req) as any;
+      const status = b.status as string;
+      if (!['aprovado', 'rejeitado', 'rascunho', 'submetido'].includes(status))
+        return json(res, 400, { error: 'Status inválido.' });
+      const rows = await query<JsonObject>(
+        `UPDATE public.planos_aula SET
+           status=$1,
+           "observacaoDirector"=COALESCE($2,"observacaoDirector"),
+           "aprovadoPor"=CASE WHEN $1='aprovado' THEN $3 ELSE "aprovadoPor" END,
+           "aprovadoEm"=CASE WHEN $1='aprovado' THEN NOW()::text ELSE "aprovadoEm" END,
+           "updatedAt"=NOW()
+         WHERE id=$4 RETURNING *`,
+        [status, b.observacaoDirector ?? null, b.aprovadoPor ?? null, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Plano não encontrado.' });
+      return json(res, 200, rows[0]);
+    } catch (e) { return json(res, 500, { error: (e as Error).message }); }
   });
 
   // -----------------------

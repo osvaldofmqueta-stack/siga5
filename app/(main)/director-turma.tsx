@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  FlatList, TextInput, Platform, Modal,
+  FlatList, TextInput, Platform, Modal, ActivityIndicator,
 } from 'react-native';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,13 +11,22 @@ import { useAuth } from '@/context/AuthContext';
 import { useData, Aluno, Presenca } from '@/context/DataContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { webAlert } from '@/utils/webAlert';
+import { api } from '@/lib/api';
+import type { PlanoAula } from './professor-plano-aula';
 
 // ─── Limiares ─────────────────────────────────────────────────────────────────
 const LIMITE_FALTAS_ALERTA = 0.25;   // 25% de faltas → alerta
 const LIMITE_PRESENCA_RISCO = 75;    // < 75% de presença → risco de reprovação
 const LIMITE_NOTA_RISCO = 10;        // NF < 10 → risco de reprovação
 
-type Tab = 'dossier' | 'faltas' | 'alertas' | 'risco';
+type Tab = 'dossier' | 'faltas' | 'alertas' | 'risco' | 'planos';
+
+const STATUS_PLANO_CONFIG = {
+  rascunho:  { label: 'Rascunho',  color: Colors.textMuted,  icon: 'document-outline' as const },
+  submetido: { label: 'Submetido', color: Colors.warning,    icon: 'time-outline' as const },
+  aprovado:  { label: 'Aprovado',  color: Colors.success,    icon: 'checkmark-circle' as const },
+  rejeitado: { label: 'Rejeitado', color: Colors.danger,     icon: 'close-circle' as const },
+};
 
 // ─── Componente: Badge de risco ────────────────────────────────────────────────
 function RiscoBadge({ tipo }: { tipo: 'alto' | 'medio' | 'baixo' }) {
@@ -109,7 +118,7 @@ function ModalFaltasAluno({
 // ─── Ecrã principal ────────────────────────────────────────────────────────────
 export default function DirectorTurmaScreen() {
   const { user } = useAuth();
-  const { professores, turmas, alunos, notas, presencas, updatePresenca } = useData();
+  const { professores, turmas, alunos, notas, presencas, updatePresenca, updateAluno, updateTurma } = useData();
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -117,6 +126,13 @@ export default function DirectorTurmaScreen() {
   const [turmaIdx, setTurmaIdx] = useState(0);
   const [search, setSearch] = useState('');
   const [alunoModal, setAlunoModal] = useState<Aluno | null>(null);
+
+  // ── Planos de aula state ──────────────────────────────────────────────────
+  const [planos, setPlanos] = useState<PlanoAula[]>([]);
+  const [planosLoading, setPlanosLoading] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<PlanoAula | null>(null);
+  const [rejectObs, setRejectObs] = useState('');
 
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
 
@@ -169,6 +185,119 @@ export default function DirectorTurmaScreen() {
     }
   }, [updatePresenca]);
 
+  // ── Publicar/ocultar notas por aluno ──────────────────────────────────────
+  const handleTogglePublicarNotas = useCallback(async (aluno: Aluno) => {
+    const novoValor = !(aluno.publicarNotas ?? true);
+    const label = novoValor ? 'Publicar' : 'Ocultar';
+    webAlert(
+      `${label} Notas`,
+      novoValor
+        ? `Publicar as notas de ${aluno.nome} ${aluno.apelido} no portal do aluno?`
+        : `Ocultar as notas de ${aluno.nome} ${aluno.apelido} do portal do aluno? O aluno não conseguirá ver as suas notas até reactivar.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: label, onPress: async () => {
+            try {
+              await api.patch(`/api/alunos/${aluno.id}/publicar-notas`, { publicarNotas: novoValor });
+              await updateAluno(aluno.id, { publicarNotas: novoValor });
+              alertSucesso(
+                novoValor ? 'Notas publicadas' : 'Notas ocultadas',
+                novoValor ? 'O aluno já pode ver as suas notas no portal.' : 'As notas foram ocultadas do portal do aluno.'
+              );
+            } catch {
+              alertErro('Erro', 'Não foi possível actualizar o estado das notas.');
+            }
+          }
+        }
+      ]
+    );
+  }, [updateAluno]);
+
+  // ── Bloquear/liberar lançamento de faltas ─────────────────────────────────
+  const handleToggleFaltasBloqueadas = useCallback(async () => {
+    if (!turmaAtual) return;
+    const novoValor = !turmaAtual.faltasBloqueadas;
+    webAlert(
+      novoValor ? 'Bloquear Lançamento de Faltas' : 'Liberar Lançamento de Faltas',
+      novoValor
+        ? `Bloquear o registo de presenças para a turma ${turmaAtual.nome}? Os professores não conseguirão lançar faltas enquanto bloqueado.`
+        : `Liberar o registo de presenças para a turma ${turmaAtual.nome}?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: novoValor ? 'Bloquear' : 'Liberar', onPress: async () => {
+            try {
+              await api.patch(`/api/turmas/${turmaAtual.id}/faltas-bloqueadas`, { faltasBloqueadas: novoValor });
+              await updateTurma(turmaAtual.id, { faltasBloqueadas: novoValor });
+              alertSucesso(
+                novoValor ? 'Faltas bloqueadas' : 'Faltas liberadas',
+                novoValor ? 'O lançamento de faltas foi bloqueado.' : 'O lançamento de faltas foi liberado.'
+              );
+            } catch {
+              alertErro('Erro', 'Não foi possível alterar o estado.');
+            }
+          }
+        }
+      ]
+    );
+  }, [turmaAtual, updateTurma]);
+
+  // ── Carregar planos de aula da turma ──────────────────────────────────────
+  const loadPlanos = useCallback(async () => {
+    if (!turmaAtual) return;
+    setPlanosLoading(true);
+    try {
+      const all = await api.get<PlanoAula[]>('/api/planos-aula');
+      const daTurma = all.filter(p => p.turmaId === turmaAtual.id);
+      setPlanos(daTurma);
+    } catch {
+      alertErro('Erro', 'Não foi possível carregar os planos de aula.');
+    } finally {
+      setPlanosLoading(false);
+    }
+  }, [turmaAtual]);
+
+  useEffect(() => {
+    if (tab === 'planos') loadPlanos();
+  }, [tab, loadPlanos]);
+
+  // ── Aprovar plano ─────────────────────────────────────────────────────────
+  const handleAprovarPlano = useCallback(async (plano: PlanoAula) => {
+    try {
+      const updated = await api.patch<PlanoAula>(`/api/planos-aula/${plano.id}/status`, {
+        status: 'aprovado',
+        aprovadoPor: `${user?.nome || user?.email}`,
+      });
+      setPlanos(prev => prev.map(p => p.id === plano.id ? { ...p, ...updated } : p));
+      alertSucesso('Plano aprovado', 'O plano de aula foi aprovado com sucesso.');
+    } catch {
+      alertErro('Erro', 'Não foi possível aprovar o plano.');
+    }
+  }, [user]);
+
+  // ── Rejeitar plano ────────────────────────────────────────────────────────
+  const handleRejeitarPlano = useCallback(async () => {
+    if (!rejectTarget) return;
+    if (!rejectObs.trim()) {
+      webAlert('Aviso', 'Por favor indique o motivo da rejeição.');
+      return;
+    }
+    try {
+      const updated = await api.patch<PlanoAula>(`/api/planos-aula/${rejectTarget.id}/status`, {
+        status: 'rejeitado',
+        observacaoDirector: rejectObs.trim(),
+      });
+      setPlanos(prev => prev.map(p => p.id === rejectTarget.id ? { ...p, ...updated } : p));
+      setShowRejectModal(false);
+      setRejectTarget(null);
+      setRejectObs('');
+      alertSucesso('Plano rejeitado', 'O plano foi devolvido ao professor com as suas observações.');
+    } catch {
+      alertErro('Erro', 'Não foi possível rejeitar o plano.');
+    }
+  }, [rejectTarget, rejectObs]);
+
   // ── Alunos em alerta (muitas faltas) ──────────────────────────────────────
   const alunosAlerta = useMemo(() => {
     return alunosDaTurma
@@ -193,11 +322,14 @@ export default function DirectorTurmaScreen() {
       .sort((a, b) => (a.nivel === 'alto' ? -1 : b.nivel === 'alto' ? 1 : 0));
   }, [alunosDaTurma, presencas, notas, turmaAtual]);
 
+  const planosSubmetidos = planos.filter(p => p.status === 'submetido').length;
+
   const tabConfig: { key: Tab; label: string; icon: string; badge?: number }[] = [
     { key: 'dossier', label: 'Dossier', icon: 'folder-open' },
     { key: 'faltas',  label: 'Faltas',  icon: 'calendar-clear' },
     { key: 'alertas', label: 'Alertas', icon: 'warning', badge: alunosAlerta.length },
     { key: 'risco',   label: 'Risco',   icon: 'trending-down', badge: alunosRisco.length },
+    { key: 'planos',  label: 'Planos',  icon: 'book-outline', badge: planosSubmetidos || undefined },
   ];
 
   if (!prof) {
@@ -269,6 +401,15 @@ export default function DirectorTurmaScreen() {
             <Ionicons name="calendar-outline" size={12} color={Colors.success} />
             <Text style={s.infoPillText}>{turmaAtual.anoLetivo}</Text>
           </View>
+          <TouchableOpacity
+            style={[s.infoPill, { backgroundColor: turmaAtual.faltasBloqueadas ? Colors.danger + '22' : Colors.surface, borderWidth: 1, borderColor: turmaAtual.faltasBloqueadas ? Colors.danger + '55' : Colors.border }]}
+            onPress={handleToggleFaltasBloqueadas}
+          >
+            <Ionicons name={turmaAtual.faltasBloqueadas ? 'lock-closed' : 'lock-open-outline'} size={12} color={turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted} />
+            <Text style={[s.infoPillText, { color: turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted }]}>
+              {turmaAtual.faltasBloqueadas ? 'Faltas Bloqueadas' : 'Bloquear Faltas'}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -345,6 +486,15 @@ export default function DirectorTurmaScreen() {
                       <Text style={s.dossierEncPhone}>{a.telefoneEncarregado}</Text>
                     ) : null}
                   </View>
+                  <TouchableOpacity
+                    style={[s.dossierNotaBtn, { backgroundColor: (a.publicarNotas ?? true) ? Colors.success + '18' : Colors.danger + '18', borderColor: (a.publicarNotas ?? true) ? Colors.success + '44' : Colors.danger + '44' }]}
+                    onPress={() => handleTogglePublicarNotas(a)}
+                  >
+                    <Ionicons name={(a.publicarNotas ?? true) ? 'eye' : 'eye-off'} size={12} color={(a.publicarNotas ?? true) ? Colors.success : Colors.danger} />
+                    <Text style={[s.dossierNotaBtnText, { color: (a.publicarNotas ?? true) ? Colors.success : Colors.danger }]}>
+                      {(a.publicarNotas ?? true) ? 'Notas Publicadas' : 'Notas Ocultadas'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               );
             }}
@@ -533,6 +683,115 @@ export default function DirectorTurmaScreen() {
         </ScrollView>
       )}
 
+      {/* ── Tab: PLANOS DE AULA ──────────────────────────────────────────────── */}
+      {tab === 'planos' && (
+        <ScrollView contentContainerStyle={{ padding: 14, paddingBottom: bottomPad + 20 }}>
+          <View style={[s.alertaBanner, { backgroundColor: Colors.info + '15', borderColor: Colors.info + '33', borderWidth: 1 }]}>
+            <Ionicons name="book-outline" size={16} color={Colors.info} />
+            <Text style={[s.alertaBannerText, { color: Colors.info }]}>
+              Planos de aula submetidos pelos professores desta turma. Revise, aprove ou devolva com observações.
+            </Text>
+          </View>
+
+          {planosLoading ? (
+            <View style={s.empty}>
+              <ActivityIndicator color={Colors.gold} />
+              <Text style={s.emptySub}>A carregar planos...</Text>
+            </View>
+          ) : planos.length === 0 ? (
+            <View style={s.empty}>
+              <Ionicons name="document-outline" size={48} color={Colors.textMuted} />
+              <Text style={s.emptyTitle}>Sem planos de aula</Text>
+              <Text style={s.emptySub}>Os professores ainda não submeteram planos para esta turma.</Text>
+            </View>
+          ) : (
+            planos.map(plano => {
+              const cfg = STATUS_PLANO_CONFIG[plano.status] || STATUS_PLANO_CONFIG.rascunho;
+              return (
+                <View key={plano.id} style={[s.planoCard, { borderLeftColor: cfg.color }]}>
+                  <View style={s.planoCardTop}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.planoDisc}>{plano.disciplina} · {plano.turmaNome}</Text>
+                      <Text style={s.planoProf}>{plano.professorNome}</Text>
+                      <Text style={s.planoSumario} numberOfLines={2}>{plano.sumario || plano.unidade}</Text>
+                      <Text style={s.planoMeta}>{plano.data} · {plano.periodo} · {plano.duracao}</Text>
+                    </View>
+                    <View style={[s.planoBadge, { backgroundColor: cfg.color + '22' }]}>
+                      <Ionicons name={cfg.icon} size={12} color={cfg.color} />
+                      <Text style={[s.planoBadgeText, { color: cfg.color }]}>{cfg.label}</Text>
+                    </View>
+                  </View>
+
+                  {plano.observacaoDirector ? (
+                    <View style={s.planoObs}>
+                      <Ionicons name="chatbubble-outline" size={13} color={Colors.textMuted} />
+                      <Text style={s.planoObsText}>{plano.observacaoDirector}</Text>
+                    </View>
+                  ) : null}
+
+                  {plano.status === 'submetido' && (
+                    <View style={s.planoActions}>
+                      <TouchableOpacity
+                        style={[s.planoActionBtn, { backgroundColor: Colors.success + '18', borderColor: Colors.success + '44' }]}
+                        onPress={() => webAlert('Aprovar Plano', `Aprovar o plano de "${plano.disciplina}" de ${plano.professorNome}?`, [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: 'Aprovar', onPress: () => handleAprovarPlano(plano) },
+                        ])}
+                      >
+                        <Ionicons name="checkmark-circle-outline" size={14} color={Colors.success} />
+                        <Text style={[s.planoActionText, { color: Colors.success }]}>Aprovar</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[s.planoActionBtn, { backgroundColor: Colors.danger + '18', borderColor: Colors.danger + '44' }]}
+                        onPress={() => { setRejectTarget(plano); setRejectObs(''); setShowRejectModal(true); }}
+                      >
+                        <Ionicons name="close-circle-outline" size={14} color={Colors.danger} />
+                        <Text style={[s.planoActionText, { color: Colors.danger }]}>Devolver</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {plano.status === 'aprovado' && plano.aprovadoPor && (
+                    <Text style={s.planoAprovado}>✓ Aprovado por {plano.aprovadoPor}{plano.aprovadoEm ? ` em ${new Date(plano.aprovadoEm).toLocaleDateString('pt-PT')}` : ''}</Text>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
+
+      {/* Modal de rejeição do plano */}
+      <Modal visible={showRejectModal} transparent animationType="slide" onRequestClose={() => setShowRejectModal(false)}>
+        <View style={s.rejectOverlay}>
+          <View style={[s.rejectContainer, { paddingBottom: (Platform.OS === 'web' ? 24 : insets.bottom) + 16 }]}>
+            <View style={s.rejectHeader}>
+              <Text style={s.rejectTitle}>Devolver Plano ao Professor</Text>
+              <TouchableOpacity onPress={() => setShowRejectModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            {rejectTarget && (
+              <Text style={s.rejectSub}>{rejectTarget.disciplina} · {rejectTarget.professorNome}</Text>
+            )}
+            <Text style={s.rejectLabel}>Observações / Motivo de devolução</Text>
+            <TextInput
+              style={s.rejectInput}
+              placeholder="Descreva o que deve ser corrigido ou melhorado..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              numberOfLines={5}
+              value={rejectObs}
+              onChangeText={setRejectObs}
+            />
+            <TouchableOpacity style={s.rejectBtn} onPress={handleRejeitarPlano}>
+              <Ionicons name="return-down-back-outline" size={16} color="#fff" />
+              <Text style={s.rejectBtnText}>Devolver ao Professor</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* Modal de detalhes de faltas */}
       <ModalFaltasAluno
         visible={!!alunoModal}
@@ -624,6 +883,34 @@ const s = StyleSheet.create({
   riscoFactorAlert: { backgroundColor: `${Colors.danger}12` },
   riscoFactorAlertWarn: { backgroundColor: `${Colors.warning}12` },
   riscoFactorText: { fontSize: 12, fontFamily: 'Inter_500Medium' },
+  // Publicar notas button in dossier card
+  dossierNotaBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 8, borderWidth: 1, paddingHorizontal: 10, paddingVertical: 6, alignSelf: 'flex-start' },
+  dossierNotaBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+  // Planos de aula
+  planoCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 4, padding: 14, marginBottom: 10, gap: 8 },
+  planoCardTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  planoDisc: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },
+  planoProf: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 2 },
+  planoSumario: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 4, lineHeight: 17 },
+  planoMeta: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 3 },
+  planoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  planoBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  planoObs: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: Colors.surface, borderRadius: 8, padding: 10 },
+  planoObsText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 16, fontStyle: 'italic' },
+  planoActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  planoActionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderRadius: 10, borderWidth: 1, paddingVertical: 9 },
+  planoActionText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  planoAprovado: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success, fontStyle: 'italic' },
+  // Reject modal
+  rejectOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
+  rejectContainer: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderTopWidth: 1, borderColor: Colors.border, padding: 20 },
+  rejectHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 6 },
+  rejectTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text },
+  rejectSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 16 },
+  rejectLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 8 },
+  rejectInput: { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, minHeight: 100, textAlignVertical: 'top', marginBottom: 16 },
+  rejectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.danger, borderRadius: 12, paddingVertical: 14 },
+  rejectBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
 });
 
 const sR = StyleSheet.create({

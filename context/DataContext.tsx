@@ -20,6 +20,7 @@ export interface Aluno {
   ativo: boolean;
   foto?: string;
   permitirAcessoComPendencia?: boolean;
+  publicarNotas?: boolean;
   createdAt: string;
   utilizadorId?: string;
 }
@@ -52,6 +53,7 @@ export interface Turma {
   capacidade: number;
   ativo: boolean;
   cursoId?: string;
+  faltasBloqueadas?: boolean;
 }
 
 export interface NotaLancamentos {

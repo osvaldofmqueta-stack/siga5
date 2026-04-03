@@ -129,6 +129,9 @@ export default function PresencasScreen() {
   const [pendingAluno, setPendingAluno] = useState<string | null>(null);
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
+  const turmaAtual = useMemo(() => turmas.find(t => t.id === filterTurma), [turmas, filterTurma]);
+  const faltasBloqueadas = !!(turmaAtual?.faltasBloqueadas);
+
   const turmaAlunos = useMemo(() => {
     return alunos.filter(a => a.turmaId === filterTurma && a.ativo);
   }, [alunos, filterTurma]);
@@ -143,6 +146,7 @@ export default function PresencasScreen() {
   }
 
   async function markPresenca(alunoId: string, status: 'P' | 'F' | 'J') {
+    if (faltasBloqueadas) return;
     const existing = todayPresencas.find(p => p.alunoId === alunoId);
     if (existing) return;
     await addPresenca({ alunoId, turmaId: filterTurma, disciplina, data: date, status });
@@ -150,6 +154,7 @@ export default function PresencasScreen() {
   }
 
   async function markAll(status: 'P' | 'F') {
+    if (faltasBloqueadas) return;
     for (const aluno of turmaAlunos) {
       const existing = todayPresencas.find(p => p.alunoId === aluno.id);
       if (!existing) {
@@ -209,7 +214,7 @@ export default function PresencasScreen() {
               key={s}
               style={[styles.statusBtn, status === s && { backgroundColor: statusColors[s] }]}
               onPress={() => markPresenca(item.id, s)}
-              disabled={!!status}
+              disabled={!!status || faltasBloqueadas}
             >
               <Text style={[styles.statusBtnText, status === s && { color: Colors.text }]}>{s}</Text>
             </TouchableOpacity>
@@ -239,6 +244,16 @@ export default function PresencasScreen() {
         ))}
       </ScrollView>
 
+      {faltasBloqueadas && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, margin: 12, padding: 12, backgroundColor: Colors.danger + '18', borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '44' }}>
+          <Ionicons name="lock-closed" size={18} color={Colors.danger} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: Colors.danger, fontWeight: '700', fontSize: 13 }}>Lançamento de Faltas Bloqueado</Text>
+            <Text style={{ color: Colors.danger, fontSize: 12, marginTop: 2 }}>O Director de Turma bloqueou o registo de presenças para esta turma. Contacte o Director de Turma para desbloquear.</Text>
+          </View>
+        </View>
+      )}
+
       <View style={styles.statsBar}>
         {[
           { label: 'Presentes', value: stats.present, color: Colors.success },
@@ -254,11 +269,11 @@ export default function PresencasScreen() {
       </View>
 
       <View style={styles.bulkActions}>
-        <TouchableOpacity style={[styles.bulkBtn, { borderColor: `${Colors.success}40` }]} onPress={() => markAll('P')}>
+        <TouchableOpacity style={[styles.bulkBtn, { borderColor: `${Colors.success}40`, opacity: faltasBloqueadas ? 0.4 : 1 }]} onPress={() => markAll('P')} disabled={faltasBloqueadas}>
           <Ionicons name="checkmark-done" size={14} color={Colors.success} />
           <Text style={[styles.bulkBtnText, { color: Colors.success }]}>Todos Presentes</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.bulkBtn, { borderColor: `${Colors.danger}40` }]} onPress={() => markAll('F')}>
+        <TouchableOpacity style={[styles.bulkBtn, { borderColor: `${Colors.danger}40`, opacity: faltasBloqueadas ? 0.4 : 1 }]} onPress={() => markAll('F')} disabled={faltasBloqueadas}>
           <Ionicons name="close" size={14} color={Colors.danger} />
           <Text style={[styles.bulkBtnText, { color: Colors.danger }]}>Todos Faltaram</Text>
         </TouchableOpacity>
