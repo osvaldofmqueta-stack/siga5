@@ -117,6 +117,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // constraint already exists — ignore
   }
 
+  // ── solicitacoes_documentos: student document requests ──────────────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.solicitacoes_documentos (
+        id varchar PRIMARY KEY,
+        "alunoId" varchar NOT NULL,
+        tipo varchar NOT NULL,
+        motivo text NOT NULL DEFAULT '',
+        observacao text NOT NULL DEFAULT '',
+        status varchar NOT NULL DEFAULT 'pendente',
+        resposta text,
+        "createdAt" timestamptz NOT NULL DEFAULT NOW(),
+        "updatedAt" timestamptz NOT NULL DEFAULT NOW()
+      )
+    `, []);
+    console.log('[migration] solicitacoes_documentos table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] solicitacoes_documentos:', (migErr as Error).message);
+  }
+
+  // ── reconfirmacoes_matricula: student enrollment re-confirmation ─────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.reconfirmacoes_matricula (
+        id varchar PRIMARY KEY,
+        "alunoId" varchar NOT NULL,
+        "anoLetivo" varchar NOT NULL,
+        status varchar NOT NULL DEFAULT 'confirmado',
+        data timestamptz NOT NULL DEFAULT NOW(),
+        UNIQUE("alunoId","anoLetivo")
+      )
+    `, []);
+    console.log('[migration] reconfirmacoes_matricula table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] reconfirmacoes_matricula:', (migErr as Error).message);
+  }
+
   // ── turma_disciplinas: atribuição directa de disciplinas a turmas (Primário / I Ciclo) ──
   try {
     await query(`
@@ -7561,6 +7598,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(200).send('\uFEFF' + csvLines.join('\r\n'));
     } catch (e) {
       json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // ── Solicitações de Documentos (aluno) ─────────────────────────────────────
+  app.get('/api/solicitacoes-documentos', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.query as { alunoId?: string };
+      const rows = alunoId
+        ? await query<JsonObject>(`SELECT * FROM public.solicitacoes_documentos WHERE "alunoId"=$1 ORDER BY "createdAt" DESC`, [alunoId])
+        : await query<JsonObject>(`SELECT * FROM public.solicitacoes_documentos ORDER BY "createdAt" DESC`, []);
+      json(res, 200, rows);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.post('/api/solicitacoes-documentos', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.solicitacoes_documentos
+          (id,"alunoId",tipo,motivo,observacao,status,"createdAt","updatedAt")
+         VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW()) RETURNING *`,
+        [b.id, b.alunoId, b.tipo, b.motivo ?? '', b.observacao ?? '', b.status ?? 'pendente']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  app.put('/api/solicitacoes-documentos/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req) as any;
+      const allowed = ['status', 'resposta'];
+      const setParts: string[] = [];
+      const values: any[] = [];
+      for (const key of allowed) {
+        if (b[key] !== undefined) {
+          values.push(b[key]);
+          setParts.push(`"${key}"=$${values.length}`);
+        }
+      }
+      if (!setParts.length) return json(res, 400, { error: 'Nada para atualizar.' });
+      values.push(new Date().toISOString());
+      setParts.push(`"updatedAt"=$${values.length}`);
+      values.push(id);
+      const rows = await query<JsonObject>(
+        `UPDATE public.solicitacoes_documentos SET ${setParts.join(',')} WHERE id=$${values.length} RETURNING *`,
+        values
+      );
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // ── Reconfirmações de Matrícula ─────────────────────────────────────────────
+  app.get('/api/reconfirmacoes-matricula', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.query as { alunoId?: string };
+      const rows = alunoId
+        ? await query<JsonObject>(`SELECT * FROM public.reconfirmacoes_matricula WHERE "alunoId"=$1 ORDER BY data DESC`, [alunoId])
+        : await query<JsonObject>(`SELECT * FROM public.reconfirmacoes_matricula ORDER BY data DESC`, []);
+      json(res, 200, rows);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.post('/api/reconfirmacoes-matricula', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.reconfirmacoes_matricula (id,"alunoId","anoLetivo",status,data)
+         VALUES ($1,$2,$3,$4,NOW())
+         ON CONFLICT ("alunoId","anoLetivo") DO UPDATE SET status=EXCLUDED.status, data=NOW()
+         RETURNING *`,
+        [b.id, b.alunoId, b.anoLetivo, b.status ?? 'confirmado']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
     }
   });
 

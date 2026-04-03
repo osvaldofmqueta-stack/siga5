@@ -13,7 +13,6 @@ import {
   Dimensions
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import QRCode from 'react-native-qrcode-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -47,9 +46,6 @@ const CARTAO_VALOR = 2500;
 
 type TabKey = typeof TABS[number]['key'];
 
-const STORAGE_SOLICITACOES = '@sgaa_solicitacoes_docs';
-const STORAGE_RECONFIRMACOES = '@sgaa_reconfirmacoes';
-const STORAGE_HORARIOS = '@sgaa_horarios';
 
 const TIPOS_DOC = [
   'Declaração de Matrícula',
@@ -228,8 +224,8 @@ export default function PortalEstudanteScreen() {
   const unreadMsgs = mensagensAluno.filter(m => !m.lidaPor.includes(user?.id || '')).length;
 
   useEffect(() => {
-    loadLocalData();
-  }, []);
+    loadServerData(aluno?.id);
+  }, [aluno?.id]);
 
   useEffect(() => {
     if (aluno?.id) {
@@ -251,16 +247,25 @@ export default function PortalEstudanteScreen() {
     }
   }
 
-  async function loadLocalData() {
+  async function loadServerData(alunoId?: string) {
     try {
-      const [h, s, r] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_HORARIOS),
-        AsyncStorage.getItem(STORAGE_SOLICITACOES),
-        AsyncStorage.getItem(STORAGE_RECONFIRMACOES),
+      const [horRes, solRes, recRes] = await Promise.all([
+        fetch('/api/horarios'),
+        alunoId ? fetch(`/api/solicitacoes-documentos?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
+        alunoId ? fetch(`/api/reconfirmacoes-matricula?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
       ]);
-      setHorarios(h ? JSON.parse(h) : []);
-      setSolicitacoes(s ? JSON.parse(s) : []);
-      setReconfirmacoes(r ? JSON.parse(r) : []);
+      if (horRes.ok) {
+        const data = await horRes.json();
+        setHorarios(Array.isArray(data) ? data : []);
+      }
+      if (solRes?.ok) {
+        const data = await solRes.json();
+        setSolicitacoes(Array.isArray(data) ? data : []);
+      }
+      if (recRes?.ok) {
+        const data = await recRes.json();
+        setReconfirmacoes(Array.isArray(data) ? data : []);
+      }
     } catch (e) {}
   }
 
@@ -308,21 +313,30 @@ export default function PortalEstudanteScreen() {
       webAlert('Atenção', 'Indique o motivo da solicitação.');
       return;
     }
-    const nova = {
-      id: genId(),
-      alunoId: aluno?.id || '',
-      tipo: solForm.tipo,
-      motivo: solForm.motivo,
-      observacao: solForm.observacao,
-      status: 'pendente',
-      createdAt: new Date().toISOString(),
-    };
-    const updated = [...solicitacoes, nova];
-    setSolicitacoes(updated);
-    await AsyncStorage.setItem(STORAGE_SOLICITACOES, JSON.stringify(updated));
-    setShowSolicitacaoModal(false);
-    setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
-    webAlert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
+    try {
+      const body = {
+        id: genId(),
+        alunoId: aluno?.id || '',
+        tipo: solForm.tipo,
+        motivo: solForm.motivo,
+        observacao: solForm.observacao,
+        status: 'pendente',
+      };
+      const res = await fetch('/api/solicitacoes-documentos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const nova = await res.json();
+        setSolicitacoes(prev => [nova, ...prev]);
+      }
+      setShowSolicitacaoModal(false);
+      setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
+      webAlert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
+    } catch (e) {
+      webAlert('Erro', 'Não foi possível enviar a solicitação. Tente novamente.');
+    }
   }
 
   async function handlePagarDocumento() {
@@ -411,24 +425,27 @@ export default function PortalEstudanteScreen() {
 
   async function handleReconfirmacao() {
     if (!aluno) return;
-    const nova = {
-      id: genId(),
-      alunoId: aluno.id,
-      anoLetivo,
-      status: 'confirmado',
-      data: new Date().toISOString(),
-    };
     const already = reconfirmacoes.find(r => r.alunoId === aluno.id && r.anoLetivo === anoLetivo);
     if (already) {
       webAlert('Já reconfirmado', 'A sua matrícula para este ano já foi reconfirmada.');
       setShowReconfirmacaoModal(false);
       return;
     }
-    const updated = [...reconfirmacoes, nova];
-    setReconfirmacoes(updated);
-    await AsyncStorage.setItem(STORAGE_RECONFIRMACOES, JSON.stringify(updated));
-    setShowReconfirmacaoModal(false);
-    webAlert('Matrícula Reconfirmada', `A sua matrícula para o ano lectivo ${anoLetivo} foi reconfirmada com sucesso.`);
+    try {
+      const res = await fetch('/api/reconfirmacoes-matricula', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: genId(), alunoId: aluno.id, anoLetivo, status: 'confirmado' }),
+      });
+      if (res.ok) {
+        const nova = await res.json();
+        setReconfirmacoes(prev => [nova, ...prev]);
+      }
+      setShowReconfirmacaoModal(false);
+      webAlert('Matrícula Reconfirmada', `A sua matrícula para o ano lectivo ${anoLetivo} foi reconfirmada com sucesso.`);
+    } catch (e) {
+      webAlert('Erro', 'Não foi possível registar a reconfirmação. Tente novamente.');
+    }
   }
 
   const reconfirmacaoAtual = reconfirmacoes.find(r => r.alunoId === aluno?.id && r.anoLetivo === anoLetivo);
