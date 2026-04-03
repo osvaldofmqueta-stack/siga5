@@ -78,12 +78,12 @@ function Badge({ label, color }: { label: string; color: string }) {
 
 export default function FinanceiroScreen() {
   const {
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, isencoes, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, acessoLiberado, saldos, isencoes, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
     addPagamento, updatePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente,
     updateMultaConfig,
-    bloquearAluno, desbloquearAluno, isAlunoBloqueado,
+    bloquearAluno, desbloquearAluno, isAlunoBloqueado, togglePermitirAcessoPortal,
     enviarMensagem, getMensagensAluno, marcarMensagemLida,
     gerarRUPE, getRUPEsAluno,
     getMesesEmAtraso, calcularMulta, getMultaAluno, getIsencaoAluno,
@@ -950,6 +950,7 @@ export default function FinanceiroScreen() {
                   <Text style={st.atrasoMat}>{aluno.numeroMatricula} · {turmaA?.nome || '—'}</Text>
                 </View>
                 {bloqueado && <Badge label="Bloqueado" color={Colors.danger} />}
+                {acessoLiberado.includes(aluno.id) && <Badge label="Acesso Livre" color={Colors.gold} />}
               </View>
 
               <View style={st.atrasoStats}>
@@ -991,6 +992,27 @@ export default function FinanceiroScreen() {
                   <Ionicons name={bloqueado ? 'lock-open' : 'lock-closed'} size={13} color={bloqueado ? Colors.success : Colors.danger} />
                   <Text style={[st.atrasoActionTxt, { color: bloqueado ? Colors.success : Colors.danger }]}>{bloqueado ? 'Desbloquear' : 'Bloquear'}</Text>
                 </TouchableOpacity>
+
+                {(() => {
+                  const acessoLib = acessoLiberado.includes(aluno.id);
+                  return (
+                    <TouchableOpacity
+                      style={[st.atrasoActionBtn, { backgroundColor: (acessoLib ? Colors.gold : Colors.textMuted) + '22', borderColor: (acessoLib ? Colors.gold : Colors.textMuted) + '55' }]}
+                      onPress={() => {
+                        const msg = acessoLib
+                          ? 'Revogar acesso especial ao portal? O aluno ficará sujeito ao bloqueio financeiro normal.'
+                          : 'Permitir acesso ao portal mesmo com propinas em atraso? O bloqueio financeiro não impedirá o acesso deste aluno.';
+                        webAlert(acessoLib ? 'Revogar Acesso Especial' : 'Libertar Acesso ao Portal', msg, [
+                          { text: 'Cancelar', style: 'cancel' },
+                          { text: acessoLib ? 'Revogar' : 'Libertar', onPress: () => togglePermitirAcessoPortal(aluno.id, !acessoLib) },
+                        ]);
+                      }}
+                    >
+                      <Ionicons name={acessoLib ? 'shield-checkmark' : 'shield-outline'} size={13} color={acessoLib ? Colors.gold : Colors.textMuted} />
+                      <Text style={[st.atrasoActionTxt, { color: acessoLib ? Colors.gold : Colors.textMuted }]}>{acessoLib ? 'Acesso Livre' : 'Libertar'}</Text>
+                    </TouchableOpacity>
+                  );
+                })()}
 
                 {podeRegistarObito && (
                   <TouchableOpacity style={[st.atrasoActionBtn, { backgroundColor: '#6B21A822', borderColor: '#6B21A855' }]}

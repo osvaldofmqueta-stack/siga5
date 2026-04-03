@@ -165,6 +165,7 @@ export const alunos = pgTable("alunos", {
   emailEncarregado: text("emailEncarregado"),
   ativo: boolean("ativo").notNull().default(true),
   bloqueado: boolean("bloqueado").notNull().default(false),
+  permitirAcessoComPendencia: boolean("permitirAcessoComPendencia").notNull().default(false),
   foto: text("foto"),
 
   falecido: boolean("falecido").notNull().default(false),

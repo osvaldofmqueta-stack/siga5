@@ -33,6 +33,7 @@ const TABS = [
   { key: 'painel', label: 'Painel', icon: 'grid' },
   { key: 'cartao', label: 'Cartão', icon: 'card' },
   { key: 'notas', label: 'Notas', icon: 'document-text' },
+  { key: 'diario', label: 'Diário', icon: 'journal' },
   { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
   { key: 'materiais', label: 'Materiais', icon: 'folder-open' },
   { key: 'horario', label: 'Horário', icon: 'time' },
@@ -129,7 +130,7 @@ export default function PortalEstudanteScreen() {
   const { alunos, turmas, notas, presencas, eventos, updateAluno } = useData();
   const {
     taxas, pagamentos, addPagamento, addPagamentoSelf, updatePagamento, getPagamentosAluno, getTaxasByNivel,
-    isAlunoBloqueado, getMensagensAluno, marcarMensagemLida: marcarMsgFinLida,
+    isAlunoBloqueado, acessoLiberado, getMensagensAluno, marcarMensagemLida: marcarMsgFinLida,
     getRUPEsAluno, getMesesEmAtraso, calcularMulta, multaConfig,
   } = useFinanceiro();
   const { mensagens, materiais, sumarios, pautas, marcarMensagemLida } = useProfessor();
@@ -171,6 +172,7 @@ export default function PortalEstudanteScreen() {
   const [documentosEmitidos, setDocumentosEmitidos] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
+  const [filtroDiscDiario, setFiltroDiscDiario] = useState<string>('todas');
 
   const aluno = alunos.find(a =>
     (user?.alunoId && a.id === user.alunoId) ||
@@ -1426,6 +1428,84 @@ export default function PortalEstudanteScreen() {
     );
   }
 
+  function renderDiario() {
+    const sorted = [...sumariosAluno]
+      .filter(s => s.status !== 'rejeitado')
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    const disciplinas = [...new Set(sorted.map(s => s.disciplina))].sort();
+    const filtrado = filtroDiscDiario === 'todas' ? sorted : sorted.filter(s => s.disciplina === filtroDiscDiario);
+
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Diário de Classe" icon="journal" />
+        <Text style={styles.infoHint}>Conteúdos leccionados nas aulas da sua turma</Text>
+
+        {disciplinas.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.diasScroll}>
+            <TouchableOpacity
+              style={[styles.diaBtn, filtroDiscDiario === 'todas' && styles.diaBtnActive]}
+              onPress={() => setFiltroDiscDiario('todas')}
+            >
+              <Text style={[styles.diaBtnText, filtroDiscDiario === 'todas' && styles.diaBtnTextActive]}>Todas</Text>
+            </TouchableOpacity>
+            {disciplinas.map(disc => (
+              <TouchableOpacity
+                key={disc}
+                style={[styles.diaBtn, filtroDiscDiario === disc && styles.diaBtnActive]}
+                onPress={() => setFiltroDiscDiario(disc)}
+              >
+                <Text style={[styles.diaBtnText, filtroDiscDiario === disc && styles.diaBtnTextActive]} numberOfLines={1}>{disc}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {filtrado.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="journal-outline" size={48} color={Colors.textMuted} />
+            <Text style={styles.emptyStateText}>Sem registos de aulas</Text>
+            <Text style={styles.infoHint}>O diário de classe aparecerá aqui quando os professores registarem as aulas</Text>
+          </View>
+        ) : (
+          filtrado.map((s, idx) => {
+            const dataFormatada = new Date(s.data).toLocaleDateString('pt-PT', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+            const showDateSep = idx === 0 || filtrado[idx - 1].data !== s.data;
+            return (
+              <React.Fragment key={s.id}>
+                {showDateSep && (
+                  <View style={styles.diarioDateSep}>
+                    <View style={styles.diarioDateLine} />
+                    <Text style={styles.diarioDateLabel}>{dataFormatada}</Text>
+                    <View style={styles.diarioDateLine} />
+                  </View>
+                )}
+                <View style={styles.diarioCard}>
+                  <View style={styles.diarioCardTop}>
+                    <View style={styles.diarioDiscBadge}>
+                      <Ionicons name="book-outline" size={13} color={Colors.gold} />
+                      <Text style={styles.diarioDiscText} numberOfLines={1}>{s.disciplina}</Text>
+                    </View>
+                    <View style={styles.diarioAulaNumBadge}>
+                      <Text style={styles.diarioAulaNumText}>Aula {s.numeroAula}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.diarioConteudo}>{s.conteudo}</Text>
+                  <View style={styles.diarioMeta}>
+                    <Ionicons name="person-outline" size={12} color={Colors.textMuted} />
+                    <Text style={styles.diarioMetaText}>{s.professorNome}</Text>
+                    <Text style={styles.diarioMetaDot}>·</Text>
+                    <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
+                    <Text style={styles.diarioMetaText}>{s.horaInicio} — {s.horaFim}</Text>
+                  </View>
+                </View>
+              </React.Fragment>
+            );
+          })
+        )}
+      </ScrollView>
+    );
+  }
+
   function renderFinanceiro() {
     const totalPago = pagamentosAluno.filter(p => p.status === 'pago').reduce((s, p) => s + p.valor, 0);
     const totalPendente = pagamentosAluno.filter(p => p.status === 'pendente').reduce((s, p) => s + p.valor, 0);
@@ -1441,6 +1521,17 @@ export default function PortalEstudanteScreen() {
             <View style={{ flex: 1 }}>
               <Text style={[styles.readonlyText, { color: Colors.danger, fontFamily: 'Inter_700Bold', fontSize: 13 }]}>Acesso Bloqueado</Text>
               <Text style={[styles.readonlyText, { color: Colors.danger }]}>O seu acesso foi temporariamente suspenso por falta de pagamento. Contacte o departamento financeiro para regularizar a situação.</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Acesso Liberto Banner */}
+        {aluno && acessoLiberado.includes(aluno.id) && mesesAtraso > 0 && (
+          <View style={[styles.readonlyBanner, { backgroundColor: Colors.gold + '18', borderColor: Colors.gold + '44', borderWidth: 1 }]}>
+            <Ionicons name="shield-checkmark" size={18} color={Colors.gold} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.readonlyText, { color: Colors.gold, fontFamily: 'Inter_700Bold', fontSize: 13 }]}>Acesso Especial Activo</Text>
+              <Text style={[styles.readonlyText, { color: Colors.gold }]}>O departamento financeiro autorizou o seu acesso ao portal apesar das propinas em atraso. Por favor regularize a situação brevemente.</Text>
             </View>
           </View>
         )}
@@ -2030,6 +2121,7 @@ export default function PortalEstudanteScreen() {
       case 'painel': return renderPainel();
       case 'cartao': return renderCartao();
       case 'notas': return renderNotas();
+      case 'diario': return renderDiario();
       case 'mensagens': return renderMensagens();
       case 'materiais': return renderMateriais();
       case 'horario': return renderHorario();
@@ -2440,6 +2532,20 @@ const styles = StyleSheet.create({
   sumConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 6 },
   sumMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   sumMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+
+  diarioDateSep: { flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 10 },
+  diarioDateLine: { flex: 1, height: 1, backgroundColor: Colors.border },
+  diarioDateLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 },
+  diarioCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3, borderLeftColor: Colors.gold + '88' },
+  diarioCardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  diarioDiscBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, flex: 1 },
+  diarioDiscText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold, flex: 1 },
+  diarioAulaNumBadge: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  diarioAulaNumText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)' },
+  diarioConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginBottom: 10 },
+  diarioMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
+  diarioMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  diarioMetaDot: { fontSize: 11, color: Colors.border },
 
   diasScroll: { marginBottom: 16 },
   diaBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: Colors.backgroundCard, marginRight: 8, borderWidth: 1, borderColor: Colors.border },

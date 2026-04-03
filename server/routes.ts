@@ -117,6 +117,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // constraint already exists — ignore
   }
 
+  // Add permitirAcessoComPendencia column to alunos (flag to allow portal access despite financial pending)
+  try {
+    await query(`ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS "permitirAcessoComPendencia" boolean NOT NULL DEFAULT false`, []);
+    console.log('[migration] alunos.permitirAcessoComPendencia ensured.');
+  } catch (migErr) {
+    console.warn('[migration] alunos.permitirAcessoComPendencia:', (migErr as Error).message);
+  }
+
   // ── solicitacoes_documentos: student document requests ──────────────────────
   try {
     await query(`
@@ -515,6 +523,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "emailEncarregado",
         "ativo",
         "bloqueado",
+        "permitirAcessoComPendencia",
         "foto",
         "createdAt",
         "falecido",
@@ -632,6 +641,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [dataFalecimento, observacoes, registadoPor, id],
       );
       if (!rows[0]) return json(res, 404, { error: 'Não foi possível actualizar o registo.' });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  app.patch("/api/alunos/:id/permitir-acesso-pendencia", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const rolesPermitidas = ['chefe_secretaria', 'admin', 'director', 'ceo', 'pca', 'secretaria'];
+      const role = req.jwtUser?.role || '';
+      if (!rolesPermitidas.includes(role)) {
+        return json(res, 403, { error: 'Sem permissão.' });
+      }
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const valor = !!(b as any).permitirAcessoComPendencia;
+      const rows = await query<JsonObject>(
+        `UPDATE public.alunos SET "permitirAcessoComPendencia" = $1 WHERE id = $2 RETURNING *`,
+        [valor, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Aluno não encontrado.' });
       json(res, 200, rows[0]);
     } catch (e) {
       json(res, 500, { error: (e as Error).message });

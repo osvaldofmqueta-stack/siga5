@@ -19,6 +19,7 @@ export interface Aluno {
   emailEncarregado?: string;
   ativo: boolean;
   foto?: string;
+  permitirAcessoComPendencia?: boolean;
   createdAt: string;
   utilizadorId?: string;
 }

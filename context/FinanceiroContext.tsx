@@ -102,6 +102,7 @@ interface FinanceiroContextValue {
   mensagens: MensagemFinanceira[];
   rupes: RUPEGerado[];
   bloqueados: string[];
+  acessoLiberado: string[];
   saldos: SaldoAluno[];
   movimentosSaldo: MovimentoSaldo[];
   isencoes: IsencaoMulta[];
@@ -122,6 +123,7 @@ interface FinanceiroContextValue {
   bloquearAluno: (alunoId: string) => Promise<void>;
   desbloquearAluno: (alunoId: string) => Promise<void>;
   isAlunoBloqueado: (alunoId: string) => boolean;
+  togglePermitirAcessoPortal: (alunoId: string, valor: boolean) => Promise<void>;
   enviarMensagem: (alunoId: string, texto: string, remetente: string, tipo?: MensagemFinanceira['tipo']) => Promise<void>;
   getMensagensAluno: (alunoId: string) => MensagemFinanceira[];
   marcarMensagemLida: (id: string) => Promise<void>;
@@ -162,6 +164,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   const [mensagens, setMensagens] = useState<MensagemFinanceira[]>([]);
   const [rupes, setRupes] = useState<RUPEGerado[]>([]);
   const [bloqueados, setBloqueados] = useState<string[]>([]);
+  const [acessoLiberado, setAcessoLiberado] = useState<string[]>([]);
   const [saldos, setSaldos] = useState<SaldoAluno[]>([]);
   const [movimentosSaldo, setMovimentosSaldo] = useState<MovimentoSaldo[]>([]);
   const [isencoes, setIsencoes] = useState<IsencaoMulta[]>([]);
@@ -190,6 +193,7 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
       setMensagens(msg);
       setRupes(r);
       setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
+      setAcessoLiberado(alunos.filter(a => (a as any).permitirAcessoComPendencia).map(a => a.id));
       setSaldos(s);
       setMovimentosSaldo(mv);
       setIsencoes(isen);
@@ -277,7 +281,17 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   function isAlunoBloqueado(alunoId: string) {
+    if (acessoLiberado.includes(alunoId)) return false;
     return bloqueados.includes(alunoId);
+  }
+
+  async function togglePermitirAcessoPortal(alunoId: string, valor: boolean) {
+    await api.patch(`/api/alunos/${alunoId}/permitir-acesso-pendencia`, { permitirAcessoComPendencia: valor });
+    if (valor) {
+      setAcessoLiberado(prev => prev.includes(alunoId) ? prev : [...prev, alunoId]);
+    } else {
+      setAcessoLiberado(prev => prev.filter(id => id !== alunoId));
+    }
   }
 
   async function enviarMensagem(alunoId: string, texto: string, remetente: string, tipo: MensagemFinanceira['tipo'] = 'geral') {
@@ -429,18 +443,18 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<FinanceiroContextValue>(() => ({
-    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isencoes, isLoading,
+    taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, acessoLiberado, saldos, movimentosSaldo, isencoes, isLoading,
     addTaxa, updateTaxa, deleteTaxa,
     addPagamento, addPagamentoSelf, updatePagamento, deletePagamento, transferirPagamento,
     getTotalRecebido, getTotalPendente, getPagamentosAluno, getTaxasByNivel,
     updateMultaConfig,
-    bloquearAluno, desbloquearAluno, isAlunoBloqueado,
+    bloquearAluno, desbloquearAluno, isAlunoBloqueado, togglePermitirAcessoPortal,
     enviarMensagem, getMensagensAluno, marcarMensagemLida, getUnreadMensagensAluno,
     gerarRUPE, getRUPEsAluno,
     getMesesEmAtraso, calcularMulta, getMultaAluno,
     getSaldoAluno, getMovimentosAluno, creditarSaldo, debitarSaldo,
     solicitarIsencaoMulta, responderIsencaoMulta, getIsencaoAluno,
-  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, saldos, movimentosSaldo, isencoes, isLoading]);
+  }), [taxas, pagamentos, multaConfig, mensagens, rupes, bloqueados, acessoLiberado, saldos, movimentosSaldo, isencoes, isLoading]);
 
   return <FinanceiroContext.Provider value={value}>{children}</FinanceiroContext.Provider>;
 }
