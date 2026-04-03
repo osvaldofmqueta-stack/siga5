@@ -133,6 +133,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] alunos.publicarNotas:', (migErr as Error).message);
   }
 
+  // Add lancado column to notas (professor controls per-student grade visibility)
+  try {
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "lancado" boolean NOT NULL DEFAULT false`, []);
+    console.log('[migration] notas.lancado ensured.');
+  } catch (migErr) {
+    console.warn('[migration] notas.lancado:', (migErr as Error).message);
+  }
+
   // Add faltasBloqueadas column to turmas (director de turma can block attendance entry)
   try {
     await query(`ALTER TABLE public.turmas ADD COLUMN IF NOT EXISTS "faltasBloqueadas" boolean NOT NULL DEFAULT false`, []);
@@ -1253,6 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "lancamentos",
         "camposAbertos",
         "pedidosReabertura",
+        "lancado",
       ] as const;
 
       const jsonbKeys = new Set(["lancamentos", "camposAbertos", "pedidosReabertura"]);
@@ -1294,6 +1303,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // PATCH lancado flag per nota — professor toggles per-student visibility
+  app.patch("/api/notas/:id/lancado", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const valor = !!b.lancado;
+      const rows = await query<JsonObject>(
+        `UPDATE public.notas SET "lancado" = $1 WHERE id = $2 RETURNING *`,
+        [valor, id],
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Not found.' });
+      json(res, 200, rows[0]);
+    } catch (e) {
+      json(res, 400, { error: (e as Error).message });
+    }
   });
 
   // Solicitar reabertura de campo bloqueado numa nota (qualquer professor autenticado)

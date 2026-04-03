@@ -181,7 +181,7 @@ export default function DashboardScreen() {
     );
     if (!aluno) return null;
     const turmaAluno = turmas.find(t => t.id === aluno.turmaId);
-    const notasAluno = notas.filter(n => n.alunoId === aluno.id && n.anoLetivo === anoLetivo);
+    const notasAluno = notas.filter(n => n.alunoId === aluno.id && n.anoLetivo === anoLetivo && n.lancado === true);
     const presAluno = presencas.filter(p => p.alunoId === aluno.id);
     const pagamentosAluno = getPagamentosAluno(aluno.id);
     const mesesAtraso = getMesesEmAtraso(aluno.id, anoLetivo);

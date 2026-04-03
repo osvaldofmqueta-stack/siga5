@@ -107,6 +107,7 @@ export interface Nota {
   lancamentos?: NotaLancamentos;
   camposAbertos?: string[];
   pedidosReabertura?: PedidoReabertura[];
+  lancado?: boolean;
 }
 
 export interface Presenca {

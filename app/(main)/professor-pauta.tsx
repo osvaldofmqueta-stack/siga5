@@ -91,6 +91,7 @@ export default function ProfessorPautaScreen() {
   const [showSolicitModal, setShowSolicitModal] = useState(false);
   const [motivoSolicidade, setMotivoSolicidade] = useState('');
   const [editingAlunoId, setEditingAlunoId] = useState<string | null>(null);
+  const [lancadoSet, setLancadoSet] = useState<Set<string>>(new Set());
 
   const [showTurmaList, setShowTurmaList] = useState(false);
   const [showDiscList, setShowDiscList] = useState(false);
@@ -342,6 +343,12 @@ export default function ProfessorPautaScreen() {
 
     setSavedFields(newSavedFields);
     setNotasForms(forms);
+
+    const initialLancado = new Set<string>(
+      notasExistentes.filter(n => n.lancado).map(n => n.alunoId)
+    );
+    setLancadoSet(initialLancado);
+
     setStep('pauta');
   }
 
@@ -418,6 +425,33 @@ export default function ProfessorPautaScreen() {
       webAlert('Erro', 'Não foi possível guardar as notas.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function toggleLancado(alunoId: string) {
+    const notaExistente = notas.find(n =>
+      n.alunoId === alunoId && n.turmaId === turmaId &&
+      n.disciplina === disciplina && n.trimestre === trimestre
+    );
+    if (!notaExistente) {
+      webAlert('Aviso', 'Guarde as notas deste aluno antes de marcar como Publicado.');
+      return;
+    }
+    const novoValor = !lancadoSet.has(alunoId);
+    try {
+      const resp = await fetch(`/api/notas/${notaExistente.id}/lancado`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lancado: novoValor }),
+      });
+      if (!resp.ok) throw new Error('Falha na resposta do servidor');
+      setLancadoSet(prev => {
+        const next = new Set(prev);
+        if (novoValor) next.add(alunoId); else next.delete(alunoId);
+        return next;
+      });
+    } catch {
+      webAlert('Erro', 'Não foi possível actualizar o estado de publicação.');
     }
   }
 
@@ -1127,9 +1161,26 @@ export default function ProfessorPautaScreen() {
                   <Text style={styles.rowMac}>MAC={mac > 0 ? mac.toFixed(1) : '—'} · MT1={mt1 > 0 ? mt1.toFixed(1) : '—'}</Text>
                 )}
                 {hasAnySavedField && !isEditing && (
-                  <View style={styles.lancadoBadge}>
-                    <Ionicons name="checkmark-circle" size={10} color={Colors.success} />
-                    <Text style={styles.lancadoBadgeText}>Lançado</Text>
+                  <View style={styles.lancadoBadgeRow}>
+                    <View style={styles.lancadoBadge}>
+                      <Ionicons name="checkmark-circle" size={10} color={Colors.success} />
+                      <Text style={styles.lancadoBadgeText}>Lançado</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.lancadoVisBtn, lancadoSet.has(aluno.id) && styles.lancadoVisBtnActive]}
+                      onPress={() => toggleLancado(aluno.id)}
+                      activeOpacity={0.7}
+                      hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                    >
+                      <Ionicons
+                        name={lancadoSet.has(aluno.id) ? 'eye' : 'eye-off-outline'}
+                        size={10}
+                        color={lancadoSet.has(aluno.id) ? Colors.success : Colors.textMuted}
+                      />
+                      <Text style={[styles.lancadoVisBtnText, { color: lancadoSet.has(aluno.id) ? Colors.success : Colors.textMuted }]}>
+                        {lancadoSet.has(aluno.id) ? 'Publicado' : 'Oculto'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
@@ -1298,8 +1349,12 @@ const styles = StyleSheet.create({
   alunoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
   alunoRowEditing: { backgroundColor: Colors.gold + '0D' },
   alunoRowSubmitted: { backgroundColor: Colors.success + '08', borderLeftWidth: 2, borderLeftColor: Colors.success + '44' },
-  lancadoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
+  lancadoBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 },
+  lancadoBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   lancadoBadgeText: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success },
+  lancadoVisBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.border + '33' },
+  lancadoVisBtnActive: { borderColor: Colors.success + '66', backgroundColor: Colors.success + '18' },
+  lancadoVisBtnText: { fontSize: 9, fontFamily: 'Inter_500Medium' },
   gradeLocked: { width: CELL_W, height: 32, backgroundColor: Colors.border + '55', borderRadius: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border },
   gradeLockedText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textAlign: 'center' },
   gradeCellLocked: { backgroundColor: Colors.success + '0A', borderRadius: 4 },
