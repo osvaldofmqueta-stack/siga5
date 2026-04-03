@@ -295,7 +295,7 @@ export default function FinanceiroScreen() {
     } catch { } finally { setContasPagarLoading(false); }
   }, []);
 
-  useEffect(() => { if (tab === 'contas_pagar') loadContasPagar(); }, [tab]);
+  useEffect(() => { if (tab === 'contas_pagar' || tab === 'resumo') loadContasPagar(); }, [tab]);
 
   async function saveConta() {
     if (!formConta.descricao.trim() || !formConta.valor || !formConta.dataVencimento) {
@@ -1010,19 +1010,53 @@ export default function FinanceiroScreen() {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 6);
 
+    const hoje = new Date();
+    const totalSaidas = contasPagar.filter(c => c.status === 'pago').reduce((s, c) => s + Number(c.valor), 0);
+    const totalSaidasPendentes = contasPagar.filter(c => c.status === 'pendente').reduce((s, c) => s + Number(c.valor), 0);
+    const totalSaidasVencidas = contasPagar.filter(c => c.status === 'pendente' && new Date(c.dataVencimento) < hoje).reduce((s, c) => s + Number(c.valor), 0);
+    const saldoLiquido = totalRecebido - totalSaidas;
+    const proximasSaidas = [...contasPagar]
+      .filter(c => c.status === 'pendente')
+      .sort((a, b) => new Date(a.dataVencimento).getTime() - new Date(b.dataVencimento).getTime())
+      .slice(0, 4);
+
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
         <Text style={st.secLabel}>VISÃO GERAL — {anoAtual}</Text>
-        <View style={st.kpiRow}>
-          <View style={[st.kpiCard, { flex: 1.2 }]}>
-            <Ionicons name="trending-up" size={18} color={Colors.success} />
-            <Text style={[st.kpiVal, { color: Colors.success }]}>{formatAOA(totalRecebido)}</Text>
-            <Text style={st.kpiLbl}>Recebido</Text>
+
+        <View style={[st.kpiRow, { gap: 8 }]}>
+          <View style={[st.kpiCard, { flex: 1, borderLeftWidth: 3, borderLeftColor: Colors.success }]}>
+            <Ionicons name="trending-up" size={16} color={Colors.success} />
+            <Text style={[st.kpiVal, { color: Colors.success, fontSize: 14 }]}>{formatAOA(totalRecebido)}</Text>
+            <Text style={st.kpiLbl}>Entradas</Text>
           </View>
+          <View style={[st.kpiCard, { flex: 1, borderLeftWidth: 3, borderLeftColor: Colors.danger }]}>
+            <Ionicons name="trending-down" size={16} color={Colors.danger} />
+            <Text style={[st.kpiVal, { color: Colors.danger, fontSize: 14 }]}>{formatAOA(totalSaidas)}</Text>
+            <Text style={st.kpiLbl}>Saídas pagas</Text>
+          </View>
+        </View>
+
+        <View style={[st.kpiCard, { marginBottom: 10, borderLeftWidth: 3, borderLeftColor: saldoLiquido >= 0 ? Colors.success : Colors.danger }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Ionicons name="wallet" size={18} color={saldoLiquido >= 0 ? Colors.success : Colors.danger} />
+              <Text style={st.kpiLbl}>Saldo Líquido</Text>
+            </View>
+            <Text style={[st.kpiVal, { color: saldoLiquido >= 0 ? Colors.success : Colors.danger, fontSize: 16 }]}>{formatAOA(saldoLiquido)}</Text>
+          </View>
+          {(totalSaidasPendentes > 0) && (
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>
+              + {formatAOA(totalSaidasPendentes)} em despesas pendentes · {totalSaidasVencidas > 0 ? `${formatAOA(totalSaidasVencidas)} VENCIDAS` : 'Nenhuma vencida'}
+            </Text>
+          )}
+        </View>
+
+        <View style={st.kpiRow}>
           <View style={[st.kpiCard, { flex: 1.2 }]}>
             <Ionicons name="time" size={18} color={Colors.warning} />
             <Text style={[st.kpiVal, { color: Colors.warning }]}>{formatAOA(totalPendente)}</Text>
-            <Text style={st.kpiLbl}>Pendente</Text>
+            <Text style={st.kpiLbl}>Receitas pendentes</Text>
           </View>
         </View>
         <View style={st.kpiRow}>
@@ -1115,13 +1149,37 @@ export default function FinanceiroScreen() {
           </>
         )}
 
+        {proximasSaidas.length > 0 && (
+          <>
+            <Text style={st.secLabel}>PRÓXIMAS DESPESAS A PAGAR</Text>
+            {proximasSaidas.map(c => {
+              const vencida = new Date(c.dataVencimento) < hoje;
+              return (
+                <View key={c.id} style={[st.recentRow, { borderLeftWidth: 3, borderLeftColor: vencida ? Colors.danger : Colors.warning }]}>
+                  <View style={[st.recentIcon, { backgroundColor: (vencida ? Colors.danger : Colors.warning) + '22' }]}>
+                    <Ionicons name={vencida ? 'alert-circle' : 'calendar'} size={15} color={vencida ? Colors.danger : Colors.warning} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={st.recentNome} numberOfLines={1}>{c.descricao}</Text>
+                    <Text style={[st.recentTaxa, { color: vencida ? Colors.danger : Colors.textMuted }]}>{vencida ? 'VENCIDA' : 'Pendente'} · {c.fornecedor || 'Sem fornecedor'}</Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[st.recentVal, { color: vencida ? Colors.danger : Colors.warning }]}>{formatAOA(c.valor)}</Text>
+                    <Text style={st.recentData}>{new Date(c.dataVencimento).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' })}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </>
+        )}
+
         {recentes.length > 0 && (
           <>
-            <Text style={st.secLabel}>ÚLTIMAS TRANSACÇÕES</Text>
+            <Text style={st.secLabel}>ÚLTIMAS ENTRADAS</Text>
             {recentes.map(p => {
               const tipo = getTipoTaxa(p.taxaId);
               return (
-                <View key={p.id} style={st.recentRow}>
+                <View key={p.id} style={[st.recentRow, { borderLeftWidth: 3, borderLeftColor: Colors.success }]}>
                   <View style={[st.recentIcon, { backgroundColor: TIPO_COLOR[tipo] + '22' }]}>
                     <Ionicons name={TIPO_ICON[tipo] as any} size={15} color={TIPO_COLOR[tipo]} />
                   </View>
