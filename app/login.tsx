@@ -179,17 +179,17 @@ function AuthLoadingOverlay({ visible }: { visible: boolean }) {
 const authLoadStyles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(6,16,41,0.88)',
+    backgroundColor: 'rgba(10,22,52,0.82)',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 9999,
   },
   card: {
     width: 300,
-    backgroundColor: 'rgba(20,34,71,0.96)',
+    backgroundColor: 'rgba(22,40,80,0.92)',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(240,165,0,0.18)',
+    borderColor: 'rgba(240,165,0,0.22)',
     padding: 32,
     alignItems: 'center',
     gap: 24,
@@ -361,9 +361,9 @@ const cycleStyles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 9,
-    backgroundColor: 'rgba(240,165,0,0.1)',
+    backgroundColor: 'rgba(240,165,0,0.14)',
     borderWidth: 1,
-    borderColor: 'rgba(240,165,0,0.2)',
+    borderColor: 'rgba(240,165,0,0.26)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -970,7 +970,7 @@ export default function LoginScreen() {
         activeOpacity={0.88}
       >
         <LinearGradient
-          colors={['#1A5276', '#1F618D', '#2980B9']}
+          colors={['#1a5e8a', '#2471a3', '#2e86c1']}
           style={styles.loginBtnGrad}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
@@ -1153,7 +1153,7 @@ export default function LoginScreen() {
         resizeMode="cover"
       >
         <LinearGradient
-          colors={['rgba(6,16,41,0.92)', 'rgba(10,22,40,0.88)', 'rgba(15,31,64,0.85)', 'rgba(20,34,71,0.82)']}
+          colors={['rgba(14,28,60,0.78)', 'rgba(18,36,72,0.74)', 'rgba(24,46,88,0.70)', 'rgba(16,32,64,0.72)']}
           style={StyleSheet.absoluteFill}
           start={{ x: 0, y: 0 }}
           end={{ x: 0.6, y: 1 }}
@@ -1201,7 +1201,7 @@ export default function LoginScreen() {
       resizeMode="cover"
     >
       <LinearGradient
-        colors={['rgba(6,16,41,0.97)', 'rgba(10,22,40,0.95)', 'rgba(15,31,64,0.93)', 'rgba(20,34,71,0.92)']}
+        colors={['rgba(14,28,60,0.86)', 'rgba(18,36,72,0.82)', 'rgba(24,46,88,0.80)', 'rgba(16,32,64,0.84)']}
         style={StyleSheet.absoluteFill}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -1287,9 +1287,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 10,
-    backgroundColor: 'rgba(240,165,0,0.1)',
+    backgroundColor: 'rgba(240,165,0,0.13)',
     borderWidth: 1,
-    borderColor: 'rgba(240,165,0,0.2)',
+    borderColor: 'rgba(240,165,0,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1318,17 +1318,17 @@ const styles = StyleSheet.create({
   circle1: {
     position: 'absolute', width: 380, height: 380,
     borderRadius: 190, top: -120, right: -100,
-    backgroundColor: 'rgba(26,82,118,0.18)',
+    backgroundColor: 'rgba(42,100,160,0.22)',
   },
   circle2: {
     position: 'absolute', width: 220, height: 220,
     borderRadius: 110, bottom: 60, left: -80,
-    backgroundColor: 'rgba(204,26,26,0.07)',
+    backgroundColor: 'rgba(160,60,80,0.10)',
   },
   circle3: {
     position: 'absolute', width: 140, height: 140,
     borderRadius: 70, top: '42%', right: -40,
-    backgroundColor: 'rgba(240,165,0,0.05)',
+    backgroundColor: 'rgba(210,160,40,0.10)',
   },
   strip1: {
     position: 'absolute', width: 2, height: height * 0.4,
@@ -1370,16 +1370,16 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 440,
-    backgroundColor: 'rgba(10,22,52,0.82)',
+    backgroundColor: 'rgba(22,40,80,0.72)',
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: 'rgba(255,255,255,0.18)',
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.35,
-    shadowRadius: 24,
-    elevation: 14,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
     gap: 20,
     padding: 24,
     paddingTop: 28,
@@ -1396,8 +1396,8 @@ const styles = StyleSheet.create({
   cardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   lockBadge: {
     width: 40, height: 40, borderRadius: 12,
-    backgroundColor: 'rgba(240,165,0,0.1)',
-    borderWidth: 1, borderColor: 'rgba(240,165,0,0.2)',
+    backgroundColor: 'rgba(240,165,0,0.15)',
+    borderWidth: 1, borderColor: 'rgba(240,165,0,0.28)',
     alignItems: 'center', justifyContent: 'center',
   },
   cardHeaderTexts: { flex: 1 },
@@ -1407,7 +1407,7 @@ const styles = StyleSheet.create({
   inputGroup: { gap: 8 },
   inputLabel: {
     fontSize: 11, fontFamily: 'Inter_600SemiBold',
-    color: 'rgba(255,255,255,0.5)',
+    color: 'rgba(255,255,255,0.65)',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
   },
@@ -1424,16 +1424,16 @@ const styles = StyleSheet.create({
   },
   inputBox: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(255,255,255,0.09)',
     borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.09)',
+    borderColor: 'rgba(255,255,255,0.16)',
     height: 54,
     paddingHorizontal: 6,
   },
   inputBoxFocused: {
-    borderColor: Colors.gold,
-    backgroundColor: 'rgba(240,165,0,0.05)',
+    borderColor: 'rgba(240,165,0,0.75)',
+    backgroundColor: 'rgba(240,165,0,0.08)',
   },
   inputBoxError: {
     borderColor: '#e74c3c',
@@ -1527,8 +1527,8 @@ const styles = StyleSheet.create({
   footer: { alignItems: 'center', marginTop: 20, gap: 6 },
   angolaBanner: { flexDirection: 'row', height: 4, width: 36, borderRadius: 2, overflow: 'hidden', gap: 1 },
   angolaStripe: { flex: 1 },
-  footerText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.25)' },
-  footerSub: { fontSize: 10, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.15)' },
+  footerText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.38)' },
+  footerSub: { fontSize: 10, fontFamily: 'Inter_400Regular', color: 'rgba(255,255,255,0.24)' },
 
   biometricWelcomeContainer: {
     width: '100%',
@@ -1537,10 +1537,10 @@ const styles = StyleSheet.create({
   },
   bwCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(22,40,80,0.72)',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
+    borderColor: 'rgba(255,255,255,0.16)',
     overflow: 'hidden',
     padding: 28,
     alignItems: 'center',
