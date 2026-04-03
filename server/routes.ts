@@ -406,6 +406,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] config_geral periodosHorario/ultimoBackup:', (migErr as Error).message);
   }
 
+  // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
+  // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
+  try {
+    const SYSTEM_ACCOUNTS = [
+      { id: 'usr_ceo',            email: 'ceo@sige.ao',        senha: 'Sige@2025',       nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
+      { id: 'usr_financeiro_001', email: 'financeiro@sige.ao', senha: 'Financeiro@2025', nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
+      { id: 'usr_secretaria_001', email: 'secretaria@sige.ao', senha: 'Secretaria@2025', nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
+      { id: 'usr_rh_001',         email: 'rh@sige.ao',         senha: 'RH@2025',         nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
+    ];
+    for (const acc of SYSTEM_ACCOUNTS) {
+      // ON CONFLICT (email) DO NOTHING: preserva conta existente personalizada,
+      // insere apenas se o email ainda não existir na base de dados
+      await query(
+        `INSERT INTO public.utilizadores (id, nome, email, senha, role, escola, ativo)
+         VALUES ($1, $2, $3, $4, $5, $6, true)
+         ON CONFLICT (email) DO NOTHING`,
+        [acc.id, acc.nome, acc.email, acc.senha, acc.role, acc.escola]
+      );
+    }
+    console.log('[seed] Contas de sistema garantidas na base de dados.');
+  } catch (seedErr) {
+    console.warn('[seed] contas sistema:', (seedErr as Error).message);
+  }
+
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
   });
@@ -413,12 +437,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // AUTENTICAÇÃO (LOGIN)
   // -----------------------
-  const HARDCODED_ACCOUNTS: Array<{ email: string; senha: string; id: string; nome: string; role: UserRole; escola: string }> = [
-    { email: "ceo@sige.ao",        senha: "Sige@2025",       id: "usr_ceo",            nome: "Administrador QUETA",           role: "ceo",       escola: "QUETA, School" },
-    { email: "financeiro@sige.ao", senha: "Financeiro@2025", id: "usr_financeiro_001", nome: "Gestor Financeiro",            role: "financeiro", escola: "QUETA, School" },
-    { email: "secretaria@sige.ao", senha: "Secretaria@2025", id: "usr_secretaria_001", nome: "Secretária Académica",         role: "secretaria", escola: "QUETA, School" },
-    { email: "rh@sige.ao",         senha: "RH@2025",         id: "usr_rh_001",         nome: "Gestor de Recursos Humanos",  role: "rh",        escola: "QUETA, School" },
-  ];
 
   app.post("/api/login", async (req: Request, res: Response) => {
     try {
@@ -431,29 +449,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const ip = req.headers["x-forwarded-for"]?.toString().split(",")[0] ?? req.socket?.remoteAddress;
       const ua = req.headers["user-agent"];
-
-      // Verificar contas fixas primeiro
-      const hardcodedByEmail = HARDCODED_ACCOUNTS.find(a => a.email.toLowerCase() === email);
-      if (hardcodedByEmail) {
-        if (hardcodedByEmail.senha !== senha) {
-          logAudit({
-            userId: "unknown", userEmail: email, userRole: "desconhecido",
-            acao: "login_falhado", modulo: "Autenticação", descricao: `Senha incorrecta para conta fixa: ${email}`,
-            ipAddress: ip, userAgent: ua,
-          }).catch(() => {});
-          return json(res, 401, { error: "Senha incorrecta. Verifique a sua senha de acesso.", field: "senha" });
-        }
-        const token = signToken({ userId: hardcodedByEmail.id, role: hardcodedByEmail.role, email: hardcodedByEmail.email });
-        logAudit({
-          userId: hardcodedByEmail.id, userEmail: hardcodedByEmail.email, userRole: hardcodedByEmail.role, userName: hardcodedByEmail.nome,
-          acao: "login", modulo: "Autenticação", descricao: `Login bem-sucedido: ${hardcodedByEmail.email}`,
-          ipAddress: ip, userAgent: ua,
-        }).catch(() => {});
-        return json(res, 200, {
-          token,
-          user: { id: hardcodedByEmail.id, nome: hardcodedByEmail.nome, email: hardcodedByEmail.email, role: hardcodedByEmail.role, escola: hardcodedByEmail.escola },
-        });
-      }
 
       // Verificar na base de dados — primeiro só pelo email
       const emailRows = await query<JsonObject>(
@@ -521,15 +516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const senha = String(b.senha ?? "").trim();
       if (!email || !senha) return json(res, 200, { valid: false, emailExists: false });
 
-      // Check hardcoded accounts first
-      const hardcoded = HARDCODED_ACCOUNTS.find(a => a.email.toLowerCase() === email);
-      if (hardcoded) {
-        const emailExists = true;
-        const valid = hardcoded.senha === senha;
-        return json(res, 200, { valid, emailExists });
-      }
-
-      // Check database
+      // Verifica na base de dados
       const rows = await query<JsonObject>(
         `SELECT id, senha FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
         [email]

@@ -335,23 +335,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
           eApiRes.json() as Promise<Evento[]>,
         ]);
 
-        setAlunos(aApi);
-        setProfessores(pApi);
-        setTurmas(tApi);
-        setSalas(sApi);
-        setNotas(nApi);
-        setPresencas(prApi);
-        setEventos(eApi);
+        // Merge strategy: API wins for existing records; locally-cached records not
+        // yet synced to DB (e.g. saved offline) are preserved instead of being wiped.
+        function mergeWithCache<T extends { id: string }>(apiData: T[], cacheData: T[]): T[] {
+          if (apiData.length > 0) return apiData; // API has data — use it as source of truth
+          // API returned empty: keep cache to avoid wiping locally-saved records
+          if (cacheData.length > 0) {
+            console.warn('[DataContext] API returned [] — keeping local cache to preserve offline data');
+            return cacheData;
+          }
+          return [];
+        }
 
-        // Atualiza cache
+        const finalAlunos     = mergeWithCache(aApi,  cached.alunos);
+        const finalProfs      = mergeWithCache(pApi,  cached.professores);
+        const finalTurmas     = mergeWithCache(tApi,  cached.turmas);
+        const finalSalas      = mergeWithCache(sApi,  cached.salas);
+        const finalNotas      = mergeWithCache(nApi,  cached.notas);
+        const finalPresencas  = mergeWithCache(prApi, cached.presencas);
+        const finalEventos    = mergeWithCache(eApi,  cached.eventos);
+
+        setAlunos(finalAlunos);
+        setProfessores(finalProfs);
+        setTurmas(finalTurmas);
+        setSalas(finalSalas);
+        setNotas(finalNotas);
+        setPresencas(finalPresencas);
+        setEventos(finalEventos);
+
+        // Atualiza cache com dados finais
         await Promise.all([
-          persist(STORAGE_KEYS.alunos, aApi),
-          persist(STORAGE_KEYS.professores, pApi),
-          persist(STORAGE_KEYS.turmas, tApi),
-          persist(STORAGE_KEYS.salas, sApi),
-          persist(STORAGE_KEYS.notas, nApi),
-          persist(STORAGE_KEYS.presencas, prApi),
-          persist(STORAGE_KEYS.eventos, eApi),
+          persist(STORAGE_KEYS.alunos,      finalAlunos),
+          persist(STORAGE_KEYS.professores,  finalProfs),
+          persist(STORAGE_KEYS.turmas,       finalTurmas),
+          persist(STORAGE_KEYS.salas,        finalSalas),
+          persist(STORAGE_KEYS.notas,        finalNotas),
+          persist(STORAGE_KEYS.presencas,    finalPresencas),
+          persist(STORAGE_KEYS.eventos,      finalEventos),
         ]);
         return;
       } catch (apiErr) {
