@@ -35,6 +35,21 @@ function SituacaoBadge({ situacao }: { situacao: string }) {
   );
 }
 
+function notaEfetivaDisplay(n: any): number {
+  if (n.nf != null && n.nf > 0) return n.nf;
+  if (n.mt1 != null && n.mt1 > 0) return n.mt1;
+  if (n.mac1 != null && n.mac1 > 0) return n.mac1;
+  if (n.mac != null && n.mac > 0) return n.mac;
+  const avals = [n.aval1, n.aval2, n.aval3, n.aval4, n.aval5, n.aval6, n.aval7, n.aval8]
+    .filter((v): v is number => v != null && v > 0);
+  if (avals.length > 0) return avals.reduce((s: number, v: number) => s + v, 0) / avals.length;
+  return 0;
+}
+
+function isNotaLancada(n: any): boolean {
+  return !!(n.lancado || (n.nf != null && n.nf > 0) || (n.mt1 != null && n.mt1 > 0));
+}
+
 function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
   const trimestres = [1, 2, 3] as const;
   const trimestresComNotas = trimestres.filter(t => notasAno.some(n => n.trimestre === t));
@@ -44,11 +59,13 @@ function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
   return (
     <View style={styles.trimestresContainer}>
       {trimestresComNotas.map(t => {
-        const notasTrim = notasAno.filter(n => n.trimestre === t);
-        const mediaTrim = notasTrim.length > 0
-          ? notasTrim.reduce((s: number, n: any) => s + (n.nf ?? n.mac ?? 0), 0) / notasTrim.length
+        const notasTrim = notasAno.filter((n: any) => n.trimestre === t);
+        const notasComValor = notasTrim.filter((n: any) => notaEfetivaDisplay(n) > 0);
+        const mediaTrim = notasComValor.length > 0
+          ? notasComValor.reduce((s: number, n: any) => s + notaEfetivaDisplay(n), 0) / notasComValor.length
           : 0;
         const cor = TRIMESTRE_COLORS[t];
+        const todasLancadas = notasTrim.every((n: any) => isNotaLancada(n));
 
         return (
           <View key={t} style={styles.trimestreBlock}>
@@ -57,6 +74,11 @@ function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
               <View style={styles.trimestreBlockHeaderLeft}>
                 <View style={[styles.trimestreDot, { backgroundColor: cor }]} />
                 <Text style={[styles.trimestreBlockTitle, { color: cor }]}>{t}º Trimestre</Text>
+                {!todasLancadas && (
+                  <View style={{ backgroundColor: Colors.warning + '25', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
+                    <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.warning }}>Em Lançamento</Text>
+                  </View>
+                )}
               </View>
               <View style={[styles.mediaTriBadge, { backgroundColor: cor + '20', borderColor: cor + '50' }]}>
                 <Text style={[styles.mediaTriText, { color: cor }]}>
@@ -72,31 +94,40 @@ function NotasPorTrimestreTable({ notasAno }: { notasAno: any[] }) {
                 <Text style={[styles.notasCol, { width: 40, textAlign: 'center' }]}>MAC</Text>
                 <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PP</Text>
                 <Text style={[styles.notasCol, { width: 34, textAlign: 'center' }]}>PT</Text>
-                <Text style={[styles.notasCol, { width: 40, textAlign: 'center' }]}>NF</Text>
+                <Text style={[styles.notasCol, { width: 44, textAlign: 'center' }]}>NF</Text>
               </View>
               {notasTrim.map((n: any) => {
-                const nf = n.nf ?? n.mac ?? 0;
+                const nfVal = notaEfetivaDisplay(n);
+                const lancada = isNotaLancada(n);
+                const mac1Val = n.mac1 != null ? n.mac1 : (n.mac != null ? n.mac : null);
                 return (
                   <View key={n.id} style={styles.notasRow}>
-                    <Text style={[styles.notasCell, { flex: 1 }]} numberOfLines={1}>{n.disciplina}</Text>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                      <Text style={[styles.notasCell, { flex: 1 }]} numberOfLines={1}>{n.disciplina}</Text>
+                      {!lancada && (
+                        <View style={{ backgroundColor: Colors.warning + '20', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 }}>
+                          <Text style={{ fontSize: 8, fontFamily: 'Inter_600SemiBold', color: Colors.warning }}>Parcial</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[styles.notasCell, { width: 40, textAlign: 'center' }]}>
-                      {(n.mac1 ?? 0) > 0 ? (n.mac1 ?? 0).toFixed(1) : '—'}
+                      {mac1Val != null && mac1Val > 0 ? mac1Val.toFixed(1) : '—'}
                     </Text>
                     <Text style={[styles.notasCell, { width: 34, textAlign: 'center' }]}>
-                      {n.pp1 > 0 ? n.pp1 : '—'}
+                      {n.pp1 != null && n.pp1 > 0 ? n.pp1.toFixed(1) : '—'}
                     </Text>
                     <Text style={[styles.notasCell, { width: 34, textAlign: 'center' }]}>
-                      {n.ppt > 0 ? n.ppt : '—'}
+                      {n.ppt != null && n.ppt > 0 ? n.ppt.toFixed(1) : '—'}
                     </Text>
                     <Text style={[
                       styles.notasCell,
                       {
-                        width: 40, textAlign: 'center',
-                        color: nf >= 10 ? Colors.success : Colors.accent,
+                        width: 44, textAlign: 'center',
+                        color: !lancada ? Colors.warning : (nfVal >= 10 ? Colors.success : Colors.accent),
                         fontFamily: 'Inter_700Bold',
                       }
                     ]}>
-                      {nf > 0 ? nf.toFixed(1) : '—'}
+                      {nfVal > 0 ? nfVal.toFixed(1) : '—'}
                     </Text>
                   </View>
                 );
@@ -118,11 +149,22 @@ export default function HistoricoScreen() {
 
   const [viewMode, setViewMode] = useState<ViewMode>('aluno');
   const [selectedAlunoId, setSelectedAlunoId] = useState<string | null>(null);
-  const [selectedTurmaId, setSelectedTurmaId] = useState<string>(turmas[0]?.id || '');
+  const [selectedTurmaId, setSelectedTurmaId] = useState<string>('');
   const [showAlunoSelector, setShowAlunoSelector] = useState(false);
   const [showTurmaSelector, setShowTurmaSelector] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  const alunosAtivos = alunos.filter(a => a.ativo);
+  const turmasAtivas = turmas.filter(t => t.ativo);
+
+  // Set initial turma when turmas load (fix async race condition)
+  useEffect(() => {
+    if (turmasAtivas.length > 0 && !selectedTurmaId) {
+      setSelectedTurmaId(turmasAtivas[0].id);
+    }
+  }, [turmasAtivas]);
+
+  // Auto-select student for aluno role
   useEffect(() => {
     if (isAlunoRole && user && alunos.length > 0 && !selectedAlunoId) {
       const primeiroNome = user.nome?.split(' ')[0]?.toLowerCase() || '';
@@ -134,30 +176,59 @@ export default function HistoricoScreen() {
     }
   }, [isAlunoRole, user, alunos]);
 
-  const alunosAtivos = alunos.filter(a => a.ativo);
-  const turmasAtivas = turmas.filter(t => t.ativo);
-
   const selectedAluno = alunos.find(a => a.id === selectedAlunoId) || null;
   const selectedTurma = turmas.find(t => t.id === selectedTurmaId) || null;
+
+  // Helper: get the best available grade value from a nota (handles partial/in-progress entries)
+  function notaEfetiva(n: any): number {
+    if (n.nf != null && n.nf > 0) return n.nf;
+    if (n.mt1 != null && n.mt1 > 0) return n.mt1;
+    if (n.mac1 != null && n.mac1 > 0) return n.mac1;
+    if (n.mac != null && n.mac > 0) return n.mac;
+    // Fallback: average any individual assessments that exist
+    const avals = [n.aval1, n.aval2, n.aval3, n.aval4, n.aval5, n.aval6, n.aval7, n.aval8]
+      .filter((v): v is number => v != null && v > 0);
+    if (avals.length > 0) return avals.reduce((s, v) => s + v, 0) / avals.length;
+    return 0;
+  }
+
+  // Helper: get turma name for a student — also tries note-based lookup as fallback
+  function getTurmaNome(alunoId: string, turmaId: string): string {
+    const byId = turmas.find(t => t.id === turmaId);
+    if (byId) return byId.nome;
+    const notaTurmaId = notas.find(n => n.alunoId === alunoId)?.turmaId;
+    const byNota = notaTurmaId ? turmas.find(t => t.id === notaTurmaId) : null;
+    return byNota?.nome || '—';
+  }
 
   const historicoAluno = useMemo(() => {
     if (!selectedAluno) return [];
     return anos.map(ano => {
       const notasAno = notas.filter(n => n.alunoId === selectedAluno.id && n.anoLetivo === ano.ano);
       const presAno = presencas.filter(p => p.alunoId === selectedAluno.id);
-      const mediaGeral = notasAno.length > 0
-        ? notasAno.reduce((s, n) => s + (n.nf ?? n.mac ?? 0), 0) / notasAno.length
+
+      // Only count notes that have meaningful grade data for the average
+      const notasComValor = notasAno.filter(n => notaEfetiva(n) > 0);
+      const mediaGeral = notasComValor.length > 0
+        ? notasComValor.reduce((s, n) => s + notaEfetiva(n), 0) / notasComValor.length
         : null;
+
       const presencasPct = presAno.length > 0
         ? Math.round((presAno.filter(p => p.status === 'P').length / presAno.length) * 100)
         : 100;
+
+      // Situação: if there are any notes (even partial), show "Em curso" until year ends
+      const anoAtivo = ano.ativo;
       const aprovado = mediaGeral !== null ? mediaGeral >= 10 : null;
-      const situacao = mediaGeral === null ? 'Em curso' : aprovado ? 'Aprovado' : 'Reprovado';
+      const situacao = anoAtivo
+        ? 'Em curso'
+        : (mediaGeral === null ? 'Em curso' : aprovado ? 'Aprovado' : 'Reprovado');
 
       const trimestresResumo = [1, 2, 3].map(t => {
         const notasTrim = notasAno.filter(n => n.trimestre === t);
-        const mediaTrim = notasTrim.length > 0
-          ? notasTrim.reduce((s, n) => s + (n.nf ?? n.mac ?? 0), 0) / notasTrim.length
+        const comValor = notasTrim.filter(n => notaEfetiva(n) > 0);
+        const mediaTrim = comValor.length > 0
+          ? comValor.reduce((s, n) => s + notaEfetiva(n), 0) / comValor.length
           : null;
         return { trimestre: t, notas: notasTrim, media: mediaTrim };
       });
@@ -168,25 +239,41 @@ export default function HistoricoScreen() {
 
   const chartData = useMemo(() => {
     return historicoAluno
-      .filter(h => h.mediaGeral !== null)
+      .filter(h => h.mediaGeral !== null && h.mediaGeral > 0)
       .map(h => ({ label: h.ano.ano.slice(2), value: parseFloat((h.mediaGeral || 0).toFixed(1)) }));
   }, [historicoAluno]);
 
   const turmaAlunos = useMemo(() => {
     if (!selectedTurma) return [];
-    const alunosDaTurma = alunos.filter(a => a.turmaId === selectedTurma.id && a.ativo);
+
+    // Build set of alunoIds that have notas for this turma — fallback for turmaId mismatch
+    const alunoIdsViaNotas = new Set(
+      notas
+        .filter(n => n.turmaId === selectedTurma.id && (!anoSelecionado || n.anoLetivo === anoSelecionado.ano))
+        .map(n => n.alunoId)
+    );
+
+    // Find students by direct turmaId OR via their notas
+    const alunosDaTurma = alunos.filter(a =>
+      a.ativo && (a.turmaId === selectedTurma.id || alunoIdsViaNotas.has(a.id))
+    );
+
     return alunosDaTurma.map(aluno => {
       const notasAluno = notas.filter(n => n.alunoId === aluno.id && (!anoSelecionado || n.anoLetivo === anoSelecionado.ano));
-      const media = notasAluno.length > 0
-        ? notasAluno.reduce((s, n) => s + (n.nf ?? n.mac ?? 0), 0) / notasAluno.length
+      const notasComValor = notasAluno.filter(n => notaEfetiva(n) > 0);
+      const media = notasComValor.length > 0
+        ? notasComValor.reduce((s, n) => s + notaEfetiva(n), 0) / notasComValor.length
         : 0;
       const presAluno = presencas.filter(p => p.alunoId === aluno.id);
       const faltas = presAluno.filter(p => p.status === 'F').length;
-      const situacao = notasAluno.length === 0 ? 'Em curso' : media >= 10 ? 'Aprovado' : 'Reprovado';
+      const situacao = notasAluno.length === 0
+        ? 'Em curso'
+        : (anoSelecionado?.ativo ? 'Em curso' : (media >= 10 ? 'Aprovado' : 'Reprovado'));
 
       const porTrimestre = [1, 2, 3].map(t => {
         const nt = notasAluno.filter(n => n.trimestre === t);
-        const med = nt.length > 0 ? nt.reduce((s, n) => s + (n.nf ?? n.mac ?? 0), 0) / nt.length : null;
+        const comValor = nt.filter(n => notaEfetiva(n) > 0);
+        const med = comValor.length > 0 ? comValor.reduce((s, n) => s + notaEfetiva(n), 0) / comValor.length : null;
         return { trimestre: t, media: med };
       });
 
@@ -287,21 +374,18 @@ export default function HistoricoScreen() {
 
               {showAlunoSelector && (
                 <View style={styles.dropdownList}>
-                  {alunosAtivos.map(a => {
-                    const turma = turmas.find(t => t.id === a.turmaId);
-                    return (
-                      <TouchableOpacity
-                        key={a.id}
-                        style={[styles.dropdownItem, selectedAlunoId === a.id && styles.dropdownActive]}
-                        onPress={() => { setSelectedAlunoId(a.id); setShowAlunoSelector(false); }}
-                      >
-                        <Text style={[styles.dropdownText, selectedAlunoId === a.id && styles.dropdownTextActive]}>
-                          {a.nome} {a.apelido}
-                        </Text>
-                        <Text style={styles.dropdownSub}>{turma?.nome || ''} — {a.numeroMatricula}</Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {alunosAtivos.map(a => (
+                    <TouchableOpacity
+                      key={a.id}
+                      style={[styles.dropdownItem, selectedAlunoId === a.id && styles.dropdownActive]}
+                      onPress={() => { setSelectedAlunoId(a.id); setShowAlunoSelector(false); }}
+                    >
+                      <Text style={[styles.dropdownText, selectedAlunoId === a.id && styles.dropdownTextActive]}>
+                        {a.nome} {a.apelido}
+                      </Text>
+                      <Text style={styles.dropdownSub}>{getTurmaNome(a.id, a.turmaId)} — {a.numeroMatricula}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
             </>
@@ -325,7 +409,7 @@ export default function HistoricoScreen() {
                 <View style={styles.alunoInfo}>
                   <Text style={styles.alunoNome}>{selectedAluno.nome} {selectedAluno.apelido}</Text>
                   <Text style={styles.alunoMatricula}>{selectedAluno.numeroMatricula}</Text>
-                  <Text style={styles.alunoTurma}>{turmas.find(t => t.id === selectedAluno.turmaId)?.nome || '—'}</Text>
+                  <Text style={styles.alunoTurma}>{getTurmaNome(selectedAluno.id, selectedAluno.turmaId)}</Text>
                 </View>
                 <View style={styles.alunoCardRight}>
                   <SituacaoBadge situacao={historicoAluno.find(h => h.ano.ativo)?.situacao || 'Em curso'} />
@@ -341,12 +425,13 @@ export default function HistoricoScreen() {
               {/* Stats globais */}
               {(() => {
                 const notasTodas = notas.filter(n => n.alunoId === selectedAluno.id);
-                const mediaGlobal = notasTodas.length > 0
-                  ? notasTodas.reduce((s, n) => s + (n.nf ?? n.mac ?? 0), 0) / notasTodas.length
+                const notasComValorGlobal = notasTodas.filter(n => notaEfetiva(n) > 0);
+                const mediaGlobal = notasComValorGlobal.length > 0
+                  ? notasComValorGlobal.reduce((s, n) => s + notaEfetiva(n), 0) / notasComValorGlobal.length
                   : 0;
                 const presAluno = presencas.filter(p => p.alunoId === selectedAluno.id);
                 const totalFaltas = presAluno.filter(p => p.status === 'F').length;
-                const anosComNotas = new Set(notasTodas.map(n => n.anoLetivo)).size;
+                const anosComNotas = new Set(notasTodas.filter(n => notaEfetiva(n) > 0).map(n => n.anoLetivo)).size;
                 return (
                   <View style={styles.statsRow}>
                     <View style={styles.statCard}>
@@ -433,7 +518,10 @@ export default function HistoricoScreen() {
 
                   {h.notasAno.length === 0 && (
                     <View style={styles.semNotas}>
-                      <Text style={styles.semNotasText}>Sem notas registadas neste ano.</Text>
+                      <Ionicons name="document-outline" size={20} color={Colors.textMuted} style={{ marginBottom: 4 }} />
+                      <Text style={styles.semNotasText}>
+                        {h.ano.ativo ? 'Nenhuma nota lançada ainda neste ano lectivo.' : 'Sem notas registadas neste ano.'}
+                      </Text>
                     </View>
                   )}
                 </View>
