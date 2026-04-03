@@ -482,6 +482,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // CHECK CREDENTIALS (lightweight – no audit log, no token)
+  // -----------------------
+  app.post("/api/check-credentials", async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const email = String(b.email ?? "").toLowerCase().trim();
+      const senha = String(b.senha ?? "").trim();
+      if (!email || !senha) return json(res, 200, { valid: false, emailExists: false });
+
+      // Check hardcoded accounts first
+      const hardcoded = HARDCODED_ACCOUNTS.find(a => a.email.toLowerCase() === email);
+      if (hardcoded) {
+        const emailExists = true;
+        const valid = hardcoded.senha === senha;
+        return json(res, 200, { valid, emailExists });
+      }
+
+      // Check database
+      const rows = await query<JsonObject>(
+        `SELECT id, senha FROM public.utilizadores WHERE LOWER(email)=LOWER($1) AND ativo=true LIMIT 1`,
+        [email]
+      );
+      if (!rows[0]) return json(res, 200, { valid: false, emailExists: false });
+      const valid = rows[0].senha === senha;
+      return json(res, 200, { valid, emailExists: true });
+    } catch {
+      return json(res, 200, { valid: false, emailExists: false });
+    }
+  });
+
+  // -----------------------
   // FILE UPLOAD
   // -----------------------
   const uploadDir = path.resolve(process.cwd(), "public/uploads");

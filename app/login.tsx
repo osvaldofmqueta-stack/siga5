@@ -404,6 +404,11 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [focusedField, setFocusedField] = useState<'email' | 'senha' | null>(null);
   const [fieldError, setFieldError] = useState<{ field: 'email' | 'senha'; message: string } | null>(null);
+  const [emailExists, setEmailExists] = useState(false);
+  const [credentialsValid, setCredentialsValid] = useState(false);
+  const emailCheckAnim = useRef(new Animated.Value(0)).current;
+  const credCheckAnim = useRef(new Animated.Value(0)).current;
+  const checkDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState<'fingerprint' | 'faceid' | 'none'>('none');
   const [showBiometricWelcome, setShowBiometricWelcome] = useState(false);
@@ -452,6 +457,50 @@ export default function LoginScreen() {
       startBiometricAnimation();
     }
   }, [showBiometricWelcome]);
+
+  useEffect(() => {
+    const nd = Platform.OS !== 'web';
+    if (emailExists) {
+      Animated.spring(emailCheckAnim, { toValue: 1, damping: 14, stiffness: 160, useNativeDriver: nd }).start();
+    } else {
+      Animated.timing(emailCheckAnim, { toValue: 0, duration: 150, useNativeDriver: nd }).start();
+    }
+  }, [emailExists]);
+
+  useEffect(() => {
+    const nd = Platform.OS !== 'web';
+    if (credentialsValid) {
+      Animated.spring(credCheckAnim, { toValue: 1, damping: 14, stiffness: 160, useNativeDriver: nd }).start();
+    } else {
+      Animated.timing(credCheckAnim, { toValue: 0, duration: 150, useNativeDriver: nd }).start();
+    }
+  }, [credentialsValid]);
+
+  useEffect(() => {
+    if (checkDebounceRef.current) clearTimeout(checkDebounceRef.current);
+    const emailTrimmed = email.trim();
+    const senhaTrimmed = senha.trim();
+    if (!emailTrimmed) {
+      setEmailExists(false);
+      setCredentialsValid(false);
+      return;
+    }
+    checkDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/check-credentials', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: emailTrimmed, senha: senhaTrimmed }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setEmailExists(!!data.emailExists);
+          setCredentialsValid(!!data.valid);
+        }
+      } catch { /* silent */ }
+    }, 600);
+    return () => { if (checkDebounceRef.current) clearTimeout(checkDebounceRef.current); };
+  }, [email, senha]);
 
   async function initLogin() {
     try {
@@ -832,7 +881,7 @@ export default function LoginScreen() {
           <TextInput
             style={styles.inputText}
             value={email}
-            onChangeText={v => { setEmail(v); if (fieldError?.field === 'email') setFieldError(null); }}
+            onChangeText={v => { setEmail(v); setEmailExists(false); setCredentialsValid(false); if (fieldError?.field === 'email') setFieldError(null); }}
             placeholder="utilizador@escola.ao"
             placeholderTextColor={Colors.textMuted}
             keyboardType="email-address"
@@ -843,6 +892,13 @@ export default function LoginScreen() {
             onFocus={() => setFocusedField('email')}
             onBlur={() => setFocusedField(null)}
           />
+          <Animated.View style={{
+            opacity: emailCheckAnim,
+            transform: [{ scale: emailCheckAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+            marginLeft: 6,
+          }}>
+            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+          </Animated.View>
         </View>
         {fieldError?.field === 'email' && (
           <View style={styles.fieldErrorRow}>
@@ -874,7 +930,7 @@ export default function LoginScreen() {
             ref={senhaRef}
             style={styles.inputText}
             value={senha}
-            onChangeText={v => { setSenha(v); if (fieldError?.field === 'senha') setFieldError(null); }}
+            onChangeText={v => { setSenha(v); setCredentialsValid(false); if (fieldError?.field === 'senha') setFieldError(null); }}
             placeholder="••••••••••"
             placeholderTextColor={Colors.textMuted}
             secureTextEntry={!showSenha}
@@ -884,6 +940,13 @@ export default function LoginScreen() {
             onFocus={() => setFocusedField('senha')}
             onBlur={() => setFocusedField(null)}
           />
+          <Animated.View style={{
+            opacity: credCheckAnim,
+            transform: [{ scale: credCheckAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }],
+            marginRight: 4,
+          }}>
+            <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
+          </Animated.View>
           <TouchableOpacity
             onPress={() => setShowSenha(!showSenha)}
             style={styles.eyeBtn}
