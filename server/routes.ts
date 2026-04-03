@@ -7996,6 +7996,477 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── PLANO DE CONTAS MIGRATION ──────────────────────────────────────────────
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS public.plano_contas (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      codigo text NOT NULL,
+      nome text NOT NULL,
+      tipo text NOT NULL,
+      "parentId" varchar,
+      descricao text NOT NULL DEFAULT '',
+      ativo boolean NOT NULL DEFAULT true,
+      "createdAt" timestamptz NOT NULL DEFAULT now()
+    )`, []);
+    console.log('[migration] plano_contas ensured.');
+  } catch (e) { console.warn('[migration] plano_contas:', (e as Error).message); }
+
+  // ─── CONTAS A PAGAR MIGRATION ───────────────────────────────────────────────
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS public.contas_pagar (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      descricao text NOT NULL,
+      fornecedor text NOT NULL DEFAULT '',
+      valor real NOT NULL,
+      "dataVencimento" text NOT NULL,
+      "dataPagamento" text,
+      status text NOT NULL DEFAULT 'pendente',
+      "metodoPagamento" text,
+      "planoContaId" varchar,
+      referencia text,
+      comprovante text,
+      observacao text,
+      "registadoPor" text NOT NULL DEFAULT 'Sistema',
+      "createdAt" timestamptz NOT NULL DEFAULT now(),
+      "updatedAt" timestamptz NOT NULL DEFAULT now()
+    )`, []);
+    console.log('[migration] contas_pagar ensured.');
+  } catch (e) { console.warn('[migration] contas_pagar:', (e as Error).message); }
+
+  // ─── FERIADOS MIGRATION ─────────────────────────────────────────────────────
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS public.feriados (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      nome text NOT NULL,
+      data text NOT NULL,
+      tipo text NOT NULL DEFAULT 'nacional',
+      recorrente boolean NOT NULL DEFAULT true,
+      ativo boolean NOT NULL DEFAULT true,
+      "createdAt" timestamptz NOT NULL DEFAULT now()
+    )`, []);
+    console.log('[migration] feriados ensured.');
+    // Seed feriados nacionais de Angola se tabela estiver vazia
+    const feriadosCount = await query<JsonObject>(`SELECT COUNT(*) as c FROM public.feriados`, []);
+    if (parseInt((feriadosCount[0] as any).c ?? '0') === 0) {
+      const feriadosNacionais = [
+        { nome: 'Ano Novo', data: '2026-01-01' },
+        { nome: 'Dia do Mártir', data: '2026-01-04' },
+        { nome: 'Dia do Início da Luta Armada', data: '2026-02-04' },
+        { nome: 'Carnaval (2º dia)', data: '2026-03-03' },
+        { nome: 'Dia Internacional da Mulher', data: '2026-03-08' },
+        { nome: 'Páscoa', data: '2026-04-05' },
+        { nome: 'Dia da Paz e Reconciliação Nacional', data: '2026-04-04' },
+        { nome: 'Dia do Trabalhador', data: '2026-05-01' },
+        { nome: 'Dia da África', data: '2026-05-25' },
+        { nome: 'Dia das Crianças', data: '2026-06-01' },
+        { nome: 'Dia dos Heróis Nacionais', data: '2026-09-17' },
+        { nome: 'Dia da Independência Nacional', data: '2026-11-11' },
+        { nome: 'Natal', data: '2026-12-25' },
+      ];
+      for (const f of feriadosNacionais) {
+        await query(
+          `INSERT INTO public.feriados (id, nome, data, tipo, recorrente, ativo) VALUES ($1,$2,$3,'nacional',true,true)`,
+          [uuidv4(), f.nome, f.data]
+        );
+      }
+      console.log('[migration] feriados nacionais de Angola semeados.');
+    }
+  } catch (e) { console.warn('[migration] feriados:', (e as Error).message); }
+
+  // ─── PLANO DE CONTAS ROUTES ─────────────────────────────────────────────────
+  app.get('/api/plano-contas', requireAuth, async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.plano_contas ORDER BY codigo`, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/plano-contas', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { codigo, nome, tipo, parentId, descricao } = requireBodyObject(req);
+      const id = uuidv4();
+      await query(
+        `INSERT INTO public.plano_contas (id, codigo, nome, tipo, "parentId", descricao) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [id, codigo, nome, tipo, parentId ?? null, descricao ?? '']
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.plano_contas WHERE id=$1`, [id]);
+      json(res, 201, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/plano-contas/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { codigo, nome, tipo, parentId, descricao, ativo } = requireBodyObject(req);
+      await query(
+        `UPDATE public.plano_contas SET codigo=$1, nome=$2, tipo=$3, "parentId"=$4, descricao=$5, ativo=$6 WHERE id=$7`,
+        [codigo, nome, tipo, parentId ?? null, descricao ?? '', ativo ?? true, id]
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.plano_contas WHERE id=$1`, [id]);
+      json(res, 200, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/plano-contas/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const filhos = await query<JsonObject>(`SELECT id FROM public.plano_contas WHERE "parentId"=$1`, [id]);
+      if (filhos.length > 0) return json(res, 400, { error: 'Conta com sub-contas não pode ser eliminada.' });
+      await query(`DELETE FROM public.plano_contas WHERE id=$1`, [id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── CONTAS A PAGAR ROUTES ──────────────────────────────────────────────────
+  app.get('/api/contas-pagar', requireAuth, async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT cp.*, pc.nome as "planoContaNome", pc.codigo as "planoContaCodigo"
+         FROM public.contas_pagar cp
+         LEFT JOIN public.plano_contas pc ON pc.id = cp."planoContaId"
+         ORDER BY cp."dataVencimento" ASC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/contas-pagar', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const b = requireBodyObject(req);
+      const id = uuidv4();
+      await query(
+        `INSERT INTO public.contas_pagar (id, descricao, fornecedor, valor, "dataVencimento", "dataPagamento", status, "metodoPagamento", "planoContaId", referencia, observacao, "registadoPor")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [id, b.descricao, b.fornecedor ?? '', b.valor, b.dataVencimento, b.dataPagamento ?? null,
+         b.status ?? 'pendente', b.metodoPagamento ?? null, b.planoContaId ?? null,
+         b.referencia ?? null, b.observacao ?? null, user?.nome ?? 'Sistema']
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.contas_pagar WHERE id=$1`, [id]);
+      json(res, 201, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/contas-pagar/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      await query(
+        `UPDATE public.contas_pagar SET descricao=$1, fornecedor=$2, valor=$3, "dataVencimento"=$4,
+         "dataPagamento"=$5, status=$6, "metodoPagamento"=$7, "planoContaId"=$8, referencia=$9,
+         observacao=$10, "updatedAt"=now() WHERE id=$11`,
+        [b.descricao, b.fornecedor ?? '', b.valor, b.dataVencimento, b.dataPagamento ?? null,
+         b.status ?? 'pendente', b.metodoPagamento ?? null, b.planoContaId ?? null,
+         b.referencia ?? null, b.observacao ?? null, id]
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.contas_pagar WHERE id=$1`, [id]);
+      json(res, 200, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/contas-pagar/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      await query(`DELETE FROM public.contas_pagar WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── FERIADOS ROUTES ────────────────────────────────────────────────────────
+  app.get('/api/feriados', requireAuth, async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.feriados ORDER BY data`, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/feriados', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { nome, data, tipo, recorrente } = requireBodyObject(req);
+      const id = uuidv4();
+      await query(
+        `INSERT INTO public.feriados (id, nome, data, tipo, recorrente) VALUES ($1,$2,$3,$4,$5)`,
+        [id, nome, data, tipo ?? 'nacional', recorrente ?? true]
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.feriados WHERE id=$1`, [id]);
+      json(res, 201, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/feriados/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { nome, data, tipo, recorrente, ativo } = requireBodyObject(req);
+      await query(
+        `UPDATE public.feriados SET nome=$1, data=$2, tipo=$3, recorrente=$4, ativo=$5 WHERE id=$6`,
+        [nome, data, tipo ?? 'nacional', recorrente ?? true, ativo ?? true, id]
+      );
+      const [row] = await query<JsonObject>(`SELECT * FROM public.feriados WHERE id=$1`, [id]);
+      json(res, 200, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/feriados/:id', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      await query(`DELETE FROM public.feriados WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── RELATÓRIO COMPARATIVO (previsto vs. recebido) ──────────────────────────
+  app.get('/api/financeiro/relatorio-comparativo', requireAuth, async (req, res) => {
+    try {
+      const { ano } = req.query as Record<string, string>;
+      // Receita prevista = soma de todas taxas ativas × alunos ativos no ano
+      const alunosAtivos = await query<JsonObject>(
+        `SELECT COUNT(*) as c FROM public.alunos WHERE ativo=true`, []
+      );
+      const totalAlunos = parseInt((alunosAtivos[0] as any).c ?? '0');
+
+      const taxasRows = await query<JsonObject>(
+        `SELECT * FROM public.taxas WHERE ativo=true AND ("anoAcademico"=$1 OR "anoAcademico"='')`,
+        [ano ?? '']
+      );
+
+      // Calcular previsto por tipo de taxa
+      const previsto: Record<string, number> = {};
+      for (const t of taxasRows as any[]) {
+        const meses = t.frequencia === 'mensal' ? 11 : t.frequencia === 'trimestral' ? 3 : 1;
+        const valorTotal = t.valor * meses * totalAlunos;
+        previsto[t.tipo] = (previsto[t.tipo] ?? 0) + valorTotal;
+      }
+
+      // Receita recebida por tipo
+      const recebidoRows = await query<JsonObject>(
+        `SELECT tx.tipo, SUM(p.valor) as total
+         FROM public.pagamentos p
+         JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p.status='pago' AND p.ano=$1
+         GROUP BY tx.tipo`,
+        [ano ?? new Date().getFullYear().toString()]
+      );
+      const recebido: Record<string, number> = {};
+      for (const r of recebidoRows as any[]) {
+        recebido[r.tipo] = parseFloat(r.total ?? '0');
+      }
+
+      const tipos = ['propina','matricula','material','exame','multa','outro'];
+      const resultado = tipos.map(tipo => ({
+        tipo,
+        previsto: previsto[tipo] ?? 0,
+        recebido: recebido[tipo] ?? 0,
+        diferenca: (recebido[tipo] ?? 0) - (previsto[tipo] ?? 0),
+        percentual: (previsto[tipo] ?? 0) > 0
+          ? Math.round(((recebido[tipo] ?? 0) / (previsto[tipo] ?? 0)) * 100)
+          : 0,
+      }));
+
+      json(res, 200, { resultado, totalAlunos, ano: ano ?? '' });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── RELATÓRIO DE INADIMPLÊNCIA ─────────────────────────────────────────────
+  app.get('/api/financeiro/relatorio-inadimplencia', requireAuth, async (req, res) => {
+    try {
+      const { ano, mes } = req.query as Record<string, string>;
+      const anoFiltro = ano ?? new Date().getFullYear().toString();
+
+      // Alunos com pagamentos pendentes
+      const rows = await query<JsonObject>(
+        `SELECT
+           a.id as "alunoId", a."nomeCompleto", a."numeroMatricula",
+           t.id as "turmaId", t.nome as "turmaNome",
+           SUM(p.valor) as "totalDivida",
+           COUNT(p.id) as "qtdPendentes",
+           MIN(p.data) as "dataVencimentoMaisAntigo"
+         FROM public.pagamentos p
+         JOIN public.alunos a ON a.id = p."alunoId"
+         LEFT JOIN public.turmas t ON t."alunoId" = a.id
+         WHERE p.status='pendente' AND p.ano=$1
+         ${mes ? 'AND p.mes=$2' : ''}
+         GROUP BY a.id, a."nomeCompleto", a."numeroMatricula", t.id, t.nome
+         ORDER BY "totalDivida" DESC`,
+        mes ? [anoFiltro, mes] : [anoFiltro]
+      );
+
+      const totalAlunos = await query<JsonObject>(`SELECT COUNT(*) as c FROM public.alunos WHERE ativo=true`, []);
+      const totalInadimplentes = rows.length;
+      const totalAluniva = parseInt((totalAlunos[0] as any).c ?? '1');
+      const percentual = totalAluniva > 0 ? Math.round((totalInadimplentes / totalAluniva) * 100) : 0;
+      const totalDivida = (rows as any[]).reduce((acc, r) => acc + parseFloat(r.totalDivida ?? '0'), 0);
+
+      json(res, 200, { alunos: rows, totalInadimplentes, totalAlunos: totalAluniva, percentual, totalDivida, ano: anoFiltro });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── RELATÓRIO ENTRADAS E SAÍDAS POR PERÍODO ────────────────────────────────
+  app.get('/api/financeiro/relatorio-entradas-saidas', requireAuth, async (req, res) => {
+    try {
+      const { dataInicio, dataFim } = req.query as Record<string, string>;
+      const inicio = dataInicio ?? '2000-01-01';
+      const fim = dataFim ?? '2099-12-31';
+
+      // Entradas (pagamentos recebidos)
+      const entradas = await query<JsonObject>(
+        `SELECT p.*, a."nomeCompleto" as "alunoNome", tx.tipo as "taxaTipo", tx.descricao as "taxaDescricao"
+         FROM public.pagamentos p
+         JOIN public.alunos a ON a.id = p."alunoId"
+         JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p.status='pago' AND p.data >= $1 AND p.data <= $2
+         ORDER BY p.data DESC`,
+        [inicio, fim]
+      );
+
+      // Saídas (contas pagas)
+      const saidas = await query<JsonObject>(
+        `SELECT cp.*, pc.nome as "planoContaNome"
+         FROM public.contas_pagar cp
+         LEFT JOIN public.plano_contas pc ON pc.id = cp."planoContaId"
+         WHERE cp.status='pago' AND cp."dataPagamento" >= $1 AND cp."dataPagamento" <= $2
+         ORDER BY cp."dataPagamento" DESC`,
+        [inicio, fim]
+      );
+
+      const totalEntradas = (entradas as any[]).reduce((acc, r) => acc + parseFloat(r.valor ?? '0'), 0);
+      const totalSaidas = (saidas as any[]).reduce((acc, r) => acc + parseFloat(r.valor ?? '0'), 0);
+      const saldoLiquido = totalEntradas - totalSaidas;
+
+      // Agrupamento por mês
+      const porMes: Record<string, { entradas: number; saidas: number }> = {};
+      for (const e of entradas as any[]) {
+        const m = (e.data ?? '').substring(0, 7);
+        if (!porMes[m]) porMes[m] = { entradas: 0, saidas: 0 };
+        porMes[m].entradas += parseFloat(e.valor ?? '0');
+      }
+      for (const s of saidas as any[]) {
+        const m = (s.dataPagamento ?? '').substring(0, 7);
+        if (!porMes[m]) porMes[m] = { entradas: 0, saidas: 0 };
+        porMes[m].saidas += parseFloat(s.valor ?? '0');
+      }
+
+      json(res, 200, { entradas, saidas, totalEntradas, totalSaidas, saldoLiquido, porMes });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── COMPROVATIVO DE PAGAMENTO ───────────────────────────────────────────────
+  app.get('/api/pagamentos/:id/comprovativo', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const rows = await query<JsonObject>(
+        `SELECT p.*, a."nomeCompleto", a."numeroMatricula",
+                tx.tipo as "taxaTipo", tx.descricao as "taxaDescricao",
+                tx.frequencia as "taxaFrequencia"
+         FROM public.pagamentos p
+         JOIN public.alunos a ON a.id = p."alunoId"
+         JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p.id=$1`,
+        [id]
+      );
+      if (!rows.length) return json(res, 404, { error: 'Pagamento não encontrado.' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── COBRANÇA AVULSA (vinculada à matrícula de um aluno) ────────────────────
+  app.post('/api/pagamentos/avulso', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const user = (req as any).user;
+      const b = requireBodyObject(req);
+      const { alunoId, taxaId, valor, data, mes, trimestre, ano, metodoPagamento, referencia, observacao, status } = b;
+      if (!alunoId || !taxaId || !valor || !data || !ano) {
+        return json(res, 400, { error: 'Campos obrigatórios: alunoId, taxaId, valor, data, ano.' });
+      }
+      // Verify aluno exists
+      const alunoRows = await query<JsonObject>(`SELECT id FROM public.alunos WHERE id=$1`, [alunoId]);
+      if (!alunoRows.length) return json(res, 404, { error: 'Aluno não encontrado.' });
+
+      const id = uuidv4();
+      await query(
+        `INSERT INTO public.pagamentos (id, "alunoId", "taxaId", valor, data, mes, trimestre, ano, status, "metodoPagamento", referencia, observacao)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [id, alunoId, taxaId, valor, data, mes ?? null, trimestre ?? null, ano,
+         status ?? 'pago', metodoPagamento ?? 'dinheiro', referencia ?? null, observacao ?? null]
+      );
+      const [row] = await query<JsonObject>(
+        `SELECT p.*, a."nomeCompleto", tx.descricao as "taxaDescricao"
+         FROM public.pagamentos p
+         JOIN public.alunos a ON a.id = p."alunoId"
+         JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p.id=$1`,
+        [id]
+      );
+      json(res, 201, row);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── CANCELAR E RECRIAR COBRANÇA ────────────────────────────────────────────
+  app.post('/api/pagamentos/:id/cancelar-recriar', requireAuth, requirePermission('financeiro'), async (req, res) => {
+    try {
+      const { id } = req.params;
+      const user = (req as any).user;
+      const b = requireBodyObject(req);
+
+      // Buscar pagamento original
+      const [original] = await query<JsonObject>(`SELECT * FROM public.pagamentos WHERE id=$1`, [id]);
+      if (!original) return json(res, 404, { error: 'Pagamento original não encontrado.' });
+
+      // Cancelar original
+      await query(`UPDATE public.pagamentos SET status='cancelado' WHERE id=$1`, [id]);
+
+      // Criar novo pagamento com os dados fornecidos (ou copiar do original)
+      const novoId = uuidv4();
+      const orig = original as any;
+      await query(
+        `INSERT INTO public.pagamentos (id, "alunoId", "taxaId", valor, data, mes, trimestre, ano, status, "metodoPagamento", referencia, observacao)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        [
+          novoId,
+          orig.alunoId,
+          b.taxaId ?? orig.taxaId,
+          b.valor ?? orig.valor,
+          b.data ?? orig.data,
+          b.mes ?? orig.mes,
+          b.trimestre ?? orig.trimestre,
+          b.ano ?? orig.ano,
+          b.status ?? 'pendente',
+          b.metodoPagamento ?? orig.metodoPagamento,
+          b.referencia ?? null,
+          b.observacao ?? orig.observacao,
+        ]
+      );
+
+      const [novo] = await query<JsonObject>(
+        `SELECT p.*, a."nomeCompleto", tx.descricao as "taxaDescricao"
+         FROM public.pagamentos p
+         JOIN public.alunos a ON a.id = p."alunoId"
+         JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p.id=$1`,
+        [novoId]
+      );
+      json(res, 200, { cancelado: id, novo });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── VERIFICAR SE DATA É FERIADO ────────────────────────────────────────────
+  app.get('/api/feriados/verificar', requireAuth, async (req, res) => {
+    try {
+      const { data } = req.query as Record<string, string>;
+      if (!data) return json(res, 400, { error: 'Parâmetro "data" é obrigatório.' });
+      const dataObj = new Date(data);
+      const mmdd = `${String(dataObj.getMonth() + 1).padStart(2, '0')}-${String(dataObj.getDate()).padStart(2, '0')}`;
+
+      // Check feriados recorrentes (match by MM-DD) and feriados específicos (match by full date)
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.feriados WHERE ativo=true AND (
+           (recorrente=true AND SUBSTRING(data, 6, 5) = $1) OR
+           (recorrente=false AND data = $2)
+         )`,
+        [mmdd, data]
+      );
+      json(res, 200, { eFeriado: rows.length > 0, feriados: rows });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -1652,3 +1652,72 @@ export const processosSecretaria = pgTable("processos_secretaria", {
 
 export type ProcessoSecretaria = typeof processosSecretaria.$inferSelect;
 export const insertProcessoSecretariaSchema = createInsertSchema(processosSecretaria);
+
+// -----------------------
+// PLANO DE CONTAS (Hierárquico mãe/filho)
+// -----------------------
+export const planoContas = pgTable("plano_contas", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  codigo: text("codigo").notNull(),           // e.g. "1", "1.1", "1.1.1"
+  nome: text("nome").notNull(),
+  tipo: text("tipo").notNull(),               // 'receita' | 'despesa' | 'ativo' | 'passivo'
+  parentId: varchar("parentId"),              // null = conta mãe raiz
+  descricao: text("descricao").notNull().default(''),
+  ativo: boolean("ativo").notNull().default(true),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type PlanoContas = typeof planoContas.$inferSelect;
+export const insertPlanoContasSchema = createInsertSchema(planoContas).omit({ id: true, createdAt: true });
+
+// -----------------------
+// CONTAS A PAGAR (Despesas da escola)
+// -----------------------
+export const contasPagar = pgTable("contas_pagar", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  descricao: text("descricao").notNull(),
+  fornecedor: text("fornecedor").notNull().default(''),
+  valor: real("valor").notNull(),
+  dataVencimento: text("dataVencimento").notNull(),
+  dataPagamento: text("dataPagamento"),
+  status: text("status").notNull().default('pendente'), // 'pendente' | 'pago' | 'cancelado' | 'em_atraso'
+  metodoPagamento: text("metodoPagamento"),             // 'dinheiro' | 'transferencia' | 'multicaixa'
+  planoContaId: varchar("planoContaId"),                // FK to plano_contas (optional)
+  referencia: text("referencia"),
+  comprovante: text("comprovante"),
+  observacao: text("observacao"),
+  registadoPor: text("registadoPor").notNull().default('Sistema'),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ContaPagar = typeof contasPagar.$inferSelect;
+export const insertContaPagarSchema = createInsertSchema(contasPagar).omit({ id: true, createdAt: true, updatedAt: true });
+
+// -----------------------
+// FERIADOS (Calendário Financeiro)
+// -----------------------
+export const feriados = pgTable("feriados", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+
+  nome: text("nome").notNull(),
+  data: text("data").notNull(),               // 'YYYY-MM-DD'
+  tipo: text("tipo").notNull().default('nacional'), // 'nacional' | 'municipal' | 'escolar'
+  recorrente: boolean("recorrente").notNull().default(true), // repeats every year
+  ativo: boolean("ativo").notNull().default(true),
+
+  createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type Feriado = typeof feriados.$inferSelect;
+export const insertFeriadoSchema = createInsertSchema(feriados).omit({ id: true, createdAt: true });

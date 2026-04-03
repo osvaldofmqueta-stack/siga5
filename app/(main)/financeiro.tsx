@@ -58,7 +58,7 @@ const FREQS: { k: FrequenciaTaxa; l: string }[] = [
   { k: 'mensal', l: 'Mensal' }, { k: 'trimestral', l: 'Trimestral' },
   { k: 'anual', l: 'Anual' }, { k: 'unica', l: 'Única' },
 ];
-const TABS_MAIN = ['painel','propinas','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno','config_fiscal'] as const;
+const TABS_MAIN = ['painel','propinas','resumo','relatorios','em_atraso','mensagens','pagamentos','rubricas','por_aluno','config_fiscal','plano_contas','contas_pagar','relatorios_fin','feriados'] as const;
 type TabKey = typeof TABS_MAIN[number];
 
 const MESES_PAINEL = [
@@ -224,6 +224,270 @@ export default function FinanceiroScreen() {
     } finally {
       setSavingTipo(false);
     }
+  }
+
+  // ── Plano de Contas state ───────────────────────────────────
+  const [planoContas, setPlanoContas]           = useState<any[]>([]);
+  const [planoContasLoading, setPlanoContasLoading] = useState(false);
+  const [showPlanoModal, setShowPlanoModal]     = useState(false);
+  const [editPlano, setEditPlano]               = useState<any | null>(null);
+  const defaultFormPlano = { codigo: '', nome: '', tipo: 'receita', parentId: '', descricao: '' };
+  const [formPlano, setFormPlano]               = useState(defaultFormPlano);
+  const [savingPlano, setSavingPlano]           = useState(false);
+
+  const loadPlanoContas = useCallback(async () => {
+    setPlanoContasLoading(true);
+    try {
+      const d = await api.get('/api/plano-contas');
+      setPlanoContas((d as any).data ?? d);
+    } catch { } finally { setPlanoContasLoading(false); }
+  }, []);
+
+  useEffect(() => { if (tab === 'plano_contas') loadPlanoContas(); }, [tab]);
+
+  async function savePlano() {
+    if (!formPlano.codigo.trim() || !formPlano.nome.trim() || !formPlano.tipo) {
+      alertErro('Campos obrigatórios', 'Código, nome e tipo são obrigatórios.'); return;
+    }
+    setSavingPlano(true);
+    try {
+      const payload = { ...formPlano, parentId: formPlano.parentId || null };
+      if (editPlano) {
+        await api.put(`/api/plano-contas/${editPlano.id}`, { ...payload, ativo: true });
+      } else {
+        await api.post('/api/plano-contas', payload);
+      }
+      setShowPlanoModal(false); setEditPlano(null); setFormPlano(defaultFormPlano);
+      await loadPlanoContas();
+      alertSucesso('Guardado', 'Conta guardada com sucesso.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível guardar.');
+    } finally { setSavingPlano(false); }
+  }
+
+  async function deletePlano(id: string) {
+    webAlert('Eliminar conta', 'Tem a certeza?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete(`/api/plano-contas/${id}`);
+          await loadPlanoContas();
+          alertSucesso('Eliminado', 'Conta eliminada.');
+        } catch (e: any) { alertErro('Erro', e.message ?? 'Não foi possível eliminar.'); }
+      }},
+    ]);
+  }
+
+  // ── Contas a Pagar state ────────────────────────────────────
+  const [contasPagar, setContasPagar]           = useState<any[]>([]);
+  const [contasPagarLoading, setContasPagarLoading] = useState(false);
+  const [showContaModal, setShowContaModal]     = useState(false);
+  const [editConta, setEditConta]               = useState<any | null>(null);
+  const defaultFormConta = { descricao: '', fornecedor: '', valor: '', dataVencimento: '', dataPagamento: '', status: 'pendente', metodoPagamento: 'dinheiro', planoContaId: '', referencia: '', observacao: '' };
+  const [formConta, setFormConta]               = useState(defaultFormConta);
+  const [savingConta, setSavingConta]           = useState(false);
+
+  const loadContasPagar = useCallback(async () => {
+    setContasPagarLoading(true);
+    try {
+      const d = await api.get('/api/contas-pagar');
+      setContasPagar((d as any).data ?? d);
+    } catch { } finally { setContasPagarLoading(false); }
+  }, []);
+
+  useEffect(() => { if (tab === 'contas_pagar') loadContasPagar(); }, [tab]);
+
+  async function saveConta() {
+    if (!formConta.descricao.trim() || !formConta.valor || !formConta.dataVencimento) {
+      alertErro('Campos obrigatórios', 'Descrição, valor e data de vencimento são obrigatórios.'); return;
+    }
+    setSavingConta(true);
+    try {
+      const payload = { ...formConta, valor: parseFloat(formConta.valor), planoContaId: formConta.planoContaId || null, dataPagamento: formConta.dataPagamento || null };
+      if (editConta) {
+        await api.put(`/api/contas-pagar/${editConta.id}`, payload);
+      } else {
+        await api.post('/api/contas-pagar', payload);
+      }
+      setShowContaModal(false); setEditConta(null); setFormConta(defaultFormConta);
+      await loadContasPagar();
+      alertSucesso('Guardado', 'Conta a pagar guardada com sucesso.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível guardar.');
+    } finally { setSavingConta(false); }
+  }
+
+  async function marcarContaPaga(conta: any) {
+    const hoje = new Date().toISOString().split('T')[0];
+    try {
+      await api.put(`/api/contas-pagar/${conta.id}`, { ...conta, status: 'pago', dataPagamento: hoje, valor: conta.valor });
+      await loadContasPagar();
+      alertSucesso('Pago', 'Conta marcada como paga.');
+    } catch (e: any) { alertErro('Erro', e.message ?? 'Não foi possível actualizar.'); }
+  }
+
+  async function deleteConta(id: string) {
+    webAlert('Eliminar conta', 'Tem a certeza?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete(`/api/contas-pagar/${id}`);
+          await loadContasPagar();
+          alertSucesso('Eliminado', 'Conta eliminada.');
+        } catch (e: any) { alertErro('Erro', e.message ?? 'Não foi possível eliminar.'); }
+      }},
+    ]);
+  }
+
+  // ── Relatórios Financeiros state ────────────────────────────
+  const [relFinTab, setRelFinTab]               = useState<'comparativo' | 'inadimplencia' | 'entradas_saidas'>('comparativo');
+  const [relFinLoading, setRelFinLoading]       = useState(false);
+  const [relFinComparativo, setRelFinComparativo] = useState<any>(null);
+  const [relFinInadimplencia, setRelFinInadimplencia] = useState<any>(null);
+  const [relFinEntradasSaidas, setRelFinEntradasSaidas] = useState<any>(null);
+  const [relFinAno, setRelFinAno]               = useState(new Date().getFullYear().toString());
+  const [relFinDataInicio, setRelFinDataInicio] = useState('');
+  const [relFinDataFim, setRelFinDataFim]       = useState('');
+
+  async function loadRelFinComparativo() {
+    setRelFinLoading(true);
+    try {
+      const d = await api.get(`/api/financeiro/relatorio-comparativo?ano=${relFinAno}`);
+      setRelFinComparativo((d as any).data ?? d);
+    } catch { } finally { setRelFinLoading(false); }
+  }
+
+  async function loadRelFinInadimplencia() {
+    setRelFinLoading(true);
+    try {
+      const d = await api.get(`/api/financeiro/relatorio-inadimplencia?ano=${relFinAno}`);
+      setRelFinInadimplencia((d as any).data ?? d);
+    } catch { } finally { setRelFinLoading(false); }
+  }
+
+  async function loadRelFinEntradasSaidas() {
+    if (!relFinDataInicio || !relFinDataFim) { alertErro('Filtro', 'Seleccione data de início e fim.'); return; }
+    setRelFinLoading(true);
+    try {
+      const d = await api.get(`/api/financeiro/relatorio-entradas-saidas?dataInicio=${relFinDataInicio}&dataFim=${relFinDataFim}`);
+      setRelFinEntradasSaidas((d as any).data ?? d);
+    } catch { } finally { setRelFinLoading(false); }
+  }
+
+  useEffect(() => {
+    if (tab === 'relatorios_fin') {
+      if (relFinTab === 'comparativo') loadRelFinComparativo();
+      else if (relFinTab === 'inadimplencia') loadRelFinInadimplencia();
+    }
+  }, [tab, relFinTab]);
+
+  // ── Comprovativo state ──────────────────────────────────────
+  const [showComprovativo, setShowComprovativo] = useState(false);
+  const [comprovativoPag, setComprovativoPag]   = useState<any | null>(null);
+  const [comprovativoLoading, setComprovativoLoading] = useState(false);
+
+  async function abrirComprovativo(pagId: string) {
+    setComprovativoLoading(true);
+    try {
+      const d = await api.get(`/api/pagamentos/${pagId}/comprovativo`);
+      setComprovativoPag((d as any).data ?? d);
+      setShowComprovativo(true);
+    } catch (e: any) { alertErro('Erro', e.message ?? 'Não foi possível carregar.'); }
+    finally { setComprovativoLoading(false); }
+  }
+
+  // ── Cobrança Avulsa state ───────────────────────────────────
+  const [showAvulsoModal, setShowAvulsoModal]   = useState(false);
+  const [savingAvulso, setSavingAvulso]         = useState(false);
+  const defaultFormAvulso = { alunoId: '', taxaId: '', valor: '', data: new Date().toISOString().split('T')[0], mes: '', ano: new Date().getFullYear().toString(), metodoPagamento: 'dinheiro', referencia: '', observacao: '', status: 'pago' };
+  const [formAvulso, setFormAvulso]             = useState(defaultFormAvulso);
+  const [showAvulsoAlunoList, setShowAvulsoAlunoList] = useState(false);
+  const [showAvulsoTaxaList, setShowAvulsoTaxaList]   = useState(false);
+
+  async function saveAvulso() {
+    if (!formAvulso.alunoId || !formAvulso.taxaId || !formAvulso.valor || !formAvulso.data) {
+      alertErro('Campos obrigatórios', 'Aluno, taxa, valor e data são obrigatórios.'); return;
+    }
+    setSavingAvulso(true);
+    try {
+      await api.post('/api/pagamentos/avulso', { ...formAvulso, valor: parseFloat(formAvulso.valor), mes: formAvulso.mes ? parseInt(formAvulso.mes) : null });
+      setShowAvulsoModal(false); setFormAvulso(defaultFormAvulso);
+      alertSucesso('Cobrança criada', 'Cobrança avulsa registada com sucesso.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível criar.');
+    } finally { setSavingAvulso(false); }
+  }
+
+  // ── Cancelar/Recriar state ──────────────────────────────────
+  const [showCancelarRecriarModal, setShowCancelarRecriarModal] = useState(false);
+  const [cancelarRecriarPagId, setCancelarRecriarPagId]         = useState<string | null>(null);
+  const [cancelarRecriarLoading, setCancelarRecriarLoading]     = useState(false);
+  const defaultFormRecriar = { valor: '', data: new Date().toISOString().split('T')[0], metodoPagamento: 'dinheiro', referencia: '', observacao: '', status: 'pendente' };
+  const [formRecriar, setFormRecriar]           = useState(defaultFormRecriar);
+
+  async function cancelarERecriar() {
+    if (!cancelarRecriarPagId) return;
+    setCancelarRecriarLoading(true);
+    try {
+      await api.post(`/api/pagamentos/${cancelarRecriarPagId}/cancelar-recriar`, {
+        ...formRecriar, valor: formRecriar.valor ? parseFloat(formRecriar.valor) : undefined,
+      });
+      setShowCancelarRecriarModal(false); setCancelarRecriarPagId(null); setFormRecriar(defaultFormRecriar);
+      alertSucesso('Recriado', 'Cobrança cancelada e recriada com sucesso.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível recriar.');
+    } finally { setCancelarRecriarLoading(false); }
+  }
+
+  // ── Feriados state ──────────────────────────────────────────
+  const [feriados, setFeriados]                 = useState<any[]>([]);
+  const [feriadosLoading, setFeriadosLoading]   = useState(false);
+  const [showFeriadoModal, setShowFeriadoModal] = useState(false);
+  const [editFeriado, setEditFeriado]           = useState<any | null>(null);
+  const defaultFormFeriado = { nome: '', data: '', tipo: 'nacional', recorrente: true, ativo: true };
+  const [formFeriado, setFormFeriado]           = useState(defaultFormFeriado);
+  const [savingFeriado, setSavingFeriado]       = useState(false);
+
+  const loadFeriados = useCallback(async () => {
+    setFeriadosLoading(true);
+    try {
+      const d = await api.get('/api/feriados');
+      setFeriados((d as any).data ?? d);
+    } catch { } finally { setFeriadosLoading(false); }
+  }, []);
+
+  useEffect(() => { if (tab === 'feriados') loadFeriados(); }, [tab]);
+
+  async function saveFeriado() {
+    if (!formFeriado.nome.trim() || !formFeriado.data) {
+      alertErro('Campos obrigatórios', 'Nome e data são obrigatórios.'); return;
+    }
+    setSavingFeriado(true);
+    try {
+      if (editFeriado) {
+        await api.put(`/api/feriados/${editFeriado.id}`, formFeriado);
+      } else {
+        await api.post('/api/feriados', formFeriado);
+      }
+      setShowFeriadoModal(false); setEditFeriado(null); setFormFeriado(defaultFormFeriado);
+      await loadFeriados();
+      alertSucesso('Guardado', 'Feriado guardado com sucesso.');
+    } catch (e: any) {
+      alertErro('Erro', e.message ?? 'Não foi possível guardar.');
+    } finally { setSavingFeriado(false); }
+  }
+
+  async function deleteFeriado(id: string) {
+    webAlert('Eliminar feriado', 'Tem a certeza?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try {
+          await api.delete(`/api/feriados/${id}`);
+          await loadFeriados();
+          alertSucesso('Eliminado', 'Feriado eliminado.');
+        } catch (e: any) { alertErro('Erro', e.message ?? 'Não foi possível eliminar.'); }
+      }},
+    ]);
   }
 
   React.useEffect(() => {
@@ -1262,7 +1526,7 @@ export default function FinanceiroScreen() {
                         <Text style={{ fontSize: 9, color: Colors.success, fontFamily: 'Inter_700Bold' }}>✓ COM PROVA</Text>
                       </View>
                     )}
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                    <View style={{ flexDirection: 'row', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       {Platform.OS === 'web' && (
                         <TouchableOpacity
                           style={[st.confirmarBtn, { backgroundColor: Colors.info + 'cc' }]}
@@ -1270,6 +1534,22 @@ export default function FinanceiroScreen() {
                         >
                           <Ionicons name="document-text" size={11} color="#fff" />
                           <Text style={st.confirmarTxt}>PDF</Text>
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={[st.confirmarBtn, { backgroundColor: Colors.gold + 'cc' }]}
+                        onPress={() => abrirComprovativo(pag.id)}
+                      >
+                        <Ionicons name="receipt-outline" size={11} color="#fff" />
+                        <Text style={st.confirmarTxt}>Compr.</Text>
+                      </TouchableOpacity>
+                      {pag.status !== 'cancelado' && (
+                        <TouchableOpacity
+                          style={[st.confirmarBtn, { backgroundColor: Colors.danger + 'cc' }]}
+                          onPress={() => { setCancelarRecriarPagId(pag.id); setFormRecriar(defaultFormRecriar); setShowCancelarRecriarModal(true); }}
+                        >
+                          <Ionicons name="refresh-circle-outline" size={11} color="#fff" />
+                          <Text style={st.confirmarTxt}>Recriar</Text>
                         </TouchableOpacity>
                       )}
                       {pag.status === 'pendente' && (
@@ -1285,10 +1565,19 @@ export default function FinanceiroScreen() {
             }}
           />
         )}
-        <TouchableOpacity style={st.fab} onPress={() => setShowModalPag(true)}>
-          <Ionicons name="add" size={22} color="#fff" />
-          <Text style={st.fabTxt}>Registar Pagamento</Text>
-        </TouchableOpacity>
+        <View style={{ position: 'absolute', bottom: bottomInset + 16, right: 16, gap: 10, alignItems: 'flex-end' }}>
+          <TouchableOpacity
+            style={[st.fab, { backgroundColor: Colors.info, paddingHorizontal: 16 }]}
+            onPress={() => { setFormAvulso(defaultFormAvulso); setShowAvulsoModal(true); }}
+          >
+            <Ionicons name="flash-outline" size={18} color="#fff" />
+            <Text style={st.fabTxt}>Cobrança Avulsa</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={st.fab} onPress={() => setShowModalPag(true)}>
+            <Ionicons name="add" size={22} color="#fff" />
+            <Text style={st.fabTxt}>Registar Pagamento</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -2404,6 +2693,632 @@ export default function FinanceiroScreen() {
     );
   }
 
+  // ─── Render: Plano de Contas ───────────────────────────────
+  function renderPlanoContas() {
+    const TIPO_COLORS: Record<string, string> = { receita: Colors.success, despesa: Colors.danger, ativo: Colors.info, passivo: Colors.warning };
+    const maes = planoContas.filter(c => !c.parentId);
+    const filhos = (parentId: string) => planoContas.filter(c => c.parentId === parentId);
+    return (
+      <ScrollView style={st.scrollContent} contentContainerStyle={st.scrollInner} refreshControl={<RefreshControl refreshing={planoContasLoading} onRefresh={loadPlanoContas} />}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <View>
+            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Plano de Contas</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>Estrutura hierárquica mãe/filho para relatórios</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setEditPlano(null); setFormPlano(defaultFormPlano); setShowPlanoModal(true); }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.gold, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Nova Conta</Text>
+          </TouchableOpacity>
+        </View>
+
+        {planoContasLoading && !planoContas.length ? <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} /> : null}
+
+        {maes.length === 0 && !planoContasLoading && (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Ionicons name="git-branch-outline" size={40} color={Colors.textMuted} />
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 12 }}>Nenhuma conta criada</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>Crie contas mãe e sub-contas para organizar receitas e despesas.</Text>
+          </View>
+        )}
+
+        {maes.map(mae => (
+          <View key={mae.id} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' }}>
+            {/* Conta Mãe */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, backgroundColor: (TIPO_COLORS[mae.tipo] ?? Colors.info) + '18' }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: TIPO_COLORS[mae.tipo] ?? Colors.info }} />
+              <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>[{mae.codigo}] {mae.nome}</Text>
+              <View style={{ backgroundColor: (TIPO_COLORS[mae.tipo] ?? Colors.info) + '33', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: TIPO_COLORS[mae.tipo] ?? Colors.info, textTransform: 'capitalize' }}>{mae.tipo}</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setEditPlano(mae); setFormPlano({ codigo: mae.codigo, nome: mae.nome, tipo: mae.tipo, parentId: mae.parentId ?? '', descricao: mae.descricao ?? '' }); setShowPlanoModal(true); }} style={{ padding: 4 }}>
+                <Ionicons name="pencil-outline" size={15} color={Colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => deletePlano(mae.id)} style={{ padding: 4 }}>
+                <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+              </TouchableOpacity>
+            </View>
+            {/* Sub-contas */}
+            {filhos(mae.id).map((filho, idx) => (
+              <View key={filho.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 16, borderTopWidth: 1, borderTopColor: Colors.border + '55' }}>
+                <Text style={{ fontSize: 10, color: Colors.textMuted, fontFamily: 'Inter_400Regular', width: 16 }}>└</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: TIPO_COLORS[filho.tipo] ?? Colors.info }} />
+                <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>[{filho.codigo}] {filho.nome}</Text>
+                <Text style={{ fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular', textTransform: 'capitalize' }}>{filho.tipo}</Text>
+                <TouchableOpacity onPress={() => { setEditPlano(filho); setFormPlano({ codigo: filho.codigo, nome: filho.nome, tipo: filho.tipo, parentId: filho.parentId ?? '', descricao: filho.descricao ?? '' }); setShowPlanoModal(true); }} style={{ padding: 4 }}>
+                  <Ionicons name="pencil-outline" size={14} color={Colors.textMuted} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => deletePlano(filho.id)} style={{ padding: 4 }}>
+                  <Ionicons name="trash-outline" size={14} color={Colors.danger} />
+                </TouchableOpacity>
+              </View>
+            ))}
+            {/* Adicionar sub-conta */}
+            <TouchableOpacity onPress={() => { setEditPlano(null); setFormPlano({ ...defaultFormPlano, parentId: mae.id }); setShowPlanoModal(true); }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, borderTopWidth: 1, borderTopColor: Colors.border + '55' }}>
+              <Ionicons name="add-circle-outline" size={15} color={Colors.gold} />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.gold }}>Adicionar sub-conta</Text>
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {/* Modal Plano */}
+        <Modal visible={showPlanoModal} transparent animationType="slide" onRequestClose={() => setShowPlanoModal(false)}>
+          <View style={st.modalOverlay}>
+            <View style={[st.modalBox, { maxHeight: '80%' }]}>
+              <View style={st.modalHeader}>
+                <Text style={st.modalTitle}>{editPlano ? 'Editar Conta' : 'Nova Conta'}</Text>
+                <TouchableOpacity onPress={() => setShowPlanoModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                <Text style={st.inputLabel}>Código *</Text>
+                <TextInput style={st.input} placeholder="Ex: 1.1.1" value={formPlano.codigo} onChangeText={v => setFormPlano(f => ({ ...f, codigo: v }))} />
+                <Text style={st.inputLabel}>Nome *</Text>
+                <TextInput style={st.input} placeholder="Nome da conta" value={formPlano.nome} onChangeText={v => setFormPlano(f => ({ ...f, nome: v }))} />
+                <Text style={st.inputLabel}>Tipo *</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {['receita','despesa','ativo','passivo'].map(t => (
+                    <TouchableOpacity key={t} onPress={() => setFormPlano(f => ({ ...f, tipo: t }))}
+                      style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: formPlano.tipo === t ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formPlano.tipo === t ? Colors.gold : Colors.border }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: formPlano.tipo === t ? '#fff' : Colors.textSecondary, textTransform: 'capitalize' }}>{t}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={st.inputLabel}>Conta Mãe (opcional)</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  <TouchableOpacity onPress={() => setFormPlano(f => ({ ...f, parentId: '' }))}
+                    style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: !formPlano.parentId ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: !formPlano.parentId ? Colors.gold : Colors.border }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: !formPlano.parentId ? '#fff' : Colors.textMuted }}>Nenhuma (conta raiz)</Text>
+                  </TouchableOpacity>
+                  {planoContas.filter(c => !c.parentId).map(c => (
+                    <TouchableOpacity key={c.id} onPress={() => setFormPlano(f => ({ ...f, parentId: c.id }))}
+                      style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: formPlano.parentId === c.id ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formPlano.parentId === c.id ? Colors.gold : Colors.border }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: formPlano.parentId === c.id ? '#fff' : Colors.textMuted }}>[{c.codigo}] {c.nome}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={st.inputLabel}>Descrição</Text>
+                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline placeholder="Descrição opcional" value={formPlano.descricao} onChangeText={v => setFormPlano(f => ({ ...f, descricao: v }))} />
+                <TouchableOpacity onPress={savePlano} disabled={savingPlano} style={st.saveBtn}>
+                  {savingPlano ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Guardar</Text>}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  // ─── Render: Contas a Pagar ────────────────────────────────
+  function renderContasPagar() {
+    const STATUS_CP = {
+      pendente:  { color: Colors.warning,    label: 'Pendente',   icon: 'time-outline' },
+      pago:      { color: Colors.success,    label: 'Pago',       icon: 'checkmark-circle' },
+      cancelado: { color: Colors.textMuted,  label: 'Cancelado',  icon: 'close-circle-outline' },
+      em_atraso: { color: Colors.danger,     label: 'Em Atraso',  icon: 'alert-circle' },
+    } as const;
+    const hoje = new Date().toISOString().split('T')[0];
+    const contasExibidas = contasPagar.map(c => ({
+      ...c,
+      status: c.status === 'pendente' && c.dataVencimento < hoje ? 'em_atraso' : c.status,
+    }));
+    const totalPendente = contasExibidas.filter(c => c.status !== 'pago' && c.status !== 'cancelado').reduce((a, c) => a + (c.valor ?? 0), 0);
+    const totalPago = contasExibidas.filter(c => c.status === 'pago').reduce((a, c) => a + (c.valor ?? 0), 0);
+
+    return (
+      <ScrollView style={st.scrollContent} contentContainerStyle={st.scrollInner} refreshControl={<RefreshControl refreshing={contasPagarLoading} onRefresh={loadContasPagar} />}>
+        {/* Sumário */}
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          <View style={{ flex: 1, backgroundColor: Colors.danger + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.danger + '44' }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.danger }}>A Pagar</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.danger, marginTop: 4 }}>{formatAOA(totalPendente)}</Text>
+          </View>
+          <View style={{ flex: 1, backgroundColor: Colors.success + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.success + '44' }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.success }}>Pago este período</Text>
+            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success, marginTop: 4 }}>{formatAOA(totalPago)}</Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>Despesas da Escola</Text>
+          <TouchableOpacity onPress={() => { setEditConta(null); setFormConta(defaultFormConta); setShowContaModal(true); }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.gold, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Nova Despesa</Text>
+          </TouchableOpacity>
+        </View>
+
+        {contasPagarLoading && !contasExibidas.length ? <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} /> : null}
+        {!contasPagarLoading && contasExibidas.length === 0 && (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Ionicons name="receipt-outline" size={40} color={Colors.textMuted} />
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 12 }}>Nenhuma despesa registada</Text>
+          </View>
+        )}
+
+        {contasExibidas.map(conta => {
+          const cfg = STATUS_CP[conta.status as keyof typeof STATUS_CP] ?? STATUS_CP.pendente;
+          return (
+            <View key={conta.id} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{conta.descricao}</Text>
+                  {conta.fornecedor ? <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2 }}>{conta.fornecedor}</Text> : null}
+                  {conta.planoContaNome ? <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>{conta.planoContaCodigo} — {conta.planoContaNome}</Text> : null}
+                  <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+                    <View>
+                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted }}>Valor</Text>
+                      <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>{formatAOA(conta.valor)}</Text>
+                    </View>
+                    <View>
+                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted }}>Vencimento</Text>
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: conta.status === 'em_atraso' ? Colors.danger : Colors.text }}>{conta.dataVencimento}</Text>
+                    </View>
+                    {conta.dataPagamento && <View>
+                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted }}>Pago em</Text>
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>{conta.dataPagamento}</Text>
+                    </View>}
+                  </View>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                  <View style={{ backgroundColor: cfg.color + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons name={cfg.icon as any} size={12} color={cfg.color} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: cfg.color }}>{cfg.label}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {conta.status !== 'pago' && conta.status !== 'cancelado' && (
+                      <TouchableOpacity onPress={() => marcarContaPaga(conta)} style={{ backgroundColor: Colors.success + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                        <Ionicons name="checkmark" size={13} color={Colors.success} />
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Marcar Pago</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => { setEditConta(conta); setFormConta({ descricao: conta.descricao, fornecedor: conta.fornecedor ?? '', valor: String(conta.valor), dataVencimento: conta.dataVencimento, dataPagamento: conta.dataPagamento ?? '', status: conta.status, metodoPagamento: conta.metodoPagamento ?? 'dinheiro', planoContaId: conta.planoContaId ?? '', referencia: conta.referencia ?? '', observacao: conta.observacao ?? '' }); setShowContaModal(true); }} style={{ padding: 4 }}>
+                      <Ionicons name="pencil-outline" size={15} color={Colors.textMuted} />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => deleteConta(conta.id)} style={{ padding: 4 }}>
+                      <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          );
+        })}
+
+        {/* Modal Conta a Pagar */}
+        <Modal visible={showContaModal} transparent animationType="slide" onRequestClose={() => setShowContaModal(false)}>
+          <View style={st.modalOverlay}>
+            <View style={[st.modalBox, { maxHeight: '90%' }]}>
+              <View style={st.modalHeader}>
+                <Text style={st.modalTitle}>{editConta ? 'Editar Despesa' : 'Nova Despesa'}</Text>
+                <TouchableOpacity onPress={() => setShowContaModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <ScrollView>
+                <Text style={st.inputLabel}>Descrição *</Text>
+                <TextInput style={st.input} placeholder="Ex: Pagamento de electricidade" value={formConta.descricao} onChangeText={v => setFormConta(f => ({ ...f, descricao: v }))} />
+                <Text style={st.inputLabel}>Fornecedor</Text>
+                <TextInput style={st.input} placeholder="Nome do fornecedor" value={formConta.fornecedor} onChangeText={v => setFormConta(f => ({ ...f, fornecedor: v }))} />
+                <Text style={st.inputLabel}>Valor (Kz) *</Text>
+                <TextInput style={st.input} placeholder="0.00" keyboardType="decimal-pad" value={formConta.valor} onChangeText={v => setFormConta(f => ({ ...f, valor: v }))} />
+                <Text style={st.inputLabel}>Data de Vencimento *</Text>
+                <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formConta.dataVencimento} onChangeText={v => setFormConta(f => ({ ...f, dataVencimento: v }))} />
+                <Text style={st.inputLabel}>Data de Pagamento</Text>
+                <TextInput style={st.input} placeholder="AAAA-MM-DD (deixar em branco se ainda não pago)" value={formConta.dataPagamento} onChangeText={v => setFormConta(f => ({ ...f, dataPagamento: v }))} />
+                <Text style={st.inputLabel}>Estado</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }, { k: 'cancelado', l: 'Cancelado' }].map(s => (
+                    <TouchableOpacity key={s.k} onPress={() => setFormConta(f => ({ ...f, status: s.k }))}
+                      style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: formConta.status === s.k ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formConta.status === s.k ? Colors.gold : Colors.border }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: formConta.status === s.k ? '#fff' : Colors.textSecondary }}>{s.l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={st.inputLabel}>Método de Pagamento</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                  {[{ k: 'dinheiro', l: 'Dinheiro' }, { k: 'transferencia', l: 'Transferência' }, { k: 'multicaixa', l: 'Multicaixa' }].map(m => (
+                    <TouchableOpacity key={m.k} onPress={() => setFormConta(f => ({ ...f, metodoPagamento: m.k }))}
+                      style={{ paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: formConta.metodoPagamento === m.k ? Colors.info : Colors.surface, borderWidth: 1, borderColor: formConta.metodoPagamento === m.k ? Colors.info : Colors.border }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: formConta.metodoPagamento === m.k ? '#fff' : Colors.textSecondary }}>{m.l}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {planoContas.length > 0 && (
+                  <>
+                    <Text style={st.inputLabel}>Conta do Plano (opcional)</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                      <TouchableOpacity onPress={() => setFormConta(f => ({ ...f, planoContaId: '' }))}
+                        style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: !formConta.planoContaId ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: !formConta.planoContaId ? Colors.gold : Colors.border }}>
+                        <Text style={{ fontSize: 11, color: !formConta.planoContaId ? '#fff' : Colors.textMuted, fontFamily: 'Inter_500Medium' }}>Nenhuma</Text>
+                      </TouchableOpacity>
+                      {planoContas.map(c => (
+                        <TouchableOpacity key={c.id} onPress={() => setFormConta(f => ({ ...f, planoContaId: c.id }))}
+                          style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: formConta.planoContaId === c.id ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formConta.planoContaId === c.id ? Colors.gold : Colors.border }}>
+                          <Text style={{ fontSize: 11, color: formConta.planoContaId === c.id ? '#fff' : Colors.textMuted, fontFamily: 'Inter_500Medium' }}>[{c.codigo}] {c.nome}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </>
+                )}
+                <Text style={st.inputLabel}>Referência</Text>
+                <TextInput style={st.input} placeholder="Número de referência" value={formConta.referencia} onChangeText={v => setFormConta(f => ({ ...f, referencia: v }))} />
+                <Text style={st.inputLabel}>Observação</Text>
+                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline value={formConta.observacao} onChangeText={v => setFormConta(f => ({ ...f, observacao: v }))} />
+                <TouchableOpacity onPress={saveConta} disabled={savingConta} style={st.saveBtn}>
+                  {savingConta ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Guardar</Text>}
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
+  // ─── Render: Relatórios Financeiros ───────────────────────
+  function renderRelatoriosFinanceiros() {
+    const TIPO_LABEL_FIN: Record<string, string> = { propina: 'Propina', matricula: 'Matrícula', material: 'Material', exame: 'Exame', multa: 'Multa', outro: 'Outro' };
+    const TIPO_COLOR_FIN: Record<string, string> = { propina: Colors.info, matricula: Colors.gold, material: Colors.success, exame: Colors.warning, multa: Colors.danger, outro: Colors.textMuted };
+
+    return (
+      <ScrollView style={st.scrollContent} contentContainerStyle={st.scrollInner}>
+        {/* Sub-tabs */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([
+              ['comparativo', 'analytics-outline', 'Comparativo'],
+              ['inadimplencia', 'warning-outline', 'Inadimplência'],
+              ['entradas_saidas', 'swap-vertical-outline', 'Entradas/Saídas'],
+            ] as const).map(([k, icon, label]) => (
+              <TouchableOpacity key={k} onPress={() => setRelFinTab(k as any)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12,
+                  backgroundColor: relFinTab === k ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: relFinTab === k ? Colors.gold : Colors.border }}>
+                <Ionicons name={icon as any} size={14} color={relFinTab === k ? '#fff' : Colors.textMuted} />
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: relFinTab === k ? '#fff' : Colors.textSecondary }}>{label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* Filtro de Ano */}
+        {relFinTab !== 'entradas_saidas' && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} />
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Ano:</Text>
+            <TextInput style={[st.input, { flex: 1, marginBottom: 0, height: 36 }]} value={relFinAno} onChangeText={setRelFinAno} keyboardType="number-pad" placeholder="2026" />
+            <TouchableOpacity onPress={() => relFinTab === 'comparativo' ? loadRelFinComparativo() : loadRelFinInadimplencia()}
+              style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Gerar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* ── Comparativo ── */}
+        {relFinTab === 'comparativo' && (
+          <View>
+            {relFinLoading && <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} />}
+            {!relFinLoading && !relFinComparativo && (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Ionicons name="analytics-outline" size={40} color={Colors.textMuted} />
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 12 }}>Seleccione o ano e clique em Gerar</Text>
+              </View>
+            )}
+            {relFinComparativo && (
+              <>
+                <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 16, padding: 14, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 12 }}>Previsto vs. Recebido — {relFinComparativo.ano}</Text>
+                  {/* Header */}
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                    <Text style={{ flex: 1.5, fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase' }}>Categoria</Text>
+                    <Text style={{ flex: 1, fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', textAlign: 'right' }}>Previsto</Text>
+                    <Text style={{ flex: 1, fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', textAlign: 'right' }}>Recebido</Text>
+                    <Text style={{ flex: 0.7, fontSize: 10, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', textAlign: 'right' }}>%</Text>
+                  </View>
+                  {(relFinComparativo.resultado as any[]).filter(r => r.previsto > 0 || r.recebido > 0).map((row: any) => (
+                    <View key={row.tipo} style={{ flexDirection: 'row', gap: 8, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border + '55' }}>
+                      <View style={{ flex: 1.5, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: TIPO_COLOR_FIN[row.tipo] ?? Colors.textMuted }} />
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>{TIPO_LABEL_FIN[row.tipo] ?? row.tipo}</Text>
+                      </View>
+                      <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, textAlign: 'right' }}>{formatAOA(row.previsto)}</Text>
+                      <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_700Bold', color: row.recebido >= row.previsto ? Colors.success : Colors.warning, textAlign: 'right' }}>{formatAOA(row.recebido)}</Text>
+                      <Text style={{ flex: 0.7, fontSize: 11, fontFamily: 'Inter_700Bold', color: row.percentual >= 100 ? Colors.success : row.percentual >= 50 ? Colors.warning : Colors.danger, textAlign: 'right' }}>{row.percentual}%</Text>
+                    </View>
+                  ))}
+                  <View style={{ flexDirection: 'row', gap: 8, paddingTop: 10 }}>
+                    <Text style={{ flex: 1.5, fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text }}>TOTAL</Text>
+                    <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.textSecondary, textAlign: 'right' }}>{formatAOA((relFinComparativo.resultado as any[]).reduce((a: number, r: any) => a + r.previsto, 0))}</Text>
+                    <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.success, textAlign: 'right' }}>{formatAOA((relFinComparativo.resultado as any[]).reduce((a: number, r: any) => a + r.recebido, 0))}</Text>
+                    <View style={{ flex: 0.7 }} />
+                  </View>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
+        {/* ── Inadimplência ── */}
+        {relFinTab === 'inadimplencia' && (
+          <View>
+            {relFinLoading && <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} />}
+            {!relFinLoading && !relFinInadimplencia && (
+              <View style={{ alignItems: 'center', paddingTop: 40 }}>
+                <Ionicons name="warning-outline" size={40} color={Colors.textMuted} />
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 12 }}>Seleccione o ano e clique em Gerar</Text>
+              </View>
+            )}
+            {relFinInadimplencia && (
+              <>
+                {/* Resumo */}
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                  <View style={{ flex: 1, backgroundColor: Colors.danger + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.danger + '44', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{relFinInadimplencia.percentual}%</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.danger, textAlign: 'center', marginTop: 2 }}>Taxa de Inadimplência</Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 8 }}>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.border }}>
+                      <Text style={{ fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>Inadimplentes</Text>
+                      <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>{relFinInadimplencia.totalInadimplentes} / {relFinInadimplencia.totalAlunos}</Text>
+                    </View>
+                    <View style={{ flex: 1, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.border }}>
+                      <Text style={{ fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>Total em Dívida</Text>
+                      <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{formatAOA(relFinInadimplencia.totalDivida)}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Lista */}
+                {(relFinInadimplencia.alunos as any[]).map((a: any) => (
+                  <View key={a.alunoId} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.danger + '22', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{(a.nomeCompleto ?? '?')[0]}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>{a.nomeCompleto}</Text>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>{a.turmaNome ?? 'Sem turma'} · {a.qtdPendentes} pagamento(s) pendente(s)</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{formatAOA(parseFloat(a.totalDivida ?? '0'))}</Text>
+                  </View>
+                ))}
+                {(relFinInadimplencia.alunos as any[]).length === 0 && (
+                  <View style={{ alignItems: 'center', paddingTop: 30 }}>
+                    <Ionicons name="checkmark-circle" size={40} color={Colors.success} />
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.success, marginTop: 10 }}>Sem inadimplentes neste período!</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
+        {/* ── Entradas e Saídas ── */}
+        {relFinTab === 'entradas_saidas' && (
+          <View>
+            <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 10 }}>Período</Text>
+              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>De</Text>
+                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholder="AAAA-MM-DD" value={relFinDataInicio} onChangeText={setRelFinDataInicio} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={st.inputLabel}>Até</Text>
+                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholder="AAAA-MM-DD" value={relFinDataFim} onChangeText={setRelFinDataFim} />
+                </View>
+              </View>
+              <TouchableOpacity onPress={loadRelFinEntradasSaidas} style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 10 }}>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Gerar Relatório</Text>
+              </TouchableOpacity>
+            </View>
+
+            {relFinLoading && <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} />}
+
+            {relFinEntradasSaidas && !relFinLoading && (
+              <>
+                {/* Sumário */}
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                  <View style={{ flex: 1, backgroundColor: Colors.success + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.success + '44' }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.success }}>Entradas</Text>
+                    <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.success, marginTop: 4 }}>{formatAOA(relFinEntradasSaidas.totalEntradas)}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: Colors.danger + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: Colors.danger + '44' }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.danger }}>Saídas</Text>
+                    <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.danger, marginTop: 4 }}>{formatAOA(relFinEntradasSaidas.totalSaidas)}</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: (relFinEntradasSaidas.saldoLiquido >= 0 ? Colors.info : Colors.danger) + '18', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: (relFinEntradasSaidas.saldoLiquido >= 0 ? Colors.info : Colors.danger) + '44' }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: relFinEntradasSaidas.saldoLiquido >= 0 ? Colors.info : Colors.danger }}>Saldo Líquido</Text>
+                    <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: relFinEntradasSaidas.saldoLiquido >= 0 ? Colors.info : Colors.danger, marginTop: 4 }}>{formatAOA(relFinEntradasSaidas.saldoLiquido)}</Text>
+                  </View>
+                </View>
+
+                {/* Por Mês */}
+                {Object.keys(relFinEntradasSaidas.porMes).length > 0 && (
+                  <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 10 }}>Por Mês</Text>
+                    {Object.entries(relFinEntradasSaidas.porMes as Record<string, { entradas: number; saidas: number }>).sort().map(([mes, vals]) => (
+                      <View key={mes} style={{ flexDirection: 'row', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '44', alignItems: 'center' }}>
+                        <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{mes}</Text>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.success, width: 110, textAlign: 'right' }}>+{formatAOA(vals.entradas)}</Text>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.danger, width: 110, textAlign: 'right' }}>-{formatAOA(vals.saidas)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Lista Entradas */}
+                {(relFinEntradasSaidas.entradas as any[]).length > 0 && (
+                  <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.success, marginBottom: 10 }}>Entradas ({(relFinEntradasSaidas.entradas as any[]).length})</Text>
+                    {(relFinEntradasSaidas.entradas as any[]).slice(0, 20).map((e: any) => (
+                      <View key={e.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '44' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{e.nomeCompleto}</Text>
+                          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{e.taxaDescricao} · {e.data}</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.success }}>{formatAOA(e.valor)}</Text>
+                      </View>
+                    ))}
+                    {(relFinEntradasSaidas.entradas as any[]).length > 20 && <Text style={{ fontSize: 11, color: Colors.textMuted, textAlign: 'center', marginTop: 8 }}>... e mais {(relFinEntradasSaidas.entradas as any[]).length - 20} entradas</Text>}
+                  </View>
+                )}
+
+                {/* Lista Saídas */}
+                {(relFinEntradasSaidas.saidas as any[]).length > 0 && (
+                  <View style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.danger, marginBottom: 10 }}>Saídas ({(relFinEntradasSaidas.saidas as any[]).length})</Text>
+                    {(relFinEntradasSaidas.saidas as any[]).slice(0, 20).map((s: any) => (
+                      <View key={s.id} style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border + '44' }}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{s.descricao}</Text>
+                          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{s.fornecedor} · {s.dataPagamento}</Text>
+                        </View>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{formatAOA(s.valor)}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
+  // ─── Render: Feriados ──────────────────────────────────────
+  function renderFeriados() {
+    const TIPO_FER_COLOR: Record<string, string> = { nacional: Colors.gold, municipal: Colors.info, escolar: Colors.success };
+    return (
+      <ScrollView style={st.scrollContent} contentContainerStyle={st.scrollInner} refreshControl={<RefreshControl refreshing={feriadosLoading} onRefresh={loadFeriados} />}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View>
+            <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Feriados</Text>
+            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>Datas em que não se aplicam multas por atraso</Text>
+          </View>
+          <TouchableOpacity onPress={() => { setEditFeriado(null); setFormFeriado(defaultFormFeriado); setShowFeriadoModal(true); }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.gold, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 8 }}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Novo Feriado</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ backgroundColor: Colors.info + '18', borderRadius: 12, padding: 10, borderWidth: 1, borderColor: Colors.info + '44', flexDirection: 'row', gap: 8, alignItems: 'flex-start', marginBottom: 14 }}>
+          <Ionicons name="information-circle" size={18} color={Colors.info} />
+          <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 18 }}>Feriados recorrentes repetem-se anualmente na mesma data. Nenhuma multa é calculada em dias de feriado.</Text>
+        </View>
+
+        {feriadosLoading && !feriados.length ? <ActivityIndicator color={Colors.gold} style={{ marginTop: 40 }} /> : null}
+        {!feriadosLoading && feriados.length === 0 && (
+          <View style={{ alignItems: 'center', paddingTop: 60 }}>
+            <Ionicons name="calendar-outline" size={40} color={Colors.textMuted} />
+            <Text style={{ fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginTop: 12 }}>Nenhum feriado registado</Text>
+          </View>
+        )}
+
+        {feriados.map(f => (
+          <View key={f.id} style={{ backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <View style={{ width: 42, height: 42, borderRadius: 10, backgroundColor: (TIPO_FER_COLOR[f.tipo] ?? Colors.gold) + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18 }}>🗓️</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>{f.nome}</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>{f.data}</Text>
+                <View style={{ backgroundColor: (TIPO_FER_COLOR[f.tipo] ?? Colors.gold) + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_600SemiBold', color: TIPO_FER_COLOR[f.tipo] ?? Colors.gold, textTransform: 'capitalize' }}>{f.tipo}</Text>
+                </View>
+                {f.recorrente && <View style={{ backgroundColor: Colors.textMuted + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted }}>Anual</Text>
+                </View>}
+                {!f.ativo && <View style={{ backgroundColor: Colors.danger + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 1 }}>
+                  <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.danger }}>Inactivo</Text>
+                </View>}
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 6 }}>
+              <TouchableOpacity onPress={() => { setEditFeriado(f); setFormFeriado({ nome: f.nome, data: f.data, tipo: f.tipo, recorrente: f.recorrente, ativo: f.ativo }); setShowFeriadoModal(true); }} style={{ padding: 6 }}>
+                <Ionicons name="pencil-outline" size={16} color={Colors.textMuted} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => deleteFeriado(f.id)} style={{ padding: 6 }}>
+                <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+
+        {/* Modal Feriado */}
+        <Modal visible={showFeriadoModal} transparent animationType="slide" onRequestClose={() => setShowFeriadoModal(false)}>
+          <View style={st.modalOverlay}>
+            <View style={st.modalBox}>
+              <View style={st.modalHeader}>
+                <Text style={st.modalTitle}>{editFeriado ? 'Editar Feriado' : 'Novo Feriado'}</Text>
+                <TouchableOpacity onPress={() => setShowFeriadoModal(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              <Text style={st.inputLabel}>Nome *</Text>
+              <TextInput style={st.input} placeholder="Ex: Independência Nacional" value={formFeriado.nome} onChangeText={v => setFormFeriado(f => ({ ...f, nome: v }))} />
+              <Text style={st.inputLabel}>Data * (AAAA-MM-DD)</Text>
+              <TextInput style={st.input} placeholder="2026-11-11" value={formFeriado.data} onChangeText={v => setFormFeriado(f => ({ ...f, data: v }))} />
+              <Text style={st.inputLabel}>Tipo</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {[{ k: 'nacional', l: 'Nacional' }, { k: 'municipal', l: 'Municipal' }, { k: 'escolar', l: 'Escolar' }].map(t => (
+                  <TouchableOpacity key={t.k} onPress={() => setFormFeriado(f => ({ ...f, tipo: t.k }))}
+                    style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: formFeriado.tipo === t.k ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formFeriado.tipo === t.k ? Colors.gold : Colors.border }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: formFeriado.tipo === t.k ? '#fff' : Colors.textSecondary }}>{t.l}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: Colors.border }}>
+                <View>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Recorrente</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Repete-se todos os anos</Text>
+                </View>
+                <TouchableOpacity onPress={() => setFormFeriado(f => ({ ...f, recorrente: !f.recorrente }))}
+                  style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: formFeriado.recorrente ? Colors.success : Colors.border, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 2 }}>
+                  <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' }} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 12, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: Colors.border }}>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Activo</Text>
+                <TouchableOpacity onPress={() => setFormFeriado(f => ({ ...f, ativo: !f.ativo }))}
+                  style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: formFeriado.ativo ? Colors.success : Colors.border, alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 2 }}>
+                  <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff' }} />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity onPress={saveFeriado} disabled={savingFeriado} style={st.saveBtn}>
+                {savingFeriado ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Guardar</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    );
+  }
+
   const tabsConfigAll = [
     ['painel', 'pie-chart', 'Painel'],
     ['resumo', 'stats-chart', 'Resumo'],
@@ -2414,10 +3329,14 @@ export default function FinanceiroScreen() {
     ['rubricas', 'pricetag', 'Rubricas'],
     ['por_aluno', 'person', 'Por Aluno'],
     ['config_fiscal', 'settings', 'Config. Fiscal'],
+    ['plano_contas', 'git-branch-outline', 'Plano Contas'],
+    ['contas_pagar', 'trending-down-outline', 'Contas a Pagar'],
+    ['relatorios_fin', 'analytics-outline', 'Rel. Financeiros'],
+    ['feriados', 'calendar-outline', 'Feriados'],
   ] as const;
 
   const isFinanceiroRole = user?.role === 'financeiro';
-  const FINANCEIRO_TABS: TabKey[] = ['painel', 'pagamentos', 'relatorios', 'config_fiscal'];
+  const FINANCEIRO_TABS: TabKey[] = ['painel', 'pagamentos', 'relatorios', 'config_fiscal', 'plano_contas', 'contas_pagar', 'relatorios_fin', 'feriados'];
 
   const tabsConfig = (() => {
     const base = propinaHabilitada
@@ -2461,6 +3380,225 @@ export default function FinanceiroScreen() {
       {tab === 'rubricas'       && renderRubricas()}
       {tab === 'por_aluno'      && renderPorAluno()}
       {tab === 'config_fiscal'  && renderConfigFiscal()}
+      {tab === 'plano_contas'   && renderPlanoContas()}
+      {tab === 'contas_pagar'   && renderContasPagar()}
+      {tab === 'relatorios_fin' && renderRelatoriosFinanceiros()}
+      {tab === 'feriados'       && renderFeriados()}
+
+      {/* Modal Cobrança Avulsa */}
+      <Modal visible={showAvulsoModal} transparent animationType="slide" onRequestClose={() => setShowAvulsoModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={[st.modalBox, { maxHeight: '90%' }]}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>Nova Cobrança Avulsa</Text>
+              <TouchableOpacity onPress={() => setShowAvulsoModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12, lineHeight: 18 }}>
+                Crie uma cobrança pontual directamente vinculada à matrícula de um aluno, independente das taxas programadas.
+              </Text>
+              <Text style={st.inputLabel}>Aluno *</Text>
+              <TouchableOpacity style={[st.input, { justifyContent: 'center', height: 44 }]} onPress={() => { setShowAvulsoAlunoList(v => !v); setShowAvulsoTaxaList(false); }}>
+                <Text style={{ fontSize: 13, color: formAvulso.alunoId ? Colors.text : Colors.textMuted }}>
+                  {formAvulso.alunoId ? (alunosAtivos.find(a => a.id === formAvulso.alunoId)?.nomeCompleto ?? 'Aluno seleccionado') : 'Seleccionar aluno…'}
+                </Text>
+              </TouchableOpacity>
+              {showAvulsoAlunoList && (
+                <ScrollView style={[st.dropList, { maxHeight: 180 }]} nestedScrollEnabled>
+                  {alunosAtivos.map(a => (
+                    <TouchableOpacity key={a.id} style={[st.dropItem, formAvulso.alunoId === a.id && st.dropItemActive]}
+                      onPress={() => { setFormAvulso(f => ({ ...f, alunoId: a.id })); setShowAvulsoAlunoList(false); }}>
+                      <Text style={[st.dropItemTxt, formAvulso.alunoId === a.id && { color: Colors.gold }]}>{a.nomeCompleto}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              <Text style={st.inputLabel}>Taxa *</Text>
+              <TouchableOpacity style={[st.input, { justifyContent: 'center', height: 44 }]} onPress={() => { setShowAvulsoTaxaList(v => !v); setShowAvulsoAlunoList(false); }}>
+                <Text style={{ fontSize: 13, color: formAvulso.taxaId ? Colors.text : Colors.textMuted }}>
+                  {formAvulso.taxaId ? (taxas.find(t => t.id === formAvulso.taxaId)?.descricao ?? 'Taxa seleccionada') : 'Seleccionar taxa…'}
+                </Text>
+              </TouchableOpacity>
+              {showAvulsoTaxaList && (
+                <ScrollView style={[st.dropList, { maxHeight: 150 }]} nestedScrollEnabled>
+                  {taxasAtivas.map(t => (
+                    <TouchableOpacity key={t.id} style={[st.dropItem, formAvulso.taxaId === t.id && st.dropItemActive]}
+                      onPress={() => { setFormAvulso(f => ({ ...f, taxaId: t.id, valor: t.valor.toString() })); setShowAvulsoTaxaList(false); }}>
+                      <Text style={[st.dropItemTxt, formAvulso.taxaId === t.id && { color: Colors.gold }]}>{t.descricao}</Text>
+                      <Text style={st.dropItemSub}>{formatAOA(t.valor)} · {t.nivel}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+              <Text style={st.inputLabel}>Valor (Kz) *</Text>
+              <TextInput style={st.input} placeholder="0.00" keyboardType="decimal-pad" value={formAvulso.valor} onChangeText={v => setFormAvulso(f => ({ ...f, valor: v }))} />
+              <Text style={st.inputLabel}>Data *</Text>
+              <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formAvulso.data} onChangeText={v => setFormAvulso(f => ({ ...f, data: v }))} />
+              <Text style={st.inputLabel}>Ano Lectivo *</Text>
+              <TextInput style={st.input} placeholder="2025/26" value={formAvulso.ano} onChangeText={v => setFormAvulso(f => ({ ...f, ano: v }))} />
+              <Text style={st.inputLabel}>Mês (opcional)</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  <TouchableOpacity onPress={() => setFormAvulso(f => ({ ...f, mes: '' }))} style={[st.mesBtn, !formAvulso.mes && st.mesBtnActive]}>
+                    <Text style={[st.mesTxt, !formAvulso.mes && st.mesTxtActive]}>N/A</Text>
+                  </TouchableOpacity>
+                  {MESES.map((m, i) => (
+                    <TouchableOpacity key={m} onPress={() => setFormAvulso(f => ({ ...f, mes: String(i + 1) }))} style={[st.mesBtn, formAvulso.mes === String(i + 1) && st.mesBtnActive]}>
+                      <Text style={[st.mesTxt, formAvulso.mes === String(i + 1) && st.mesTxtActive]}>{m}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+              <Text style={st.inputLabel}>Estado</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {[{ k: 'pago', l: 'Pago' }, { k: 'pendente', l: 'Pendente' }].map(s => (
+                  <TouchableOpacity key={s.k} onPress={() => setFormAvulso(f => ({ ...f, status: s.k }))}
+                    style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: formAvulso.status === s.k ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formAvulso.status === s.k ? Colors.gold : Colors.border }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: formAvulso.status === s.k ? '#fff' : Colors.textSecondary }}>{s.l}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={st.inputLabel}>Método de Pagamento</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                {[{ k: 'dinheiro', l: 'Dinheiro' }, { k: 'transferencia', l: 'Transferência' }, { k: 'multicaixa', l: 'Multicaixa' }].map(m => (
+                  <TouchableOpacity key={m.k} onPress={() => setFormAvulso(f => ({ ...f, metodoPagamento: m.k }))}
+                    style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: formAvulso.metodoPagamento === m.k ? Colors.info : Colors.surface, borderWidth: 1, borderColor: formAvulso.metodoPagamento === m.k ? Colors.info : Colors.border }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: formAvulso.metodoPagamento === m.k ? '#fff' : Colors.textSecondary }}>{m.l}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={st.inputLabel}>Referência</Text>
+              <TextInput style={st.input} placeholder="Referência opcional" value={formAvulso.referencia} onChangeText={v => setFormAvulso(f => ({ ...f, referencia: v }))} />
+              <Text style={st.inputLabel}>Observação</Text>
+              <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline value={formAvulso.observacao} onChangeText={v => setFormAvulso(f => ({ ...f, observacao: v }))} />
+              <TouchableOpacity onPress={saveAvulso} disabled={savingAvulso} style={st.saveBtn}>
+                {savingAvulso ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Registar Cobrança Avulsa</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Cancelar e Recriar Cobrança */}
+      <Modal visible={showCancelarRecriarModal} transparent animationType="slide" onRequestClose={() => setShowCancelarRecriarModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalBox}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>Cancelar e Recriar Cobrança</Text>
+              <TouchableOpacity onPress={() => setShowCancelarRecriarModal(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: Colors.warning + '44', marginBottom: 14 }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 18 }}>
+                O pagamento original será cancelado e uma nova cobrança será criada com os dados abaixo. Deixe os campos em branco para manter os valores originais.
+              </Text>
+            </View>
+            <Text style={st.inputLabel}>Novo Valor (Kz) — opcional</Text>
+            <TextInput style={st.input} placeholder="Deixar em branco = manter original" keyboardType="decimal-pad" value={formRecriar.valor} onChangeText={v => setFormRecriar(f => ({ ...f, valor: v }))} />
+            <Text style={st.inputLabel}>Nova Data — opcional</Text>
+            <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formRecriar.data} onChangeText={v => setFormRecriar(f => ({ ...f, data: v }))} />
+            <Text style={st.inputLabel}>Estado da Nova Cobrança</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+              {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }].map(s => (
+                <TouchableOpacity key={s.k} onPress={() => setFormRecriar(f => ({ ...f, status: s.k }))}
+                  style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: formRecriar.status === s.k ? Colors.gold : Colors.surface, borderWidth: 1, borderColor: formRecriar.status === s.k ? Colors.gold : Colors.border }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: formRecriar.status === s.k ? '#fff' : Colors.textSecondary }}>{s.l}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={st.inputLabel}>Observação</Text>
+            <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline placeholder="Motivo da recriação" value={formRecriar.observacao} onChangeText={v => setFormRecriar(f => ({ ...f, observacao: v }))} />
+            <TouchableOpacity onPress={cancelarERecriar} disabled={cancelarRecriarLoading} style={[st.saveBtn, { backgroundColor: Colors.danger }]}>
+              {cancelarRecriarLoading ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="refresh-circle" size={18} color="#fff" /><Text style={st.saveBtnTxt}>Cancelar e Recriar</Text></>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal Comprovativo de Pagamento */}
+      <Modal visible={showComprovativo} transparent animationType="slide" onRequestClose={() => setShowComprovativo(false)}>
+        <View style={st.modalOverlay}>
+          <View style={[st.modalBox, { maxHeight: '85%' }]}>
+            <View style={st.modalHeader}>
+              <Text style={st.modalTitle}>Comprovativo de Pagamento</Text>
+              <TouchableOpacity onPress={() => setShowComprovativo(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+            {comprovativoPag && (
+              <ScrollView>
+                {/* Cabeçalho estilo recibo */}
+                <View style={{ alignItems: 'center', marginBottom: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+                  <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center', marginBottom: 8 }}>
+                    <Ionicons name="school" size={28} color={Colors.gold} />
+                  </View>
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>{config.nomeEscola || 'QUETA School'}</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>COMPROVATIVO DE PAGAMENTO</Text>
+                  <View style={{ backgroundColor: Colors.success + '22', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 4, marginTop: 8 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.success }}>✓ PAGO</Text>
+                  </View>
+                </View>
+
+                {/* Dados do aluno */}
+                <View style={{ backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Dados do Aluno</Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>Nome</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1, textAlign: 'right' }}>{comprovativoPag.nomeCompleto}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>Nº Matrícula</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text }}>{comprovativoPag.numeroMatricula}</Text>
+                  </View>
+                </View>
+
+                {/* Dados do pagamento */}
+                <View style={{ backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginBottom: 12 }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>Dados do Pagamento</Text>
+                  {[
+                    ['Taxa', comprovativoPag.taxaDescricao],
+                    ['Tipo', TIPO_LABEL[comprovativoPag.taxaTipo] ?? comprovativoPag.taxaTipo],
+                    ['Valor', formatAOA(comprovativoPag.valor)],
+                    ['Data', comprovativoPag.data],
+                    ['Método', metodoLabel(comprovativoPag.metodoPagamento)],
+                    ['Referência', comprovativoPag.referencia ?? '—'],
+                    ['Ano', comprovativoPag.ano],
+                  ].map(([label, value]) => (
+                    <View key={label} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary }}>{label}</Text>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: label === 'Valor' ? Colors.success : Colors.text, flex: 1, textAlign: 'right' }}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+
+                {/* Assinatura */}
+                <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 14, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                  <View style={{ alignItems: 'center' }}>
+                    <View style={{ width: 120, borderBottomWidth: 1, borderBottomColor: Colors.textMuted, marginBottom: 4 }} />
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Assinatura do Responsável</Text>
+                  </View>
+                  <View style={{ alignItems: 'center' }}>
+                    <View style={{ width: 80, borderBottomWidth: 1, borderBottomColor: Colors.textMuted, marginBottom: 4 }} />
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Carimbo</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', marginTop: 14 }}>
+                  Emitido em {new Date().toLocaleDateString('pt-AO')} · {config.nomeEscola || 'QUETA School'}
+                </Text>
+
+                <TouchableOpacity onPress={() => { if (Platform.OS === 'web') { window.print(); } }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, marginTop: 16 }}>
+                  <Ionicons name="print-outline" size={18} color="#fff" />
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Imprimir Comprovativo</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Modal Mensagem */}
       <Modal visible={showMsgModal} transparent animationType="slide" onRequestClose={() => setShowMsgModal(false)}>
