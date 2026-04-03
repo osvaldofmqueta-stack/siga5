@@ -33,6 +33,7 @@ const TABS = [
   { key: 'painel', label: 'Painel', icon: 'grid' },
   { key: 'cartao', label: 'Cartão', icon: 'card' },
   { key: 'notas', label: 'Notas', icon: 'document-text' },
+  { key: 'faltas', label: 'Faltas', icon: 'calendar' },
   { key: 'diario', label: 'Diário', icon: 'journal' },
   { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
   { key: 'materiais', label: 'Materiais', icon: 'folder-open' },
@@ -171,6 +172,7 @@ export default function PortalEstudanteScreen() {
   const [cartaoRefGerada, setCartaoRefGerada] = useState<string | null>(null);
   const [documentosEmitidos, setDocumentosEmitidos] = useState<any[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
+  const [faltaFiltroDisc, setFaltaFiltroDisc] = useState<string>('todas');
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
   const [filtroDiscDiario, setFiltroDiscDiario] = useState<string>('todas');
   const [sumariosDirectos, setSumariosDirectos] = useState<any[] | null>(null);
@@ -517,7 +519,9 @@ export default function PortalEstudanteScreen() {
         <SectionTitle title="Resumo Académico" icon="stats-chart" />
         <View style={styles.statsRow}>
           <StatCard value={mediaGeral} label="Média Geral" color={Colors.gold} />
-          <StatCard value={`${pctPresenca}%`} label="Presenças" color={Colors.info} />
+          <TouchableOpacity onPress={() => setActiveTab('faltas')} activeOpacity={0.75}>
+            <StatCard value={`${pctPresenca}%`} label="Presenças ›" color={pctPresenca >= 75 ? Colors.info : Colors.danger} />
+          </TouchableOpacity>
           <StatCard value={aprovadas} label="Aprovadas" color={Colors.success} />
           <StatCard value={reprovadas} label="Reprovadas" color={Colors.danger} />
         </View>
@@ -2169,11 +2173,114 @@ export default function PortalEstudanteScreen() {
     );
   }
 
+  function renderFaltas() {
+    const apenasAusencias = presAluno
+      .filter(p => p.status === 'F' || p.status === 'J')
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+    const disciplinasComFaltas = ['todas', ...Array.from(new Set(apenasAusencias.map(p => p.disciplina))).sort()];
+
+    const listaFiltrada = faltaFiltroDisc === 'todas'
+      ? apenasAusencias
+      : apenasAusencias.filter(p => p.disciplina === faltaFiltroDisc);
+
+    const totalFaltas = apenasAusencias.filter(p => p.status === 'F').length;
+    const totalJustificadas = apenasAusencias.filter(p => p.status === 'J').length;
+    const totalAulas = presAluno.length;
+
+    return (
+      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Resumo de Presenças" icon="stats-chart" />
+        <View style={styles.statsRow}>
+          <StatCard value={`${pctPresenca}%`} label="Presenças" color={pctPresenca >= 75 ? Colors.success : Colors.danger} />
+          <StatCard value={totalFaltas} label="Faltas" color={Colors.danger} />
+          <StatCard value={totalJustificadas} label="Justificadas" color={Colors.warning} />
+          <StatCard value={totalAulas} label="Total Aulas" color={Colors.info} />
+        </View>
+
+        {pctPresenca < 75 && (
+          <View style={[styles.alertCard, { borderColor: Colors.danger + '55' }]}>
+            <Ionicons name="warning" size={18} color={Colors.danger} />
+            <Text style={[styles.alertText, { color: Colors.danger }]}>
+              Atenção: frequência abaixo de 75%. Risco de exclusão por faltas.
+            </Text>
+          </View>
+        )}
+
+        <SectionTitle title="Filtrar por Disciplina" icon="filter" />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 2 }}>
+            {disciplinasComFaltas.map(disc => (
+              <TouchableOpacity
+                key={disc}
+                onPress={() => setFaltaFiltroDisc(disc)}
+                style={[
+                  styles.filterChip,
+                  faltaFiltroDisc === disc && styles.filterChipActive,
+                ]}
+              >
+                <Text style={[styles.filterChipText, faltaFiltroDisc === disc && styles.filterChipTextActive]}>
+                  {disc === 'todas' ? 'Todas' : disc}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+
+        <SectionTitle title={`Registo de Faltas${faltaFiltroDisc !== 'todas' ? ` — ${faltaFiltroDisc}` : ''}`} icon="calendar" />
+
+        {listaFiltrada.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+            <Text style={styles.emptyStateTitle}>Sem faltas registadas</Text>
+            <Text style={styles.emptyStateSubtitle}>
+              {faltaFiltroDisc === 'todas'
+                ? 'Não existem faltas ou ausências registadas.'
+                : `Sem faltas registadas em ${faltaFiltroDisc}.`}
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 8 }}>
+            {listaFiltrada.map(p => {
+              const isJustificada = p.status === 'J';
+              const cor = isJustificada ? Colors.warning : Colors.danger;
+              const label = isJustificada ? 'Justificada' : 'Falta';
+              const icone = isJustificada ? 'shield-checkmark' : 'close-circle';
+              const dataFormatada = (() => {
+                try {
+                  return new Date(p.data).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' });
+                } catch { return p.data; }
+              })();
+              return (
+                <View key={p.id} style={[styles.faltaRow, { borderLeftColor: cor }]}>
+                  <View style={[styles.faltaIconBox, { backgroundColor: cor + '18' }]}>
+                    <Ionicons name={icone as any} size={20} color={cor} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.faltaDisc} numberOfLines={1}>{p.disciplina}</Text>
+                    <Text style={styles.faltaData}>{dataFormatada}</Text>
+                    {p.observacao ? (
+                      <Text style={styles.faltaObs} numberOfLines={2}>{p.observacao}</Text>
+                    ) : null}
+                  </View>
+                  <View style={[styles.badge, { backgroundColor: cor + '18', borderColor: cor + '55' }]}>
+                    <Text style={[styles.badgeText, { color: cor }]}>{label}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </ScrollView>
+    );
+  }
+
   function renderTabContent() {
     switch (activeTab) {
       case 'painel': return renderPainel();
       case 'cartao': return renderCartao();
       case 'notas': return renderNotas();
+      case 'faltas': return renderFaltas();
       case 'diario': return renderDiario();
       case 'mensagens': return renderMensagens();
       case 'materiais': return renderMateriais();
@@ -2532,6 +2639,19 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: 'center', padding: 32, gap: 12 },
   emptyStateText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
   emptyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', paddingVertical: 12 },
+  emptyStateTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text, textAlign: 'center' },
+  emptyStateSubtitle: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center' },
+
+  filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.backgroundCard, borderWidth: 1, borderColor: Colors.border },
+  filterChipActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
+  filterChipText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary },
+  filterChipTextActive: { color: Colors.gold },
+
+  faltaRow: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, borderLeftWidth: 3 },
+  faltaIconBox: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  faltaDisc: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  faltaData: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  faltaObs: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 3, fontStyle: 'italic' },
 
   notaCard: { backgroundColor: Colors.backgroundCard, borderRadius: 14, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: Colors.border },
   notaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
