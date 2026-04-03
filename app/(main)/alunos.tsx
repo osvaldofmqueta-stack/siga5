@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,8 @@ import {
   TextInput,
   Modal,
   ScrollView,
-  Platform
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useData, Aluno } from '@/context/DataContext';
 import { useUsers } from '@/context/UsersContext';
-import { alertSucesso } from '@/utils/toast';
+import { alertSucesso, alertErro } from '@/utils/toast';
 import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import QRCodeModal from '@/components/QRCodeModal';
@@ -25,6 +26,16 @@ import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 import ExportMenu from '@/components/ExportMenu';
 import { webAlert } from '@/utils/webAlert';
+import api from '@/lib/api';
+
+interface Anotacao {
+  id: string;
+  alunoId: string;
+  texto: string;
+  criadoPor: string;
+  criadoEm: string;
+  atualizadoEm: string;
+}
 
 function normalizeEmail(str: string) {
   return str
@@ -251,6 +262,77 @@ export default function AlunosScreen() {
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [atribuirTurmaAluno, setAtribuirTurmaAluno] = useState<Aluno | null>(null);
+  const [anotacoesAluno, setAnotacoesAluno] = useState<Aluno | null>(null);
+  const [anotacoes, setAnotacoes] = useState<Anotacao[]>([]);
+  const [anotacoesLoading, setAnotacoesLoading] = useState(false);
+  const [novaAnotacao, setNovaAnotacao] = useState('');
+  const [savingAnotacao, setSavingAnotacao] = useState(false);
+  const [bloqueioAluno, setBloqueioAluno] = useState<Aluno | null>(null);
+  const [motivoBloqueio, setMotivoBloqueio] = useState('');
+  const [savingBloqueio, setSavingBloqueio] = useState(false);
+
+  const openAnotacoes = useCallback(async (aluno: Aluno) => {
+    setAnotacoesAluno(aluno);
+    setNovaAnotacao('');
+    setAnotacoesLoading(true);
+    try {
+      const rows = await api.get<Anotacao[]>(`/api/anotacoes-matricula?alunoId=${aluno.id}`);
+      setAnotacoes(rows ?? []);
+    } catch {
+      setAnotacoes([]);
+    } finally {
+      setAnotacoesLoading(false);
+    }
+  }, []);
+
+  const handleAddAnotacao = useCallback(async () => {
+    if (!anotacoesAluno || !novaAnotacao.trim()) return;
+    setSavingAnotacao(true);
+    try {
+      const nova = await api.post<Anotacao>('/api/anotacoes-matricula', { alunoId: anotacoesAluno.id, texto: novaAnotacao.trim() });
+      setAnotacoes(prev => [nova, ...prev]);
+      setNovaAnotacao('');
+      alertSucesso('Anotação guardada', '');
+    } catch {
+      alertErro('Erro', 'Não foi possível guardar a anotação.');
+    } finally {
+      setSavingAnotacao(false);
+    }
+  }, [anotacoesAluno, novaAnotacao]);
+
+  const handleDeleteAnotacao = useCallback(async (id: string) => {
+    try {
+      await api.delete(`/api/anotacoes-matricula/${id}`);
+      setAnotacoes(prev => prev.filter(a => a.id !== id));
+    } catch {
+      alertErro('Erro', 'Não foi possível remover a anotação.');
+    }
+  }, []);
+
+  const openBloqueio = useCallback((aluno: Aluno) => {
+    setBloqueioAluno(aluno);
+    setMotivoBloqueio((aluno as any).motivoBloqueioRenovacao ?? '');
+  }, []);
+
+  const handleToggleBloqueio = useCallback(async () => {
+    if (!bloqueioAluno) return;
+    setSavingBloqueio(true);
+    const jaBloqueiado = !!(bloqueioAluno as any).bloqueioRenovacao;
+    const novoEstado = !jaBloqueiado;
+    try {
+      const updated = await api.patch<Aluno>(`/api/alunos/${bloqueioAluno.id}/bloquear-renovacao`, {
+        bloqueioRenovacao: novoEstado,
+        motivoBloqueioRenovacao: novoEstado ? motivoBloqueio : '',
+      });
+      await updateAluno(bloqueioAluno.id, updated as any);
+      alertSucesso(novoEstado ? 'Renovação bloqueada' : 'Renovação liberada', '');
+      setBloqueioAluno(null);
+    } catch {
+      alertErro('Erro', 'Não foi possível alterar o bloqueio.');
+    } finally {
+      setSavingBloqueio(false);
+    }
+  }, [bloqueioAluno, motivoBloqueio, updateAluno]);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -432,6 +514,12 @@ export default function AlunosScreen() {
           <TouchableOpacity style={styles.actionBtn} onPress={() => setQrData({ data: `SGAA|ALUNO|${item.id}|${item.numeroMatricula}|${item.nome} ${item.apelido}`, title: item.nome + ' ' + item.apelido, subtitle: item.numeroMatricula })}>
             <Ionicons name="qr-code-outline" size={18} color={Colors.gold} />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => openAnotacoes(item)}>
+            <Ionicons name="document-text-outline" size={18} color={Colors.info} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => openBloqueio(item)}>
+            <Ionicons name={(item as any).bloqueioRenovacao ? 'lock-closed' : 'lock-open-outline'} size={18} color={(item as any).bloqueioRenovacao ? Colors.danger : Colors.textMuted} />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => handleVerCredenciais(item)} disabled={regenerating === item.id}>
             <MaterialCommunityIcons name="account-key" size={18} color={regenerating === item.id ? Colors.textMuted : '#F97316'} />
           </TouchableOpacity>
@@ -604,6 +692,118 @@ export default function AlunosScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Modal de Anotações Internas */}
+      <Modal visible={!!anotacoesAluno} animationType="slide" transparent onRequestClose={() => setAnotacoesAluno(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, padding: 20, paddingBottom: bottomPad + 20, maxHeight: '85%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text }}>Anotações Internas</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>{anotacoesAluno?.nome} {anotacoesAluno?.apelido}</Text>
+              </View>
+              <TouchableOpacity onPress={() => setAnotacoesAluno(null)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.info + '12', borderRadius: 10, borderWidth: 1, borderColor: Colors.info + '30', padding: 10, marginVertical: 12 }}>
+              <Ionicons name="lock-closed-outline" size={14} color={Colors.info} />
+              <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info }}>Visível apenas pela secretaria. Não é partilhado com o aluno ou encarregado.</Text>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <TextInput
+                style={{ flex: 1, backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text }}
+                value={novaAnotacao}
+                onChangeText={setNovaAnotacao}
+                placeholder="Escreva uma anotação..."
+                placeholderTextColor={Colors.textMuted}
+                multiline
+              />
+              <TouchableOpacity
+                onPress={handleAddAnotacao}
+                disabled={savingAnotacao || !novaAnotacao.trim()}
+                style={{ backgroundColor: !novaAnotacao.trim() ? Colors.surface : Colors.info, borderRadius: 10, paddingHorizontal: 14, justifyContent: 'center', alignItems: 'center', opacity: !novaAnotacao.trim() ? 0.5 : 1 }}
+              >
+                {savingAnotacao ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="send" size={18} color="#fff" />}
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {anotacoesLoading ? (
+                <ActivityIndicator color={Colors.info} style={{ marginTop: 20 }} />
+              ) : anotacoes.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingVertical: 30, gap: 8 }}>
+                  <Ionicons name="document-text-outline" size={36} color={Colors.textMuted} />
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Sem anotações registadas</Text>
+                </View>
+              ) : (
+                anotacoes.map(a => (
+                  <View key={a.id} style={{ backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                      <Text style={{ flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, lineHeight: 20 }}>{a.texto}</Text>
+                      <TouchableOpacity onPress={() => handleDeleteAnotacao(a.id)} style={{ paddingLeft: 10 }}>
+                        <Ionicons name="trash-outline" size={15} color={Colors.danger} />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6 }}>
+                      {a.criadoPor} · {new Date(a.criadoEm).toLocaleDateString('pt-PT')}
+                    </Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Bloqueio de Renovação de Matrícula */}
+      <Modal visible={!!bloqueioAluno} animationType="slide" transparent onRequestClose={() => setBloqueioAluno(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, padding: 20, paddingBottom: bottomPad + 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text }}>Bloqueio de Renovação</Text>
+              <TouchableOpacity onPress={() => setBloqueioAluno(null)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 12 }}>
+              {bloqueioAluno && (bloqueioAluno as any).bloqueioRenovacao
+                ? `A renovação de matrícula de ${bloqueioAluno?.nome} ${bloqueioAluno?.apelido} está bloqueada. Pode liberá-la abaixo.`
+                : `Bloqueie a renovação de matrícula de ${bloqueioAluno?.nome} ${bloqueioAluno?.apelido} por pendência financeira ou reprovação.`}
+            </Text>
+            {bloqueioAluno && (bloqueioAluno as any).bloqueioRenovacao && (
+              <View style={{ backgroundColor: Colors.danger + '15', borderRadius: 10, borderWidth: 1, borderColor: Colors.danger + '40', padding: 10, marginBottom: 12 }}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.danger }}>Motivo actual: {(bloqueioAluno as any).motivoBloqueioRenovacao || 'Não especificado'}</Text>
+              </View>
+            )}
+            {bloqueioAluno && !(bloqueioAluno as any).bloqueioRenovacao && (
+              <>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>Motivo do Bloqueio</Text>
+                <TextInput
+                  style={{ backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 12, paddingVertical: 10, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, marginBottom: 12 }}
+                  value={motivoBloqueio}
+                  onChangeText={setMotivoBloqueio}
+                  placeholder="Ex: Propinas em atraso, reprovação..."
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </>
+            )}
+            <TouchableOpacity
+              onPress={handleToggleBloqueio}
+              disabled={savingBloqueio}
+              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: bloqueioAluno && (bloqueioAluno as any).bloqueioRenovacao ? Colors.success : Colors.danger, borderRadius: 12, paddingVertical: 14 }}
+            >
+              {savingBloqueio ? <ActivityIndicator color="#fff" /> : (
+                <>
+                  <Ionicons name={bloqueioAluno && (bloqueioAluno as any).bloqueioRenovacao ? 'lock-open-outline' : 'lock-closed-outline'} size={18} color="#fff" />
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' }}>
+                    {bloqueioAluno && (bloqueioAluno as any).bloqueioRenovacao ? 'Liberar Renovação' : 'Bloquear Renovação'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

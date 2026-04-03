@@ -10,7 +10,8 @@ import {
   Modal,
   TextInput,
   Platform,
-  Dimensions
+  Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import * as XLSX from 'xlsx';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5, MaterialIcons } from '@expo/vector-icons';
@@ -26,6 +27,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 import { webAlert } from '@/utils/webAlert';
+import api from '@/lib/api';
 
 const { width } = Dimensions.get('window');
 
@@ -457,6 +459,12 @@ export default function SecretariaHubScreen() {
   const [showCredenciais, setShowCredenciais] = useState(false);
   const [activeTab, setActiveTab] = useState<'visao' | 'processos' | 'documentos' | 'correspondencia' | 'cursos' | 'pautas'>('visao');
   const [cursoExpandido, setCursoExpandido] = useState<string | null>(null);
+  const [showRematricula, setShowRematricula] = useState(false);
+  const [rematriculaAnoDestino, setRematriculaAnoDestino] = useState('');
+  const [rematriculaBloquearPendencia, setRematriculaBloquearPendencia] = useState(true);
+  const [rematriculaBloquearReprovados, setRematriculaBloquearReprovados] = useState(true);
+  const [rematriculaLoading, setRematriculaLoading] = useState(false);
+  const [rematriculaResultado, setRematriculaResultado] = useState<{ processados: number; bloqueados: number; erros: number; total: number } | null>(null);
 
   const stats = useMemo(() => ({
     totalAlunos: alunos.filter(a => a.ativo).length,
@@ -674,6 +682,22 @@ export default function SecretariaHubScreen() {
                 ))}
               </View>
             </View>
+
+            {/* Rematrícula em Lote */}
+            <TouchableOpacity
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: Colors.backgroundCard, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, marginBottom: 12 }}
+              onPress={() => { setRematriculaResultado(null); setRematriculaAnoDestino(''); setShowRematricula(true); }}
+              activeOpacity={0.8}
+            >
+              <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="refresh-circle-outline" size={24} color={Colors.success} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>Rematrícula em Lote</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>Renovar matrículas de todos os alunos para o novo ano lectivo</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
 
             {/* Processos em destaque */}
             <View style={styles.card}>
@@ -1443,6 +1467,141 @@ export default function SecretariaHubScreen() {
         onSave={handleNovoProcesso}
       />
       <CredenciaisModal visible={showCredenciais} onClose={() => setShowCredenciais(false)} />
+
+      {/* Modal de Rematrícula em Lote */}
+      <Modal visible={showRematricula} animationType="slide" transparent onRequestClose={() => setShowRematricula(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, padding: 20, paddingBottom: 34, maxHeight: '90%' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 38, height: 38, borderRadius: 12, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="refresh-circle-outline" size={22} color={Colors.success} />
+                </View>
+                <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text }}>Rematrícula em Lote</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowRematricula(false)}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            {rematriculaResultado ? (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: Colors.success + '22', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="checkmark-circle" size={36} color={Colors.success} />
+                  </View>
+                  <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text }}>Processo Concluído</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Ano Lectivo Destino: {rematriculaAnoDestino}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                  <View style={{ flex: 1, backgroundColor: Colors.success + '15', borderRadius: 12, borderWidth: 1, borderColor: Colors.success + '40', padding: 14, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: Colors.success }}>{rematriculaResultado.processados}</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.success, textAlign: 'center' }}>Rematriculados</Text>
+                  </View>
+                  <View style={{ flex: 1, backgroundColor: Colors.warning + '15', borderRadius: 12, borderWidth: 1, borderColor: Colors.warning + '40', padding: 14, alignItems: 'center' }}>
+                    <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: Colors.warning }}>{rematriculaResultado.bloqueados}</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.warning, textAlign: 'center' }}>Bloqueados</Text>
+                  </View>
+                  {rematriculaResultado.erros > 0 && (
+                    <View style={{ flex: 1, backgroundColor: Colors.danger + '15', borderRadius: 12, borderWidth: 1, borderColor: Colors.danger + '40', padding: 14, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 24, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{rematriculaResultado.erros}</Text>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.danger, textAlign: 'center' }}>Erros</Text>
+                    </View>
+                  )}
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowRematricula(false)}
+                  style={{ backgroundColor: Colors.success, borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+                >
+                  <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' }}>Concluir</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={{ backgroundColor: Colors.info + '12', borderRadius: 12, borderWidth: 1, borderColor: Colors.info + '30', padding: 12, marginBottom: 16 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 18 }}>
+                    Este processo renova as matrículas de todos os alunos activos para o novo ano lectivo, criando automaticamente registos de reconfirmação.
+                  </Text>
+                </View>
+
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 6 }}>Ano Lectivo de Destino *</Text>
+                <TextInput
+                  style={{ backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, marginBottom: 16 }}
+                  value={rematriculaAnoDestino}
+                  onChangeText={setRematriculaAnoDestino}
+                  placeholder="Ex: 2025/2026"
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 }}>Regras de Bloqueio Automático</Text>
+                <TouchableOpacity
+                  onPress={() => setRematriculaBloquearPendencia(v => !v)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: rematriculaBloquearPendencia ? Colors.warning + '60' : Colors.border, padding: 14, marginBottom: 8 }}
+                >
+                  <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: rematriculaBloquearPendencia ? Colors.warning : Colors.surface, borderWidth: 1.5, borderColor: rematriculaBloquearPendencia ? Colors.warning : Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                    {rematriculaBloquearPendencia && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Bloquear alunos com pendência financeira</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Propinas ou taxas em atraso</Text>
+                  </View>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => setRematriculaBloquearReprovados(v => !v)}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: rematriculaBloquearReprovados ? Colors.danger + '60' : Colors.border, padding: 14, marginBottom: 20 }}
+                >
+                  <View style={{ width: 22, height: 22, borderRadius: 6, backgroundColor: rematriculaBloquearReprovados ? Colors.danger : Colors.surface, borderWidth: 1.5, borderColor: rematriculaBloquearReprovados ? Colors.danger : Colors.border, alignItems: 'center', justifyContent: 'center' }}>
+                    {rematriculaBloquearReprovados && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>Bloquear alunos reprovados</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Média final inferior a 10 no 3º trimestre</Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={{ backgroundColor: Colors.warning + '12', borderRadius: 12, borderWidth: 1, borderColor: Colors.warning + '40', padding: 12, marginBottom: 20 }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.warning, marginBottom: 4 }}>Importante</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 18 }}>
+                    Os alunos bloqueados não serão rematriculados automaticamente. A secretaria poderá levantá-los manualmente após regularização.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    if (!rematriculaAnoDestino.trim()) {
+                      alertErro('Campo obrigatório', 'Indique o ano lectivo de destino.');
+                      return;
+                    }
+                    setRematriculaLoading(true);
+                    try {
+                      const resultado = await api.post<any>('/api/rematricula-lote', {
+                        anoLetivoDestino: rematriculaAnoDestino.trim(),
+                        bloquearComPendencia: rematriculaBloquearPendencia,
+                        bloquearReprovados: rematriculaBloquearReprovados,
+                      });
+                      setRematriculaResultado(resultado);
+                    } catch (e: any) {
+                      alertErro('Erro', e?.message || 'Não foi possível processar a rematrícula.');
+                    } finally {
+                      setRematriculaLoading(false);
+                    }
+                  }}
+                  disabled={rematriculaLoading || !rematriculaAnoDestino.trim()}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: !rematriculaAnoDestino.trim() ? Colors.surface : Colors.success, borderRadius: 14, paddingVertical: 15, opacity: !rematriculaAnoDestino.trim() ? 0.5 : 1 }}
+                >
+                  {rematriculaLoading
+                    ? <ActivityIndicator color="#fff" />
+                    : <>
+                        <Ionicons name="refresh-circle-outline" size={20} color="#fff" />
+                        <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' }}>Iniciar Rematrícula em Lote</Text>
+                      </>
+                  }
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

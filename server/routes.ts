@@ -178,6 +178,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] reconfirmacoes_matricula:', (migErr as Error).message);
   }
 
+  // ── origemInscricao: track web vs presencial registrations ──────────────────
+  try {
+    await query(`ALTER TABLE public.registros ADD COLUMN IF NOT EXISTS "origemInscricao" varchar NOT NULL DEFAULT 'presencial'`, []);
+    console.log('[migration] registros.origemInscricao ensured.');
+  } catch (migErr) {
+    console.warn('[migration] registros.origemInscricao:', (migErr as Error).message);
+  }
+
+  // ── bloqueioRenovacao: block renewal per student ─────────────────────────────
+  try {
+    await query(`ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS "bloqueioRenovacao" boolean NOT NULL DEFAULT false`, []);
+    await query(`ALTER TABLE public.alunos ADD COLUMN IF NOT EXISTS "motivoBloqueioRenovacao" text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] alunos.bloqueioRenovacao ensured.');
+  } catch (migErr) {
+    console.warn('[migration] alunos.bloqueioRenovacao:', (migErr as Error).message);
+  }
+
+  // ── anotacoes_matricula: internal secretaria notes per student ───────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.anotacoes_matricula (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "alunoId" varchar NOT NULL,
+        texto text NOT NULL,
+        "criadoPor" varchar NOT NULL DEFAULT '',
+        "criadoEm" timestamptz NOT NULL DEFAULT NOW(),
+        "atualizadoEm" timestamptz NOT NULL DEFAULT NOW()
+      )
+    `, []);
+    console.log('[migration] anotacoes_matricula table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] anotacoes_matricula:', (migErr as Error).message);
+  }
+
   // ── turma_disciplinas: atribuição directa de disciplinas a turmas (Primário / I Ciclo) ──
   try {
     await query(`
@@ -3074,13 +3108,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           "id", "nomeCompleto","dataNascimento","genero","provincia","municipio",
           "telefone","email","endereco","bairro","numeroBi","numeroCedula",
           "nivel","classe","cursoId","nomeEncarregado","telefoneEncarregado","observacoes",
-          "status","senhaProvisoria","tipoInscricao","rupeInscricao"
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22) RETURNING *`,
+          "status","senhaProvisoria","tipoInscricao","rupeInscricao","origemInscricao"
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
         [
           id, b.nomeCompleto, b.dataNascimento, b.genero, b.provincia, b.municipio,
           b.telefone??'', b.email??'', b.endereco??'', b.bairro??'', b.numeroBi??'', b.numeroCedula??'',
           b.nivel, b.classe, b.cursoId || null, b.nomeEncarregado, b.telefoneEncarregado, b.observacoes??'',
-          'pendente_pagamento', senha, b.tipoInscricao??'novo', rupeInscricao
+          'pendente_pagamento', senha, b.tipoInscricao??'novo', rupeInscricao,
+          b.origemInscricao ?? 'presencial'
         ],
       );
       console.log("Inscrição criada:", rows[0]);
@@ -7790,6 +7825,174 @@ export async function registerRoutes(app: Express): Promise<Server> {
       json(res, 201, rows[0]);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
+    }
+  });
+
+  // ── Anotações internas por matrícula (secretaria) ───────────────────────────
+  app.get('/api/anotacoes-matricula', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.query as { alunoId?: string };
+      if (!alunoId) return json(res, 400, { error: 'alunoId obrigatório' });
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.anotacoes_matricula WHERE "alunoId"=$1 ORDER BY "criadoEm" DESC`,
+        [alunoId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/anotacoes-matricula', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      if (!b.alunoId || !b.texto?.trim()) return json(res, 400, { error: 'alunoId e texto obrigatórios' });
+      const user = (req as any).user;
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.anotacoes_matricula ("alunoId",texto,"criadoPor") VALUES ($1,$2,$3) RETURNING *`,
+        [b.alunoId, b.texto.trim(), user?.nome ?? 'Secretaria']
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/anotacoes-matricula/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      if (!b.texto?.trim()) return json(res, 400, { error: 'texto obrigatório' });
+      const rows = await query<JsonObject>(
+        `UPDATE public.anotacoes_matricula SET texto=$1,"atualizadoEm"=NOW() WHERE id=$2 RETURNING *`,
+        [b.texto.trim(), req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Anotação não encontrada' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete('/api/anotacoes-matricula/:id', requireAuth, async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.anotacoes_matricula WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ── Bloquear/liberar renovação de matrícula por aluno ───────────────────────
+  app.patch('/api/alunos/:id/bloquear-renovacao', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      const bloqueado = !!b.bloqueioRenovacao;
+      const motivo = b.motivoBloqueioRenovacao ?? '';
+      const rows = await query<JsonObject>(
+        `UPDATE public.alunos SET "bloqueioRenovacao"=$1,"motivoBloqueioRenovacao"=$2 WHERE id=$3 RETURNING *`,
+        [bloqueado, motivo, req.params.id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Aluno não encontrado' });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // ── Rematrícula em lote para novo ano lectivo ────────────────────────────────
+  app.post('/api/rematricula-lote', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req) as any;
+      const { anoLetivoDestino, alunoIds, bloquearComPendencia, bloquearReprovados } = b as {
+        anoLetivoDestino: string;
+        alunoIds?: string[];
+        bloquearComPendencia?: boolean;
+        bloquearReprovados?: boolean;
+      };
+      if (!anoLetivoDestino) return json(res, 400, { error: 'anoLetivoDestino obrigatório' });
+      const { v4: uuidv4 } = await import('uuid');
+      const user = (req as any).user;
+
+      // Fetch target students
+      let alunosQuery = `SELECT a.*, u.email FROM public.alunos a LEFT JOIN public.utilizadores u ON u.id=a."utilizadorId" WHERE a.ativo=true`;
+      const alunosParams: any[] = [];
+      if (alunoIds && alunoIds.length > 0) {
+        alunosQuery += ` AND a.id = ANY($1::varchar[])`;
+        alunosParams.push(alunoIds);
+      }
+      const alunos = await query<JsonObject>(alunosQuery, alunosParams);
+
+      let processados = 0;
+      let bloqueados = 0;
+      let erros = 0;
+      const detalhes: Array<{ alunoId: string; nome: string; resultado: string; motivo?: string }> = [];
+
+      for (const aluno of alunos) {
+        const alunoId = aluno.id as string;
+        const nome = `${aluno.nome} ${aluno.apelido}`;
+
+        // Check financial blocking
+        if (bloquearComPendencia) {
+          const taxas = await query<JsonObject>(
+            `SELECT COUNT(*) as total FROM public.taxas t
+             LEFT JOIN public.pagamentos p ON p."taxaId"=t.id AND p."alunoId"=$1 AND p.confirmado=true
+             WHERE t."alunoId"=$1 AND p.id IS NULL AND t.valor > 0`,
+            [alunoId]
+          );
+          const pendencias = parseInt(String((taxas[0]?.total ?? 0)), 10);
+          if (pendencias > 0) {
+            await query(
+              `UPDATE public.alunos SET "bloqueioRenovacao"=true,"motivoBloqueioRenovacao"=$1 WHERE id=$2`,
+              ['Pendência financeira — propinas em atraso', alunoId]
+            );
+            detalhes.push({ alunoId, nome, resultado: 'bloqueado', motivo: 'Pendência financeira' });
+            bloqueados++;
+            continue;
+          }
+        }
+
+        // Check academic failure (reprovado in last year)
+        if (bloquearReprovados) {
+          const notasRows = await query<JsonObject>(
+            `SELECT AVG(nf) as media FROM public.notas WHERE "alunoId"=$1 AND trimestre=3`,
+            [alunoId]
+          );
+          const media = parseFloat(String(notasRows[0]?.media ?? 10));
+          if (media < 10) {
+            await query(
+              `UPDATE public.alunos SET "bloqueioRenovacao"=true,"motivoBloqueioRenovacao"=$1 WHERE id=$2`,
+              ['Reprovação académica no ano anterior', alunoId]
+            );
+            detalhes.push({ alunoId, nome, resultado: 'bloqueado', motivo: 'Reprovação académica' });
+            bloqueados++;
+            continue;
+          }
+        }
+
+        // Check if already rematriculated
+        const jaExiste = await query<JsonObject>(
+          `SELECT id FROM public.reconfirmacoes_matricula WHERE "alunoId"=$1 AND "anoLetivo"=$2`,
+          [alunoId, anoLetivoDestino]
+        );
+        if (jaExiste.length > 0) {
+          detalhes.push({ alunoId, nome, resultado: 'ja_rematricula' });
+          processados++;
+          continue;
+        }
+
+        try {
+          await query(
+            `INSERT INTO public.reconfirmacoes_matricula (id,"alunoId","anoLetivo",status,data)
+             VALUES ($1,$2,$3,'confirmado',NOW())
+             ON CONFLICT ("alunoId","anoLetivo") DO UPDATE SET status='confirmado', data=NOW()`,
+            [uuidv4(), alunoId, anoLetivoDestino]
+          );
+          await query(
+            `UPDATE public.alunos SET "bloqueioRenovacao"=false,"motivoBloqueioRenovacao"='' WHERE id=$1`,
+            [alunoId]
+          );
+          detalhes.push({ alunoId, nome, resultado: 'rematriculado' });
+          processados++;
+        } catch {
+          detalhes.push({ alunoId, nome, resultado: 'erro' });
+          erros++;
+        }
+      }
+
+      json(res, 200, { processados, bloqueados, erros, total: alunos.length, detalhes, anoLetivoDestino, processadoPor: user?.nome ?? 'Sistema' });
+    } catch (e) {
+      console.error('[rematricula-lote]', e);
+      json(res, 500, { error: (e as Error).message });
     }
   });
 

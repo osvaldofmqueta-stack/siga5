@@ -456,6 +456,7 @@ export default function RegistroScreen() {
           telefoneEncarregado: form.telefoneEncarregado.trim(),
           observacoes: form.observacoes.trim(),
           tipoInscricao: form.tipoInscricao,
+          origemInscricao: 'web',
           status: 'pendente',
         }),
       });

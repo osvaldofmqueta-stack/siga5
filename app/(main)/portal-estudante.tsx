@@ -1616,12 +1616,31 @@ export default function PortalEstudanteScreen() {
               <Text style={styles.infoVal}>{new Date(reconfirmacaoAtual.data).toLocaleDateString('pt-PT')}</Text>
             </View>
           )}
+          {!!(aluno as any)?.bloqueioRenovacao && !reconfirmacaoAtual && (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.danger + '15', borderRadius: 12, borderWidth: 1, borderColor: Colors.danger + '40', padding: 12, marginBottom: 10 }}>
+              <Ionicons name="lock-closed" size={16} color={Colors.danger} style={{ marginTop: 1 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.danger }}>Renovação Bloqueada</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger, marginTop: 2, lineHeight: 18 }}>
+                  {(aluno as any)?.motivoBloqueioRenovacao
+                    ? (aluno as any).motivoBloqueioRenovacao
+                    : 'A renovação da sua matrícula foi bloqueada pela secretaria. Contacte a secretaria para mais informações.'}
+                </Text>
+              </View>
+            </View>
+          )}
           <TouchableOpacity
-            style={[styles.payBtn, reconfirmacaoAtual && { backgroundColor: Colors.success }]}
-            onPress={() => reconfirmacaoAtual ? webAlert('Já confirmado', 'A matrícula já está reconfirmada.') : setShowReconfirmacaoModal(true)}
+            style={[styles.payBtn, reconfirmacaoAtual && { backgroundColor: Colors.success }, !!(aluno as any)?.bloqueioRenovacao && !reconfirmacaoAtual && { backgroundColor: Colors.textMuted }]}
+            onPress={() => {
+              if (!!(aluno as any)?.bloqueioRenovacao && !reconfirmacaoAtual) {
+                webAlert('Renovação Bloqueada', 'A renovação da sua matrícula está temporariamente suspensa. Contacte a secretaria para regularizar a situação.');
+                return;
+              }
+              reconfirmacaoAtual ? webAlert('Já confirmado', 'A matrícula já está reconfirmada.') : setShowReconfirmacaoModal(true);
+            }}
           >
-            <Ionicons name={reconfirmacaoAtual ? 'checkmark-circle' : 'refresh'} size={18} color="#fff" />
-            <Text style={styles.payBtnText}>{reconfirmacaoAtual ? 'Matrícula Confirmada' : 'Reconfirmar Matrícula'}</Text>
+            <Ionicons name={reconfirmacaoAtual ? 'checkmark-circle' : !!(aluno as any)?.bloqueioRenovacao ? 'lock-closed' : 'refresh'} size={18} color="#fff" />
+            <Text style={styles.payBtnText}>{reconfirmacaoAtual ? 'Matrícula Confirmada' : !!(aluno as any)?.bloqueioRenovacao ? 'Renovação Bloqueada' : 'Reconfirmar Matrícula'}</Text>
           </TouchableOpacity>
         </View>
 
