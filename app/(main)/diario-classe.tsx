@@ -33,6 +33,7 @@ interface EntradaDiario {
   periodo: number;
   numeroAula: number;
   conteudo: string;
+  observacaoAluno: string;
   sumarioId?: string;
   status?: 'pendente' | 'aceite' | 'rejeitado';
   observacaoRH?: string;
@@ -183,6 +184,7 @@ export default function DiarioClasseScreen() {
               periodo: slot.periodo,
               numeroAula: contadorAula,
               conteudo: sumario?.conteudo ?? '',
+              observacaoAluno: sumario?.observacaoAluno ?? '',
               sumarioId: sumario?.id,
               status: sumario?.status,
               observacaoRH: sumario?.observacaoRH,
@@ -217,6 +219,16 @@ export default function DiarioClasseScreen() {
     );
   }
 
+  function updateObservacaoAluno(data: string, horaInicio: string, texto: string) {
+    setEntradas(prev =>
+      prev.map(e =>
+        e.data === data && e.horaInicio === horaInicio
+          ? { ...e, observacaoAluno: texto }
+          : e
+      )
+    );
+  }
+
   async function submeterEntrada(entrada: EntradaDiario) {
     if (!prof || !entrada.conteudo.trim()) {
       showToast('Escreva o conteúdo da aula antes de submeter.', 'error');
@@ -240,6 +252,7 @@ export default function DiarioClasseScreen() {
         horaFim: entrada.horaFim,
         numeroAula: entrada.numeroAula,
         conteudo: entrada.conteudo.trim(),
+        observacaoAluno: entrada.observacaoAluno.trim() || null,
         status: 'pendente',
       });
 
@@ -436,6 +449,15 @@ export default function DiarioClasseScreen() {
                     <View style={s.conteudoView}>
                       <Text style={s.conteudoLabel}>Conteúdo registado:</Text>
                       <Text style={s.conteudoText}>{entrada.conteudo}</Text>
+                      {!!entrada.observacaoAluno && (
+                        <>
+                          <Text style={[s.conteudoLabel, { marginTop: 8 }]}>Observação para alunos:</Text>
+                          <View style={s.obsAlunoBox}>
+                            <Ionicons name="people-outline" size={13} color={Colors.info} />
+                            <Text style={s.obsAlunoText}>{entrada.observacaoAluno}</Text>
+                          </View>
+                        </>
+                      )}
                     </View>
                   ) : (
                     <>
@@ -448,6 +470,17 @@ export default function DiarioClasseScreen() {
                         placeholderTextColor={Colors.textMuted}
                         multiline
                         numberOfLines={4}
+                        textAlignVertical="top"
+                      />
+                      <Text style={[s.inputLabel, { marginTop: 10 }]}>Observação para Alunos <Text style={{ color: Colors.textMuted }}>(opcional)</Text></Text>
+                      <TextInput
+                        style={[s.textarea, { minHeight: 60 }]}
+                        value={entrada.observacaoAluno}
+                        onChangeText={t => updateObservacaoAluno(entrada.data, entrada.horaInicio, t)}
+                        placeholder="Recados, trabalho de casa, aviso para a próxima aula..."
+                        placeholderTextColor={Colors.textMuted}
+                        multiline
+                        numberOfLines={3}
                         textAlignVertical="top"
                       />
                       <TouchableOpacity
@@ -537,6 +570,12 @@ const s = StyleSheet.create({
     borderWidth: 1, borderColor: Colors.danger + '33', marginBottom: 12,
   },
   observacaoText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger },
+  obsAlunoBox: {
+    flexDirection: 'row', gap: 6, alignItems: 'flex-start',
+    backgroundColor: Colors.info + '15', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: Colors.info + '33',
+  },
+  obsAlunoText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.info },
   conteudoView: { gap: 4 },
   conteudoLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
   conteudoText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 },

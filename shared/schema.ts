@@ -600,6 +600,7 @@ export const sumarios = pgTable("sumarios", {
   horaFim: text("horaFim").notNull(),
   numeroAula: integer("numeroAula").notNull(),
   conteudo: text("conteudo").notNull(),
+  observacaoAluno: text("observacaoAluno"),
   status: text("status").notNull().default('pendente'), // 'pendente' | 'aceite' | 'rejeitado'
   observacaoRH: text("observacaoRH"),
 

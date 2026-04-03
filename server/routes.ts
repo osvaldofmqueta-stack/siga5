@@ -2345,9 +2345,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
-        `INSERT INTO public.sumarios (id,"professorId","professorNome","turmaId","turmaNome","disciplina","data","horaInicio","horaFim","numeroAula","conteudo","status","observacaoRH")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
-        [b.id??null,b.professorId,b.professorNome,b.turmaId,b.turmaNome,b.disciplina,b.data,b.horaInicio,b.horaFim,b.numeroAula,b.conteudo,b.status??'pendente',b.observacaoRH??null],
+        `INSERT INTO public.sumarios (id,"professorId","professorNome","turmaId","turmaNome","disciplina","data","horaInicio","horaFim","numeroAula","conteudo","observacaoAluno","status","observacaoRH")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+        [b.id??null,b.professorId,b.professorNome,b.turmaId,b.turmaNome,b.disciplina,b.data,b.horaInicio,b.horaFim,b.numeroAula,b.conteudo,b.observacaoAluno??null,b.status??'pendente',b.observacaoRH??null],
       );
       json(res, 201, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
@@ -2357,7 +2357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
-      const allowed = ["status","observacaoRH","conteudo","data","horaInicio","horaFim","numeroAula"] as const;
+      const allowed = ["status","observacaoRH","observacaoAluno","conteudo","data","horaInicio","horaFim","numeroAula"] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -2374,6 +2374,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const rows = await query<JsonObject>(`DELETE FROM public.sumarios WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);
+  });
+
+  // GET /api/sumarios/turma/:turmaId — student-facing endpoint, only accepted sumários
+  app.get("/api/sumarios/turma/:turmaId", async (req: Request, res: Response) => {
+    const { turmaId } = req.params;
+    const rows = await query<JsonObject>(
+      `SELECT id,"professorNome","turmaNome","disciplina","data","horaInicio","horaFim","numeroAula","conteudo","observacaoAluno","status"
+       FROM public.sumarios
+       WHERE "turmaId"=$1 AND status <> 'rejeitado'
+       ORDER BY "data" DESC, "numeroAula" DESC`,
+      [turmaId],
+    );
+    json(res, 200, rows);
   });
 
   // GET /api/sumarios/pendentes-rh?mes=X&ano=Y

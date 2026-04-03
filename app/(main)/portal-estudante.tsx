@@ -173,6 +173,7 @@ export default function PortalEstudanteScreen() {
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
   const [filtroDiscDiario, setFiltroDiscDiario] = useState<string>('todas');
+  const [sumariosDirectos, setSumariosDirectos] = useState<any[] | null>(null);
 
   const aluno = alunos.find(a =>
     (user?.alunoId && a.id === user.alunoId) ||
@@ -234,6 +235,15 @@ export default function PortalEstudanteScreen() {
       loadDocumentosEmitidos(aluno.id);
     }
   }, [aluno?.id]);
+
+  useEffect(() => {
+    if (turmaAluno?.id) {
+      fetch(`/api/sumarios/turma/${encodeURIComponent(turmaAluno.id)}`)
+        .then(r => r.ok ? r.json() : [])
+        .then(d => setSumariosDirectos(Array.isArray(d) ? d : []))
+        .catch(() => {});
+    }
+  }, [turmaAluno?.id, activeTab]);
 
   async function loadDocumentosEmitidos(alunoId: string) {
     setLoadingDocs(true);
@@ -1445,9 +1455,8 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderDiario() {
-    const sorted = [...sumariosAluno]
-      .filter(s => s.status !== 'rejeitado')
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    const base = sumariosDirectos !== null ? sumariosDirectos : sumariosAluno.filter(s => s.status !== 'rejeitado');
+    const sorted = [...base].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     const disciplinas = [...new Set(sorted.map(s => s.disciplina))].sort();
     const filtrado = filtroDiscDiario === 'todas' ? sorted : sorted.filter(s => s.disciplina === filtroDiscDiario);
 
@@ -1506,6 +1515,15 @@ export default function PortalEstudanteScreen() {
                     </View>
                   </View>
                   <Text style={styles.diarioConteudo}>{s.conteudo}</Text>
+                  {!!s.observacaoAluno && (
+                    <View style={styles.diarioObsBox}>
+                      <Ionicons name="chatbubble-ellipses-outline" size={13} color={Colors.gold} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.diarioObsLabel}>Observação do Professor</Text>
+                        <Text style={styles.diarioObsText}>{s.observacaoAluno}</Text>
+                      </View>
+                    </View>
+                  )}
                   <View style={styles.diarioMeta}>
                     <Ionicons name="person-outline" size={12} color={Colors.textMuted} />
                     <Text style={styles.diarioMetaText}>{s.professorNome}</Text>
@@ -2577,7 +2595,14 @@ const styles = StyleSheet.create({
   diarioDiscText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.gold, flex: 1 },
   diarioAulaNumBadge: { backgroundColor: Colors.primary, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   diarioAulaNumText: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: 'rgba(255,255,255,0.8)' },
-  diarioConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginBottom: 10 },
+  diarioConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginBottom: 8 },
+  diarioObsBox: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    backgroundColor: Colors.gold + '12', borderRadius: 10, padding: 10,
+    borderWidth: 1, borderColor: Colors.gold + '33', marginBottom: 10,
+  },
+  diarioObsLabel: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.gold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  diarioObsText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, lineHeight: 18 },
   diarioMeta: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' },
   diarioMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   diarioMetaDot: { fontSize: 11, color: Colors.border },
