@@ -29,6 +29,8 @@ const TABS = [
   { key: 'painel', label: 'Painel', icon: 'grid' },
   { key: 'notas', label: 'Notas', icon: 'document-text' },
   { key: 'presencas', label: 'Presenças', icon: 'checkmark-circle' },
+  { key: 'faltas', label: 'Faltas', icon: 'close-circle' },
+  { key: 'diario', label: 'Diário', icon: 'book' },
   { key: 'financeiro', label: 'Financeiro', icon: 'cash' },
   { key: 'mensagens', label: 'Mensagens', icon: 'chatbubbles' },
   { key: 'horario', label: 'Horário', icon: 'time' },
@@ -83,6 +85,8 @@ export default function PortalEncarregadoScreen() {
   const [activeTab, setActiveTab] = useState<TabKey>('painel');
   const [trimestreNotas, setTrimestreNotas] = useState<1 | 2 | 3>(1);
   const [diaHorario, setDiaHorario] = useState(0);
+  const [faltaFiltroDisc, setFaltaFiltroDisc] = useState<string>('todas');
+  const [filtroDiarioDisc, setFiltroDiarioDisc] = useState<string>('todas');
   const [horarios, setHorarios] = useState<any[]>([]);
   const [paymentMonth, setPaymentMonth] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<'multicaixa' | 'referencia' | null>(null);
@@ -130,6 +134,22 @@ export default function PortalEncarregadoScreen() {
   const materiaisAluno = turmaAluno
     ? materiais.filter(m => m.turmaId === turmaAluno.id)
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    : [];
+
+  const faltasAluno = presAluno
+    .filter(p => p.status === 'F' || p.status === 'J')
+    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
+  const disciplinasFaltas = ['todas', ...Array.from(new Set(faltasAluno.map(f => f.disciplina).filter(Boolean)))];
+
+  const faltasFiltradas = faltaFiltroDisc === 'todas'
+    ? faltasAluno
+    : faltasAluno.filter(f => f.disciplina === faltaFiltroDisc);
+
+  const sumariosTurma = turmaAluno
+    ? sumarios
+        .filter(s => s.turmaId === turmaAluno.id && s.status === 'aceite')
+        .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     : [];
 
   const calendarioAluno = turmaAluno
@@ -378,6 +398,141 @@ export default function PortalEncarregadoScreen() {
             <Ionicons name="checkmark-circle-outline" size={40} color={Colors.textMuted} />
             <Text style={styles.emptyTabText}>Sem registos de presenças</Text>
           </View>
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    );
+  }
+
+  function renderFaltas() {
+    const totalF = faltasAluno.filter(f => f.status === 'F').length;
+    const totalJ = faltasAluno.filter(f => f.status === 'J').length;
+    const abaixoLimite = pctPresenca < 75;
+
+    return (
+      <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+        {/* Resumo */}
+        <View style={styles.statsRow}>
+          <StatCard value={`${pctPresenca}%`} label="Assiduidade" color={abaixoLimite ? Colors.danger : Colors.success} />
+          <StatCard value={faltasAluno.length} label="Total Faltas" color={Colors.danger} />
+          <StatCard value={totalF} label="Injustificadas" color={Colors.danger} />
+          <StatCard value={totalJ} label="Justificadas" color={Colors.warning} />
+        </View>
+
+        {abaixoLimite && (
+          <View style={styles.alertBox}>
+            <Ionicons name="alert-circle" size={18} color={Colors.danger} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.alertTitle}>Assiduidade abaixo de 75%</Text>
+              <Text style={styles.alertText}>
+                O seu educando tem {pctPresenca}% de presenças. O mínimo exigido é 75%.{'\n'}
+                Contacte a escola para regularizar.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Filtros por disciplina */}
+        {disciplinasFaltas.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+            {disciplinasFaltas.map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.filterChip, faltaFiltroDisc === d && styles.filterChipActive]}
+                onPress={() => setFaltaFiltroDisc(d)}
+              >
+                <Text style={[styles.filterChipText, faltaFiltroDisc === d && styles.filterChipTextActive]}>
+                  {d === 'todas' ? 'Todas' : d}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {faltasFiltradas.length === 0 ? (
+          <View style={styles.emptyTab}>
+            <Ionicons name="checkmark-circle-outline" size={40} color={Colors.success} />
+            <Text style={styles.emptyTabText}>Sem faltas registadas</Text>
+          </View>
+        ) : (
+          faltasFiltradas.map(f => {
+            const isJ = f.status === 'J';
+            const cor = isJ ? Colors.warning : Colors.danger;
+            return (
+              <View key={f.id} style={[styles.faltaRow, { borderLeftColor: cor }]}>
+                <View style={[styles.faltaIconBox, { backgroundColor: `${cor}18` }]}>
+                  <Text style={[styles.faltaLetra, { color: cor }]}>{f.status}</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.faltaDisc}>{f.disciplina || '—'}</Text>
+                  <Text style={styles.faltaData}>{f.data}</Text>
+                </View>
+                {f.observacao ? (
+                  <Text style={styles.faltaObs} numberOfLines={2}>{f.observacao}</Text>
+                ) : null}
+              </View>
+            );
+          })
+        )}
+        <View style={{ height: 40 }} />
+      </ScrollView>
+    );
+  }
+
+  function renderDiario() {
+    const disciplinasDiario = Array.from(new Set(sumariosTurma.map(s => s.disciplina)));
+    const sumariosFiltrados = filtroDiarioDisc === 'todas'
+      ? sumariosTurma
+      : sumariosTurma.filter(s => s.disciplina === filtroDiarioDisc);
+
+    return (
+      <ScrollView style={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <SectionTitle title="Diário de Classe" icon="book" />
+        <Text style={{ fontSize: 12, color: Colors.textSecondary, fontFamily: 'Inter_400Regular', marginBottom: 14, lineHeight: 18 }}>
+          Registo dos conteúdos leccionados pelo professor em cada aula da turma do seu educando.
+        </Text>
+
+        {/* Filtro por disciplina */}
+        {disciplinasDiario.length > 0 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }} contentContainerStyle={{ gap: 8, paddingRight: 8 }}>
+            <TouchableOpacity
+              style={[styles.filterChip, filtroDiarioDisc === 'todas' && styles.filterChipActive]}
+              onPress={() => setFiltroDiarioDisc('todas')}
+            >
+              <Text style={[styles.filterChipText, filtroDiarioDisc === 'todas' && styles.filterChipTextActive]}>Todas</Text>
+            </TouchableOpacity>
+            {disciplinasDiario.map(d => (
+              <TouchableOpacity
+                key={d}
+                style={[styles.filterChip, filtroDiarioDisc === d && styles.filterChipActive]}
+                onPress={() => setFiltroDiarioDisc(d)}
+              >
+                <Text style={[styles.filterChipText, filtroDiarioDisc === d && styles.filterChipTextActive]}>{d}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
+
+        {sumariosFiltrados.length === 0 ? (
+          <View style={styles.emptyTab}>
+            <Ionicons name="book-outline" size={40} color={Colors.textMuted} />
+            <Text style={styles.emptyTabText}>Sem registos de aulas disponíveis</Text>
+          </View>
+        ) : (
+          sumariosFiltrados.map(s => (
+            <View key={s.id} style={styles.diarioCard}>
+              <View style={styles.diarioHeader}>
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={styles.diarioDisc}>{s.disciplina}</Text>
+                  <Text style={styles.diarioMeta}>
+                    {s.data} · {s.horaInicio}–{s.horaFim} · Aula {s.numeroAula}
+                  </Text>
+                </View>
+                <Text style={styles.diarioProf}>{s.professorNome?.split(' ').slice(0, 2).join(' ')}</Text>
+              </View>
+              <Text style={styles.diarioConteudo}>{s.conteudo}</Text>
+            </View>
+          ))
         )}
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -897,6 +1052,8 @@ export default function PortalEncarregadoScreen() {
     painel: renderPainel(),
     notas: renderNotas(),
     presencas: renderPresencas(),
+    faltas: renderFaltas(),
+    diario: renderDiario(),
     financeiro: renderFinanceiro(),
     mensagens: renderMensagens(),
     horario: renderHorario(),
