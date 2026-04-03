@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput, Modal,
   Platform, Animated, KeyboardAvoidingView, ScrollView, Dimensions, Image, ImageBackground,
-  Easing,
+  Easing, ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -861,7 +861,6 @@ export default function LoginScreen() {
         </View>
         <View style={styles.cardHeaderTexts}>
           <Text style={styles.cardTitle}>Iniciar Sessão</Text>
-          <Text style={styles.cardSubtitle}>Credenciais institucionais QUETA</Text>
         </View>
       </View>
 
@@ -975,8 +974,12 @@ export default function LoginScreen() {
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
         >
-          <Ionicons name="log-in-outline" size={20} color="#fff" />
-          <Text style={styles.loginBtnText}>Entrar no Sistema</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Ionicons name="log-in-outline" size={20} color="#fff" />
+          )}
+          <Text style={styles.loginBtnText}>{isLoading ? 'A autenticar...' : 'Autenticar'}</Text>
         </LinearGradient>
       </TouchableOpacity>
 
@@ -1163,7 +1166,7 @@ export default function LoginScreen() {
         <View style={styles.desktopRow}>
           <Animated.View style={[styles.desktopLeft, { opacity: logoOpacity }]}>
             <Text style={styles.desktopBrandTitle}>QUETA,{'\n'}School</Text>
-            <Text style={styles.desktopBrandSub}>Solução completa para escolas angolanas — do processo de inscrição ao controlo financeiro e académico.</Text>
+            <Text style={styles.desktopBrandSub}>Solução completa para escolas — do processo de inscrição ao controlo financeiro e académico.</Text>
 
             <CyclingFeatures />
 
