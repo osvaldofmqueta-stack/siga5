@@ -65,6 +65,8 @@ export interface ConfigGeral {
   inscricaoDataInicio?: string;
   inscricaoDataFim?: string;
   exclusaoDuasReprovacoes: boolean;
+  // Visibilidade global das notas no portal do estudante
+  notasVisiveis: boolean;
   // Schedule periods stored in DB (replaces AsyncStorage)
   periodosHorario?: { numero: number; inicio: string; fim: string }[];
   // Last backup timestamp stored in DB (replaces localStorage)
@@ -115,6 +117,7 @@ const DEFAULT_CONFIG: ConfigGeral = {
   papDisciplinasContribuintes: [],
   inscricoesAbertas: false,
   exclusaoDuasReprovacoes: false,
+  notasVisiveis: false,
 };
 
 interface ConfigContextValue {
@@ -181,6 +184,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           inscricaoDataInicio: (raw.inscricaoDataInicio as string) || undefined,
           inscricaoDataFim: (raw.inscricaoDataFim as string) || undefined,
           exclusaoDuasReprovacoes: raw.exclusaoDuasReprovacoes !== undefined ? Boolean(raw.exclusaoDuasReprovacoes) : DEFAULT_CONFIG.exclusaoDuasReprovacoes,
+          notasVisiveis: raw.notasVisiveis !== undefined ? Boolean(raw.notasVisiveis) : DEFAULT_CONFIG.notasVisiveis,
         };
         setConfig(parsed);
       })

@@ -461,6 +461,20 @@ export default function PerfilScreen() {
                 <InfoRow label="Habilitações" value={prof.habilitacoes} />
                 <InfoRow label="Disciplinas" value={(Array.isArray(prof.disciplinas) ? prof.disciplinas : []).join(', ')} />
                 <InfoRow label="Turmas" value={minhasTurmas.map(t => t.nome).join(', ')} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Notas no Portal do Estudante</Text>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>
+                      {config.notasVisiveis ? 'Os estudantes podem ver as notas lançadas' : 'As notas estão ocultas para os estudantes'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: config.notasVisiveis ? Colors.success + '20' : Colors.textMuted + '20', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                    <Ionicons name={config.notasVisiveis ? 'eye-outline' : 'eye-off-outline'} size={13} color={config.notasVisiveis ? Colors.success : Colors.textMuted} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: config.notasVisiveis ? Colors.success : Colors.textMuted }}>
+                      {config.notasVisiveis ? 'Visíveis' : 'Ocultas'}
+                    </Text>
+                  </View>
+                </View>
               </>
             )}
           </View>

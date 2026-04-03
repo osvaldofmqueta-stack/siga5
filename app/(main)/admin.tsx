@@ -1551,6 +1551,36 @@ export default function AdminScreen() {
                   placeholderTextColor={Colors.textMuted}
                 />
               </View>
+
+              <View style={[styles.configToggleRow, { marginTop: 8 }]}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.notasVisiveis ? Colors.success + '22' : Colors.border }]}>
+                    <Ionicons name={config.notasVisiveis ? 'eye-outline' : 'eye-off-outline'} size={18} color={config.notasVisiveis ? Colors.success : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Visibilidade das Notas no Portal</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.notasVisiveis
+                        ? 'Activada — os estudantes podem ver as notas lançadas'
+                        : 'Desactivada — as notas não são visíveis no portal do estudante'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={config.notasVisiveis}
+                  onValueChange={v => {
+                    updateConfig({ notasVisiveis: v });
+                    webAlert(
+                      v ? 'Notas Visíveis' : 'Notas Ocultadas',
+                      v
+                        ? 'Os estudantes já podem consultar as notas lançadas no portal.'
+                        : 'As notas foram ocultadas do portal do estudante.',
+                    );
+                  }}
+                  thumbColor={config.notasVisiveis ? Colors.success : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: Colors.success + '55' }}
+                />
+              </View>
             </View>
 
             {/* Funcionamento */}

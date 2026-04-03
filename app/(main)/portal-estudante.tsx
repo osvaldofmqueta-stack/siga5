@@ -1226,6 +1226,21 @@ export default function PortalEstudanteScreen() {
     });
 
     const notasPublicadas = aluno?.publicarNotas ?? true;
+    const notasVisiveisGlobal = config.notasVisiveis ?? false;
+
+    if (!notasVisiveisGlobal) {
+      return (
+        <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.emptyState, { paddingTop: 60 }]}>
+            <Ionicons name="eye-off-outline" size={52} color={Colors.textMuted} />
+            <Text style={[styles.emptyStateText, { fontFamily: 'Inter_700Bold', fontSize: 16 }]}>Notas não disponíveis</Text>
+            <Text style={[styles.emptyStateText, { fontSize: 13, lineHeight: 19 }]}>
+              A escola ainda não activou a visualização de notas no portal. Consulte a secretaria para mais informações.
+            </Text>
+          </View>
+        </ScrollView>
+      );
+    }
 
     if (!notasPublicadas) {
       return (

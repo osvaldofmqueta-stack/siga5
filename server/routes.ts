@@ -376,6 +376,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] biblioteca migration warning:', (migErr as Error).message);
   }
 
+  // Add notasVisiveis to config_geral (global toggle for student grade visibility)
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "notasVisiveis" boolean NOT NULL DEFAULT false`, []);
+    console.log('[migration] config_geral.notasVisiveis ensured.');
+  } catch (migErr) {
+    console.warn('[migration] config_geral.notasVisiveis:', (migErr as Error).message);
+  }
+
   // Add periodosHorario (schedule periods config) and ultimoBackup to config_geral
   try {
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "periodosHorario" jsonb`, []);
