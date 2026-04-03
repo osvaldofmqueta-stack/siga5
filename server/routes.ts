@@ -376,6 +376,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] biblioteca migration warning:', (migErr as Error).message);
   }
 
+  // Add periodosHorario (schedule periods config) and ultimoBackup to config_geral
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "periodosHorario" jsonb`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "ultimoBackup" text`, []);
+    // Seed default period times if the column was just created (value is NULL)
+    const PERIODOS_SEED = JSON.stringify([
+      { numero: 1, inicio: '07:30', fim: '08:15' },
+      { numero: 2, inicio: '08:20', fim: '09:15' },
+      { numero: 3, inicio: '09:15', fim: '10:00' },
+      { numero: 4, inicio: '10:05', fim: '10:50' },
+      { numero: 5, inicio: '10:55', fim: '11:40' },
+      { numero: 6, inicio: '11:45', fim: '12:35' },
+    ]);
+    await query(
+      `UPDATE public.config_geral SET "periodosHorario" = $1::jsonb WHERE "periodosHorario" IS NULL`,
+      [PERIODOS_SEED]
+    );
+    console.log('[migration] config_geral.periodosHorario + ultimoBackup ensured.');
+  } catch (migErr) {
+    console.warn('[migration] config_geral periodosHorario/ultimoBackup:', (migErr as Error).message);
+  }
+
   app.get("/api/health", (_req: Request, res: Response) => {
     json(res, 200, { ok: true });
   });
@@ -3501,8 +3523,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado"] as const;
-      const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes"]);
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup"] as const;
+      const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;

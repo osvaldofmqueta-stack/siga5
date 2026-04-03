@@ -11,7 +11,6 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
@@ -23,6 +22,7 @@ import { useNotificacoes } from '@/context/NotificacoesContext';
 import { apiRequest } from '@/lib/query-client';
 import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
+import { useConfig } from '@/context/ConfigContext';
 
 const { width } = Dimensions.get('window');
 
@@ -52,7 +52,6 @@ const PERIODOS_DEFAULT = [
   { numero: 6, inicio: '11:45', fim: '12:35' },
 ];
 
-const STORAGE_KEY = 'horario_periodos_config';
 const CELL_W = 130;
 
 function genId() {
@@ -68,6 +67,7 @@ export default function HorarioScreen() {
   const { anoSelecionado } = useAnoAcademico();
   const { addSumario } = useProfessor();
   const { addNotificacao } = useNotificacoes();
+  const { config, updateConfig } = useConfig();
   const { values: disciplinasFallback } = useLookup('disciplinas_fallback', [
     'Língua Portuguesa', 'Matemática', 'Física', 'Química', 'Biologia',
     'História', 'Geografia', 'Língua Estrangeira I', 'Educação Física', 'Filosofia',
@@ -107,27 +107,34 @@ export default function HorarioScreen() {
   // Professor view: 'meu' = consolidated (my classes only), 'turma' = per-class tab view
   const [profView, setProfView] = useState<'meu' | 'turma'>('meu');
 
+  // Load periods from database config when config is ready
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then(val => {
-      if (val) {
-        try { setPeriodos(JSON.parse(val)); } catch {}
-      }
-    });
-  }, []);
+    if (config?.periodosHorario && Array.isArray(config.periodosHorario) && config.periodosHorario.length > 0) {
+      setPeriodos(config.periodosHorario as typeof PERIODOS_DEFAULT);
+    }
+  }, [config?.periodosHorario]);
 
   async function salvarPeriodos() {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(editPeriodos));
-    setPeriodos(editPeriodos);
-    setShowPeriodosModal(false);
-    alertSucesso('Horários actualizados', 'Os horários dos períodos foram guardados.');
+    try {
+      await updateConfig({ periodosHorario: editPeriodos } as never);
+      setPeriodos(editPeriodos);
+      setShowPeriodosModal(false);
+      alertSucesso('Horários actualizados', 'Os horários dos períodos foram guardados na base de dados.');
+    } catch {
+      alertErro('Erro', 'Não foi possível guardar os horários.');
+    }
   }
 
   async function resetPeriodos() {
-    await AsyncStorage.removeItem(STORAGE_KEY);
-    setPeriodos(PERIODOS_DEFAULT);
-    setEditPeriodos(PERIODOS_DEFAULT);
-    setShowPeriodosModal(false);
-    alertSucesso('Horários repostos', 'Os horários foram repostos para os valores predefinidos.');
+    try {
+      await updateConfig({ periodosHorario: PERIODOS_DEFAULT } as never);
+      setPeriodos(PERIODOS_DEFAULT);
+      setEditPeriodos(PERIODOS_DEFAULT);
+      setShowPeriodosModal(false);
+      alertSucesso('Horários repostos', 'Os horários foram repostos para os valores predefinidos.');
+    } catch {
+      alertErro('Erro', 'Não foi possível repor os horários.');
+    }
   }
 
   // Compute turmasAtivas: for professors use BOTH turmasIds AND actual horário assignments

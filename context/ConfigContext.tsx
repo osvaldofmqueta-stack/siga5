@@ -65,6 +65,10 @@ export interface ConfigGeral {
   inscricaoDataInicio?: string;
   inscricaoDataFim?: string;
   exclusaoDuasReprovacoes: boolean;
+  // Schedule periods stored in DB (replaces AsyncStorage)
+  periodosHorario?: { numero: number; inicio: string; fim: string }[];
+  // Last backup timestamp stored in DB (replaces localStorage)
+  ultimoBackup?: string;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {

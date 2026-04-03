@@ -165,12 +165,9 @@ export default function AdminScreen() {
   const [backupLoading, setBackupLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
   const [exportTabela, setExportTabela] = useState('alunos');
-  const [ultimoBackup, setUltimoBackup] = useState<string | null>(null);
 
-  useEffect(() => {
-    const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('siga_ultimo_backup') : null;
-    if (stored) setUltimoBackup(stored);
-  }, []);
+  // ultimoBackup is stored in DB config (not localStorage)
+  const ultimoBackup = config?.ultimoBackup ?? null;
 
   async function handleBackup() {
     if (backupLoading) return;
@@ -194,8 +191,8 @@ export default function AdminScreen() {
       link.click();
       link.remove();
       const agora = new Date().toLocaleString('pt-AO', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-      setUltimoBackup(agora);
-      if (typeof localStorage !== 'undefined') localStorage.setItem('siga_ultimo_backup', agora);
+      // Save last backup timestamp to database config
+      await updateConfig({ ultimoBackup: agora } as never);
       alertSucesso('Backup concluído', `Ficheiro ${filename} descarregado com sucesso.`);
     } catch (e: any) {
       alertErro('Erro no Backup', e.message ?? 'Ocorreu um erro ao gerar o backup.');
