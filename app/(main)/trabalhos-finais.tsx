@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, ActivityIndicator, FlatList, Platform,
-  RefreshControl, Image,
+  RefreshControl, Image, useWindowDimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import TopBar from '@/components/TopBar';
@@ -138,6 +138,13 @@ export default function TrabalhosFinals() {
 
   const topVisitados = [...trabalhos].sort((a, b) => (b.visitas || 0) - (a.visitas || 0)).slice(0, 3).filter(t => (t.visitas || 0) > 0);
 
+  const { width: screenWidth } = useWindowDimensions();
+  const sidebarWidth = Platform.OS === 'web' && screenWidth > 768 ? 240 : 0;
+  const availableWidth = screenWidth - sidebarWidth;
+  const CARD_MIN = 150;
+  const numCols = Math.max(2, Math.min(7, Math.floor((availableWidth - 32) / (CARD_MIN + 10))));
+  const cardWidth = Math.floor((availableWidth - 32 - (numCols - 1) * 10) / numCols);
+
   return (
     <View style={styles.root}>
       <TopBar
@@ -213,11 +220,11 @@ export default function TrabalhosFinals() {
         <FlatList
           data={filtered}
           keyExtractor={i => i.id}
-          numColumns={Platform.OS === 'web' ? 2 : 1}
-          key={Platform.OS === 'web' ? 'grid' : 'list'}
+          numColumns={numCols}
+          key={`shelf-${numCols}`}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 120 }}
-          columnWrapperStyle={Platform.OS === 'web' ? { gap: 12 } : undefined}
+          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+          columnWrapperStyle={{ gap: 10, marginBottom: 10 }}
           ListHeaderComponent={
             topVisitados.length > 0 ? (
               <View style={styles.topBox}>
@@ -227,7 +234,6 @@ export default function TrabalhosFinals() {
                 </View>
                 {topVisitados.map((t, idx) => {
                   const medals = ['🥇', '🥈', '🥉'];
-                  const color = cursoColor(t.curso);
                   return (
                     <TouchableOpacity key={t.id} style={styles.topItem} onPress={() => handleView(t)}>
                       <Text style={styles.topMedal}>{medals[idx]}</Text>
@@ -253,8 +259,9 @@ export default function TrabalhosFinals() {
             </View>
           }
           renderItem={({ item }) => (
-            <TrabalhoCard
+            <ShelfCard
               item={item}
+              cardWidth={cardWidth}
               canWrite={canWrite}
               onEdit={() => { setEditItem(item); setShowModal(true); }}
               onDelete={() => handleDelete(item.id)}
@@ -281,60 +288,61 @@ export default function TrabalhosFinals() {
   );
 }
 
-function TrabalhoCard({ item, canWrite, onEdit, onDelete, onView }: {
+function ShelfCard({ item, cardWidth, canWrite, onEdit, onDelete, onView }: {
   item: TrabalhoFinal;
+  cardWidth: number;
   canWrite: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onView: () => void;
 }) {
   const color = cursoColor(item.curso);
+  const coverHeight = Math.round(cardWidth * 1.45);
+
   return (
-    <TouchableOpacity style={[styles.card, Platform.OS === 'web' && { flex: 1 }]} onPress={onView} activeOpacity={0.85}>
-      <View style={styles.cardImageContainer}>
+    <TouchableOpacity
+      style={[shelfStyles.card, { width: cardWidth }]}
+      onPress={onView}
+      activeOpacity={0.85}
+    >
+      <View style={[shelfStyles.coverWrap, { height: coverHeight }]}>
         {item.imagemCapa ? (
-          <Image source={{ uri: item.imagemCapa }} style={styles.cardImage} resizeMode="cover" />
+          <Image source={{ uri: item.imagemCapa }} style={shelfStyles.coverImg} resizeMode="cover" />
         ) : (
-          <View style={[styles.cardImagePlaceholder, { backgroundColor: color + '22' }]}>
-            <MaterialCommunityIcons name="book-open-page-variant" size={40} color={color} />
+          <View style={[shelfStyles.coverPlaceholder, { backgroundColor: color + '22' }]}>
+            <MaterialCommunityIcons name="book-open-page-variant" size={Math.max(28, Math.round(cardWidth * 0.28))} color={color} />
+            <Text style={[shelfStyles.placeholderCurso, { color, fontSize: Math.max(9, Math.round(cardWidth * 0.075)) }]} numberOfLines={2}>
+              {item.curso}
+            </Text>
           </View>
         )}
-        <View style={[styles.cursoBadge, { backgroundColor: color }]}>
-          <Text style={styles.cursoBadgeText} numberOfLines={1}>{item.curso}</Text>
+        <View style={[shelfStyles.cursoBadge, { backgroundColor: color + 'dd' }]}>
+          <Text style={shelfStyles.cursoBadgeText} numberOfLines={1}>{item.anoConclusao}</Text>
         </View>
         {item.visitas > 0 && (
-          <View style={styles.visitasBadge}>
-            <Ionicons name="eye" size={11} color="#fff" />
-            <Text style={styles.visitasBadgeText}>{item.visitas}</Text>
+          <View style={shelfStyles.visitasBadge}>
+            <Ionicons name="eye" size={10} color="#fff" />
+            <Text style={shelfStyles.visitasBadgeText}>{item.visitas}</Text>
+          </View>
+        )}
+        {canWrite && (
+          <View style={shelfStyles.actionsOverlay}>
+            <TouchableOpacity style={shelfStyles.overlayBtn} onPress={onEdit} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Ionicons name="pencil" size={13} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[shelfStyles.overlayBtn, { backgroundColor: '#EF535088' }]} onPress={onDelete} hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}>
+              <Ionicons name="trash" size={13} color="#fff" />
+            </TouchableOpacity>
           </View>
         )}
       </View>
-      <View style={styles.cardBody}>
-        <Text style={styles.cardTitulo} numberOfLines={2}>{item.titulo}</Text>
-        <View style={styles.cardMeta}>
-          <Ionicons name="person-outline" size={13} color="#aaa" />
-          <Text style={styles.cardMetaText} numberOfLines={1}>{item.autor}</Text>
-        </View>
-        <View style={styles.cardMeta}>
-          <MaterialCommunityIcons name="account-tie-outline" size={13} color="#aaa" />
-          <Text style={styles.cardMetaText} numberOfLines={1}>{item.orientador}</Text>
-        </View>
-        <View style={styles.cardFooter}>
-          <View style={styles.anoBadge}>
-            <Ionicons name="calendar-outline" size={12} color="#5E6AD2" />
-            <Text style={styles.anoText}>{item.anoConclusao}</Text>
-          </View>
-          {canWrite && (
-            <View style={styles.cardActions}>
-              <TouchableOpacity style={styles.actionBtn} onPress={onEdit}>
-                <Ionicons name="pencil-outline" size={15} color="#5E6AD2" />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionBtn} onPress={onDelete}>
-                <Ionicons name="trash-outline" size={15} color="#EF5350" />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+      <View style={shelfStyles.titleWrap}>
+        <Text style={[shelfStyles.titleText, { fontSize: Math.max(10, Math.round(cardWidth * 0.085)) }]} numberOfLines={2}>
+          {item.titulo}
+        </Text>
+        <Text style={[shelfStyles.autorText, { fontSize: Math.max(9, Math.round(cardWidth * 0.072)) }]} numberOfLines={1}>
+          {item.autor}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -708,6 +716,85 @@ const dStyles = StyleSheet.create({
   footer: { padding: 16, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#1a2a4a' },
   editBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#5E6AD2', borderRadius: 10, paddingVertical: 12 },
   editBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
+});
+
+const shelfStyles = StyleSheet.create({
+  card: {
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: '#0d1120',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+  },
+  coverWrap: { width: '100%', position: 'relative' },
+  coverImg: { width: '100%', height: '100%' },
+  coverPlaceholder: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    padding: 6,
+  },
+  placeholderCurso: {
+    fontFamily: 'Inter_600SemiBold',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  cursoBadge: {
+    position: 'absolute',
+    bottom: 6,
+    left: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  cursoBadgeText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_700Bold' },
+  visitasBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  visitasBadgeText: { color: '#fff', fontSize: 10, fontFamily: 'Inter_600SemiBold' },
+  actionsOverlay: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    flexDirection: 'column',
+    gap: 4,
+  },
+  overlayBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: 'rgba(94,106,210,0.80)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleWrap: {
+    padding: 8,
+    gap: 3,
+    backgroundColor: '#111f3d',
+  },
+  titleText: {
+    color: '#e8eaf6',
+    fontFamily: 'Inter_600SemiBold',
+    lineHeight: 15,
+  },
+  autorText: {
+    color: '#7986cb',
+    fontFamily: 'Inter_400Regular',
+  },
 });
 
 const mStyles = StyleSheet.create({
