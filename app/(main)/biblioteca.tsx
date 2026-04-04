@@ -118,7 +118,7 @@ const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'O
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function BibliotecaScreen() {
-  const [tab, setTab] = useState<'catalogo' | 'emprestimos' | 'desejos' | 'stats'>('catalogo');
+  const [tab, setTab] = useState<'catalogo' | 'emprestimos' | 'desejos' | 'stats' | 'presencas'>('catalogo');
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
@@ -168,6 +168,7 @@ export default function BibliotecaScreen() {
     { key: 'catalogo', label: 'Catálogo', icon: 'library' },
     { key: 'emprestimos', label: 'Empréstimos', icon: 'swap-horizontal',
       badge: atrasados.length + (canManage ? pendentesCount : 0) },
+    { key: 'presencas', label: 'Presenças', icon: 'people' },
     { key: 'desejos', label: 'Desejos', icon: 'heart' },
     { key: 'stats', label: 'Relatórios', icon: 'bar-chart' },
   ] as const;
@@ -214,6 +215,13 @@ export default function BibliotecaScreen() {
               canManage={canManage}
               user={user}
               onReload={() => load(true)}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+            />
+          )}
+          {tab === 'presencas' && (
+            <PresencasTab
+              user={user}
               refreshing={refreshing}
               onRefresh={onRefresh}
             />
@@ -1298,6 +1306,16 @@ function tipoColor(tipo: string) {
 }
 
 // ─── Novo Empréstimo Modal ─────────────────────────────────────────────────────
+interface AlunoResult {
+  id: string;
+  nome: string;
+  apelido: string;
+  turmaId: string | null;
+  turmaNome: string | null;
+  sala: string | null;
+  curso: string | null;
+}
+
 function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   visible: boolean; livros: Livro[]; user: any; onClose: () => void; onSaved: () => void;
 }) {
@@ -1313,9 +1331,50 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
     observacao: '',
   });
 
+  // Student search state
+  const [alunoSearch, setAlunoSearch] = useState('');
+  const [alunoResults, setAlunoResults] = useState<AlunoResult[]>([]);
+  const [alunoSel, setAlunoSel] = useState<AlunoResult | null>(null);
+  const [alunoFocused, setAlunoFocused] = useState(false);
+  const [alunoSearching, setAlunoSearching] = useState(false);
+  const alunoSearchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
-    if (!visible) { setLivroSel(null); setLivroSearch(''); setLivroFocused(false); }
+    if (!visible) {
+      setLivroSel(null); setLivroSearch(''); setLivroFocused(false);
+      setAlunoSel(null); setAlunoSearch(''); setAlunoResults([]); setAlunoFocused(false);
+      setForm({ nomeLeitor: '', tipoLeitor: 'aluno', dataEmprestimo: new Date().toISOString().slice(0, 10), dataPrevistaDevolucao: new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10), observacao: '' });
+    }
   }, [visible]);
+
+  // Debounced student search
+  useEffect(() => {
+    if (form.tipoLeitor !== 'aluno') return;
+    if (alunoSel) return;
+    if (alunoSearchTimeout.current) clearTimeout(alunoSearchTimeout.current);
+    if (!alunoSearch.trim()) { setAlunoResults([]); return; }
+    alunoSearchTimeout.current = setTimeout(async () => {
+      setAlunoSearching(true);
+      try {
+        const res2 = await req<AlunoResult[]>(`/api/biblioteca/alunos-search?q=${encodeURIComponent(alunoSearch.trim())}`);
+        setAlunoResults(res2);
+      } catch { setAlunoResults([]); }
+      finally { setAlunoSearching(false); }
+    }, 350);
+  }, [alunoSearch, form.tipoLeitor, alunoSel]);
+
+  const selectAluno = (a: AlunoResult) => {
+    setAlunoSel(a);
+    setForm(f => ({ ...f, nomeLeitor: `${a.nome} ${a.apelido}`.trim() }));
+    setAlunoSearch('');
+    setAlunoResults([]);
+    setAlunoFocused(false);
+  };
+
+  const clearAluno = () => {
+    setAlunoSel(null);
+    setForm(f => ({ ...f, nomeLeitor: '' }));
+  };
 
   // Books with at least 1 available copy, filtered by search term
   const livrosFiltrados = livros.filter(l => {
@@ -1326,11 +1385,13 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   });
 
   const showDropdown = !livroSel && (livroFocused || livroSearch.length > 0);
+  const showAlunoDropdown = !alunoSel && alunoFocused && alunoResults.length > 0;
 
   const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
   const save = async () => {
     if (!livroSel) { showToast('Selecione um livro.', 'error'); return; }
+    if (form.tipoLeitor === 'aluno' && !alunoSel) { showToast('Selecione o estudante.', 'error'); return; }
     if (!form.nomeLeitor.trim()) { showToast('Nome do leitor é obrigatório.', 'error'); return; }
     setSaving(true);
     try {
@@ -1338,6 +1399,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
         method: 'POST',
         body: JSON.stringify({
           livroId: livroSel.id,
+          alunoId: alunoSel?.id || null,
           nomeLeitor: form.nomeLeitor.trim(),
           tipoLeitor: form.tipoLeitor,
           dataEmprestimo: form.dataEmprestimo,
@@ -1376,11 +1438,6 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                     <Ionicons name="close-circle" size={18} color="#EF5350" />
                   </TouchableOpacity>
                 </View>
-                <View style={mStyles.autorAutoFill}>
-                  <Ionicons name="person-outline" size={13} color="#5E6AD2" />
-                  <Text style={mStyles.autorAutoFillLabel}>Autor:</Text>
-                  <Text style={mStyles.autorAutoFillValue} numberOfLines={1}>{livroSel.autor}</Text>
-                </View>
               </View>
             ) : (
               <>
@@ -1411,8 +1468,6 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                 )}
               </>
             )}
-            <MLabel>Nome do Leitor *</MLabel>
-            <MInput value={form.nomeLeitor} onChangeText={upd('nomeLeitor')} placeholder="Nome completo" />
             <MLabel>Tipo de Leitor</MLabel>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
               {TIPOS_LEITOR.map(t => (
@@ -1421,6 +1476,67 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {/* Student search (when tipoLeitor = aluno) */}
+            {form.tipoLeitor === 'aluno' ? (
+              <>
+                <MLabel>Estudante *</MLabel>
+                {alunoSel ? (
+                  <View style={{ marginBottom: 10 }}>
+                    <View style={mStyles.alunoSel}>
+                      <Ionicons name="person" size={16} color="#5E6AD2" />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: '#fff', fontWeight: '700' }}>{alunoSel.nome} {alunoSel.apelido}</Text>
+                        {alunoSel.turmaNome && (
+                          <Text style={{ color: '#aaa', fontSize: 12 }}>
+                            {alunoSel.turmaNome}{alunoSel.sala ? ` · Sala ${alunoSel.sala}` : ''}
+                            {alunoSel.curso ? ` · ${alunoSel.curso}` : ''}
+                          </Text>
+                        )}
+                      </View>
+                      <TouchableOpacity onPress={clearAluno}>
+                        <Ionicons name="close-circle" size={18} color="#EF5350" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ) : (
+                  <View style={{ marginBottom: 10 }}>
+                    <TextInput
+                      style={[mStyles.input, alunoFocused && { borderColor: '#5E6AD2' }]}
+                      value={alunoSearch}
+                      onChangeText={setAlunoSearch}
+                      onFocus={() => setAlunoFocused(true)}
+                      onBlur={() => setTimeout(() => setAlunoFocused(false), 250)}
+                      placeholder="Pesquisar estudante por nome…"
+                      placeholderTextColor="#555"
+                      selectionColor="#5E6AD2"
+                    />
+                    {alunoSearching && <ActivityIndicator size="small" color="#5E6AD2" style={{ position: 'absolute', right: 12, top: 10 }} />}
+                    {showAlunoDropdown && (
+                      <View style={mStyles.livroDropdown}>
+                        {alunoResults.map(a => (
+                          <TouchableOpacity key={a.id} style={mStyles.livroOption} onPress={() => selectAluno(a)}>
+                            <Text style={mStyles.livroOptionTitle}>{a.nome} {a.apelido}</Text>
+                            <Text style={mStyles.livroOptionSub}>
+                              {a.turmaNome || 'Sem turma'}{a.sala ? ` · Sala ${a.sala}` : ''}{a.curso ? ` · ${a.curso}` : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        ))}
+                        {alunoResults.length === 0 && !alunoSearching && alunoSearch.trim() && (
+                          <Text style={{ color: '#666', padding: 10, fontSize: 13 }}>Nenhum estudante encontrado</Text>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
+            ) : (
+              <>
+                <MLabel>Nome do Leitor *</MLabel>
+                <MInput value={form.nomeLeitor} onChangeText={upd('nomeLeitor')} placeholder="Nome completo" />
+              </>
+            )}
+
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>Data de Empréstimo</MLabel>
@@ -1701,6 +1817,8 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
   const [statsData, setStatsData] = useState<{ topLivros: { titulo: string; total: number }[]; totalEmprestimos: number; totalAtrasados: number } | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [penalizados, setPenalizados] = useState<{ alunoId: string; nomeLeitor: string; totalAtrasos: number }[]>([]);
+  const [topLeitores, setTopLeitores] = useState<{ alunoId: string; nomeLeitor: string; total: number }[]>([]);
+  const [topVisitantes, setTopVisitantes] = useState<{ alunoId: string; nomeAluno: string; turmaNome: string | null; total: number }[]>([]);
 
   useEffect(() => {
     setStatsLoading(true);
@@ -1712,6 +1830,16 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
       setPenalizados(pen.penalizados || []);
     }).catch(() => {}).finally(() => setStatsLoading(false));
   }, [mesSel, anoSel]);
+
+  useEffect(() => {
+    Promise.all([
+      req<any>('/api/biblioteca/top-leitores'),
+      req<any>('/api/biblioteca/top-visitantes'),
+    ]).then(([leitores, visitantes]) => {
+      setTopLeitores(leitores);
+      setTopVisitantes(visitantes);
+    }).catch(() => {});
+  }, []);
 
   const catCounts = livros.reduce<Record<string, number>>((acc, l) => {
     acc[l.categoria] = (acc[l.categoria] || 0) + 1; return acc;
@@ -1898,7 +2026,297 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
           })}
         </View>
       )}
+
+      {/* Top borrowers */}
+      {topLeitores.length > 0 && (
+        <View style={sStyles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="trophy" size={16} color="#FFA726" />
+            <Text style={sStyles.sectionTitle}>Estudantes que mais emprestam</Text>
+          </View>
+          {topLeitores.map((l, idx) => (
+            <View key={l.alunoId} style={sStyles.topLivroRow}>
+              <View style={[sStyles.topRankBadge, { backgroundColor: idx === 0 ? '#FFA72622' : '#5E6AD222' }]}>
+                <Text style={[sStyles.topRankText, { color: idx === 0 ? '#FFA726' : '#5E6AD2' }]}>{idx + 1}</Text>
+              </View>
+              <Text style={sStyles.topLivroTitulo} numberOfLines={1}>{l.nomeLeitor}</Text>
+              <View style={sStyles.topLivroBar}>
+                <View style={[sStyles.topLivroFill, { width: `${Math.round((Number(l.total) / Number(topLeitores[0].total)) * 100)}%` as any, backgroundColor: '#FFA726' }]} />
+              </View>
+              <Text style={[sStyles.topLivroCount, { color: '#FFA726' }]}>{l.total}×</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Top visitors */}
+      {topVisitantes.length > 0 && (
+        <View style={sStyles.section}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="people" size={16} color="#26A69A" />
+            <Text style={sStyles.sectionTitle}>Estudantes que mais visitam</Text>
+          </View>
+          {topVisitantes.map((v, idx) => (
+            <View key={v.alunoId} style={sStyles.topLivroRow}>
+              <View style={[sStyles.topRankBadge, { backgroundColor: idx === 0 ? '#26A69A22' : '#5E6AD222' }]}>
+                <Text style={[sStyles.topRankText, { color: idx === 0 ? '#26A69A' : '#5E6AD2' }]}>{idx + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={sStyles.topLivroTitulo} numberOfLines={1}>{v.nomeAluno}</Text>
+                {v.turmaNome && <Text style={{ color: '#666', fontSize: 10 }}>{v.turmaNome}</Text>}
+              </View>
+              <View style={sStyles.topLivroBar}>
+                <View style={[sStyles.topLivroFill, { width: `${Math.round((Number(v.total) / Number(topVisitantes[0].total)) * 100)}%` as any, backgroundColor: '#26A69A' }]} />
+              </View>
+              <Text style={[sStyles.topLivroCount, { color: '#26A69A' }]}>{v.total}×</Text>
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
+  );
+}
+
+// ─── Presenças Biblioteca Tab ─────────────────────────────────────────────────
+interface PresencaBiblioteca {
+  id: string;
+  alunoId: string;
+  nomeAluno: string;
+  turmaId: string | null;
+  turmaNome: string | null;
+  sala: string | null;
+  curso: string | null;
+  dataPresenca: string;
+  horaEntrada: string;
+  registadoPor: string;
+  createdAt: string;
+}
+
+function PresencasTab({ user, refreshing, onRefresh }: { user: any; refreshing: boolean; onRefresh: () => void }) {
+  const { showToast } = useToast();
+  const [presencas, setPresencas] = useState<PresencaBiblioteca[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dataSel, setDataSel] = useState(new Date().toISOString().slice(0, 10));
+  const [showModal, setShowModal] = useState(false);
+  const [alunoSearch, setAlunoSearch] = useState('');
+  const [alunoResults, setAlunoResults] = useState<AlunoResult[]>([]);
+  const [alunoSel, setAlunoSel] = useState<AlunoResult | null>(null);
+  const [alunoFocused, setAlunoFocused] = useState(false);
+  const [alunoSearching, setAlunoSearching] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const alunoTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const rows = await req<PresencaBiblioteca[]>(`/api/biblioteca/presencas?data=${dataSel}`);
+      setPresencas(rows);
+    } catch (e) { showToast((e as Error).message, 'error'); }
+    finally { setLoading(false); }
+  }, [dataSel]);
+
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!alunoSearch.trim() || alunoSel) { setAlunoResults([]); return; }
+    if (alunoTimeout.current) clearTimeout(alunoTimeout.current);
+    alunoTimeout.current = setTimeout(async () => {
+      setAlunoSearching(true);
+      try {
+        const res2 = await req<AlunoResult[]>(`/api/biblioteca/alunos-search?q=${encodeURIComponent(alunoSearch.trim())}`);
+        setAlunoResults(res2);
+      } catch { setAlunoResults([]); }
+      finally { setAlunoSearching(false); }
+    }, 350);
+  }, [alunoSearch, alunoSel]);
+
+  const registarPresenca = async () => {
+    if (!alunoSel) { showToast('Selecione um estudante.', 'error'); return; }
+    setSaving(true);
+    try {
+      await req('/api/biblioteca/presencas', {
+        method: 'POST',
+        body: JSON.stringify({
+          alunoId: alunoSel.id,
+          nomeAluno: `${alunoSel.nome} ${alunoSel.apelido}`.trim(),
+          turmaId: alunoSel.turmaId || null,
+          turmaNome: alunoSel.turmaNome || null,
+          sala: alunoSel.sala || null,
+          curso: alunoSel.curso || null,
+          registadoPor: user?.nome || 'Sistema',
+        }),
+      });
+      showToast('Presença registada!', 'success');
+      setShowModal(false);
+      setAlunoSel(null);
+      setAlunoSearch('');
+      setAlunoResults([]);
+      load(true);
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  const isHoje = dataSel === hoje;
+
+  return (
+    <View style={styles.flex}>
+      {/* Header row */}
+      <View style={[styles.searchRow, { justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TextInput
+            style={[mStyles.input, { flex: 0, width: 140, marginBottom: 0, fontSize: 13 }]}
+            value={dataSel}
+            onChangeText={setDataSel}
+            placeholderTextColor="#555"
+            selectionColor="#5E6AD2"
+          />
+          {!isHoje && (
+            <TouchableOpacity
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+              onPress={() => setDataSel(hoje)}
+            >
+              <Text style={{ color: '#5E6AD2', fontSize: 12, fontWeight: '600' }}>Hoje</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
+          <Ionicons name="add" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Summary */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, marginBottom: 8 }}>
+        <Ionicons name="people" size={14} color="#26A69A" />
+        <Text style={{ color: '#26A69A', fontSize: 13, fontWeight: '700' }}>{presencas.length} visita{presencas.length !== 1 ? 's' : ''}</Text>
+        <Text style={{ color: '#555', fontSize: 13 }}>em {dataSel.split('-').reverse().join('/')}</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator color="#5E6AD2" /></View>
+      ) : presencas.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Ionicons name="people-outline" size={40} color="#333" />
+          <Text style={styles.emptyText}>Sem presenças registadas</Text>
+          <Text style={styles.emptySub}>Clique em + para registar a entrada de um estudante</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={presencas}
+          keyExtractor={i => i.id}
+          contentContainerStyle={{ padding: 12, gap: 8, paddingBottom: 120 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
+          renderItem={({ item: p }) => (
+            <View style={{ backgroundColor: '#13131f', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#26A69A22', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="person" size={18} color="#26A69A" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>{p.nomeAluno}</Text>
+                <Text style={{ color: '#888', fontSize: 12 }}>
+                  {p.turmaNome || 'Sem turma'}{p.sala ? ` · Sala ${p.sala}` : ''}{p.curso ? ` · ${p.curso}` : ''}
+                </Text>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#26A69A22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                  <Ionicons name="time-outline" size={11} color="#26A69A" />
+                  <Text style={{ color: '#26A69A', fontSize: 12, fontWeight: '700' }}>{p.horaEntrada}</Text>
+                </View>
+              </View>
+            </View>
+          )}
+        />
+      )}
+
+      {/* Register presence modal */}
+      <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
+        <View style={centeredOverlay}>
+          <View style={[mStyles.sheet, { maxHeight: 460 }]}>
+            <View style={mStyles.header}>
+              <View style={mStyles.headerLeft}>
+                <Ionicons name="people" size={18} color="#26A69A" />
+                <Text style={mStyles.headerTitle}>Registar Presença</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setShowModal(false); setAlunoSel(null); setAlunoSearch(''); setAlunoResults([]); }} style={mStyles.closeBtn}>
+                <Ionicons name="close" size={20} color="#aaa" />
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16, gap: 4 }}>
+              <MLabel>Estudante *</MLabel>
+              {alunoSel ? (
+                <View style={mStyles.alunoSel}>
+                  <Ionicons name="person" size={16} color="#26A69A" />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: '700' }}>{alunoSel.nome} {alunoSel.apelido}</Text>
+                    {alunoSel.turmaNome && (
+                      <Text style={{ color: '#aaa', fontSize: 12 }}>
+                        {alunoSel.turmaNome}{alunoSel.sala ? ` · Sala ${alunoSel.sala}` : ''}{alunoSel.curso ? ` · ${alunoSel.curso}` : ''}
+                      </Text>
+                    )}
+                  </View>
+                  <TouchableOpacity onPress={() => setAlunoSel(null)}>
+                    <Ionicons name="close-circle" size={18} color="#EF5350" />
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View>
+                  <TextInput
+                    style={[mStyles.input, alunoFocused && { borderColor: '#26A69A' }]}
+                    value={alunoSearch}
+                    onChangeText={setAlunoSearch}
+                    onFocus={() => setAlunoFocused(true)}
+                    onBlur={() => setTimeout(() => setAlunoFocused(false), 250)}
+                    placeholder="Pesquisar estudante por nome…"
+                    placeholderTextColor="#555"
+                    selectionColor="#26A69A"
+                  />
+                  {alunoSearching && <ActivityIndicator size="small" color="#26A69A" style={{ position: 'absolute', right: 12, top: 10 }} />}
+                  {!alunoSel && alunoFocused && alunoResults.length > 0 && (
+                    <View style={mStyles.livroDropdown}>
+                      {alunoResults.map(a => (
+                        <TouchableOpacity key={a.id} style={mStyles.livroOption} onPress={() => { setAlunoSel(a); setAlunoSearch(''); setAlunoResults([]); setAlunoFocused(false); }}>
+                          <Text style={mStyles.livroOptionTitle}>{a.nome} {a.apelido}</Text>
+                          <Text style={mStyles.livroOptionSub}>
+                            {a.turmaNome || 'Sem turma'}{a.sala ? ` · Sala ${a.sala}` : ''}{a.curso ? ` · ${a.curso}` : ''}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                  {!alunoSel && alunoFocused && alunoResults.length === 0 && !alunoSearching && alunoSearch.trim() && (
+                    <Text style={{ color: '#666', fontSize: 12, marginTop: 4 }}>Nenhum estudante encontrado</Text>
+                  )}
+                </View>
+              )}
+
+              <View style={[solStyles.infoBox, { marginTop: 12 }]}>
+                <Ionicons name="time-outline" size={15} color="#26A69A" />
+                <Text style={[solStyles.infoText, { color: '#888' }]}>
+                  A hora de entrada será registada automaticamente com a hora actual.
+                  Apenas uma presença por estudante por dia.
+                </Text>
+              </View>
+            </View>
+            <View style={mStyles.footer}>
+              <TouchableOpacity style={mStyles.cancelBtn} onPress={() => { setShowModal(false); setAlunoSel(null); setAlunoSearch(''); setAlunoResults([]); }}>
+                <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[mStyles.saveBtn, { backgroundColor: '#26A69A' }]} onPress={registarPresenca} disabled={saving}>
+                {saving ? <ActivityIndicator color="#fff" size="small" /> : (
+                  <>
+                    <Ionicons name="checkmark" size={15} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Registar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -2100,10 +2518,8 @@ const mStyles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   chipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
-  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 0, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
-  autorAutoFill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#5E6AD210', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 4, borderWidth: 1, borderColor: '#5E6AD230' },
-  autorAutoFillLabel: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
-  autorAutoFillValue: { color: '#ccc', fontSize: 12, flex: 1 },
+  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  alunoSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
   livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#5E6AD244', overflow: 'hidden', maxHeight: 240 },
   livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },

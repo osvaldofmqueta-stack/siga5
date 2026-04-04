@@ -389,6 +389,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] biblioteca migration warning:', (migErr as Error).message);
   }
 
+  // presencas_biblioteca table for tracking library visits
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.presencas_biblioteca (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        "alunoId" varchar NOT NULL,
+        "nomeAluno" text NOT NULL,
+        "turmaId" varchar,
+        "turmaNome" text,
+        "sala" text,
+        "curso" text,
+        "dataPresenca" date NOT NULL DEFAULT CURRENT_DATE,
+        "horaEntrada" text NOT NULL,
+        "registadoPor" text NOT NULL DEFAULT 'Sistema',
+        "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+      )
+    `, []);
+    console.log('[migration] presencas_biblioteca table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] presencas_biblioteca migration warning:', (migErr as Error).message);
+  }
+
   // Add notasVisiveis to config_geral (global toggle for student grade visibility)
   try {
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "notasVisiveis" boolean NOT NULL DEFAULT false`, []);
@@ -5518,6 +5540,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const totalHistorico = Number((hist[0] as any)?.total || 0);
       const temAtrasoAtivo = Number((ativo[0] as any)?.total || 0) > 0;
       json(res, 200, { penalizado: totalHistorico >= 2, totalAtrasos: totalHistorico, temAtrasoAtivo });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Biblioteca: pesquisa de alunos para empréstimos
+  app.get('/api/biblioteca/alunos-search', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const q = (req.query.q as string || '').toLowerCase().trim();
+      let sql = `
+        SELECT a.id, a.nome, a.apelido, a."turmaId",
+               t.nome AS "turmaNome", t.sala, t.curso
+        FROM public.alunos a
+        LEFT JOIN public.turmas t ON t.id = a."turmaId"
+        WHERE a.ativo = true
+      `;
+      const params: unknown[] = [];
+      if (q) {
+        params.push(`%${q}%`);
+        sql += ` AND (LOWER(a.nome) LIKE $1 OR LOWER(a.apelido) LIKE $1)`;
+      }
+      sql += ` ORDER BY a.apelido, a.nome LIMIT 20`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Biblioteca: top borrowers
+  app.get('/api/biblioteca/top-leitores', requireAuth, requirePermission('biblioteca'), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`
+        SELECT "alunoId", "nomeLeitor",
+               COUNT(*) AS total
+        FROM public.emprestimos
+        WHERE "alunoId" IS NOT NULL
+        GROUP BY "alunoId", "nomeLeitor"
+        ORDER BY total DESC
+        LIMIT 10
+      `, []);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Biblioteca: presencas (library attendance)
+  app.get('/api/biblioteca/presencas', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const data = req.query.data as string | undefined;
+      let sql = `SELECT * FROM public.presencas_biblioteca`;
+      const params: unknown[] = [];
+      if (data) {
+        params.push(data);
+        sql += ` WHERE "dataPresenca" = $1`;
+      }
+      sql += ` ORDER BY "createdAt" DESC`;
+      const rows = await query<JsonObject>(sql, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/biblioteca/presencas', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const b = req.body as Record<string, unknown>;
+      if (!b.alunoId || !b.nomeAluno) return json(res, 400, { error: 'alunoId e nomeAluno são obrigatórios.' });
+      const hoje = new Date().toISOString().slice(0, 10);
+      const hora = new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' });
+      // Check if already registered today
+      const exists = await query<JsonObject>(
+        `SELECT id FROM public.presencas_biblioteca WHERE "alunoId"=$1 AND "dataPresenca"=$2 LIMIT 1`,
+        [b.alunoId, hoje]
+      );
+      if (exists.length > 0) {
+        return json(res, 400, { error: 'Presença já registada para este estudante hoje.' });
+      }
+      const rows = await query<JsonObject>(`
+        INSERT INTO public.presencas_biblioteca
+          ("alunoId","nomeAluno","turmaId","turmaNome","sala","curso","dataPresenca","horaEntrada","registadoPor")
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+        RETURNING *
+      `, [b.alunoId, b.nomeAluno, b.turmaId || null, b.turmaNome || null, b.sala || null, b.curso || null, hoje, hora, b.registadoPor || 'Sistema']);
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // Biblioteca: top visitantes (students who visit most)
+  app.get('/api/biblioteca/top-visitantes', requireAuth, requirePermission('biblioteca'), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(`
+        SELECT "alunoId", "nomeAluno", "turmaNome", "sala", "curso",
+               COUNT(*) AS total
+        FROM public.presencas_biblioteca
+        GROUP BY "alunoId", "nomeAluno", "turmaNome", "sala", "curso"
+        ORDER BY total DESC
+        LIMIT 10
+      `, []);
+      json(res, 200, rows);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
