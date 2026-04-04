@@ -1328,6 +1328,83 @@ export default function AdminScreen() {
               </Text>
             </View>
 
+            {/* ── Avaliação de Professores — Período ───────────────────────── */}
+            <View style={styles.card}>
+              <SectionHeader title="Avaliação de Professores" icon="star" />
+              <Text style={styles.configSectionDesc}>
+                Abre ou fecha o período de avaliação distribuída. Quando activo, secretaria, RH e alunos podem submeter as suas avaliações. Ao abrir, são enviadas notificações automáticas.
+              </Text>
+
+              {/* Toggle abrir/fechar período */}
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.avaliacaoPeriodoAtivo ? Colors.success + '22' : Colors.border }]}>
+                    <MaterialCommunityIcons name="star-check-outline" size={18} color={config.avaliacaoPeriodoAtivo ? Colors.success : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Período de Avaliação</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.avaliacaoPeriodoAtivo
+                        ? `Aberto — ${config.avaliacaoPeriodoLabel || 'Avaliação em curso'}`
+                        : 'Fechado — avaliações não aceites'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.avaliacaoPeriodoAtivo}
+                  onValueChange={async (v) => {
+                    await updateConfig({ avaliacaoPeriodoAtivo: v });
+                    if (v) {
+                      webAlert('Período Aberto', 'O período de avaliação de professores foi aberto. As notificações serão enviadas.');
+                      try {
+                        await api.post('/api/avaliacoes-parciais/notificar', { periodoLabel: config.avaliacaoPeriodoLabel || 'Avaliação de Professores' });
+                      } catch (_) {}
+                    } else {
+                      webAlert('Período Fechado', 'O período de avaliação de professores foi encerrado.');
+                    }
+                  }}
+                  thumbColor={config.avaliacaoPeriodoAtivo ? Colors.success : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: Colors.success + '55' }}
+                />
+              </View>
+
+              {/* Label do período */}
+              <View style={{ marginTop: 12 }}>
+                <Text style={[styles.configToggleLabel, { marginBottom: 4 }]}>Designação do Período</Text>
+                <TextInput
+                  style={[styles.input, { marginBottom: 8 }]}
+                  value={config.avaliacaoPeriodoLabel ?? ''}
+                  onChangeText={t => updateConfig({ avaliacaoPeriodoLabel: t })}
+                  placeholder="Ex: Avaliação 1º Trimestre 2025"
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
+              {/* Data início e fim */}
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.configToggleLabel, { marginBottom: 4 }]}>Data de Início</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={config.avaliacaoPeriodoInicio ?? ''}
+                    onChangeText={t => updateConfig({ avaliacaoPeriodoInicio: t })}
+                    placeholder="AAAA-MM-DD"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.configToggleLabel, { marginBottom: 4 }]}>Data de Fim</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={config.avaliacaoPeriodoFim ?? ''}
+                    onChangeText={t => updateConfig({ avaliacaoPeriodoFim: t })}
+                    placeholder="AAAA-MM-DD"
+                    placeholderTextColor={Colors.textMuted}
+                  />
+                </View>
+              </View>
+            </View>
+
             {/* Exclusão por Dupla Reprovação */}
             <View style={styles.card}>
               <SectionHeader title="Exclusão por Dupla Reprovação" icon="close-circle" />

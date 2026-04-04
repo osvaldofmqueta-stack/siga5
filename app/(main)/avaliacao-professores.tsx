@@ -8,11 +8,13 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
-  RefreshControl
+  RefreshControl,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../context/AuthContext';
+import { useConfig } from '../../context/ConfigContext';
 import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { alertSucesso, alertErro } from '../../utils/toast';
@@ -93,6 +95,14 @@ const STATUS_CFG = {
 const GLASS  = 'rgba(255,255,255,0.06)';
 const BORDER = 'rgba(255,255,255,0.12)';
 
+// ─── Critérios por perfil (contribuição distribuída) ──────────────────────────
+const CRITERIOS_POR_PAPEL: Record<string, string[]> = {
+  secretaria: ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+  rh:         ['notaPontualidade','notaRelacaoColegas'],
+  aluno:      ['notaRelacaoAlunos'],
+};
+const PAPEIS_CONTRIB = Object.keys(CRITERIOS_POR_PAPEL);
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getNivelCfg(nota: number) {
   return NIVEIS[Math.round(nota)] ?? NIVEIS[0];
@@ -157,8 +167,18 @@ function getNotaColor(nota: number) {
   return '#EF5350';
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── Router — despacha para a vista correta por perfil ────────────────────────
 export default function AvaliacaoProfessoresScreen() {
+  const { user } = useAuth();
+  const router = useRouter();
+  if (user?.role && PAPEIS_CONTRIB.includes(user.role)) {
+    return <AvaliacaoParcialScreen onBack={() => router.back()} />;
+  }
+  return <AvaliacaoProfessoresMain />;
+}
+
+// ─── Vista de gestão completa (admin / director / CEO / pedagogico) ────────────
+function AvaliacaoProfessoresMain() {
   const { user } = useAuth();
   const router = useRouter();
 
@@ -800,6 +820,308 @@ export default function AvaliacaoProfessoresScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+// ─── Avaliação Parcial — vista para secretaria / RH / aluno ──────────────────
+interface ParcialEntry {
+  professorId: string;
+  periodoLetivo: string;
+  criterio: string;
+  nota: number;
+  avaliadorNome?: string;
+  atualizadoEm?: string;
+  nome?: string;
+  apelido?: string;
+  numeroProfessor?: string;
+}
+
+function AvaliacaoParcialScreen({ onBack }: { onBack: () => void }) {
+  const { user } = useAuth();
+  const { config } = useConfig();
+  const role = user?.role ?? '';
+  const meusCriterios = CRITERIOS_POR_PAPEL[role] ?? [];
+
+  const [professores, setProfessores] = useState<Professor[]>([]);
+  const [minhasEntradas, setMinhasEntradas] = useState<ParcialEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const [modalProf, setModalProf] = useState<Professor | null>(null);
+  const [notas, setNotas] = useState<Record<string, number>>({});
+  const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [search, setSearch] = useState('');
+
+  const periodoLabel = config.avaliacaoPeriodoLabel ?? 'Avaliação de Professores';
+  const periodoAberto = config.avaliacaoPeriodoAtivo;
+
+  const loadData = useCallback(async () => {
+    try {
+      const [profData, parcData] = await Promise.all([
+        api.get<Professor[]>('/api/professores'),
+        api.get<ParcialEntry[]>('/api/avaliacoes-parciais/meu'),
+      ]);
+      setProfessores(profData.filter(p => p.ativo));
+      setMinhasEntradas(parcData);
+    } catch {
+      alertErro('Erro ao carregar dados');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  const openModal = (prof: Professor) => {
+    const entradas = minhasEntradas.filter(e => e.professorId === prof.id);
+    const notasIniciais: Record<string, number> = {};
+    for (const c of meusCriterios) {
+      const entrada = entradas.find(e => e.criterio === c);
+      notasIniciais[c] = entrada?.nota ?? 0;
+    }
+    setNotas(notasIniciais);
+    setModalError('');
+    setModalProf(prof);
+  };
+
+  const submeter = async () => {
+    if (!modalProf) return;
+    if (!periodoAberto) { setModalError('O período de avaliação está fechado.'); return; }
+    const algumaCriterio = Object.values(notas).some(v => v > 0);
+    if (!algumaCriterio) { setModalError('Atribua pelo menos uma nota antes de submeter.'); return; }
+
+    setSaving(true);
+    try {
+      const periodoLetivo = new Date().getFullYear().toString();
+      await api.post('/api/avaliacoes-parciais', {
+        professorId: modalProf.id,
+        periodoLetivo,
+        criterios: notas,
+      });
+      alertSucesso('Avaliação guardada com sucesso!');
+      setModalProf(null);
+      loadData();
+    } catch (e: unknown) {
+      setModalError((e as Error).message || 'Erro ao guardar avaliação');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const profsFiltrados = professores.filter(p =>
+    `${p.nome} ${p.apelido} ${p.numeroProfessor}`.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const getRoleLabel = () => {
+    if (role === 'secretaria') return 'Secretaria Académica';
+    if (role === 'rh') return 'Recursos Humanos';
+    if (role === 'aluno') return 'Aluno';
+    return role;
+  };
+
+  const criteriosCfg = CRITERIOS.filter(c => meusCriterios.includes(c.key as string));
+
+  if (loading) {
+    return (
+      <View style={styles.root}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Avaliação de Professores</Text>
+        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.root}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={onBack} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={22} color="#fff" />
+        </TouchableOpacity>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerTitle}>Avaliação de Professores</Text>
+          <Text style={styles.headerSub}>{getRoleLabel()} · avaliação dos critérios atribuídos</Text>
+        </View>
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadData(); }} tintColor={Colors.primary} />}
+      >
+        {/* Banner estado do período */}
+        <View style={[styles.card, {
+          backgroundColor: periodoAberto ? '#1B5E20' : '#37474F',
+          borderColor: periodoAberto ? '#66BB6A' : '#78909C',
+          borderWidth: 1,
+          flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12,
+        }]}>
+          <MaterialCommunityIcons
+            name={periodoAberto ? 'lock-open-outline' : 'lock-outline'}
+            size={24}
+            color={periodoAberto ? '#66BB6A' : '#78909C'}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>
+              {periodoAberto ? `Período Aberto — ${periodoLabel}` : 'Período de Avaliação Fechado'}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 2 }}>
+              {periodoAberto
+                ? 'Pode submeter ou actualizar as suas avaliações.'
+                : 'Aguarde a abertura pelo administrador para submeter avaliações.'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Info critérios do perfil */}
+        <View style={[styles.card, { marginBottom: 12 }]}>
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13, marginBottom: 8 }}>
+            Os seus critérios de avaliação ({meusCriterios.length})
+          </Text>
+          {criteriosCfg.map(c => (
+            <View key={c.key as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+              <Ionicons name={c.icon as any} size={14} color={c.color} />
+              <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>{c.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Barra de pesquisa */}
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={16} color={Colors.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Pesquisar professor..."
+            placeholderTextColor={Colors.textMuted}
+          />
+        </View>
+
+        {/* Lista de professores */}
+        {profsFiltrados.map(prof => {
+          const minhas = minhasEntradas.filter(e => e.professorId === prof.id);
+          const totalCriterios = meusCriterios.length;
+          const preenchidos = minhas.filter(e => Number(e.nota) > 0).length;
+          const concluido = preenchidos === totalCriterios;
+          return (
+            <TouchableOpacity
+              key={prof.id}
+              style={[styles.card, { marginBottom: 8 }]}
+              onPress={() => openModal(prof)}
+              activeOpacity={0.85}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                    {prof.nome} {prof.apelido}
+                  </Text>
+                  <Text style={{ color: Colors.textMuted, fontSize: 11 }}>Nº {prof.numeroProfessor}</Text>
+                </View>
+                <View style={{ alignItems: 'flex-end', gap: 4 }}>
+                  <View style={[styles.badge, {
+                    backgroundColor: concluido ? '#1B5E2066' : preenchidos > 0 ? '#E65100' + '44' : 'rgba(255,255,255,0.1)',
+                    borderColor: concluido ? '#66BB6A' : preenchidos > 0 ? '#FF7043' : 'rgba(255,255,255,0.2)',
+                  }]}>
+                    <Text style={[styles.badgeText, {
+                      color: concluido ? '#66BB6A' : preenchidos > 0 ? '#FF7043' : Colors.textMuted,
+                    }]}>
+                      {concluido ? '✓ Completo' : `${preenchidos}/${totalCriterios} critérios`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.textMuted} />
+                </View>
+              </View>
+              {/* Barra de progresso */}
+              <View style={{ marginTop: 8, height: 4, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 2, overflow: 'hidden' }}>
+                <View style={{
+                  width: `${totalCriterios > 0 ? (preenchidos / totalCriterios) * 100 : 0}%`,
+                  height: '100%',
+                  backgroundColor: concluido ? '#66BB6A' : '#FF7043',
+                  borderRadius: 2,
+                }} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+        {profsFiltrados.length === 0 && (
+          <Text style={styles.emptyText}>Nenhum professor encontrado.</Text>
+        )}
+      </ScrollView>
+
+      {/* Modal de avaliação do professor */}
+      {modalProf && (
+        <Modal visible animationType="slide" transparent>
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+              <ScrollView>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Text style={styles.modalTitle}>{modalProf.nome} {modalProf.apelido}</Text>
+                  <TouchableOpacity onPress={() => setModalProf(null)}>
+                    <Ionicons name="close" size={24} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                </View>
+
+                {!periodoAberto && (
+                  <View style={{ backgroundColor: '#37474F', borderRadius: 8, padding: 10, marginBottom: 12, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Ionicons name="lock-closed-outline" size={16} color="#78909C" />
+                    <Text style={{ color: '#78909C', fontSize: 12, flex: 1 }}>
+                      O período de avaliação está fechado. Pode visualizar as suas notas mas não pode alterar.
+                    </Text>
+                  </View>
+                )}
+
+                {modalError !== '' && (
+                  <View style={{ backgroundColor: '#B71C1C22', borderColor: Colors.danger, borderWidth: 1, borderRadius: 8, padding: 10, marginBottom: 12, flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                    <Ionicons name="alert-circle-outline" size={16} color={Colors.danger} />
+                    <Text style={{ color: Colors.danger, fontSize: 12, flex: 1 }}>{modalError}</Text>
+                  </View>
+                )}
+
+                {criteriosCfg.map(c => (
+                  <View key={c.key as string} style={{ marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                      <Ionicons name={c.icon as any} size={16} color={c.color} />
+                      <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>{c.label}</Text>
+                    </View>
+                    <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 8 }}>{c.desc}</Text>
+                    <StarRow
+                      nota={notas[c.key as string] ?? 0}
+                      onChange={periodoAberto ? (n) => {
+                        setModalError('');
+                        setNotas(prev => ({ ...prev, [c.key as string]: n }));
+                      } : undefined}
+                      color={c.color}
+                    />
+                  </View>
+                ))}
+
+                {periodoAberto && (
+                  <TouchableOpacity
+                    style={[styles.saveBtn, saving && { opacity: 0.6 }]}
+                    onPress={submeter}
+                    disabled={saving}
+                  >
+                    {saving ? <ActivityIndicator size="small" color="#fff" /> : (
+                      <>
+                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+                        <Text style={styles.saveBtnTxt}>Guardar Avaliação</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

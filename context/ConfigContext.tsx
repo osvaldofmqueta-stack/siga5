@@ -71,6 +71,11 @@ export interface ConfigGeral {
   periodosHorario?: { numero: number; inicio: string; fim: string }[];
   // Last backup timestamp stored in DB (replaces localStorage)
   ultimoBackup?: string;
+  // Período de avaliação distribuída de professores
+  avaliacaoPeriodoAtivo: boolean;
+  avaliacaoPeriodoInicio?: string;
+  avaliacaoPeriodoFim?: string;
+  avaliacaoPeriodoLabel?: string;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -118,6 +123,7 @@ const DEFAULT_CONFIG: ConfigGeral = {
   inscricoesAbertas: false,
   exclusaoDuasReprovacoes: false,
   notasVisiveis: false,
+  avaliacaoPeriodoAtivo: false,
 };
 
 interface ConfigContextValue {
@@ -185,6 +191,12 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           inscricaoDataFim: (raw.inscricaoDataFim as string) || undefined,
           exclusaoDuasReprovacoes: raw.exclusaoDuasReprovacoes !== undefined ? Boolean(raw.exclusaoDuasReprovacoes) : DEFAULT_CONFIG.exclusaoDuasReprovacoes,
           notasVisiveis: raw.notasVisiveis !== undefined ? Boolean(raw.notasVisiveis) : DEFAULT_CONFIG.notasVisiveis,
+          periodosHorario: Array.isArray(raw.periodosHorario) ? (raw.periodosHorario as { numero: number; inicio: string; fim: string }[]) : undefined,
+          ultimoBackup: (raw.ultimoBackup as string) || undefined,
+          avaliacaoPeriodoAtivo: raw.avaliacaoPeriodoAtivo !== undefined ? Boolean(raw.avaliacaoPeriodoAtivo) : false,
+          avaliacaoPeriodoInicio: (raw.avaliacaoPeriodoInicio as string) || undefined,
+          avaliacaoPeriodoFim: (raw.avaliacaoPeriodoFim as string) || undefined,
+          avaliacaoPeriodoLabel: (raw.avaliacaoPeriodoLabel as string) || undefined,
         };
         setConfig(parsed);
       })

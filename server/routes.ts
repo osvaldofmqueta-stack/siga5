@@ -454,6 +454,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] config_geral periodosHorario/ultimoBackup:', (migErr as Error).message);
   }
 
+  // ── Avaliação Distribuída de Professores: tabela parciais + config columns ──
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.avaliacoes_parciais (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        "professorId" varchar NOT NULL,
+        "periodoLetivo" varchar NOT NULL,
+        criterio varchar NOT NULL,
+        nota numeric(4,2) NOT NULL DEFAULT 0,
+        papel varchar NOT NULL,
+        "avaliadorId" varchar,
+        "avaliadorNome" varchar,
+        "criadoEm" timestamptz NOT NULL DEFAULT now(),
+        "atualizadoEm" timestamptz NOT NULL DEFAULT now(),
+        UNIQUE("professorId","periodoLetivo",criterio,papel)
+      )
+    `, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacaoPeriodoAtivo" boolean NOT NULL DEFAULT false`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacaoPeriodoInicio" text`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacaoPeriodoFim" text`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacaoPeriodoLabel" text`, []);
+    console.log('[migration] avaliacoes_parciais + config avaliacao periodo ensured.');
+  } catch (migErr) {
+    console.warn('[migration] avaliacoes_parciais:', (migErr as Error).message);
+  }
+
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
@@ -3566,7 +3592,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
@@ -5959,6 +5985,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await query(`DELETE FROM public.avaliacoes_professores WHERE id=$1`, [req.params.id]);
       json(res, 200, { ok: true });
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── AVALIAÇÃO DISTRIBUÍDA DE PROFESSORES (PARCIAIS) ────────────────────────
+  // Cada perfil avalia apenas os critérios que lhe competem.
+  // secretaria : planeamento, pontualidade, metodologia, resultados, disciplina, desenvolvimento
+  // rh         : pontualidade, relacaoColegas
+  // aluno      : relacaoAlunos
+
+  const CRITERIOS_POR_PAPEL: Record<string, string[]> = {
+    secretaria:  ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+    rh:          ['notaPontualidade','notaRelacaoColegas'],
+    aluno:       ['notaRelacaoAlunos'],
+  };
+
+  // GET /api/avaliacoes-parciais — todas as contribuições (admin/director/CEO)
+  app.get('/api/avaliacoes-parciais', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const { periodoLetivo } = req.query;
+      const allowedRoles = ['admin','ceo','pca','director','pedagogico'];
+      if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado' });
+      const where = periodoLetivo ? `WHERE ap."periodoLetivo"=$1` : '';
+      const params = periodoLetivo ? [String(periodoLetivo)] : [];
+      const rows = await query<JsonObject>(`
+        SELECT ap.*, p.nome, p.apelido, p."numeroProfessor"
+        FROM public.avaliacoes_parciais ap
+        JOIN public.professores p ON p.id = ap."professorId"
+        ${where}
+        ORDER BY ap."criadoEm" DESC
+      `, params);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET /api/avaliacoes-parciais/meu — contribuições do utilizador autenticado
+  app.get('/api/avaliacoes-parciais/meu', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id: userId, role } = req.jwtUser!;
+      const { periodoLetivo } = req.query;
+      const meuPapel = CRITERIOS_POR_PAPEL[role] ? role : null;
+      if (!meuPapel) return json(res, 200, []);
+      const rows = await query<JsonObject>(`
+        SELECT ap.*, p.nome, p.apelido, p."numeroProfessor"
+        FROM public.avaliacoes_parciais ap
+        JOIN public.professores p ON p.id = ap."professorId"
+        WHERE ap.papel=$1 AND ap."avaliadorId"=$2
+        ${periodoLetivo ? 'AND ap."periodoLetivo"=$3' : ''}
+        ORDER BY ap."criadoEm" DESC
+      `, periodoLetivo ? [meuPapel, userId, String(periodoLetivo)] : [meuPapel, userId]);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // POST /api/avaliacoes-parciais — upsert de contribuição do utilizador
+  app.post('/api/avaliacoes-parciais', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id: userId, role, nome: userName } = req.jwtUser!;
+      const b = requireBodyObject(req);
+      const meusCriterios = CRITERIOS_POR_PAPEL[role];
+      if (!meusCriterios) return json(res, 403, { error: 'O seu perfil não tem critérios atribuídos.' });
+      if (!b.professorId || !b.periodoLetivo) return json(res, 400, { error: 'professorId e periodoLetivo são obrigatórios.' });
+
+      // Verificar período aberto
+      const cfg = await query<JsonObject>(`SELECT "avaliacaoPeriodoAtivo" FROM public.config_geral LIMIT 1`, []);
+      if (!cfg[0]?.avaliacaoPeriodoAtivo) return json(res, 403, { error: 'O período de avaliação está fechado. Aguarde a abertura pelo administrador.' });
+
+      const criteriosPayload = b.criterios as Record<string, number> ?? {};
+      const inserted: unknown[] = [];
+      for (const criterio of meusCriterios) {
+        if (criteriosPayload[criterio] === undefined) continue;
+        const nota = Math.min(5, Math.max(0, Number(criteriosPayload[criterio]) || 0));
+        const row = await query<JsonObject>(`
+          INSERT INTO public.avaliacoes_parciais
+            ("professorId","periodoLetivo",criterio,nota,papel,"avaliadorId","avaliadorNome","atualizadoEm")
+          VALUES ($1,$2,$3,$4,$5,$6,$7,now())
+          ON CONFLICT ("professorId","periodoLetivo",criterio,papel)
+          DO UPDATE SET nota=$4, "avaliadorId"=$6, "avaliadorNome"=$7, "atualizadoEm"=now()
+          RETURNING *
+        `, [String(b.professorId), String(b.periodoLetivo), criterio, nota, role, userId, userName ?? role]);
+        inserted.push(row[0]);
+      }
+      json(res, 200, { ok: true, criterios: inserted });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // POST /api/avaliacoes-parciais/agregar — agrega parciais numa avaliação final
+  app.post('/api/avaliacoes-parciais/agregar', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowedRoles = ['admin','ceo','pca','director','pedagogico'];
+      if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado' });
+      const b = requireBodyObject(req);
+      if (!b.professorId || !b.periodoLetivo) return json(res, 400, { error: 'professorId e periodoLetivo são obrigatórios.' });
+
+      // Buscar todas as parciais para este professor + período
+      const parciais = await query<{ criterio: string; nota: string; papel: string }>(`
+        SELECT criterio, nota, papel FROM public.avaliacoes_parciais
+        WHERE "professorId"=$1 AND "periodoLetivo"=$2
+      `, [String(b.professorId), String(b.periodoLetivo)]);
+
+      // Para critérios com múltiplos avaliadores (pontualidade: secretaria+rh), calcular média
+      const TODOS_CRITERIOS = ['notaPlaneamento','notaPontualidade','notaMetodologia','notaRelacaoAlunos','notaRelacaoColegas','notaResultados','notaDisciplina','notaDesenvolvimento'];
+      const agregado: Record<string, number> = {};
+      for (const criterio of TODOS_CRITERIOS) {
+        const entradas = parciais.filter(p => p.criterio === criterio && Number(p.nota) > 0);
+        if (entradas.length > 0) {
+          agregado[criterio] = Math.round((entradas.reduce((s, p) => s + Number(p.nota), 0) / entradas.length) * 100) / 100;
+        } else {
+          agregado[criterio] = 0;
+        }
+      }
+      const filled = Object.values(agregado).filter(v => v > 0);
+      const notaFinal = filled.length > 0
+        ? Math.round((filled.reduce((a, b) => a + b, 0) / filled.length) * 100) / 100
+        : 0;
+
+      // Verificar se já existe avaliação final
+      const existing = await query<JsonObject>(`
+        SELECT id FROM public.avaliacoes_professores
+        WHERE "professorId"=$1 AND "periodoLetivo"=$2 LIMIT 1
+      `, [String(b.professorId), String(b.periodoLetivo)]);
+
+      let result;
+      if (existing[0]) {
+        result = await query<JsonObject>(`
+          UPDATE public.avaliacoes_professores
+          SET "notaPlaneamento"=$3,"notaPontualidade"=$4,"notaMetodologia"=$5,
+              "notaRelacaoAlunos"=$6,"notaRelacaoColegas"=$7,"notaResultados"=$8,
+              "notaDisciplina"=$9,"notaDesenvolvimento"=$10,"notaFinal"=$11
+          WHERE "professorId"=$1 AND "periodoLetivo"=$2
+          RETURNING *
+        `, [
+          String(b.professorId), String(b.periodoLetivo),
+          agregado.notaPlaneamento, agregado.notaPontualidade, agregado.notaMetodologia,
+          agregado.notaRelacaoAlunos, agregado.notaRelacaoColegas, agregado.notaResultados,
+          agregado.notaDisciplina, agregado.notaDesenvolvimento, notaFinal,
+        ]);
+      } else {
+        result = await query<JsonObject>(`
+          INSERT INTO public.avaliacoes_professores
+            (id,"professorId","periodoLetivo",avaliador,"avaliadorId",
+             "notaPlaneamento","notaPontualidade","notaMetodologia","notaRelacaoAlunos",
+             "notaRelacaoColegas","notaResultados","notaDisciplina","notaDesenvolvimento","notaFinal",status)
+          VALUES (gen_random_uuid(),$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'rascunho')
+          RETURNING *
+        `, [
+          String(b.professorId), String(b.periodoLetivo),
+          req.jwtUser!.nome ?? role, req.jwtUser!.id,
+          agregado.notaPlaneamento, agregado.notaPontualidade, agregado.notaMetodologia,
+          agregado.notaRelacaoAlunos, agregado.notaRelacaoColegas, agregado.notaResultados,
+          agregado.notaDisciplina, agregado.notaDesenvolvimento, notaFinal,
+        ]);
+      }
+      json(res, 200, { ok: true, avaliacao: result[0], notaFinal, criterios: agregado });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // POST /api/avaliacoes-parciais/notificar — enviar notificações de abertura
+  app.post('/api/avaliacoes-parciais/notificar', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowedRoles = ['admin','ceo','pca','director'];
+      if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado' });
+      const b = requireBodyObject(req);
+      const periodoLabel = String(b.periodoLabel || 'Avaliação de Professores');
+      const hoje = new Date().toISOString().slice(0,10);
+
+      // Notificar todos os utilizadores com papel: secretaria, rh, aluno (activos)
+      const papeisNotificar = ['secretaria','rh','aluno'];
+      const utilizadores = await query<{ id: string; role: string; nome: string }>(
+        `SELECT id, role, nome FROM public.utilizadores WHERE role = ANY($1) AND ativo=true`,
+        [papeisNotificar]
+      );
+      let count = 0;
+      for (const u of utilizadores) {
+        const criteriosDoPapel = CRITERIOS_POR_PAPEL[u.role] ?? [];
+        if (criteriosDoPapel.length === 0) continue;
+        const mapLabel: Record<string,string> = {
+          notaPlaneamento:'Planeamento de Aulas', notaPontualidade:'Pontualidade & Assiduidade',
+          notaMetodologia:'Metodologia de Ensino', notaRelacaoAlunos:'Relação com Alunos',
+          notaRelacaoColegas:'Relação com Colegas', notaResultados:'Resultados Académicos',
+          notaDisciplina:'Disciplina em Sala', notaDesenvolvimento:'Desenvolvimento Profissional',
+        };
+        const criteriosLabel = criteriosDoPapel.map(c => mapLabel[c] ?? c).join(', ');
+        await query(
+          `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
+           VALUES ($1,$2,$3,$4,$5,false,$6)`,
+          [u.id, `📋 ${periodoLabel} — Avaliação Aberta`,
+           `Foi aberto o período de avaliação de professores. O seu perfil avalia: ${criteriosLabel}. Aceda ao menu Avaliação de Professores para contribuir.`,
+           'info', hoje, '/avaliacao-professores']
+        );
+        count++;
+      }
+      json(res, 200, { ok: true, notificados: count });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   // -----------------------
