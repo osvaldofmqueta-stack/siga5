@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, ActivityIndicator, FlatList, Platform,
+  TextInput, Modal, ActivityIndicator, Platform,
   RefreshControl, Image, useWindowDimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -74,7 +74,6 @@ export default function TrabalhosFinals() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  const [cursoFiltro, setCursoFiltro] = useState('Todos');
   const [anoFiltro, setAnoFiltro] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editItem, setEditItem] = useState<TrabalhoFinal | null>(null);
@@ -108,10 +107,10 @@ export default function TrabalhosFinals() {
     const matchSearch = !q ||
       t.titulo.toLowerCase().includes(q) ||
       t.autor.toLowerCase().includes(q) ||
-      t.orientador.toLowerCase().includes(q);
-    const matchCurso = cursoFiltro === 'Todos' || t.curso === cursoFiltro;
+      t.orientador.toLowerCase().includes(q) ||
+      t.curso.toLowerCase().includes(q);
     const matchAno = !anoFiltro || String(t.anoConclusao) === anoFiltro;
-    return matchSearch && matchCurso && matchAno;
+    return matchSearch && matchAno;
   });
 
   const handleDelete = async (id: string) => {
@@ -178,20 +177,8 @@ export default function TrabalhosFinals() {
         )}
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
-        {CURSOS.map(c => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.chip, cursoFiltro === c && styles.chipActive]}
-            onPress={() => setCursoFiltro(c)}
-          >
-            <Text style={[styles.chipText, cursoFiltro === c && { color: '#fff' }]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
-
       {anos.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.filterScroll, { marginTop: 0 }]} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
           <TouchableOpacity
             style={[styles.anoChip, !anoFiltro && styles.anoChipActive]}
             onPress={() => setAnoFiltro('')}
@@ -217,58 +204,54 @@ export default function TrabalhosFinals() {
       {loading ? (
         <View style={styles.center}><ActivityIndicator color="#5E6AD2" size="large" /></View>
       ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={i => i.id}
-          numColumns={numCols}
-          key={`shelf-${numCols}`}
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={shelfStyles.scrollContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-          contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
-          columnWrapperStyle={{ gap: 10, marginBottom: 10 }}
-          ListHeaderComponent={
-            topVisitados.length > 0 ? (
-              <View style={styles.topBox}>
-                <View style={styles.topHeader}>
-                  <Ionicons name="flame" size={16} color="#FFA726" />
-                  <Text style={styles.topTitle}>Mais Visitados</Text>
-                </View>
-                {topVisitados.map((t, idx) => {
-                  const medals = ['🥇', '🥈', '🥉'];
-                  return (
-                    <TouchableOpacity key={t.id} style={styles.topItem} onPress={() => handleView(t)}>
-                      <Text style={styles.topMedal}>{medals[idx]}</Text>
-                      <View style={styles.topInfo}>
-                        <Text style={styles.topItemTitle} numberOfLines={1}>{t.titulo}</Text>
-                        <Text style={styles.topItemAutor} numberOfLines={1}>{t.autor} · {t.curso}</Text>
-                      </View>
-                      <View style={styles.topVisitasBox}>
-                        <Ionicons name="eye" size={13} color="#FFA726" />
-                        <Text style={styles.topVisitasNum}>{t.visitas}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+        >
+          {topVisitados.length > 0 && (
+            <View style={styles.topBox}>
+              <View style={styles.topHeader}>
+                <Ionicons name="flame" size={16} color="#FFA726" />
+                <Text style={styles.topTitle}>Mais Visitados</Text>
               </View>
-            ) : null
-          }
-          ListEmptyComponent={
+              {topVisitados.map((t, idx) => {
+                const medals = ['🥇', '🥈', '🥉'];
+                return (
+                  <TouchableOpacity key={t.id} style={styles.topItem} onPress={() => handleView(t)}>
+                    <Text style={styles.topMedal}>{medals[idx]}</Text>
+                    <View style={styles.topInfo}>
+                      <Text style={styles.topItemTitle} numberOfLines={1}>{t.titulo}</Text>
+                      <Text style={styles.topItemAutor} numberOfLines={1}>{t.autor} · {t.curso}</Text>
+                    </View>
+                    <View style={styles.topVisitasBox}>
+                      <Ionicons name="eye" size={13} color="#FFA726" />
+                      <Text style={styles.topVisitasNum}>{t.visitas}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
+          {filtered.length === 0 ? (
             <View style={styles.emptyBox}>
               <MaterialCommunityIcons name="book-education-outline" size={56} color="#444" />
               <Text style={styles.emptyText}>Nenhum trabalho final encontrado</Text>
               {canWrite && <Text style={styles.emptySub}>Toque em + para registar o primeiro trabalho</Text>}
             </View>
-          }
-          renderItem={({ item }) => (
-            <ShelfCard
-              item={item}
+          ) : (
+            <BookShelf
+              items={filtered}
+              numCols={numCols}
               cardWidth={cardWidth}
               canWrite={canWrite}
-              onEdit={() => { setEditItem(item); setShowModal(true); }}
-              onDelete={() => handleDelete(item.id)}
-              onView={() => handleView(item)}
+              onEdit={(item) => { setEditItem(item); setShowModal(true); }}
+              onDelete={handleDelete}
+              onView={handleView}
             />
           )}
-        />
+        </ScrollView>
       )}
 
       <TrabalhoModal
@@ -345,6 +328,49 @@ function ShelfCard({ item, cardWidth, canWrite, onEdit, onDelete, onView }: {
         </Text>
       </View>
     </TouchableOpacity>
+  );
+}
+
+function BookShelf({ items, numCols, cardWidth, canWrite, onEdit, onDelete, onView }: {
+  items: TrabalhoFinal[];
+  numCols: number;
+  cardWidth: number;
+  canWrite: boolean;
+  onEdit: (item: TrabalhoFinal) => void;
+  onDelete: (id: string) => void;
+  onView: (item: TrabalhoFinal) => void;
+}) {
+  const rows: TrabalhoFinal[][] = [];
+  for (let i = 0; i < items.length; i += numCols) {
+    rows.push(items.slice(i, i + numCols));
+  }
+
+  return (
+    <View style={shelfStyles.bookcase}>
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={shelfStyles.shelfRow}>
+          <View style={shelfStyles.booksRow}>
+            {row.map(item => (
+              <ShelfCard
+                key={item.id}
+                item={item}
+                cardWidth={cardWidth}
+                canWrite={canWrite}
+                onEdit={() => onEdit(item)}
+                onDelete={() => onDelete(item.id)}
+                onView={() => onView(item)}
+              />
+            ))}
+            {Array.from({ length: numCols - row.length }).map((_, i) => (
+              <View key={`spacer-${i}`} style={{ width: cardWidth }} />
+            ))}
+          </View>
+          <View style={shelfStyles.plank}>
+            <View style={shelfStyles.plankEdge} />
+          </View>
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -719,15 +745,47 @@ const dStyles = StyleSheet.create({
 });
 
 const shelfStyles = StyleSheet.create({
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 120,
+  },
+  bookcase: {
+    gap: 0,
+  },
+  shelfRow: {
+    marginBottom: 6,
+  },
+  booksRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
+    paddingHorizontal: 0,
+  },
+  plank: {
+    height: 16,
+    backgroundColor: '#2c1f10',
+    borderTopWidth: 3,
+    borderTopColor: '#6b4c2a',
+    borderBottomWidth: 2,
+    borderBottomColor: '#140e06',
+    marginTop: 4,
+    marginBottom: 12,
+    borderRadius: 2,
+  },
+  plankEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#a87040',
+    opacity: 0.35,
+    borderRadius: 2,
+  },
   card: {
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#0d1120',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
   },
   coverWrap: { width: '100%', position: 'relative' },
   coverImg: { width: '100%', height: '100%' },
