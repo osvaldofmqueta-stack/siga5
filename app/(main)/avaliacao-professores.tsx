@@ -340,12 +340,19 @@ function AvaliacaoProfessoresMain() {
   };
 
   const agregarContribuicoes = async (av: Avaliacao) => {
-    webAlert('Agregar Contribuições', `Agregar todas as avaliações parciais de ${av.nome} ${av.apelido} (${av.periodoLetivo}) e calcular a nota final?`, [
+    webAlert('Agregar Contribuições', `Agregar todas as avaliações parciais de ${av.nome} ${av.apelido} (${av.periodoLetivo}) e calcular a nota final?\n\nA nota de cada critério é a média de todos os avaliadores que contribuíram (incluindo todos os alunos individualmente).`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Agregar', onPress: async () => {
         try {
-          await api.post('/api/avaliacoes-parciais/agregar', { professorId: av.professorId, periodoLetivo: av.periodoLetivo });
-          alertSucesso('Contribuições agregadas — nota final calculada!');
+          const resultado = await api.post<{ notaFinal: number; contagens: Record<string, number> }>(
+            '/api/avaliacoes-parciais/agregar',
+            { professorId: av.professorId, periodoLetivo: av.periodoLetivo }
+          );
+          const alunosContrib = resultado.contagens?.notaRelacaoAlunos ?? 0;
+          const msg = alunosContrib > 0
+            ? `Nota final: ${resultado.notaFinal.toFixed(1)} — ${alunosContrib} aluno(s) contribuíram para "Relação com Alunos"`
+            : `Nota final: ${resultado.notaFinal.toFixed(1)} — contribuições calculadas`;
+          alertSucesso(msg);
           loadData();
         } catch (e: unknown) { alertErro((e as Error).message || 'Erro ao agregar'); }
       }},

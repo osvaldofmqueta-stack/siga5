@@ -464,11 +464,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         criterio varchar NOT NULL,
         nota numeric(4,2) NOT NULL DEFAULT 0,
         papel varchar NOT NULL,
-        "avaliadorId" varchar,
+        "avaliadorId" varchar NOT NULL DEFAULT 'unknown',
         "avaliadorNome" varchar,
         "criadoEm" timestamptz NOT NULL DEFAULT now(),
-        "atualizadoEm" timestamptz NOT NULL DEFAULT now(),
-        UNIQUE("professorId","periodoLetivo",criterio,papel)
+        "atualizadoEm" timestamptz NOT NULL DEFAULT now()
       )
     `, []);
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacaoPeriodoAtivo" boolean NOT NULL DEFAULT false`, []);
@@ -478,6 +477,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('[migration] avaliacoes_parciais + config avaliacao periodo ensured.');
   } catch (migErr) {
     console.warn('[migration] avaliacoes_parciais:', (migErr as Error).message);
+  }
+
+  // ── Migrar constraint de avaliacoes_parciais: por papel → por avaliadorId ──
+  // Permite que cada aluno/utilizador contribua individualmente; a agregação calcula a média.
+  try {
+    // Remover constraint antiga (por papel) se existir — ignora erro se já foi removida
+    await query(`
+      DO $$
+      DECLARE r RECORD;
+      BEGIN
+        FOR r IN
+          SELECT conname FROM pg_constraint
+          WHERE conrelid = 'public.avaliacoes_parciais'::regclass
+            AND contype = 'u'
+            AND conname LIKE '%papel%'
+        LOOP
+          EXECUTE 'ALTER TABLE public.avaliacoes_parciais DROP CONSTRAINT IF EXISTS ' || quote_ident(r.conname);
+        END LOOP;
+      END$$;
+    `, []);
+    // Adicionar novo unique constraint por avaliadorId (um registo por utilizador por critério por professor)
+    await query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint
+          WHERE conrelid = 'public.avaliacoes_parciais'::regclass
+            AND conname = 'avaliacoes_parciais_por_avaliador'
+        ) THEN
+          ALTER TABLE public.avaliacoes_parciais
+            ADD CONSTRAINT avaliacoes_parciais_por_avaliador
+            UNIQUE ("professorId","periodoLetivo",criterio,"avaliadorId");
+        END IF;
+      END$$;
+    `, []);
+    console.log('[migration] avaliacoes_parciais constraint → por avaliadorId (contribuição individual) ensured.');
+  } catch (migErr) {
+    console.warn('[migration] avaliacoes_parciais constraint:', (migErr as Error).message);
   }
 
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
@@ -6075,12 +6112,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       for (const criterio of meusCriterios) {
         if (criteriosPayload[criterio] === undefined) continue;
         const nota = Math.min(5, Math.max(0, Number(criteriosPayload[criterio]) || 0));
+        // Cada utilizador tem a sua própria linha (UNIQUE por avaliadorId).
+        // Múltiplos alunos podem avaliar o mesmo professor; a agregação calcula a média.
         const row = await query<JsonObject>(`
           INSERT INTO public.avaliacoes_parciais
             ("professorId","periodoLetivo",criterio,nota,papel,"avaliadorId","avaliadorNome","atualizadoEm")
           VALUES ($1,$2,$3,$4,$5,$6,$7,now())
-          ON CONFLICT ("professorId","periodoLetivo",criterio,papel)
-          DO UPDATE SET nota=$4, "avaliadorId"=$6, "avaliadorNome"=$7, "atualizadoEm"=now()
+          ON CONFLICT ("professorId","periodoLetivo",criterio,"avaliadorId")
+          DO UPDATE SET nota=$4, "avaliadorNome"=$7, "atualizadoEm"=now()
           RETURNING *
         `, [String(b.professorId), String(b.periodoLetivo), criterio, nota, role, userId, userName ?? role]);
         inserted.push(row[0]);
@@ -6099,16 +6138,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!b.professorId || !b.periodoLetivo) return json(res, 400, { error: 'professorId e periodoLetivo são obrigatórios.' });
 
       // Buscar todas as parciais para este professor + período
-      const parciais = await query<{ criterio: string; nota: string; papel: string }>(`
-        SELECT criterio, nota, papel FROM public.avaliacoes_parciais
+      const parciais = await query<{ criterio: string; nota: string; papel: string; avaliadorId: string }>(`
+        SELECT criterio, nota, papel, "avaliadorId" FROM public.avaliacoes_parciais
         WHERE "professorId"=$1 AND "periodoLetivo"=$2
       `, [String(b.professorId), String(b.periodoLetivo)]);
 
-      // Para critérios com múltiplos avaliadores (pontualidade: secretaria+rh), calcular média
+      // Para cada critério: calcular média de TODOS os avaliadores individuais que contribuíram
+      // (alunos: um registo por aluno; secretaria/rh: um registo por utilizador)
       const TODOS_CRITERIOS = ['notaPlaneamento','notaPontualidade','notaMetodologia','notaRelacaoAlunos','notaRelacaoColegas','notaResultados','notaDisciplina','notaDesenvolvimento'];
       const agregado: Record<string, number> = {};
+      const contagens: Record<string, number> = {};
       for (const criterio of TODOS_CRITERIOS) {
         const entradas = parciais.filter(p => p.criterio === criterio && Number(p.nota) > 0);
+        contagens[criterio] = entradas.length;
         if (entradas.length > 0) {
           agregado[criterio] = Math.round((entradas.reduce((s, p) => s + Number(p.nota), 0) / entradas.length) * 100) / 100;
         } else {
@@ -6157,7 +6199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           agregado.notaDisciplina, agregado.notaDesenvolvimento, notaFinal,
         ]);
       }
-      json(res, 200, { ok: true, avaliacao: result[0], notaFinal, criterios: agregado });
+      json(res, 200, { ok: true, avaliacao: result[0], notaFinal, criterios: agregado, contagens });
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
