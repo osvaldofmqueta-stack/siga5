@@ -5987,6 +5987,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // POST /api/avaliacoes-professores/:id/aprovar — aprovação final pelo responsável
+  app.post('/api/avaliacoes-professores/:id/aprovar', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const role = req.jwtUser!.role;
+      const allowedRoles = ['admin','ceo','pca','director','pedagogico','chefe_secretaria'];
+      if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado. Apenas o responsável pode aprovar.' });
+      const { id } = req.params;
+      const rows = await query<JsonObject>(
+        `UPDATE public.avaliacoes_professores
+         SET status='aprovada', "avaliacaoEm"=$2, "avaliador"=$3
+         WHERE id=$1 RETURNING *`,
+        [id, new Date().toISOString(), req.jwtUser!.nome ?? role]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Avaliação não encontrada.' });
+      json(res, 200, { ok: true, avaliacao: rows[0] });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   // ─── AVALIAÇÃO DISTRIBUÍDA DE PROFESSORES (PARCIAIS) ────────────────────────
   // Cada perfil avalia apenas os critérios que lhe competem.
   // secretaria : planeamento, pontualidade, metodologia, resultados, disciplina, desenvolvimento
@@ -5994,9 +6012,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // aluno      : relacaoAlunos
 
   const CRITERIOS_POR_PAPEL: Record<string, string[]> = {
-    secretaria:  ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
-    rh:          ['notaPontualidade','notaRelacaoColegas'],
-    aluno:       ['notaRelacaoAlunos'],
+    chefe_secretaria: ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+    secretaria:       ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+    rh:               ['notaPontualidade','notaRelacaoColegas'],
+    aluno:            ['notaRelacaoAlunos'],
   };
 
   // GET /api/avaliacoes-parciais — todas as contribuições (admin/director/CEO)
@@ -6074,7 +6093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/avaliacoes-parciais/agregar', requireAuth, async (req: Request, res: Response) => {
     try {
       const role = req.jwtUser!.role;
-      const allowedRoles = ['admin','ceo','pca','director','pedagogico'];
+      const allowedRoles = ['admin','ceo','pca','director','pedagogico','chefe_secretaria'];
       if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado' });
       const b = requireBodyObject(req);
       if (!b.professorId || !b.periodoLetivo) return json(res, 400, { error: 'professorId e periodoLetivo são obrigatórios.' });
@@ -6146,14 +6165,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/avaliacoes-parciais/notificar', requireAuth, async (req: Request, res: Response) => {
     try {
       const role = req.jwtUser!.role;
-      const allowedRoles = ['admin','ceo','pca','director'];
+      const allowedRoles = ['admin','ceo','pca','director','chefe_secretaria','pedagogico'];
       if (!allowedRoles.includes(role)) return json(res, 403, { error: 'Acesso negado' });
       const b = requireBodyObject(req);
       const periodoLabel = String(b.periodoLabel || 'Avaliação de Professores');
       const hoje = new Date().toISOString().slice(0,10);
 
-      // Notificar todos os utilizadores com papel: secretaria, rh, aluno (activos)
-      const papeisNotificar = ['secretaria','rh','aluno'];
+      // Notificar todos os utilizadores com papel: chefe_secretaria, secretaria, rh, aluno (activos)
+      const papeisNotificar = ['chefe_secretaria','secretaria','rh','aluno'];
       const utilizadores = await query<{ id: string; role: string; nome: string }>(
         `SELECT id, role, nome FROM public.utilizadores WHERE role = ANY($1) AND ativo=true`,
         [papeisNotificar]

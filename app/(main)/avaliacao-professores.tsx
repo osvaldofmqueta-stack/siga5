@@ -97,11 +97,13 @@ const BORDER = 'rgba(255,255,255,0.12)';
 
 // ─── Critérios por perfil (contribuição distribuída) ──────────────────────────
 const CRITERIOS_POR_PAPEL: Record<string, string[]> = {
-  secretaria: ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
-  rh:         ['notaPontualidade','notaRelacaoColegas'],
-  aluno:      ['notaRelacaoAlunos'],
+  chefe_secretaria: ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+  secretaria:       ['notaPlaneamento','notaPontualidade','notaMetodologia','notaResultados','notaDisciplina','notaDesenvolvimento'],
+  rh:               ['notaPontualidade','notaRelacaoColegas'],
+  aluno:            ['notaRelacaoAlunos'],
 };
 const PAPEIS_CONTRIB = Object.keys(CRITERIOS_POR_PAPEL);
+const PAPEIS_APROVADOR = ['admin','ceo','pca','director','pedagogico','chefe_secretaria'];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getNivelCfg(nota: number) {
@@ -171,7 +173,9 @@ function getNotaColor(nota: number) {
 export default function AvaliacaoProfessoresScreen() {
   const { user } = useAuth();
   const router = useRouter();
-  if (user?.role && PAPEIS_CONTRIB.includes(user.role)) {
+  // chefe_secretaria é avaliador E responsável pela aprovação → vista completa de gestão
+  const isParcialOnly = user?.role && PAPEIS_CONTRIB.includes(user.role) && user.role !== 'chefe_secretaria';
+  if (isParcialOnly) {
     return <AvaliacaoParcialScreen onBack={() => router.back()} />;
   }
   return <AvaliacaoProfessoresMain />;
@@ -335,6 +339,39 @@ function AvaliacaoProfessoresMain() {
     ]);
   };
 
+  const agregarContribuicoes = async (av: Avaliacao) => {
+    webAlert('Agregar Contribuições', `Agregar todas as avaliações parciais de ${av.nome} ${av.apelido} (${av.periodoLetivo}) e calcular a nota final?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Agregar', onPress: async () => {
+        try {
+          await api.post('/api/avaliacoes-parciais/agregar', { professorId: av.professorId, periodoLetivo: av.periodoLetivo });
+          alertSucesso('Contribuições agregadas — nota final calculada!');
+          loadData();
+        } catch (e: unknown) { alertErro((e as Error).message || 'Erro ao agregar'); }
+      }},
+    ]);
+  };
+
+  const aprovar = async (av: Avaliacao) => {
+    if (av.notaFinal <= 0) {
+      alertErro('A nota final é 0. Agrega primeiro as contribuições antes de aprovar.');
+      return;
+    }
+    webAlert('Aprovar Avaliação', `Aprovar a avaliação de ${av.nome} ${av.apelido} (${av.periodoLetivo}) com nota final ${av.notaFinal.toFixed(1)}?`, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Aprovar', onPress: async () => {
+        try {
+          await api.post(`/api/avaliacoes-professores/${av.id}/aprovar`, {});
+          alertSucesso('Avaliação aprovada com sucesso!');
+          setViewModal(null);
+          loadData();
+        } catch (e: unknown) { alertErro((e as Error).message || 'Erro ao aprovar'); }
+      }},
+    ]);
+  };
+
+  const canApprove = PAPEIS_APROVADOR.includes(user?.role ?? '');
+
   const notaFinalPreviewed = computeNotaFinal(form as unknown as Record<string, number>);
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -495,6 +532,16 @@ function AvaliacaoProfessoresMain() {
 
                   {/* Actions */}
                   <View style={styles.rowActions}>
+                    {canApprove && av.status !== 'aprovada' && (
+                      <TouchableOpacity style={styles.actionIcon} onPress={() => agregarContribuicoes(av)}>
+                        <Ionicons name="git-merge-outline" size={18} color="#FFC107" />
+                      </TouchableOpacity>
+                    )}
+                    {canApprove && av.status !== 'aprovada' && (
+                      <TouchableOpacity style={styles.actionIcon} onPress={() => aprovar(av)}>
+                        <Ionicons name="checkmark-circle-outline" size={18} color="#66BB6A" />
+                      </TouchableOpacity>
+                    )}
                     <TouchableOpacity style={styles.actionIcon} onPress={() => openEdit(av)}>
                       <Ionicons name="pencil-outline" size={18} color={Colors.primary} />
                     </TouchableOpacity>
@@ -759,6 +806,25 @@ function AvaliacaoProfessoresMain() {
                   Avaliado por {viewModal.avaliador}{viewModal.avaliacaoEm ? ` em ${new Date(viewModal.avaliacaoEm).toLocaleDateString('pt-AO')}` : ''}
                 </Text>
 
+                {canApprove && viewModal.status !== 'aprovada' && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: '#37474F', borderWidth: 1, borderColor: '#FFC107', flex: 1 }]}
+                      onPress={() => agregarContribuicoes(viewModal)}
+                    >
+                      <Ionicons name="git-merge-outline" size={14} color="#FFC107" />
+                      <Text style={[styles.saveBtnText, { color: '#FFC107' }]}> Agregar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { backgroundColor: '#2E7D32', flex: 1 }]}
+                      onPress={() => aprovar(viewModal)}
+                    >
+                      <Ionicons name="checkmark-circle-outline" size={14} color="#fff" />
+                      <Text style={styles.saveBtnText}> Aprovar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.modalBtns}>
                   <TouchableOpacity style={styles.cancelBtn} onPress={() => setViewModal(null)}>
                     <Text style={styles.cancelBtnText}>Fechar</Text>
@@ -916,6 +982,7 @@ function AvaliacaoParcialScreen({ onBack }: { onBack: () => void }) {
   );
 
   const getRoleLabel = () => {
+    if (role === 'chefe_secretaria') return 'Responsável da Secretaria';
     if (role === 'secretaria') return 'Secretaria Académica';
     if (role === 'rh') return 'Recursos Humanos';
     if (role === 'aluno') return 'Aluno';
@@ -1196,6 +1263,11 @@ const styles = StyleSheet.create({
   periodoChipTextActive: { color: '#fff' },
 
   // Search + Filter
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: GLASS, borderRadius: 10, borderWidth: 1, borderColor: BORDER,
+    paddingHorizontal: 12, paddingVertical: 10, marginBottom: 8,
+  },
   searchRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     backgroundColor: GLASS, borderRadius: 10, borderWidth: 1, borderColor: BORDER,
