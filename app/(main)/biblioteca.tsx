@@ -322,7 +322,8 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         </TouchableOpacity>
         {canManage && (
           <TouchableOpacity style={styles.addBtn} onPress={() => { setEditLivro(null); setShowModal(true); }}>
-            <Ionicons name="add" size={20} color="#fff" />
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={styles.addBtnTxt}>Novo Livro</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1163,7 +1164,8 @@ function EmprestimosTab({ emprestimos, livros, solicitacoes, canManage, user, on
         </View>
         {canManage && (
           <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
-            <Ionicons name="add" size={20} color="#fff" />
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={styles.addBtnTxt}>Novo Empréstimo</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1632,7 +1634,8 @@ function DesejosTab({ canManage, user, refreshing, onRefresh }: {
           ))}
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowAdd(true)}>
-          <Ionicons name="add" size={20} color="#fff" />
+          <Ionicons name="add" size={16} color="#fff" />
+          <Text style={styles.addBtnTxt}>Novo Desejo</Text>
         </TouchableOpacity>
       </View>
 
@@ -2190,7 +2193,8 @@ function PresencasTab({ user, refreshing, onRefresh }: { user: any; refreshing: 
           )}
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={() => setShowModal(true)}>
-          <Ionicons name="add" size={20} color="#fff" />
+          <Ionicons name="add" size={16} color="#fff" />
+          <Text style={styles.addBtnTxt}>Novo Registo</Text>
         </TouchableOpacity>
       </View>
 
@@ -2369,7 +2373,8 @@ const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   searchInput: { flex: 1, color: '#fff', fontSize: 14 },
-  addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#5E6AD2' },
+  addBtnTxt: { color: '#fff', fontSize: 12, fontFamily: 'Inter_700Bold' },
   catFilterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 40, borderRadius: 10, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxWidth: 130 },
   catFilterBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   catFilterBtnText: { color: '#aaa', fontSize: 12, fontWeight: '600', flex: 1 },

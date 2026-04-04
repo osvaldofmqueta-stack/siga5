@@ -650,7 +650,8 @@ export default function RHControleScreen() {
             style={styles.fab}
             onPress={() => { setEditingFunc(null); setFuncForm(emptyFuncionario()); setSubsidiosCustom([]); setFormStep('pessoal'); setFuncFormErrors({}); setCompletedSteps(new Set()); setNifLookupStatus('idle'); setNifFoundName(''); setShowFuncForm(true); }}
           >
-            <Ionicons name="add" size={28} color="#fff" />
+            <Ionicons name="add" size={20} color="#fff" />
+            <Text style={styles.fabTxt}>Novo Funcionário</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -766,7 +767,8 @@ export default function RHControleScreen() {
             }}
           />
           <TouchableOpacity style={styles.fab} onPress={() => setShowProvaForm(true)}>
-            <Ionicons name="add" size={28} color="#fff" />
+            <Ionicons name="add" size={20} color="#fff" />
+            <Text style={styles.fabTxt}>Nova Prova</Text>
           </TouchableOpacity>
         </>
       )}
@@ -1612,7 +1614,8 @@ const styles = StyleSheet.create({
   publishBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   publishText: { fontSize: 11, fontFamily: 'Inter_500Medium' },
 
-  fab: { position: 'absolute', bottom: 24, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  fab: { position: 'absolute', bottom: 80, right: 20, height: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: Colors.accent, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+  fabTxt: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   // Modal
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },

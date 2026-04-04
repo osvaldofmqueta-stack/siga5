@@ -268,7 +268,8 @@ export default function BolsasScreen() {
           <Text style={styles.headerSub}>Gestão de alunos bolseiros</Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={openNew}>
-          <Ionicons name="add" size={22} color="#fff" />
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.addBtnTxt}>Nova Bolsa</Text>
         </TouchableOpacity>
       </View>
 
@@ -638,10 +639,8 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
   headerSub: { color: 'rgba(255,255,255,0.55)', fontSize: 12 },
-  addBtn: {
-    padding: 8, borderRadius: 8,
-    backgroundColor: Colors.primary,
-  },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: Colors.primary },
+  addBtnTxt: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 40 },

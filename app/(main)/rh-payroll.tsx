@@ -692,7 +692,8 @@ export default function RhPayrollScreen() {
         </View>
         {tab === 'folhas' && (
           <TouchableOpacity style={styles.addBtn} onPress={() => setShowNovaFolha(true)}>
-            <Ionicons name="add" size={22} color="#fff" />
+            <Ionicons name="add" size={18} color="#fff" />
+            <Text style={styles.addBtnTxt}>Nova Folha</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -1423,10 +1424,8 @@ const styles = StyleSheet.create({
   backBtn: { padding: 4 },
   headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700', flex: 1 },
   headerSub: { color: Colors.textSecondary ?? '#aaa', fontSize: 12 },
-  addBtn: {
-    padding: 8, borderRadius: 8,
-    backgroundColor: Colors.primary ?? '#5E6AD2',
-  },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 40, paddingHorizontal: 14, borderRadius: 20, backgroundColor: Colors.primary ?? '#5E6AD2' },
+  addBtnTxt: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   tabBar: {
     flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: BORDER,

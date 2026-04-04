@@ -190,7 +190,8 @@ export default function ProfessorSumarioScreen() {
 
       {/* FAB */}
       <TouchableOpacity style={styles.fab} onPress={() => setShowForm(true)}>
-        <Ionicons name="add" size={28} color="#fff" />
+        <Ionicons name="add" size={20} color="#fff" />
+        <Text style={styles.fabTxt}>Novo Sumário</Text>
       </TouchableOpacity>
 
       {/* Form Modal */}
@@ -324,7 +325,8 @@ const styles = StyleSheet.create({
   sumConteudo: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 },
   observacaoBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginTop: 8, padding: 10, backgroundColor: Colors.danger + '18', borderRadius: 8 },
   observacaoText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger },
-  fab: { position: 'absolute', bottom: 80, right: 20, width: 56, height: 56, borderRadius: 28, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center', elevation: 6 },
+  fab: { position: 'absolute', bottom: 80, right: 20, height: 44, paddingHorizontal: 16, borderRadius: 22, backgroundColor: Colors.success, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, elevation: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  fabTxt: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '92%', width: '100%', maxWidth: 480 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },

@@ -758,7 +758,8 @@ export default function RHHubScreen() {
           />
           <TouchableOpacity style={styles.fab} onPress={() => setShowProvaForm(true)}>
             <LinearGradient colors={[Colors.gold, '#C87E00']} style={styles.fabGrad}>
-              <Ionicons name="add" size={28} color="#fff" />
+              <Ionicons name="add" size={20} color="#fff" />
+              <Text style={styles.fabTxt}>Nova Prova</Text>
             </LinearGradient>
           </TouchableOpacity>
         </>
@@ -1203,8 +1204,9 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 13, color: Colors.textMuted, textAlign: 'center' },
   emptySmall: { fontSize: 12, color: Colors.textMuted, textAlign: 'center', padding: 12 },
 
-  fab: { position: 'absolute', bottom: 28, right: 20 },
-  fabGrad: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', elevation: 6, shadowColor: Colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  fab: { position: 'absolute', bottom: 80, right: 20 },
+  fabGrad: { height: 44, paddingHorizontal: 16, borderRadius: 22, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6, elevation: 6, shadowColor: Colors.gold, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 },
+  fabTxt: { color: '#fff', fontSize: 13, fontFamily: 'Inter_700Bold' },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center' },
   modalBox: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, maxHeight: '90%' },
