@@ -8617,6 +8617,130 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── HISTÓRICO ACADÉMICO ─────────────────────────────────────────────────────
+
+  // GET /api/historico/aluno/:alunoId — historial completo de um aluno
+  app.get('/api/historico/aluno/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+
+      const alunoRows = await query<JsonObject>(
+        `SELECT a.*, c.nome as "cursoNome", t.nome as "turmaNomeAtual", t.nivel as "turmaNivelAtual"
+         FROM public.alunos a
+         LEFT JOIN public.cursos c ON c.id = a."cursoId"
+         LEFT JOIN public.turmas t ON t.id = a."turmaId"
+         WHERE a.id = $1`,
+        [alunoId]
+      );
+      if (!alunoRows[0]) return json(res, 404, { error: 'Aluno não encontrado.' });
+
+      // Notas com turma e professor
+      const notasRows = await query<JsonObject>(
+        `SELECT n.*,
+                t.nome  AS "turmaNome",
+                t.nivel AS "turmaNivel",
+                t.turno AS "turmaTurno",
+                t."anoLetivo" AS "turmaAnoLetivo"
+         FROM public.notas n
+         LEFT JOIN public.turmas t ON t.id = n."turmaId"
+         WHERE n."alunoId" = $1
+         ORDER BY n."anoLetivo" DESC, n.trimestre ASC, n.disciplina ASC`,
+        [alunoId]
+      );
+
+      // Presenças
+      const presRows = await query<JsonObject>(
+        `SELECT p.*, t.nome AS "turmaNome"
+         FROM public.presencas p
+         LEFT JOIN public.turmas t ON t.id = p."turmaId"
+         WHERE p."alunoId" = $1
+         ORDER BY p.data DESC`,
+        [alunoId]
+      );
+
+      // Propinas / pagamentos
+      const propRows = await query<JsonObject>(
+        `SELECT * FROM public.propinas WHERE "alunoId" = $1 ORDER BY "anoLetivo" DESC, mes DESC LIMIT 60`,
+        [alunoId]
+      ).catch(() => []);
+
+      // Anos lectivos registados
+      const anosRows = await query<JsonObject>(
+        `SELECT * FROM public.anos_academicos ORDER BY ano DESC`,
+        []
+      ).catch(() => []);
+
+      json(res, 200, {
+        aluno: alunoRows[0],
+        notas: notasRows,
+        presencas: presRows,
+        propinas: propRows,
+        anos: anosRows,
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // GET /api/historico/turma/:turmaId — alunos e desempenho de uma turma
+  app.get('/api/historico/turma/:turmaId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { turmaId } = req.params;
+      const { anoLetivo } = req.query as Record<string, string>;
+
+      const turmaRows = await query<JsonObject>(
+        `SELECT * FROM public.turmas WHERE id = $1`,
+        [turmaId]
+      );
+      if (!turmaRows[0]) return json(res, 404, { error: 'Turma não encontrada.' });
+
+      // Alunos — pelo turmaId directo OU via notas (histórico)
+      const alunoParams: any[] = [turmaId];
+      let anoFilter = '';
+      if (anoLetivo) {
+        alunoParams.push(anoLetivo);
+        anoFilter = `AND n."anoLetivo" = $2`;
+      }
+      const alunosRows = await query<JsonObject>(
+        `SELECT DISTINCT a.*
+         FROM public.alunos a
+         LEFT JOIN public.notas n ON n."alunoId" = a.id AND n."turmaId" = $1 ${anoFilter}
+         WHERE a."turmaId" = $1 OR n."alunoId" IS NOT NULL
+         ORDER BY a.nome, a.apelido`,
+        alunoParams
+      );
+
+      // Notas da turma
+      const notasParams: any[] = [turmaId];
+      let notasAnoFilter = '';
+      if (anoLetivo) {
+        notasParams.push(anoLetivo);
+        notasAnoFilter = `AND "anoLetivo" = $2`;
+      }
+      const notasRows = await query<JsonObject>(
+        `SELECT * FROM public.notas WHERE "turmaId" = $1 ${notasAnoFilter}
+         ORDER BY "anoLetivo" DESC, trimestre, disciplina`,
+        notasParams
+      );
+
+      // Presenças dos alunos desta turma
+      const alunoIds = (alunosRows as any[]).map((a: any) => a.id);
+      let presRows: any[] = [];
+      if (alunoIds.length > 0) {
+        presRows = await query<JsonObject>(
+          `SELECT * FROM public.presencas WHERE "turmaId" = $1 ${anoFilter}`,
+          alunoParams
+        ).catch(() => []);
+      }
+
+      json(res, 200, {
+        turma: turmaRows[0],
+        alunos: alunosRows,
+        notas: notasRows,
+        presencas: presRows,
+        total: alunosRows.length,
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   // ─── VERIFICAR SE DATA É FERIADO ────────────────────────────────────────────
   app.get('/api/feriados/verificar', requireAuth, async (req, res) => {
     try {
