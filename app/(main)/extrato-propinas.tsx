@@ -615,7 +615,7 @@ export default function ExtratoPropinas() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.extratoTitle}>EXTRACTO DE PAGAMENTOS</Text>
-                  <Text style={styles.extratoSubtitle}>QUETA, School</Text>
+                  <Text style={styles.extratoSubtitle}>{config.nomeEscola}</Text>
                 </View>
               </View>
 

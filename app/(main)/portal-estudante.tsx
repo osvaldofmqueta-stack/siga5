@@ -799,7 +799,7 @@ export default function PortalEstudanteScreen() {
           {/* Header strip */}
           <View style={styles.cartaoHeader}>
             <View>
-              <Text style={styles.cartaoSchoolName}>QUETA · ESCOLA</Text>
+              <Text style={styles.cartaoSchoolName}>{config.nomeEscola}</Text>
               <Text style={styles.cartaoAnoLetivo}>Ano Lectivo {anoLetivo}</Text>
             </View>
             <View style={[styles.cartaoStatusBadge, cartaoValido ? styles.cartaoStatusValido : styles.cartaoStatusPendente]}>
