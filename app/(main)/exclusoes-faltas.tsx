@@ -1083,7 +1083,7 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
               {turmas.map(t => (
                 <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => setTurmaId(t.id)}>
+                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
                   <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
                 </TouchableOpacity>
               ))}
@@ -1100,8 +1100,7 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
               </ScrollView>
             </>}
             <Text style={styles.label}>Disciplina *</Text>
-            <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-              placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} />
+            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
             <Text style={styles.label}>Total de Faltas Acumuladas</Text>
             <TextInput style={styles.input} value={totalFaltas} onChangeText={setTotalFaltas}
               keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
@@ -1174,7 +1173,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
               {turmas.map(t => (
                 <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => setTurmaId(t.id)}>
+                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
                   <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
                 </TouchableOpacity>
               ))}
@@ -1191,8 +1190,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
               </ScrollView>
             </>}
             <Text style={styles.label}>Disciplina *</Text>
-            <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-              placeholder="Ex: Física" placeholderTextColor={Colors.textMuted} />
+            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
             <Text style={styles.label}>Data da Prova Original *</Text>
             <DateInput style={styles.input} value={dataProvaOriginal} onChangeText={setDataProvaOriginal} />
             <Text style={styles.label}>Motivo / Justificação *</Text>
