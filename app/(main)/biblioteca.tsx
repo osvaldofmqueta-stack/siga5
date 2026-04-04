@@ -9,7 +9,7 @@ import { Colors } from '@/constants/colors';
 import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth, getAuthToken } from '@/context/AuthContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Livro {
@@ -61,16 +61,20 @@ interface Solicitacao {
 
 const TIPOS_LEITOR = ['aluno', 'professor', 'funcionário', 'externo'];
 
-function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
-  return fetch(url, {
+async function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
+  const tok = await getAuthToken();
+  const r = await fetch(url, {
     ...opts,
-    headers: { 'Content-Type': 'application/json', ...opts?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(tok ? { Authorization: `Bearer ${tok}` } : {}),
+      ...opts?.headers,
+    },
     credentials: 'include',
-  }).then(async r => {
-    const data = await r.json();
-    if (!r.ok) throw new Error(data?.error || 'Erro de servidor');
-    return data as T;
   });
+  const data = await r.json();
+  if (!r.ok) throw new Error(data?.error || 'Erro de servidor');
+  return data as T;
 }
 
 function fmtDate(d: string) {
@@ -566,74 +570,137 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={mStyles.overlay}>
         <View style={mStyles.sheet}>
+
+          {/* ── Cabeçalho ─────────────────────────────────────────────── */}
           <View style={mStyles.header}>
-            <Text style={mStyles.headerTitle}>{livro ? 'Editar Livro' : 'Adicionar Livro'}</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            <View style={mStyles.headerLeft}>
+              <Ionicons name={livro ? 'pencil' : 'add-circle'} size={20} color="#5E6AD2" />
+              <Text style={mStyles.headerTitle}>{livro ? 'Editar Livro' : 'Adicionar Livro'}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={mStyles.closeBtn}>
+              <Ionicons name="close" size={20} color="#aaa" />
+            </TouchableOpacity>
           </View>
-          <ScrollView style={mStyles.body} keyboardShouldPersistTaps="handled">
-            <MLabel>Título *</MLabel>
-            <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do livro" />
-            <MLabel>Autor *</MLabel>
-            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome do autor" />
 
-            {/* Cover image URL */}
-            <MLabel>URL da Capa (imagem)</MLabel>
-            <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://…" />
-            {form.capaUrl ? (
-              <View style={mStyles.capaPreview}>
-                <Image source={{ uri: form.capaUrl }} style={mStyles.capaImg} resizeMode="cover"
-                  onError={() => {}} />
-                <Text style={mStyles.capaHint}>Pré-visualização da capa</Text>
-              </View>
-            ) : null}
+          <ScrollView style={mStyles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <MLabel>ISBN</MLabel>
-                <MInput value={form.isbn} onChangeText={upd('isbn')} placeholder="ISBN" keyboardType="numeric" />
+            {/* ── Secção 1: Identificação ─────────────────────────────── */}
+            <View style={mStyles.section}>
+              <View style={mStyles.sectionHeader}>
+                <Ionicons name="information-circle-outline" size={14} color="#5E6AD2" />
+                <Text style={mStyles.sectionTitle}>IDENTIFICAÇÃO</Text>
               </View>
-              <View style={{ flex: 1 }}>
-                <MLabel>Ano Publicação</MLabel>
-                <MInput value={form.anoPublicacao} onChangeText={upd('anoPublicacao')} placeholder="Ex: 2018" keyboardType="numeric" />
+              <MLabel>Título *</MLabel>
+              <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do livro" />
+              <MLabel>Autor *</MLabel>
+              <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome do autor" />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <MLabel>ISBN</MLabel>
+                  <MInput value={form.isbn} onChangeText={upd('isbn')} placeholder="ISBN" keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <MLabel>Ano Publicação</MLabel>
+                  <MInput value={form.anoPublicacao} onChangeText={upd('anoPublicacao')} placeholder="Ex: 2018" keyboardType="numeric" />
+                </View>
+              </View>
+              <MLabel>Editora</MLabel>
+              <MInput value={form.editora} onChangeText={upd('editora')} placeholder="Nome da editora" />
+            </View>
+
+            {/* ── Secção 2: Categoria ─────────────────────────────────── */}
+            <View style={mStyles.section}>
+              <View style={mStyles.sectionHeader}>
+                <Ionicons name="pricetag-outline" size={14} color="#5E6AD2" />
+                <Text style={mStyles.sectionTitle}>CATEGORIA</Text>
+                <View style={mStyles.catSelectedBadge}>
+                  <Text style={mStyles.catSelectedText}>{form.categoria}</Text>
+                </View>
+              </View>
+              <View style={mStyles.catGrid}>
+                {CATS.map(c => {
+                  const cc = catColor(c);
+                  const isActive = form.categoria === c;
+                  return (
+                    <TouchableOpacity
+                      key={c}
+                      style={[mStyles.catGridItem, isActive && { borderColor: cc, backgroundColor: cc + '20' }]}
+                      onPress={() => upd('categoria')(c)}
+                    >
+                      <View style={[mStyles.catDot, { backgroundColor: isActive ? cc : 'rgba(255,255,255,0.15)' }]} />
+                      <Text style={[mStyles.catGridText, isActive && { color: cc, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
+                        {c}
+                      </Text>
+                      {isActive && <Ionicons name="checkmark" size={11} color={cc} />}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            <MLabel>Categoria</MLabel>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
-              {CATS.map(c => (
-                <TouchableOpacity key={c} style={[mStyles.chip, form.categoria === c && mStyles.chipActive]} onPress={() => upd('categoria')(c)}>
-                  <Text style={[mStyles.chipText, form.categoria === c && { color: '#fff' }]}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <MLabel>Editora</MLabel>
-                <MInput value={form.editora} onChangeText={upd('editora')} placeholder="Nome da editora" />
+            {/* ── Secção 3: Inventário ────────────────────────────────── */}
+            <View style={mStyles.section}>
+              <View style={mStyles.sectionHeader}>
+                <Ionicons name="cube-outline" size={14} color="#5E6AD2" />
+                <Text style={mStyles.sectionTitle}>INVENTÁRIO & LOCALIZAÇÃO</Text>
               </View>
-              <View style={{ width: 80 }}>
-                <MLabel>Exemplares</MLabel>
-                <MInput value={form.quantidadeTotal} onChangeText={upd('quantidadeTotal')} placeholder="1" keyboardType="numeric" />
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <View style={{ width: 90 }}>
+                  <MLabel>Exemplares</MLabel>
+                  <MInput value={form.quantidadeTotal} onChangeText={upd('quantidadeTotal')} placeholder="1" keyboardType="numeric" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <MLabel>Prateleira / Localização</MLabel>
+                  <MInput value={form.localizacao} onChangeText={upd('localizacao')} placeholder="Ex: Estante A, Prateleira 3" />
+                </View>
               </View>
             </View>
 
-            <MLabel>Localização / Prateleira</MLabel>
-            <MInput value={form.localizacao} onChangeText={upd('localizacao')} placeholder="Ex: Estante A, Prateleira 3" />
-            <MLabel>Descrição / Sinopse</MLabel>
-            <MInput value={form.descricao} onChangeText={upd('descricao')} placeholder="Breve descrição do livro" multiline style={{ height: 80, textAlignVertical: 'top' }} />
+            {/* ── Secção 4: Capa e Descrição ──────────────────────────── */}
+            <View style={mStyles.section}>
+              <View style={mStyles.sectionHeader}>
+                <Ionicons name="image-outline" size={14} color="#5E6AD2" />
+                <Text style={mStyles.sectionTitle}>CAPA & DESCRIÇÃO</Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+                {form.capaUrl ? (
+                  <Image source={{ uri: form.capaUrl }} style={mStyles.capaImg} resizeMode="cover" onError={() => {}} />
+                ) : (
+                  <View style={mStyles.capaPlaceholder}>
+                    <Ionicons name="book-outline" size={28} color="#444" />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <MLabel>URL da Capa</MLabel>
+                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://..." />
+                </View>
+              </View>
+              <MLabel>Sinopse / Descrição</MLabel>
+              <MInput value={form.descricao} onChangeText={upd('descricao')} placeholder="Breve descrição do livro..." multiline style={{ height: 72, textAlignVertical: 'top' }} />
+            </View>
+
+            <View style={{ height: 8 }} />
           </ScrollView>
+
+          {/* ── Rodapé ──────────────────────────────────────────────────── */}
           <View style={mStyles.footer}>
             <TouchableOpacity style={mStyles.cancelBtn} onPress={onClose}>
               <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={mStyles.saveBtn} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>{livro ? 'Guardar' : 'Adicionar'}</Text>}
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                    <Ionicons name={livro ? 'save-outline' : 'add-circle-outline'} size={16} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>{livro ? 'Guardar Alterações' : 'Adicionar Livro'}</Text>
+                  </>
+              }
             </TouchableOpacity>
           </View>
+
         </View>
       </View>
     </Modal>
