@@ -1742,6 +1742,195 @@ export function registerPDFRoutes(app: Express) {
     }
   });
 
+  // ─── RELATÓRIO MENSAL DA BIBLIOTECA ───
+  app.get('/api/pdf/biblioteca/relatorio-mensal', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const mes = parseInt((req.query.mes as string) || String(now.getMonth() + 1));
+      const ano = parseInt((req.query.ano as string) || String(now.getFullYear()));
+
+      const configRows = await query<any>(`SELECT * FROM public.config_geral LIMIT 1`, []);
+      const cfg = configRows[0] || {};
+      const nomeEscola = cfg.nomeEscola || 'Escola';
+      const mesNome = MESES[mes] || '';
+
+      const topLivrosRows = await query<any>(
+        `SELECT "livroTitulo", COUNT(*) AS total
+         FROM public.emprestimos
+         WHERE EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2
+         GROUP BY "livroTitulo"
+         ORDER BY total DESC
+         LIMIT 10`,
+        [mes, ano]
+      );
+
+      const totalMesRows = await query<any>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2`,
+        [mes, ano]
+      );
+
+      const atrasosMesRows = await query<any>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE status='atrasado'
+           AND EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2`,
+        [mes, ano]
+      );
+
+      const devolvidosMesRows = await query<any>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE status='devolvido'
+           AND EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2`,
+        [mes, ano]
+      );
+
+      const livrosRows = await query<any>(`SELECT * FROM public.livros WHERE ativo=true ORDER BY titulo ASC`, []);
+      const totalLivros = livrosRows.reduce((s: number, l: any) => s + Number(l.quantidadeTotal || 0), 0);
+      const totalDisp   = livrosRows.reduce((s: number, l: any) => s + Number(l.quantidadeDisponivel || 0), 0);
+      const taxaOcupacao = totalLivros > 0 ? Math.round(((totalLivros - totalDisp) / totalLivros) * 100) : 0;
+
+      const catCounts: Record<string, number> = {};
+      livrosRows.forEach((l: any) => { catCounts[l.categoria] = (catCounts[l.categoria] || 0) + 1; });
+      const topCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+      const penRows = await query<any>(
+        `SELECT "nomeLeitor", COUNT(*) AS total_atrasos
+         FROM public.emprestimos
+         WHERE status = 'devolvido' AND "dataDevolucao" IS NOT NULL AND "dataDevolucao" > "dataPrevistaDevolucao"
+         GROUP BY "nomeLeitor" HAVING COUNT(*) >= 2 ORDER BY total_atrasos DESC LIMIT 10`,
+        []
+      );
+
+      const totalEmprestimos = Number(totalMesRows[0]?.total || 0);
+      const totalAtrasados   = Number(atrasosMesRows[0]?.total || 0);
+      const totalDevolvidos  = Number(devolvidosMesRows[0]?.total || 0);
+      const topLivros = topLivrosRows.map((r: any) => ({ titulo: r.livroTitulo, total: Number(r.total) }));
+      const maxTotal  = topLivros[0]?.total || 1;
+
+      const catRows = topCats.map(([cat, count]) => `
+        <tr>
+          <td>${cat}</td>
+          <td style="text-align:center">${count}</td>
+          <td style="text-align:center">${livrosRows.length > 0 ? Math.round((count / livrosRows.length) * 100) : 0}%</td>
+        </tr>`).join('');
+
+      const livroRows = topLivros.map((l: any, i: number) => `
+        <tr>
+          <td style="text-align:center;font-weight:700;color:#1a2b5f">${i + 1}</td>
+          <td>${l.titulo}</td>
+          <td style="text-align:center;font-weight:700">${l.total}</td>
+          <td>
+            <div style="background:#e8ecf5;border-radius:4px;height:10px;width:100%;overflow:hidden">
+              <div style="height:10px;background:#1a2b5f;border-radius:4px;width:${Math.round((l.total / maxTotal) * 100)}%"></div>
+            </div>
+          </td>
+        </tr>`).join('');
+
+      const penRows2 = penRows.map((p: any) => `
+        <tr>
+          <td>${p.nomeLeitor}</td>
+          <td style="text-align:center;color:#c0392b;font-weight:700">${p.total_atrasos}</td>
+        </tr>`).join('');
+
+      const emitidoEm = new Date().toLocaleDateString('pt-PT', { day: '2-digit', month: 'long', year: 'numeric' });
+      const docRef = `BIB-${String(mes).padStart(2,'0')}${ano}-${Date.now().toString(36).toUpperCase().slice(-4)}`;
+
+      const html = `<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8"/>
+<title>Relatório Mensal da Biblioteca — ${mesNome} ${ano}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',Arial,sans-serif;font-size:10pt;color:#222;background:#fff;padding:24px 32px}
+  .header{display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1a2b5f;padding-bottom:14px;margin-bottom:18px}
+  .header-title{font-size:18pt;font-weight:800;color:#1a2b5f}
+  .header-sub{font-size:10pt;color:#555;margin-top:2px}
+  .escola{font-size:10pt;color:#888;text-align:right}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+  .kpi{background:#f0f4ff;border:1px solid #dde3f5;border-radius:8px;padding:10px 14px;text-align:center}
+  .kpi-val{font-size:22pt;font-weight:800;color:#1a2b5f}
+  .kpi-label{font-size:8pt;color:#666;margin-top:2px;text-transform:uppercase;letter-spacing:.4px}
+  .section{margin-bottom:18px}
+  .section-title{font-size:11pt;font-weight:700;color:#1a2b5f;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #dde3f5}
+  table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  th{background:#1a2b5f;color:#fff;padding:6px 8px;text-align:left;font-weight:600;font-size:8.5pt}
+  td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:middle}
+  tr:nth-child(even) td{background:#f7f9ff}
+  .badge-atrasado{background:#fde8e8;color:#c0392b;border-radius:4px;padding:2px 6px;font-size:8pt;font-weight:700}
+  .footer{margin-top:24px;padding-top:10px;border-top:1px solid #dde3f5;display:flex;justify-content:space-between;font-size:8pt;color:#888}
+  @media print{body{padding:0} @page{margin:18mm 14mm}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div>
+    <div class="header-title">Relatório Mensal da Biblioteca</div>
+    <div class="header-sub">${mesNome} de ${ano}</div>
+  </div>
+  <div class="escola">${nomeEscola}<br/><span style="font-size:8pt;color:#aaa">Ref: ${docRef}</span></div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi"><div class="kpi-val">${totalEmprestimos}</div><div class="kpi-label">Empréstimos no mês</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#c0392b">${totalAtrasados}</div><div class="kpi-label">Em atraso</div></div>
+  <div class="kpi"><div class="kpi-val" style="color:#27ae60">${totalDevolvidos}</div><div class="kpi-label">Devolvidos</div></div>
+  <div class="kpi"><div class="kpi-val">${taxaOcupacao}%</div><div class="kpi-label">Taxa de ocupação</div></div>
+</div>
+
+<div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpi"><div class="kpi-val">${livrosRows.length}</div><div class="kpi-label">Títulos no acervo</div></div>
+  <div class="kpi"><div class="kpi-val">${totalLivros}</div><div class="kpi-label">Total de exemplares</div></div>
+  <div class="kpi"><div class="kpi-val">${totalDisp}</div><div class="kpi-label">Disponíveis agora</div></div>
+</div>
+
+${topLivros.length > 0 ? `
+<div class="section">
+  <div class="section-title">Livros Mais Emprestados</div>
+  <table>
+    <thead><tr><th style="width:40px">#</th><th>Título</th><th style="width:70px;text-align:center">Empréstimos</th><th style="width:140px">Proporção</th></tr></thead>
+    <tbody>${livroRows}</tbody>
+  </table>
+</div>` : ''}
+
+${topCats.length > 0 ? `
+<div class="section">
+  <div class="section-title">Distribuição por Categoria</div>
+  <table>
+    <thead><tr><th>Categoria</th><th style="width:80px;text-align:center">Títulos</th><th style="width:80px;text-align:center">% do acervo</th></tr></thead>
+    <tbody>${catRows}</tbody>
+  </table>
+</div>` : ''}
+
+${penRows.length > 0 ? `
+<div class="section">
+  <div class="section-title" style="color:#c0392b">Leitores Penalizados</div>
+  <table>
+    <thead><tr><th>Leitor</th><th style="width:100px;text-align:center">Atrasos registados</th></tr></thead>
+    <tbody>${penRows2}</tbody>
+  </table>
+</div>` : ''}
+
+<div class="footer">
+  <span>Emitido em: ${emitidoEm}</span>
+  <span>${nomeEscola} · Sistema SIGA v3</span>
+</div>
+
+<script>window.addEventListener('load',function(){window.print()})</script>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   app.post('/api/pdf/multicaixa/gerar', requireAuth, async (req: Request, res: Response) => {
     try {
       const { alunoId, taxaId, valor, mes, ano } = req.body;

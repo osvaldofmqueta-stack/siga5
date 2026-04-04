@@ -275,7 +275,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   const filtered = livros.filter(l => {
     const q = search.toLowerCase();
     const matchSearch = !q || l.titulo.toLowerCase().includes(q) || l.autor.toLowerCase().includes(q) || l.isbn.includes(q);
-    const matchCat = catFiltro === 'Todas' || l.categoria === catFiltro;
+    const matchCat = catFiltro === 'Todas' || (l.categoria || '').trim() === catFiltro.trim();
     return matchSearch && matchCat;
   });
 
@@ -819,7 +819,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
       const qty = parseInt(form.quantidadeTotal) || 1;
       const payload = {
         titulo: form.titulo.trim(), autor: form.autor.trim(), isbn: form.isbn.trim(),
-        categoria: form.categoria, editora: form.editora.trim(),
+        categoria: (form.categoria || 'Geral').trim(), editora: form.editora.trim(),
         anoPublicacao: form.anoPublicacao ? parseInt(form.anoPublicacao) : null,
         quantidadeTotal: qty,
         quantidadeDisponivel: livro ? undefined : qty,
@@ -1361,14 +1361,21 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
           <ScrollView style={mStyles.body} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
             <MLabel>Livro *</MLabel>
             {livroSel ? (
-              <View style={mStyles.livroSel}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: '#fff', fontWeight: '700' }} numberOfLines={1}>{livroSel.titulo}</Text>
-                  <Text style={{ color: '#aaa', fontSize: 12 }}>{livroSel.autor} · {livroSel.quantidadeDisponivel} disponível(is)</Text>
+              <View>
+                <View style={mStyles.livroSel}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: '700' }} numberOfLines={1}>{livroSel.titulo}</Text>
+                    <Text style={{ color: '#aaa', fontSize: 12 }}>{livroSel.quantidadeDisponivel} exemplar(es) disponível(is)</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setLivroSel(null)}>
+                    <Ionicons name="close-circle" size={18} color="#EF5350" />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => setLivroSel(null)}>
-                  <Ionicons name="close-circle" size={18} color="#EF5350" />
-                </TouchableOpacity>
+                <View style={mStyles.autorAutoFill}>
+                  <Ionicons name="person-outline" size={13} color="#5E6AD2" />
+                  <Text style={mStyles.autorAutoFillLabel}>Autor:</Text>
+                  <Text style={mStyles.autorAutoFillValue} numberOfLines={1}>{livroSel.autor}</Text>
+                </View>
               </View>
             ) : (
               <>
@@ -1729,6 +1736,18 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         <View style={sStyles.reportHeader}>
           <Ionicons name="bar-chart" size={16} color="#5E6AD2" />
           <Text style={sStyles.sectionTitle}>Relatório Mensal de Empréstimos</Text>
+          <TouchableOpacity
+            style={sStyles.pdfBtn}
+            onPress={() => {
+              const url = `/api/pdf/biblioteca/relatorio-mensal?mes=${mesSel}&ano=${anoSel}`;
+              if (typeof window !== 'undefined') {
+                window.open(url, '_blank');
+              }
+            }}
+          >
+            <Ionicons name="document-text-outline" size={13} color="#fff" />
+            <Text style={sStyles.pdfBtnText}>PDF</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Month + Year selector */}
@@ -2063,7 +2082,10 @@ const mStyles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   chipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
-  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 4, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 0, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  autorAutoFill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#5E6AD210', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 4, borderWidth: 1, borderColor: '#5E6AD230' },
+  autorAutoFillLabel: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
+  autorAutoFillValue: { color: '#ccc', fontSize: 12, flex: 1 },
   livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
   livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },
@@ -2109,6 +2131,8 @@ const sStyles = StyleSheet.create({
   section: { backgroundColor: '#13131f', borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   reportHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '700', flex: 1 },
+  pdfBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#5E6AD2', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  pdfBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressBg: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#1a1a2e', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
