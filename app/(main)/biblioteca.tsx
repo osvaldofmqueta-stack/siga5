@@ -1098,7 +1098,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
             <Text style={mStyles.headerTitle}>Registar Empréstimo</Text>
             <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
           </View>
-          <ScrollView style={mStyles.body} keyboardShouldPersistTaps="handled">
+          <ScrollView style={mStyles.body} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
             <MLabel>Livro *</MLabel>
             {livroSel ? (
               <View style={mStyles.livroSel}>
@@ -1370,8 +1370,8 @@ const eStyles = StyleSheet.create({
 
 // Modal styles
 const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
-  sheet: { backgroundColor: '#0f1423', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end', alignItems: 'center' },
+  sheet: { backgroundColor: '#0f1423', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', width: '100%', maxWidth: 640 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
