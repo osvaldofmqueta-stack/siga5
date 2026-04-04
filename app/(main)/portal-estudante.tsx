@@ -176,6 +176,11 @@ export default function PortalEstudanteScreen() {
   const [showPhotoChangedModal, setShowPhotoChangedModal] = useState(false);
   const [filtroDiscDiario, setFiltroDiscDiario] = useState<string>('todas');
   const [sumariosDirectos, setSumariosDirectos] = useState<any[] | null>(null);
+  const [registosFalta, setRegistosFalta] = useState<any[]>([]);
+  const [exclusoesFalta, setExclusoesFalta] = useState<any[]>([]);
+  const [showJustModal, setShowJustModal] = useState<{ disciplina: string; registoId?: string } | null>(null);
+  const [justMotivo, setJustMotivo] = useState('');
+  const [justSaving, setJustSaving] = useState(false);
 
   const aluno = alunos.find(a =>
     (user?.alunoId && a.id === user.alunoId) ||
@@ -263,10 +268,12 @@ export default function PortalEstudanteScreen() {
 
   async function loadServerData(alunoId?: string) {
     try {
-      const [horRes, solRes, recRes] = await Promise.all([
+      const [horRes, solRes, recRes, regFaltaRes, exclRes] = await Promise.all([
         fetch('/api/horarios'),
         alunoId ? fetch(`/api/solicitacoes-documentos?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
         alunoId ? fetch(`/api/reconfirmacoes-matricula?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
+        alunoId ? fetch(`/api/registos-falta-mensal?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
+        alunoId ? fetch(`/api/exclusoes-falta?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
       ]);
       if (horRes.ok) {
         const data = await horRes.json();
@@ -280,7 +287,48 @@ export default function PortalEstudanteScreen() {
         const data = await recRes.json();
         setReconfirmacoes(Array.isArray(data) ? data : []);
       }
+      if (regFaltaRes?.ok) {
+        const data = await regFaltaRes.json();
+        setRegistosFalta(Array.isArray(data) ? data : []);
+      }
+      if (exclRes?.ok) {
+        const data = await exclRes.json();
+        setExclusoesFalta(Array.isArray(data) ? data : []);
+      }
     } catch (e) {}
+  }
+
+  async function handleSubmitJustificacao() {
+    if (!showJustModal || !aluno || !turmaAluno) return;
+    if (!justMotivo.trim()) return webAlert('Erro', 'Indique o motivo da justificação.');
+    setJustSaving(true);
+    try {
+      const trimestre = new Date().getMonth() < 4 ? 1 : new Date().getMonth() < 8 ? 2 : 3;
+      await fetch('/api/solicitacoes-prova-justificada', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          alunoId: aluno.id,
+          turmaId: turmaAluno.id,
+          disciplina: showJustModal.disciplina,
+          anoLetivo,
+          trimestre,
+          tipoProva: 'outro',
+          dataProvaOriginal: new Date().toISOString().slice(0, 10),
+          motivo: justMotivo.trim(),
+          solicitadoPor: `${aluno.nome} ${aluno.apelido}`,
+          solicitadoPorId: user?.id || '',
+        }),
+      });
+      webAlert('Sucesso', `Justificação submetida para ${showJustModal.disciplina}. A secretaria irá analisar o seu pedido.`);
+      setShowJustModal(null);
+      setJustMotivo('');
+      if (aluno?.id) loadServerData(aluno.id);
+    } catch (e) {
+      webAlert('Erro', 'Não foi possível submeter a justificação. Tente novamente.');
+    } finally {
+      setJustSaving(false);
+    }
   }
 
   async function handlePickPhoto() {
@@ -2339,7 +2387,12 @@ export default function PortalEstudanteScreen() {
       .filter(p => p.status === 'F' || p.status === 'J')
       .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-    const disciplinasComFaltas = ['todas', ...Array.from(new Set(apenasAusencias.map(p => p.disciplina))).sort()];
+    const todasDisciplinasComDados = Array.from(new Set([
+      ...apenasAusencias.map(p => p.disciplina),
+      ...registosFalta.map(r => r.disciplina),
+    ])).filter(Boolean).sort();
+
+    const disciplinasFiltro = ['todas', ...todasDisciplinasComDados];
 
     const listaFiltrada = faltaFiltroDisc === 'todas'
       ? apenasAusencias
@@ -2349,8 +2402,29 @@ export default function PortalEstudanteScreen() {
     const totalJustificadas = apenasAusencias.filter(p => p.status === 'J').length;
     const totalAulas = presAluno.length;
 
+    const STATUS_COLOR: Record<string, string> = {
+      normal: Colors.success,
+      em_risco: Colors.warning,
+      excluido: Colors.danger,
+    };
+    const STATUS_LABEL: Record<string, string> = {
+      normal: 'Normal',
+      em_risco: 'Em Risco',
+      excluido: 'Excluído',
+    };
+    const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
+    const registosPorDisc = registosFalta.reduce<Record<string, any[]>>((acc, r) => {
+      if (!acc[r.disciplina]) acc[r.disciplina] = [];
+      acc[r.disciplina].push(r);
+      return acc;
+    }, {});
+
+    const exclusoesActivas = exclusoesFalta.filter(e => e.status === 'ativa');
+
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        {/* ── Estatísticas Gerais ── */}
         <SectionTitle title="Resumo de Presenças" icon="stats-chart" />
         <View style={styles.statsRow}>
           <StatCard value={`${pctPresenca}%`} label="Presenças" color={pctPresenca >= 75 ? Colors.success : Colors.danger} />
@@ -2368,17 +2442,110 @@ export default function PortalEstudanteScreen() {
           </View>
         )}
 
+        {/* ── Exclusões activas ── */}
+        {exclusoesActivas.length > 0 && (
+          <>
+            <SectionTitle title="Exclusões Activas" icon="alert-circle" />
+            <View style={{ gap: 8, marginBottom: 4 }}>
+              {exclusoesActivas.map(e => (
+                <View key={e.id} style={[styles.faltaRow, { borderLeftColor: Colors.danger, flexDirection: 'column', alignItems: 'stretch', gap: 8 }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.faltaIconBox, { backgroundColor: Colors.danger + '18' }]}>
+                      <Ionicons name="ban" size={20} color={Colors.danger} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.faltaDisc}>{e.disciplina}</Text>
+                      <Text style={styles.faltaData}>
+                        {e.totalFaltasAcumuladas} falta(s) acumuladas · limite: {e.limiteFaltas}
+                      </Text>
+                      {e.motivo ? <Text style={styles.faltaObs} numberOfLines={2}>{e.motivo}</Text> : null}
+                    </View>
+                    <View style={[styles.badge, { backgroundColor: Colors.danger + '18', borderColor: Colors.danger + '55' }]}>
+                      <Text style={[styles.badgeText, { color: Colors.danger }]}>Excluído</Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => { setShowJustModal({ disciplina: e.disciplina }); setJustMotivo(''); }}
+                    style={{ backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 14, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                  >
+                    <Ionicons name="document-text-outline" size={14} color="#fff" />
+                    <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Solicitar Justificação</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          </>
+        )}
+
+        {/* ── Resumo mensal por disciplina ── */}
+        {registosFalta.length > 0 && (
+          <>
+            <SectionTitle title="Faltas por Disciplina (Mensal)" icon="grid" />
+            <View style={{ gap: 10, marginBottom: 4 }}>
+              {Object.entries(registosPorDisc).map(([disc, registos]) => {
+                const piorStatus = registos.reduce((worst, r) => {
+                  const order = ['normal', 'em_risco', 'excluido'];
+                  return order.indexOf(r.status) > order.indexOf(worst) ? r.status : worst;
+                }, 'normal');
+                const totalDisc = registos.reduce((s, r) => s + (r.totalFaltas || 0), 0);
+                const justDisc = registos.reduce((s, r) => s + (r.faltasJustificadas || 0), 0);
+                const cor = STATUS_COLOR[piorStatus] || Colors.textSecondary;
+                return (
+                  <View key={disc} style={[styles.faltaRow, { borderLeftColor: cor, flexDirection: 'column', alignItems: 'stretch', gap: 8 }]}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={[styles.faltaIconBox, { backgroundColor: cor + '18' }]}>
+                        <MaterialCommunityIcons name="book-open-variant" size={18} color={cor} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.faltaDisc}>{disc}</Text>
+                        <Text style={styles.faltaData}>
+                          {totalDisc} falta(s) total · {justDisc} justificada(s)
+                        </Text>
+                      </View>
+                      <View style={[styles.badge, { backgroundColor: cor + '18', borderColor: cor + '55' }]}>
+                        <Text style={[styles.badgeText, { color: cor }]}>{STATUS_LABEL[piorStatus] || piorStatus}</Text>
+                      </View>
+                    </View>
+                    {/* Detalhe mês a mês */}
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {registos.map(r => {
+                          const c = STATUS_COLOR[r.status] || Colors.textSecondary;
+                          return (
+                            <View key={r.id} style={{ alignItems: 'center', backgroundColor: c + '14', borderRadius: 8, padding: 8, minWidth: 56, borderWidth: 1, borderColor: c + '40' }}>
+                              <Text style={{ fontSize: 10, color: Colors.textMuted, marginBottom: 2 }}>{MESES_PT[(r.mes || 1) - 1]}</Text>
+                              <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: c }}>{r.totalFaltas}</Text>
+                              <Text style={{ fontSize: 9, color: Colors.textMuted }}>faltas</Text>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </ScrollView>
+                    {(piorStatus === 'em_risco' || piorStatus === 'excluido') && (
+                      <TouchableOpacity
+                        onPress={() => { setShowJustModal({ disciplina: disc }); setJustMotivo(''); }}
+                        style={{ backgroundColor: Colors.primary, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6 }}
+                      >
+                        <Ionicons name="document-text-outline" size={13} color="#fff" />
+                        <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'Inter_600SemiBold' }}>Justificar Faltas</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* ── Registo diário de faltas ── */}
         <SectionTitle title="Filtrar por Disciplina" icon="filter" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
           <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 2 }}>
-            {disciplinasComFaltas.map(disc => (
+            {disciplinasFiltro.map(disc => (
               <TouchableOpacity
                 key={disc}
                 onPress={() => setFaltaFiltroDisc(disc)}
-                style={[
-                  styles.filterChip,
-                  faltaFiltroDisc === disc && styles.filterChipActive,
-                ]}
+                style={[styles.filterChip, faltaFiltroDisc === disc && styles.filterChipActive]}
               >
                 <Text style={[styles.filterChipText, faltaFiltroDisc === disc && styles.filterChipTextActive]}>
                   {disc === 'todas' ? 'Todas' : disc}
@@ -2424,8 +2591,18 @@ export default function PortalEstudanteScreen() {
                       <Text style={styles.faltaObs} numberOfLines={2}>{p.observacao}</Text>
                     ) : null}
                   </View>
-                  <View style={[styles.badge, { backgroundColor: cor + '18', borderColor: cor + '55' }]}>
-                    <Text style={[styles.badgeText, { color: cor }]}>{label}</Text>
+                  <View style={{ flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                    <View style={[styles.badge, { backgroundColor: cor + '18', borderColor: cor + '55' }]}>
+                      <Text style={[styles.badgeText, { color: cor }]}>{label}</Text>
+                    </View>
+                    {!isJustificada && (
+                      <TouchableOpacity
+                        onPress={() => { setShowJustModal({ disciplina: p.disciplina }); setJustMotivo(''); }}
+                        style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: Colors.primary + '80' }}
+                      >
+                        <Text style={{ color: Colors.primary, fontSize: 10, fontFamily: 'Inter_600SemiBold' }}>Justificar</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </View>
               );
@@ -2584,6 +2761,62 @@ export default function PortalEstudanteScreen() {
             >
               <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' }}>Fechar</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Modal: Justificação de Faltas ── */}
+      <Modal visible={!!showJustModal} transparent animationType="slide" onRequestClose={() => setShowJustModal(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Text style={styles.modalTitle}>Justificar Faltas</Text>
+              <TouchableOpacity onPress={() => setShowJustModal(null)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+            {showJustModal && (
+              <View style={{ backgroundColor: Colors.primary + '18', borderRadius: 10, padding: 12, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: Colors.gold }}>
+                <Text style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 2 }}>Disciplina</Text>
+                <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>{showJustModal.disciplina}</Text>
+              </View>
+            )}
+            <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 6 }}>
+              Motivo / Justificação *
+            </Text>
+            <TextInput
+              style={[styles.readonlyField, { height: 90, textAlignVertical: 'top', paddingTop: 10 }]}
+              value={justMotivo}
+              onChangeText={setJustMotivo}
+              placeholder="Descreva o motivo das suas faltas (doença, motivo familiar, etc.)..."
+              placeholderTextColor={Colors.textMuted}
+              multiline
+              editable={!justSaving}
+            />
+            <Text style={{ fontSize: 11, color: Colors.textMuted, marginBottom: 16, marginTop: 4 }}>
+              A sua justificação será analisada pela secretaria e poderá aprovar ou rejeitar o pedido.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setShowJustModal(null)}
+                style={{ flex: 1, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, paddingVertical: 12, alignItems: 'center' }}
+              >
+                <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleSubmitJustificacao}
+                disabled={justSaving}
+                style={{ flex: 2, borderRadius: 10, backgroundColor: Colors.primary, paddingVertical: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+              >
+                {justSaving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <>
+                      <Ionicons name="paper-plane" size={16} color="#fff" />
+                      <Text style={{ fontFamily: 'Inter_700Bold', color: '#fff', fontSize: 14 }}>Submeter Pedido</Text>
+                    </>
+                }
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
