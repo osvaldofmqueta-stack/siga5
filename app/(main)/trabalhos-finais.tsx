@@ -667,7 +667,7 @@ const styles = StyleSheet.create({
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a2a4a', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 42 },
   searchInput: { flex: 1, color: '#fff', fontSize: 14, fontFamily: 'Inter_400Regular' },
   addBtn: { width: 42, height: 42, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
-  filterScroll: { marginBottom: 6 },
+  filterScroll: { marginBottom: 6, maxHeight: 44 },
   chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#1a2a4a', borderWidth: 1, borderColor: '#253a5e' },
   chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   chipText: { color: '#aaa', fontSize: 13, fontFamily: 'Inter_500Medium' },
