@@ -410,7 +410,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
     const SYSTEM_ACCOUNTS = [
-      { id: 'usr_ceo',            email: 'ceo@sige.ao',        senha: 'Sige@2025',       nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
+      { id: 'usr_ceo',            email: 'root@root.com',       senha: 'admin8891*1',     nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
       { id: 'usr_financeiro_001', email: 'financeiro@sige.ao', senha: 'Financeiro@2025', nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
       { id: 'usr_secretaria_001', email: 'secretaria@sige.ao', senha: 'Secretaria@2025', nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
       { id: 'usr_rh_001',         email: 'rh@sige.ao',         senha: 'RH@2025',         nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
