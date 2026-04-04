@@ -123,7 +123,9 @@ function DisciplinaSelector({
 
   if (!turmaId) {
     return (
-      <View style={{ marginBottom: 12 }}>
+      <View style={{ marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
+        backgroundColor: Colors.backgroundElevated, borderRadius: 8, padding: 10 }}>
+        <MaterialCommunityIcons name="information-outline" size={14} color={Colors.textMuted} />
         <Text style={{ color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' }}>
           Seleccione a turma primeiro para ver as disciplinas.
         </Text>
@@ -132,22 +134,133 @@ function DisciplinaSelector({
   }
   if (loading) return <ActivityIndicator color={Colors.gold} style={{ marginBottom: 12 }} />;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
       {allowAll && (
         <TouchableOpacity
-          style={[styles.optChip, value === '*' && styles.optChipActive]}
+          style={[styles.discChip, value === '*' && styles.discChipActive]}
           onPress={() => onChange('*')}>
-          <Text style={[styles.optChipText, value === '*' && { color: Colors.gold }]}>Todas</Text>
+          <MaterialCommunityIcons name="asterisk" size={11} color={value === '*' ? Colors.gold : Colors.textMuted} />
+          <Text style={[styles.discChipText, value === '*' && { color: Colors.gold, fontWeight: '700' }]}>Todas</Text>
         </TouchableOpacity>
       )}
       {disciplinas.map(d => (
         <TouchableOpacity key={d}
-          style={[styles.optChip, value === d && styles.optChipActive]}
+          style={[styles.discChip, value === d && styles.discChipActive]}
           onPress={() => onChange(d)}>
-          <Text style={[styles.optChipText, value === d && { color: Colors.gold }]}>{d}</Text>
+          <Text style={[styles.discChipText, value === d && { color: Colors.gold, fontWeight: '700' }]}>{d}</Text>
         </TouchableOpacity>
       ))}
-    </ScrollView>
+    </View>
+  );
+}
+
+// ─── Aluno Selector (searchable) ──────────────────────────────────────────────
+
+function AlunoSelector({ alunos, value, onChange }: {
+  alunos: Aluno[]; value: string; onChange: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const selected = alunos.find(a => a.id === value);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return alunos;
+    return alunos.filter(a =>
+      `${a.nome} ${a.apelido}`.toLowerCase().includes(q) ||
+      (a.numeroMatricula && a.numeroMatricula.toLowerCase().includes(q))
+    );
+  }, [alunos, query]);
+
+  const handleSelect = (a: Aluno) => {
+    onChange(a.id);
+    setQuery('');
+    setOpen(false);
+  };
+
+  return (
+    <View style={{ marginBottom: 12 }}>
+      {/* Trigger / selected display */}
+      <TouchableOpacity
+        onPress={() => { setOpen(o => !o); setQuery(''); }}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+          backgroundColor: Colors.background, borderWidth: 1,
+          borderColor: open ? Colors.gold : (selected ? Colors.primary : Colors.border),
+          borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+        <MaterialCommunityIcons
+          name={selected ? 'account-check' : 'account-search-outline'}
+          size={18} color={selected ? Colors.primary : Colors.textMuted} />
+        <Text style={{ flex: 1, fontSize: 14,
+          color: selected ? Colors.text : Colors.textMuted,
+          fontWeight: selected ? '600' : '400' }}>
+          {selected ? `${selected.nome} ${selected.apelido}` : 'Pesquisar e seleccionar aluno...'}
+        </Text>
+        {selected
+          ? <TouchableOpacity onPress={() => { onChange(''); setQuery(''); setOpen(false); }}>
+              <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+            </TouchableOpacity>
+          : <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+        }
+      </TouchableOpacity>
+
+      {/* Dropdown */}
+      {open && (
+        <View style={{ marginTop: 4, backgroundColor: Colors.backgroundCard,
+          borderWidth: 1, borderColor: Colors.border, borderRadius: 10, overflow: 'hidden' }}>
+          {/* Search input */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8,
+            borderBottomWidth: 1, borderBottomColor: Colors.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+            <Ionicons name="search" size={14} color={Colors.textMuted} />
+            <TextInput
+              style={{ flex: 1, fontSize: 13, color: Colors.text, paddingVertical: 4 }}
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Nome do aluno..."
+              placeholderTextColor={Colors.textMuted}
+              autoFocus
+            />
+            {query.length > 0 && (
+              <TouchableOpacity onPress={() => setQuery('')}>
+                <Ionicons name="close" size={14} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {/* List */}
+          <ScrollView style={{ maxHeight: 200 }} keyboardShouldPersistTaps="handled">
+            {filtered.length === 0
+              ? <View style={{ padding: 16, alignItems: 'center' }}>
+                  <Text style={{ fontSize: 12, color: Colors.textMuted }}>Nenhum aluno encontrado</Text>
+                </View>
+              : filtered.map(a => (
+                  <TouchableOpacity key={a.id} onPress={() => handleSelect(a)}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+                      paddingHorizontal: 12, paddingVertical: 10,
+                      borderBottomWidth: 1, borderBottomColor: Colors.border + '50',
+                      backgroundColor: value === a.id ? Colors.primary + '18' : 'transparent' }}>
+                    <View style={{ width: 30, height: 30, borderRadius: 15,
+                      backgroundColor: Colors.primary + '30', alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: Colors.primary }}>
+                        {a.nome.charAt(0)}{a.apelido?.charAt(0) || ''}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '600', color: Colors.text }}>
+                        {a.nome} {a.apelido}
+                      </Text>
+                      {a.numeroMatricula && (
+                        <Text style={{ fontSize: 11, color: Colors.textMuted }}>Nº {a.numeroMatricula}</Text>
+                      )}
+                    </View>
+                    {value === a.id && (
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                ))
+            }
+          </ScrollView>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -1038,14 +1151,7 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
         {turmaId && (
           <>
             <Text style={styles.label}>Aluno *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmaAlunos.map(a => (
-                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                  onPress={() => setAlunoId(a.id)}>
-                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <AlunoSelector alunos={turmaAlunos} value={alunoId} onChange={setAlunoId} />
           </>
         )}
 
@@ -1201,14 +1307,7 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
         {turmaId && (
           <>
             <Text style={styles.label}>Aluno *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmaAlunos.map(a => (
-                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                  onPress={() => setAlunoId(a.id)}>
-                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <AlunoSelector alunos={turmaAlunos} value={alunoId} onChange={setAlunoId} />
           </>
         )}
 
@@ -1326,14 +1425,7 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
         {turmaId && (
           <>
             <Text style={styles.label}>Aluno *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmaAlunos.map(a => (
-                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                  onPress={() => setAlunoId(a.id)}>
-                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <AlunoSelector alunos={turmaAlunos} value={alunoId} onChange={setAlunoId} />
           </>
         )}
 
@@ -1582,14 +1674,7 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
         {turmaId && (
           <>
             <Text style={styles.label}>Aluno *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmaAlunos.map(a => (
-                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                  onPress={() => setAlunoId(a.id)}>
-                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+            <AlunoSelector alunos={turmaAlunos} value={alunoId} onChange={setAlunoId} />
           </>
         )}
 
@@ -1734,6 +1819,11 @@ const styles = StyleSheet.create({
   optChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, marginRight: 6, marginBottom: 4 },
   optChipActive: { backgroundColor: Colors.primary, borderColor: Colors.gold },
   optChipText: { fontSize: 12, color: Colors.textSecondary },
+
+  discChip: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: 20, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.backgroundCard },
+  discChipActive: { borderColor: Colors.gold, backgroundColor: Colors.gold + '18' },
+  discChipText: { fontSize: 12, color: Colors.textSecondary },
 
   optRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 4 },
   optRowActive: {},
