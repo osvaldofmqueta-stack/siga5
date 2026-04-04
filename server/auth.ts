@@ -38,7 +38,11 @@ declare global {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers["authorization"] ?? "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : null;
+  let token: string | null = header.startsWith("Bearer ") ? header.slice(7) : null;
+  // Fallback: accept ?token= query param for PDF/iframe requests that can't set headers
+  if (!token && typeof req.query.token === "string" && req.query.token) {
+    token = req.query.token;
+  }
   if (!token) {
     res.status(401).json({ error: "Não autenticado. Faça login para continuar." });
     return;
