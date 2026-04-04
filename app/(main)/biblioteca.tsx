@@ -110,7 +110,7 @@ export default function BibliotecaScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const { showToast } = useToast();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const canManage = user?.role !== 'aluno';
 
   const load = useCallback(async (silent = false) => {
@@ -135,7 +135,9 @@ export default function BibliotecaScreen() {
     }
   }, [canManage]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!authLoading) load();
+  }, [load, authLoading]);
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
@@ -233,6 +235,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   const [editLivro, setEditLivro] = useState<Livro | null>(null);
   const [solicitarLivro, setSolicitarLivro] = useState<Livro | null>(null);
 
+  const [showCatModal, setShowCatModal] = useState(false);
   const cats = ['Todas', ...Array.from(new Set(livros.map(l => l.categoria))).sort()];
 
   const filtered = livros.filter(l => {
@@ -261,6 +264,20 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
             </TouchableOpacity>
           )}
         </View>
+        <TouchableOpacity
+          style={[styles.catFilterBtn, catFiltro !== 'Todas' && styles.catFilterBtnActive]}
+          onPress={() => setShowCatModal(true)}
+        >
+          <Ionicons name="pricetag-outline" size={14} color={catFiltro !== 'Todas' ? '#fff' : '#aaa'} />
+          <Text style={[styles.catFilterBtnText, catFiltro !== 'Todas' && { color: '#fff' }]} numberOfLines={1}>
+            {catFiltro === 'Todas' ? 'Categoria' : catFiltro}
+          </Text>
+          {catFiltro !== 'Todas' && (
+            <TouchableOpacity onPress={() => setCatFiltro('Todas')} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}>
+              <Ionicons name="close-circle" size={14} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
         {canManage && (
           <TouchableOpacity style={styles.addBtn} onPress={() => { setEditLivro(null); setShowModal(true); }}>
             <Ionicons name="add" size={20} color="#fff" />
@@ -268,19 +285,48 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         )}
       </View>
 
-      {/* Compact category filter */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.catScroll}
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}>
-        {cats.map(c => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.catChip, catFiltro === c && styles.catChipActive]}
-            onPress={() => setCatFiltro(c)}
-          >
-            <Text style={[styles.catChipText, catFiltro === c && { color: '#fff' }]}>{c}</Text>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Category Picker Modal */}
+      <Modal visible={showCatModal} transparent animationType="fade" onRequestClose={() => setShowCatModal(false)}>
+        <View style={mStyles.overlay}>
+          <View style={mStyles.sheet}>
+            <View style={mStyles.header}>
+              <View style={catPickerStyles.headerLeft}>
+                <Ionicons name="pricetag-outline" size={18} color="#5E6AD2" />
+                <Text style={mStyles.headerTitle}>Filtrar por Categoria</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowCatModal(false)} style={catPickerStyles.closeBtn}>
+                <Ionicons name="close" size={20} color="#aaa" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 420 }} contentContainerStyle={{ padding: 14, gap: 8 }} showsVerticalScrollIndicator={false}>
+              {cats.map(c => {
+                const isActive = catFiltro === c;
+                const cc = c === 'Todas' ? '#5E6AD2' : catColor(c);
+                return (
+                  <TouchableOpacity
+                    key={c}
+                    style={[catPickerStyles.catRow, isActive && { borderColor: cc, backgroundColor: cc + '18' }]}
+                    onPress={() => { setCatFiltro(c); setShowCatModal(false); }}
+                  >
+                    {c === 'Todas' ? (
+                      <View style={[catPickerStyles.catDot, { backgroundColor: isActive ? '#5E6AD2' : '#444' }]} />
+                    ) : (
+                      <View style={[catPickerStyles.catDot, { backgroundColor: isActive ? cc : '#444' }]} />
+                    )}
+                    <Text style={[catPickerStyles.catLabel, isActive && { color: cc, fontWeight: '700' }]}>{c}</Text>
+                    {c !== 'Todas' && (
+                      <Text style={catPickerStyles.catCount}>
+                        {livros.filter(l => l.categoria === c).length} livro{livros.filter(l => l.categoria === c).length !== 1 ? 's' : ''}
+                      </Text>
+                    )}
+                    {isActive && <Ionicons name="checkmark-circle" size={18} color={cc} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Book grid */}
       <FlatList
@@ -1229,10 +1275,9 @@ const styles = StyleSheet.create({
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   searchInput: { flex: 1, color: '#fff', fontSize: 14 },
   addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
-  catScroll: { maxHeight: 36, marginBottom: 4 },
-  catChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.09)' },
-  catChipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
-  catChipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
+  catFilterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 0, height: 40, borderRadius: 10, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxWidth: 130 },
+  catFilterBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  catFilterBtnText: { color: '#aaa', fontSize: 12, fontWeight: '600', flex: 1 },
   filterRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
   filterChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   filterChipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
@@ -1328,11 +1373,13 @@ const mStyles = StyleSheet.create({
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
   sheet: { backgroundColor: '#0f1423', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center' },
   body: { maxHeight: 480 },
   footer: { flexDirection: 'row', gap: 10, padding: 16, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
   cancelBtn: { flex: 1, paddingVertical: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#1a1a2e' },
-  saveBtn: { flex: 2, paddingVertical: 13, alignItems: 'center', borderRadius: 10, backgroundColor: '#5E6AD2' },
+  saveBtn: { flex: 2, flexDirection: 'row', paddingVertical: 13, alignItems: 'center', justifyContent: 'center', borderRadius: 10, backgroundColor: '#5E6AD2' },
   label: { color: '#aaa', fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   input: { backgroundColor: '#13131f', color: '#fff', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', fontSize: 14, marginBottom: 4 },
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
@@ -1346,6 +1393,16 @@ const mStyles = StyleSheet.create({
   capaPreview: { alignItems: 'center', gap: 6, marginVertical: 8 },
   capaImg: { width: 80, height: 112, borderRadius: 8 },
   capaHint: { color: '#555', fontSize: 11 },
+  // LivroModal section styles
+  section: { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#0d1120', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
+  sectionTitle: { color: '#aaa', fontSize: 11, fontWeight: '700', letterSpacing: 0.8, flex: 1 },
+  catSelectedBadge: { backgroundColor: '#5E6AD222', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#5E6AD244' },
+  catSelectedText: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
+  catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  catGridItem: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  catDot: { width: 7, height: 7, borderRadius: 4 },
+  catGridText: { color: '#aaa', fontSize: 12 },
 });
 
 // Stats styles
@@ -1373,4 +1430,14 @@ const sStyles = StyleSheet.create({
   atrasoLeitor: { color: '#888', fontSize: 11, marginTop: 2 },
   atrasoChip: { backgroundColor: '#EF535022', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#EF535044' },
   atrasoChipText: { color: '#EF5350', fontSize: 12, fontWeight: '700' },
+});
+
+// Category picker modal styles
+const catPickerStyles = StyleSheet.create({
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center' },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  catDot: { width: 9, height: 9, borderRadius: 5 },
+  catLabel: { flex: 1, color: '#ccc', fontSize: 14 },
+  catCount: { color: '#555', fontSize: 12 },
 });
