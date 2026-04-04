@@ -91,6 +91,65 @@ function today() { return new Date().toISOString().slice(0,10); }
 function currentYear() { return new Date().getFullYear(); }
 function currentMonth() { return new Date().getMonth() + 1; }
 
+// ─── Hook: disciplinas vinculadas a uma turma ──────────────────────────────────
+
+function useTurmaDisciplinas(turmaId: string) {
+  const [disciplinas, setDisciplinas] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (!turmaId) { setDisciplinas([]); return; }
+    setLoading(true);
+    api.get<{ nome: string }[]>(`/api/turmas/${turmaId}/disciplinas`)
+      .then(rows => setDisciplinas(rows.map(r => r.nome)))
+      .catch(() => setDisciplinas([]))
+      .finally(() => setLoading(false));
+  }, [turmaId]);
+  return { disciplinas, loading };
+}
+
+// ─── Component: Selector de Disciplina ────────────────────────────────────────
+
+function DisciplinaSelector({
+  turmaId, value, onChange, allowAll = false,
+}: { turmaId: string; value: string; onChange: (v: string) => void; allowAll?: boolean }) {
+  const { disciplinas, loading } = useTurmaDisciplinas(turmaId);
+
+  if (!turmaId) {
+    return (
+      <View style={{ marginBottom: 12 }}>
+        <Text style={{ color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' }}>
+          Seleccione a turma primeiro para ver as disciplinas.
+        </Text>
+      </View>
+    );
+  }
+  if (loading) return <ActivityIndicator color={Colors.gold} style={{ marginBottom: 12 }} />;
+  if (disciplinas.length === 0) {
+    return (
+      <TextInput style={styles.input} value={value} onChangeText={onChange}
+        placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
+    );
+  }
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
+      {allowAll && (
+        <TouchableOpacity
+          style={[styles.optChip, value === '*' && styles.optChipActive]}
+          onPress={() => onChange('*')}>
+          <Text style={[styles.optChipText, value === '*' && { color: Colors.gold }]}>Todas</Text>
+        </TouchableOpacity>
+      )}
+      {disciplinas.map(d => (
+        <TouchableOpacity key={d}
+          style={[styles.optChip, value === d && styles.optChipActive]}
+          onPress={() => onChange(d)}>
+          <Text style={[styles.optChipText, value === d && { color: Colors.gold }]}>{d}</Text>
+        </TouchableOpacity>
+      ))}
+    </ScrollView>
+  );
+}
+
 // ─── Main Screen ──────────────────────────────────────────────────────────────
 
 export default function ExclusoesFaltasScreen() {
@@ -806,18 +865,19 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-              onPress={() => setTurmaId(t.id)}>
+              onPress={() => { setTurmaId(t.id); setDisciplina(''); }}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
 
         <Text style={styles.label}>Disciplina *</Text>
-        <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-          placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
-        <TouchableOpacity onPress={() => setDisciplina('*')} style={{ marginTop: -6, marginBottom: 10, alignSelf: 'flex-start' }}>
-          <Text style={{ color: Colors.gold, fontSize: 12 }}>Aplicar a todas as disciplinas (*)</Text>
-        </TouchableOpacity>
+        <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} allowAll={true} />
+        {disciplina === '*' && (
+          <Text style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 10 }}>
+            Este limite aplicar-se-á a todas as disciplinas da turma.
+          </Text>
+        )}
 
         <Text style={styles.label}>Máx. faltas por mês *</Text>
         {/* Quick-select presets */}
@@ -917,7 +977,7 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
               {turmas.map(t => (
                 <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => setTurmaId(t.id)}>
+                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
                   <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
                 </TouchableOpacity>
               ))}
@@ -934,8 +994,7 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
               </ScrollView>
             </>}
             <Text style={styles.label}>Disciplina *</Text>
-            <TextInput style={styles.input} value={disciplina} onChangeText={setDisciplina}
-              placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} />
+            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
 
             {configTurma && (
               <View style={styles.infoCard}>
