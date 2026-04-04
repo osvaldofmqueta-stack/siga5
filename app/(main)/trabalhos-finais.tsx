@@ -628,7 +628,7 @@ function MInput(props: React.ComponentProps<typeof TextInput>) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D1B3E' },
+  root: { flex: 1, backgroundColor: '#0D1F35' },
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10, gap: 10 },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a2a4a', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 42 },
   searchInput: { flex: 1, color: '#fff', fontSize: 14, fontFamily: 'Inter_400Regular' },

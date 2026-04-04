@@ -677,13 +677,13 @@ export default function AdminScreen() {
 
       {/* ── Hero Banner ───────────────────────────────────── */}
       <LinearGradient
-        colors={['#1A0A2E', '#0D1B3E', '#1A1030']}
+        colors={['#1A0A2E', '#0D1F35', '#1A1030']}
         style={styles.heroBanner}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
         <View style={styles.heroLeft}>
-          <LinearGradient colors={['#CC1A1A', '#8B0000']} style={styles.heroIconWrap}>
+          <LinearGradient colors={['#4A90D9', '#8B0000']} style={styles.heroIconWrap}>
             <MaterialCommunityIcons name="shield-crown" size={24} color="#fff" />
           </LinearGradient>
           <View>

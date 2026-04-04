@@ -32,7 +32,7 @@ export function Comprovativo() {
       <div className="max-w-2xl mx-auto bg-white rounded-2xl overflow-hidden shadow-xl">
 
         {/* ── Cabeçalho ── */}
-        <div className="bg-gradient-to-r from-[#0D1B3E] to-[#1a3060] px-9 py-8 flex items-center gap-6">
+        <div className="bg-gradient-to-r from-[#0D1F35] to-[#1a3060] px-9 py-8 flex items-center gap-6">
           <div className="w-16 h-16 rounded-xl bg-white/15 flex items-center justify-center text-white text-3xl font-bold shrink-0">
             Q
           </div>

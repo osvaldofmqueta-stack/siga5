@@ -31,7 +31,7 @@ const TIPO_META: Record<TipoMaterial, { icon: string; color: string; label: stri
   resumo:  { icon: 'document-text',  color: Colors.gold,    label: 'Resumo' },
   texto:   { icon: 'create',         color: Colors.success,  label: 'Texto' },
   link:    { icon: 'link',            color: Colors.info,     label: 'Link/URL' },
-  pdf:     { icon: 'file-pdf-box',   color: '#E53935',       label: 'PDF',  mimeTypes: ['application/pdf'] },
+  pdf:     { icon: 'file-pdf-box',   color: '#6AAEE3',       label: 'PDF',  mimeTypes: ['application/pdf'] },
   docx:    { icon: 'file-word-box',  color: '#1565C0',       label: 'Word', mimeTypes: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/msword'] },
   ppt:     { icon: 'file-powerpoint-box', color: '#BF360C', label: 'PowerPoint', mimeTypes: ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/vnd.ms-powerpoint'] },
 };

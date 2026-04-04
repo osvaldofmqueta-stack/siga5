@@ -33,14 +33,14 @@ const FONT_STYLE = `
 
 const PWA_TAGS = `
   <link rel="manifest" href="/manifest.json" />
-  <meta name="theme-color" content="#0D1B3E" />
+  <meta name="theme-color" content="#0D1F35" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="QUETA" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
   <link rel="apple-touch-icon" sizes="512x512" href="/icons/icon-512.png" />
-  <meta name="msapplication-TileColor" content="#0D1B3E" />
+  <meta name="msapplication-TileColor" content="#0D1F35" />
   <meta name="msapplication-TileImage" content="/icons/icon-192.png" />`;
 
 const SW_SCRIPT = `
@@ -303,7 +303,7 @@ function setupWebProxy(app: express.Application) {
         error: (_err, _req, res) => {
           if (res && "status" in res) {
             (res as Response).status(503).send(
-              `<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0D1B3E;color:#fff">
+              `<html><body style="font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#0D1F35;color:#fff">
               <div style="text-align:center">
                 <h2>A iniciar o servidor web...</h2>
                 <p>Aguarda um momento enquanto o servidor Expo web arranca.</p>

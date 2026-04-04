@@ -748,7 +748,7 @@ export default function DrawerLeft() {
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#1A2B8A', '#0D1B3E']}
+                colors={['#1A2B8A', '#0D1F35']}
                 style={styles.supervisaoCTAGrad}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
@@ -841,14 +841,14 @@ export default function DrawerLeft() {
               >
                 <View style={styles.medCTALeft}>
                   <View style={styles.medCTAIcon}>
-                    <MaterialCommunityIcons name="shield-star-outline" size={20} color="#CC1A1A" />
+                    <MaterialCommunityIcons name="shield-star-outline" size={20} color="#4A90D9" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.medCTATitle}>Integração MED</Text>
                     <Text style={styles.medCTASub}>Exportar dados para o SIGE Gov</Text>
                   </View>
                 </View>
-                <Ionicons name="chevron-forward" size={16} color="#CC1A1A" />
+                <Ionicons name="chevron-forward" size={16} color="#4A90D9" />
               </LinearGradient>
             </TouchableOpacity>
           )}
@@ -1213,7 +1213,7 @@ const styles = StyleSheet.create({
   yearModalCard: {
     width: '100%',
     maxWidth: 340,
-    backgroundColor: '#132145',
+    backgroundColor: '#122540',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(240,165,0,0.2)',
@@ -1725,7 +1725,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#CC1A1A50',
+    borderColor: '#4A90D950',
   },
   medCTAGrad: {
     flexDirection: 'row',
@@ -1745,16 +1745,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 10,
-    backgroundColor: '#CC1A1A25',
+    backgroundColor: '#4A90D925',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#CC1A1A45',
+    borderColor: '#4A90D945',
   },
   medCTATitle: {
     fontSize: 13,
     fontFamily: 'Inter_700Bold',
-    color: '#CC1A1A',
+    color: '#4A90D9',
     marginBottom: 2,
   },
   medCTASub: {

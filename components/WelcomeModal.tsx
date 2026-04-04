@@ -155,7 +155,7 @@ export default function WelcomeModal({ visible, user, onFinish }: WelcomeModalPr
               <Image source={{ uri: user.avatar }} style={styles.avatar} />
             ) : (
               <LinearGradient
-                colors={['#1F3D8A', '#1A2B5F']}
+                colors={['#1F3D8A', '#1E3A5F']}
                 style={styles.avatarPlaceholder}
               >
                 <Text style={styles.avatarInitials}>{getInitials(user.nome)}</Text>
@@ -187,7 +187,7 @@ export default function WelcomeModal({ visible, user, onFinish }: WelcomeModalPr
             <View style={styles.progressTrack}>
               <Animated.View style={[styles.progressFill, { width: progressWidth }]}>
                 <LinearGradient
-                  colors={['#1A5276', '#2980B9', '#F0A500']}
+                  colors={['#1A5276', '#2980B9', '#C89A2A']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={StyleSheet.absoluteFill}

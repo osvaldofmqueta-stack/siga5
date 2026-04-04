@@ -176,7 +176,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
 
   /* ── Faixa de alerta ── */
   .alerta {
-    background: #1A2B5F;
+    background: #1E3A5F;
     color: #fff;
     text-align: center;
     font-weight: bold;
@@ -194,7 +194,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
     margin: 10px 0 4px;
     padding: 3px 6px;
     background: #f0f0f0;
-    border-left: 3px solid #1A2B5F;
+    border-left: 3px solid #1E3A5F;
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
@@ -240,7 +240,7 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
 
   /* ── Caixa de status ── */
   .status-box {
-    border: 1.5px solid #1A2B5F;
+    border: 1.5px solid #1E3A5F;
     border-radius: 4px;
     padding: 10px 14px;
     margin: 10px 0;
@@ -250,9 +250,9 @@ function generateBoletimHTML(reg: Registro, nomeEscola: string, qrDataUrl: strin
     background: #f7f9ff;
   }
   .status-box .status-label { font-size: 9pt; color: #444; }
-  .status-box .status-value { font-size: 11pt; font-weight: bold; color: #1A2B5F; }
+  .status-box .status-value { font-size: 11pt; font-weight: bold; color: #1E3A5F; }
   .status-box .rupe-label { font-size: 8pt; color: #444; text-transform: uppercase; letter-spacing: 0.3px; }
-  .status-box .rupe-value { font-size: 10pt; font-weight: bold; color: #CC1A1A; letter-spacing: 1px; }
+  .status-box .rupe-value { font-size: 10pt; font-weight: bold; color: #4A90D9; letter-spacing: 1px; }
 
   /* ── Declaração ── */
   .declaracao {
@@ -625,7 +625,7 @@ export default function BoletimInscricaoScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color={Colors.gold} size="large" />
         <Text style={styles.loadingText}>
           {registroId ? 'A carregar boletim...' : 'A carregar candidatos...'}
@@ -645,7 +645,7 @@ export default function BoletimInscricaoScreen() {
     };
     return (
       <View style={[styles.container]}>
-        <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0A1628', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 12 }]}>
           <View style={styles.headerInner}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -695,8 +695,8 @@ export default function BoletimInscricaoScreen() {
               return (
                 <TouchableOpacity style={pk.card} onPress={() => selecionarRegistro(item)} activeOpacity={0.85}>
                   <View style={pk.cardLeft}>
-                    <View style={[pk.badge, { backgroundColor: '#CC1A1A' + '22' }]}>
-                      <Ionicons name="person" size={18} color={'#CC1A1A'} />
+                    <View style={[pk.badge, { backgroundColor: '#4A90D9' + '22' }]}>
+                      <Ionicons name="person" size={18} color={'#4A90D9'} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={pk.cardName} numberOfLines={1}>{item.nomeCompleto}</Text>
@@ -719,7 +719,7 @@ export default function BoletimInscricaoScreen() {
   if (!registro) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <Ionicons name="document-text-outline" size={48} color={Colors.textMuted} />
         <Text style={[styles.loadingText, { marginTop: 12 }]}>Registo não encontrado</Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtnFallback}>
@@ -731,7 +731,7 @@ export default function BoletimInscricaoScreen() {
 
   return (
     <View style={[styles.container]}>
-      <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#061029', '#0A1628', '#0D1F35']} style={StyleSheet.absoluteFill} />
 
       {/* ── Cabeçalho ── */}
       <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 12 }]}>
@@ -819,7 +819,7 @@ export default function BoletimInscricaoScreen() {
 
         {/* ── Card de identificação ── */}
         <View style={styles.identCard}>
-          <LinearGradient colors={['#1A2B5F', '#0D1B3E']} style={StyleSheet.absoluteFill} borderRadius={18} />
+          <LinearGradient colors={['#1E3A5F', '#0D1F35']} style={StyleSheet.absoluteFill} borderRadius={18} />
 
           <View style={styles.identTop}>
             <View style={styles.identInfo}>
@@ -853,7 +853,7 @@ export default function BoletimInscricaoScreen() {
                   value={qrValue}
                   size={88}
                   color="#FFFFFF"
-                  backgroundColor="#132145"
+                  backgroundColor="#122540"
                   getRef={(ref: any) => { qrSvgRef.current = ref; }}
                 />
               ) : null}
@@ -973,7 +973,7 @@ export default function BoletimInscricaoScreen() {
                 disabled={isPrinting}
                 activeOpacity={0.85}
               >
-                <LinearGradient colors={['#1A2B5F', '#0D1B3E']} style={styles.printBtnLargeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+                <LinearGradient colors={['#1E3A5F', '#0D1F35']} style={styles.printBtnLargeGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
                   {isPrinting
                     ? <ActivityIndicator color="#fff" size="small" />
                     : <Ionicons name="print-outline" size={20} color="#fff" />}
@@ -1023,7 +1023,7 @@ const styles = StyleSheet.create({
   statusDot: { width: 7, height: 7, borderRadius: 4 },
   statusBadgeText: { fontSize: 12, fontFamily: 'Inter_700Bold' },
 
-  qrWrap: { alignItems: 'center', gap: 8, backgroundColor: '#132145', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
+  qrWrap: { alignItems: 'center', gap: 8, backgroundColor: '#122540', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: Colors.border },
   qrLabel: { fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textAlign: 'center' },
 
   infoRow: { flexDirection: 'row', backgroundColor: Colors.backgroundCard, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },

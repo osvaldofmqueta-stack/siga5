@@ -90,7 +90,7 @@ body { font-family: Arial, sans-serif; font-size: 11px; color: #000; background:
 
 .divider { border: none; border-top: 2px solid #000; margin: 8px 0; }
 
-.bloco-titulo { font-size: 11px; margin-bottom: 6px; padding: 4px 8px; background: #f8f8f8; border-left: 4px solid #1A2B5F; }
+.bloco-titulo { font-size: 11px; margin-bottom: 6px; padding: 4px 8px; background: #f8f8f8; border-left: 4px solid #1E3A5F; }
 .sub-bloco-titulo { font-size: 10.5px; margin: 10px 0 4px; padding: 3px 6px; background: #eef2ff; border-left: 3px solid #6366f1; font-weight: bold; }
 
 table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 10.5px; }
@@ -108,7 +108,7 @@ td { border-bottom: 1px solid #ddd; padding: 4px 7px; vertical-align: middle; }
 
 .rodape { margin-top: 10px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
 
-.print-btn { position: fixed; bottom: 18px; right: 18px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 12px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 999; }
+.print-btn { position: fixed; bottom: 18px; right: 18px; background: #1E3A5F; color: #fff; border: none; border-radius: 8px; padding: 12px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.25); z-index: 999; }
 
 @media print {
   .print-btn { display: none !important; }
@@ -412,7 +412,7 @@ export default function ListaInscritosScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color={Colors.gold} size="large" />
         <Text style={styles.loadingText}>A carregar...</Text>
       </View>
@@ -421,7 +421,7 @@ export default function ListaInscritosScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#061029', '#0A1628', '#0D1F35']} style={StyleSheet.absoluteFill} />
 
       <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerInner}>
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 6 },
   headerTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text },
   headerSub: { fontSize: 11, color: Colors.textMuted, marginTop: 1 },
-  printBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1A2B5F', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  printBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#1E3A5F', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
   printBtnText: { color: '#fff', fontSize: 12, fontFamily: 'Inter_600SemiBold' },
   loadingText: { color: Colors.textMuted, marginTop: 12, fontSize: 14 },
   scroll: { padding: 16, gap: 12 },
@@ -729,6 +729,6 @@ const styles = StyleSheet.create({
   emptyWrap: { alignItems: 'center', gap: 8, paddingVertical: 40 },
   emptyText: { color: Colors.textMuted, fontSize: 14, textAlign: 'center' },
 
-  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#1A2B5F', borderRadius: 14, paddingVertical: 16, marginTop: 4 },
+  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: '#1E3A5F', borderRadius: 14, paddingVertical: 16, marginTop: 4 },
   gerarBtnText: { color: '#fff', fontSize: 14, fontFamily: 'Inter_600SemiBold' },
 });

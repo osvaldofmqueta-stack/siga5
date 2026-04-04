@@ -1,43 +1,67 @@
-const PRIMARY = "#1A2B5F";
-const ACCENT = "#CC1A1A";
-const GOLD = "#F0A500";
+// ─── Paleta SIGA v3 — Tema Profissional Académico ──────────────────────────
+// Design philosophy:
+//  • Fundos em azul-ardósia escuro (não navy puro) — menos cansativo
+//  • Azul cobalto suave como cor de acção primária (substitui o vermelho)
+//  • Dourado âmbar muted (substitui o laranja vivo)
+//  • Texto branco-quente ligeiramente desaturado — conforto visual superior
+//  • Hierarquia clara de luminosidade entre camadas
+
+const PRIMARY      = "#1E3A5F";  // azul-ardósia profundo (era #1E3A5F)
+const ACCENT       = "#4A90D9";  // azul cobalto profissional (era vermelho #4A90D9)
+const GOLD         = "#C89A2A";  // âmbar dourado muted (era #C89A2A muito vivo)
 
 export const Colors = {
-  primary: PRIMARY,
-  primaryLight: "#2D4A8A",
-  primaryDark: "#0D1B3E",
-  accent: ACCENT,
-  accentLight: "#E53935",
-  gold: GOLD,
-  goldLight: "#FFD166",
-  background: "#0D1B3E",
-  backgroundCard: "#132145",
-  backgroundElevated: "#1C3060",
-  surface: "#1A2B5F",
-  surfaceLight: "#243A78",
-  border: "rgba(255,255,255,0.1)",
-  borderLight: "rgba(255,255,255,0.2)",
-  text: "#FFFFFF",
-  textSecondary: "rgba(255,255,255,0.65)",
-  textMuted: "rgba(255,255,255,0.35)",
-  success: "#2ECC71",
-  warning: "#F39C12",
-  danger: "#E74C3C",
-  info: "#3498DB",
-  approved: "#27AE60",
-  failed: "#E74C3C",
-  pending: "#F39C12",
-  card: "#132145",
-  cardAlt: "#1C3060",
-  dark: "#0D1B3E",
+  // ── Base ──────────────────────────────────────────────────────────────────
+  primary:            PRIMARY,
+  primaryLight:       "#2D5282",           // azul médio — hover/active
+  primaryDark:        "#0D1F35",           // quase-preto azulado — header/drawer
+  dark:               "#0D1F35",
+
+  // ── Acção principal ───────────────────────────────────────────────────────
+  accent:             ACCENT,
+  accentLight:        "#6AAEE3",           // versão clara do cobalto
+
+  // ── Destaque / CEO / Badge ─────────────────────────────────────────────
+  gold:               GOLD,
+  goldLight:          "#E8C060",           // amarelo suave — ícones / chips
+
+  // ── Fundos em camadas (mais escuro → mais claro) ─────────────────────────
+  background:         "#0D1F35",           // camada raiz
+  backgroundCard:     "#122540",           // cards normais
+  backgroundElevated: "#1A334F",           // modais / bottom sheets
+  card:               "#122540",
+  cardAlt:            "#1A334F",
+
+  // ── Superfícies ───────────────────────────────────────────────────────────
+  surface:            "#1E3A5F",
+  surfaceLight:       "#253F66",
+
+  // ── Bordas ────────────────────────────────────────────────────────────────
+  border:             "rgba(255,255,255,0.08)",
+  borderLight:        "rgba(255,255,255,0.15)",
+
+  // ── Texto ─────────────────────────────────────────────────────────────────
+  // Branco levemente quente em vez de #FFFFFF puro — muito menos cansativo
+  text:               "#E8EEF6",
+  textSecondary:      "rgba(232,238,246,0.62)",
+  textMuted:          "rgba(232,238,246,0.35)",
+
+  // ── Semânticas ────────────────────────────────────────────────────────────
+  success:            "#22C47A",           // verde esmeralda suave
+  warning:            "#D4920E",           // âmbar — aviso
+  danger:             "#D94F4F",           // vermelho muted — erro / perigo
+  info:               "#3E9BD4",           // azul informativo
+  approved:           "#1DA86A",
+  failed:             "#D94F4F",
+  pending:            "#D4920E",
 };
 
 export default {
   light: {
-    text: Colors.text,
-    background: Colors.background,
-    tint: Colors.accent,
+    text:           Colors.text,
+    background:     Colors.background,
+    tint:           Colors.accent,
     tabIconDefault: Colors.textMuted,
-    tabIconSelected: Colors.accent,
+    tabIconSelected:Colors.accent,
   },
 };

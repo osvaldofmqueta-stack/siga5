@@ -1624,7 +1624,7 @@ const styles = StyleSheet.create({
   configInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   configIconBox: { width: 40, height: 42, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   configInput: {
-    flex: 1, backgroundColor: Colors.surfaceLight ?? '#1A2B5F', borderRadius: 10,
+    flex: 1, backgroundColor: Colors.surfaceLight ?? '#1E3A5F', borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10, color: Colors.text ?? '#fff', fontSize: 15,
   },
   previewBox: {
@@ -1651,7 +1651,7 @@ const styles = StyleSheet.create({
   modalTitle: { color: Colors.text ?? '#fff', fontSize: 17, fontWeight: '800', marginBottom: 16 },
   fieldLabel: { color: Colors.textMuted, fontSize: 12, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   input: {
-    backgroundColor: Colors.surfaceLight ?? '#1A2B5F', borderRadius: 10,
+    backgroundColor: Colors.surfaceLight ?? '#1E3A5F', borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 10, color: Colors.text ?? '#fff',
     fontSize: 14, marginBottom: 12,
   },

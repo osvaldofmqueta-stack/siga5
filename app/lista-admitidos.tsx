@@ -204,7 +204,7 @@ function buildListaHTML(
   .doc-header .escola { font-size: 12px; font-weight: bold; text-transform: uppercase; }
   .doc-title { font-size: 14px; font-weight: bold; text-transform: uppercase; text-decoration: underline; letter-spacing: 1px; margin: 10px 0 4px; }
   .doc-meta { font-size: 10px; color: #333; margin-bottom: 14px; }
-  .classe-header { background: #1A2B5F; color: #fff; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 5px 8px; margin: 16px 0 4px; letter-spacing: 0.5px; }
+  .classe-header { background: #1E3A5F; color: #fff; font-weight: bold; font-size: 11px; text-transform: uppercase; padding: 5px 8px; margin: 16px 0 4px; letter-spacing: 0.5px; }
   .grupo-header { background: #0369a1; color: #fff; font-weight: bold; font-size: 10px; padding: 4px 8px; margin: 10px 0 3px; }
   table { border-collapse: collapse; width: 100%; margin-bottom: 6px; font-size: 10px; }
   th { background: #00BCD4; color: #fff; font-weight: bold; border: 1px solid #000; padding: 4px 6px; text-align: center; }
@@ -221,7 +221,7 @@ function buildListaHTML(
   .sig-block { text-align: center; }
   .sig-line { width: 160px; border-top: 1px solid #000; margin: 30px auto 4px; }
   .footer { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 6px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
-  .print-btn { position: fixed; bottom: 18px; right: 18px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999; }
+  .print-btn { position: fixed; bottom: 18px; right: 18px; background: #1E3A5F; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 999; }
   @media print { .print-btn { display: none !important; } @page { size: A4 portrait; margin: 12mm; } body { padding: 0; } }
 </style>
 </head>
@@ -328,7 +328,7 @@ export default function ListaAdmitidosScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color={Colors.gold} size="large" />
         <Text style={styles.loadingText}>A carregar...</Text>
       </View>
@@ -340,7 +340,7 @@ export default function ListaAdmitidosScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#061029', '#0A1628', '#0D1F35']} style={StyleSheet.absoluteFill} />
 
       <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 12 }]}>
         <View style={styles.headerInner}>
@@ -522,6 +522,6 @@ const styles = StyleSheet.create({
   moreText: { textAlign: 'center', color: Colors.textMuted, fontSize: 12, fontStyle: 'italic' },
   emptyWrap: { alignItems: 'center', gap: 8, paddingVertical: 32 },
   emptyText: { color: Colors.textMuted, fontSize: 14 },
-  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1A2B5F', borderRadius: 12, paddingVertical: 16, marginTop: 8 },
+  gerarBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#1E3A5F', borderRadius: 12, paddingVertical: 16, marginTop: 8 },
   gerarBtnText: { color: '#fff', fontSize: 15, fontFamily: 'Inter_600SemiBold' },
 });

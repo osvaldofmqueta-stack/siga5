@@ -466,7 +466,7 @@ export default function PortalEstudanteScreen() {
     *{box-sizing:border-box;margin:0;padding:0;}
     body{font-family:'Segoe UI',Arial,sans-serif;background:#f5f5f5;color:#1a1a2e;padding:30px;}
     .page{max-width:680px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.12);}
-    .header{background:linear-gradient(135deg,#0D1B3E 0%,#1a3060 100%);padding:32px 36px;display:flex;align-items:center;gap:20px;}
+    .header{background:linear-gradient(135deg,#0D1F35 0%,#1a3060 100%);padding:32px 36px;display:flex;align-items:center;gap:20px;}
     .logo{width:64px;height:64px;border-radius:12px;object-fit:contain;background:#fff;padding:4px;}
     .logo-placeholder{width:64px;height:64px;border-radius:12px;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:28px;color:#fff;font-weight:700;flex-shrink:0;}
     .header-text{flex:1;}

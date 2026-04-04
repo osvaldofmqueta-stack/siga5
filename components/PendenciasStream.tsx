@@ -67,7 +67,7 @@ function getInitials(nome: string, apelido: string) {
 }
 
 function getAvatarColor(nome: string) {
-  const colors = ['#CC1A1A', '#1A2B5F', '#F0A500', '#2ECC71', '#3498DB', '#8E44AD'];
+  const colors = ['#4A90D9', '#1E3A5F', '#C89A2A', '#2ECC71', '#3498DB', '#8E44AD'];
   let hash = 0;
   for (let i = 0; i < nome.length; i++) hash = nome.charCodeAt(i) + ((hash << 5) - hash);
   return colors[Math.abs(hash) % colors.length];

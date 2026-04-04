@@ -388,7 +388,7 @@ export default function MEDIntegracaoScreen() {
       <View style={styles.medBanner}>
         <View style={styles.medBannerLeft}>
           <View style={styles.medLogoBox}>
-            <MaterialCommunityIcons name="shield-star" size={28} color="#CC1A1A" />
+            <MaterialCommunityIcons name="shield-star" size={28} color="#4A90D9" />
           </View>
           <View>
             <Text style={styles.medBannerTitle}>Ministério da Educação de Angola</Text>
@@ -703,13 +703,13 @@ const styles = StyleSheet.create({
 
   medBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#1A0000', borderBottomWidth: 1, borderBottomColor: '#CC1A1A40',
+    backgroundColor: '#1A0000', borderBottomWidth: 1, borderBottomColor: '#4A90D940',
     paddingHorizontal: 16, paddingVertical: 12, gap: 10,
   },
   medBannerLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   medLogoBox: {
     width: 46, height: 46, borderRadius: 10,
-    backgroundColor: '#CC1A1A18', borderWidth: 1, borderColor: '#CC1A1A40',
+    backgroundColor: '#4A90D918', borderWidth: 1, borderColor: '#4A90D940',
     alignItems: 'center', justifyContent: 'center',
   },
   medBannerTitle: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text },

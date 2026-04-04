@@ -50,8 +50,8 @@ export async function sendPasswordResetEmail(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Redefinição de Senha — QUETA</title>
 </head>
-<body style="margin:0;padding:0;background:#0D1B3E;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1B3E;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#0D1F35;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1F35;padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="560" cellpadding="0" cellspacing="0" style="background:#0F2347;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
@@ -71,7 +71,7 @@ export async function sendPasswordResetEmail(
           <tr>
             <td style="padding:36px 40px;">
               <p style="margin:0 0 16px;color:rgba(255,255,255,0.9);font-size:15px;line-height:1.6;">
-                Olá, <strong style="color:#F0A500;">${primeiroNome}</strong>,
+                Olá, <strong style="color:#C89A2A;">${primeiroNome}</strong>,
               </p>
               <p style="margin:0 0 24px;color:rgba(255,255,255,0.75);font-size:14px;line-height:1.7;">
                 Recebemos um pedido para redefinir a senha da sua conta no QUETA. Se não foi você, pode ignorar este email em segurança — a sua senha permanecerá inalterada.
@@ -93,7 +93,7 @@ export async function sendPasswordResetEmail(
                 <tr>
                   <td style="background:rgba(240,165,0,0.08);border:1px solid rgba(240,165,0,0.25);border-radius:10px;padding:16px 20px;">
                     <p style="margin:0;color:rgba(255,255,255,0.7);font-size:13px;line-height:1.6;">
-                      ⏰ <strong style="color:#F0A500;">Este link é válido apenas por 1 hora.</strong><br />
+                      ⏰ <strong style="color:#C89A2A;">Este link é válido apenas por 1 hora.</strong><br />
                       Após esse prazo, terá de solicitar um novo link de redefinição.
                     </p>
                   </td>
@@ -176,7 +176,7 @@ export async function sendGuardianNotificationEmail(
   const accentColor = colorMap[tipo] ?? "#1A5276";
 
   const alunoLine = nomeAluno
-    ? `<p style="margin:0 0 8px;color:rgba(255,255,255,0.6);font-size:13px;">Educando: <strong style="color:#F0A500;">${nomeAluno}</strong></p>`
+    ? `<p style="margin:0 0 8px;color:rgba(255,255,255,0.6);font-size:13px;">Educando: <strong style="color:#C89A2A;">${nomeAluno}</strong></p>`
     : "";
 
   const htmlBody = `
@@ -187,13 +187,13 @@ export async function sendGuardianNotificationEmail(
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${titulo} — QUETA</title>
 </head>
-<body style="margin:0;padding:0;background:#0D1B3E;font-family:'Helvetica Neue',Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1B3E;padding:40px 20px;">
+<body style="margin:0;padding:0;background:#0D1F35;font-family:'Helvetica Neue',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0D1F35;padding:40px 20px;">
     <tr>
       <td align="center">
         <table width="560" cellpadding="0" cellspacing="0" style="background:#0F2347;border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.08);">
           <tr>
-            <td style="background:linear-gradient(135deg,${accentColor},#0D1B3E);padding:32px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,${accentColor},#0D1F35);padding:32px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(240,165,0,0.15);border:2px solid rgba(240,165,0,0.4);border-radius:50%;width:64px;height:64px;line-height:64px;text-align:center;margin-bottom:16px;">
                 <span style="font-size:28px;">${icon}</span>
               </div>
@@ -204,7 +204,7 @@ export async function sendGuardianNotificationEmail(
           <tr>
             <td style="padding:36px 40px;">
               <p style="margin:0 0 16px;color:rgba(255,255,255,0.9);font-size:15px;line-height:1.6;">
-                Olá, <strong style="color:#F0A500;">${primeiroNome}</strong>,
+                Olá, <strong style="color:#C89A2A;">${primeiroNome}</strong>,
               </p>
               ${alunoLine}
               <table width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">

@@ -62,7 +62,7 @@ function baseHTMLHead(title: string, nomeEscola: string, anoLetivo: string): str
   h1 { font-size: 13pt; text-align: center; margin-bottom: 2px; }
   .sub { text-align: center; font-size: 9pt; color: #555; margin-bottom: 12px; }
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th { background: #1A2B5F; color: #fff; padding: 6px 8px; font-size: 8.5pt; text-align: left; }
+  th { background: #1E3A5F; color: #fff; padding: 6px 8px; font-size: 8.5pt; text-align: left; }
   td { padding: 5px 8px; font-size: 8.5pt; border-bottom: 1px solid #ddd; }
   tr:nth-child(even) td { background: #f5f5f5; }
   .header-info { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 8.5pt; color: #333; }
@@ -120,7 +120,7 @@ function gerarHTMLNotas(
   rows.forEach(({ turma, linhas }) => {
     const aprovados = linhas.filter(l => l.aprovado).length;
     html += `
-    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1A2B5F;padding-bottom:4px;">
+    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1E3A5F;padding-bottom:4px;">
       Turma: ${turma.nome} — Classe ${turma.classe} — ${turma.nivel}
     </h3>
     <div class="stat-row">
@@ -186,14 +186,14 @@ function gerarHTMLPresencas(
     const taxaGeral = totalRegistos > 0 ? Math.round((totalPresentes / totalRegistos) * 100) : 0;
 
     html += `
-    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1A2B5F;padding-bottom:4px;">
+    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1E3A5F;padding-bottom:4px;">
       Turma: ${turma.nome} — Classe ${turma.classe} — ${turma.nivel}
     </h3>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-val">${linhas.length}</div><div class="stat-lbl">Alunos</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#1a7a3a">${totalPresentes}</div><div class="stat-lbl">Presenças</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#c0392b">${totalFaltas}</div><div class="stat-lbl">Faltas</div></div>
-      <div class="stat-box"><div class="stat-val" style="color:#1A2B5F">${taxaGeral}%</div><div class="stat-lbl">Taxa Presença</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#1E3A5F">${taxaGeral}%</div><div class="stat-lbl">Taxa Presença</div></div>
     </div>
     <table>
       <thead>
@@ -263,14 +263,14 @@ function gerarHTMLAprovacao(
     resumoGeral.push({ turma, total: linhas.length, aprovados, reprovados, semNotas, taxa });
 
     html += `
-    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1A2B5F;padding-bottom:4px;">
+    <h3 style="margin-top:18px;font-size:10pt;border-bottom:2px solid #1E3A5F;padding-bottom:4px;">
       Turma: ${turma.nome} — Classe ${turma.classe} — ${turma.nivel}
     </h3>
     <div class="stat-row">
       <div class="stat-box"><div class="stat-val">${linhas.length}</div><div class="stat-lbl">Total</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#1a7a3a">${aprovados}</div><div class="stat-lbl">Aprovados</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#c0392b">${reprovados}</div><div class="stat-lbl">Reprovados</div></div>
-      <div class="stat-box"><div class="stat-val" style="color:#1A2B5F">${taxa}%</div><div class="stat-lbl">Taxa Aprov.</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#1E3A5F">${taxa}%</div><div class="stat-lbl">Taxa Aprov.</div></div>
     </div>
     <table>
       <thead>
@@ -313,7 +313,7 @@ function gerarHTMLAprovacao(
       <div class="stat-box"><div class="stat-val">${totalAlunos}</div><div class="stat-lbl">Total Alunos</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#1a7a3a">${totalAprov}</div><div class="stat-lbl">Aprovados</div></div>
       <div class="stat-box"><div class="stat-val" style="color:#c0392b">${totalReprov}</div><div class="stat-lbl">Reprovados</div></div>
-      <div class="stat-box"><div class="stat-val" style="color:#1A2B5F">${taxaGeral}%</div><div class="stat-lbl">Taxa Geral</div></div>
+      <div class="stat-box"><div class="stat-val" style="color:#1E3A5F">${taxaGeral}%</div><div class="stat-lbl">Taxa Geral</div></div>
     </div>
     <table>
       <thead>

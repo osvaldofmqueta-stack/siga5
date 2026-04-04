@@ -376,7 +376,7 @@ export default function GestaoAcademicaScreen() {
       <ScrollView showsVerticalScrollIndicator={false} style={styles.scroll}>
 
         {/* ── Resumo Geral ───────────────────────────────────────────────── */}
-        <LinearGradient colors={['#0D1B3E', '#112257']} style={styles.resumoCard}>
+        <LinearGradient colors={['#0D1F35', '#112257']} style={styles.resumoCard}>
           <Text style={styles.resumoTitle}>Resumo do Ano Lectivo</Text>
           <Text style={styles.resumoAno}>{anoSelecionado?.ano || '—'}</Text>
           <View style={styles.resumoStats}>

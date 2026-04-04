@@ -828,7 +828,7 @@ function ResumoCard({ label, value, color, icon }: { label: string; value: numbe
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0D1B3E' },
+  root: { flex: 1, backgroundColor: '#0D1F35' },
   container: { padding: 16, paddingBottom: 60, gap: 16 },
 
   card: { backgroundColor: '#111f3d', borderRadius: 14, borderWidth: 1, borderColor: '#1e3055', padding: 18 },

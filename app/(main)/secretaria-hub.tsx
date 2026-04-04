@@ -375,7 +375,7 @@ function CredenciaisModal({ visible, onClose }: { visible: boolean; onClose: () 
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={[styles.modalBox, { maxWidth: 380 }]}>
-          <LinearGradient colors={['#1A5276', '#0D1B3E']} style={styles.credHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+          <LinearGradient colors={['#1A5276', '#0D1F35']} style={styles.credHeader} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
             <View style={styles.credAvatar}>
               <Text style={styles.credAvatarText}>SA</Text>
             </View>

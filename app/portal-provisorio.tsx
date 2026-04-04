@@ -58,12 +58,12 @@ function generateBoletimMatriculaHTML(reg: Registro, numeroMatricula: string, no
   .qr-box { width: 90px; height: 90px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 3px; background: #fff; }
   .qr-box img { width: 100%; height: 100%; object-fit: contain; }
   .qr-label { font-size: 6pt; text-align: center; margin-top: 3px; color: #444; font-weight: bold; }
-  .alerta { background: #1A2B5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
-  .status-box { border: 1.5px solid #1A2B5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
+  .alerta { background: #1E3A5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
+  .status-box { border: 1.5px solid #1E3A5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
   .status-box .status-label { font-size: 9pt; color: #444; }
-  .status-box .status-value { font-size: 11pt; font-weight: bold; color: #1A2B5F; }
+  .status-box .status-value { font-size: 11pt; font-weight: bold; color: #1E3A5F; }
   .status-box .mat-num { font-size: 12pt; font-weight: bold; color: #0a5e14; letter-spacing: 1px; }
-  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1A2B5F; text-transform: uppercase; letter-spacing: 0.3px; }
+  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1E3A5F; text-transform: uppercase; letter-spacing: 0.3px; }
   .separator { border-top: 1px solid #ccc; margin: 8px 0; }
   .field-line { display: flex; align-items: baseline; gap: 4px; margin-bottom: 5px; font-size: 9.5pt; flex-wrap: wrap; }
   .field-line .label { white-space: nowrap; color: #444; }
@@ -348,7 +348,7 @@ export default function PortalProvisorioScreen() {
   if (isLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <LinearGradient colors={['#061029', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+        <LinearGradient colors={['#061029', '#0D1F35']} style={StyleSheet.absoluteFill} />
         <ActivityIndicator color={Colors.gold} size="large" />
       </View>
     );
@@ -368,7 +368,7 @@ export default function PortalProvisorioScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#061029', '#0A1628', '#0D1B3E']} style={StyleSheet.absoluteFill} />
+      <LinearGradient colors={['#061029', '#0A1628', '#0D1F35']} style={StyleSheet.absoluteFill} />
 
       {/* Header */}
       <LinearGradient colors={['#061029', '#0A1628']} style={[styles.header, { paddingTop: topPad + 8 }]}>

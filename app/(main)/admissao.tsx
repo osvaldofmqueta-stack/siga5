@@ -178,7 +178,7 @@ function gerarListaResultadosPDF(registros: Registro[], nomeEscola: string) {
   .curso-header { font-size: 10px; font-weight: bold; padding: 3px 8px; margin: 6px 0 2px; background: #eef2ff; border-left: 3px solid #6366f1; }
 
   table { border-collapse: collapse; width: 100%; margin-bottom: 4px; font-size: 9.5px; }
-  th { background: #1A2B5F; color: #fff; font-weight: bold; padding: 4px 6px; text-align: left; border: none; }
+  th { background: #1E3A5F; color: #fff; font-weight: bold; padding: 4px 6px; text-align: left; border: none; }
   td { border-bottom: 1px solid #e0e0e0; padding: 3px 6px; vertical-align: middle; }
   .col-ord { width: 34px; }
   .col-nome { }
@@ -192,7 +192,7 @@ function gerarListaResultadosPDF(registros: Registro[], nomeEscola: string) {
   .sig-block { text-align: center; }
   .sig-line { width: 170px; border-top: 1px solid #000; margin: 28px auto 4px; }
   .footer { margin-top: 12px; border-top: 1px solid #ccc; padding-top: 5px; display: flex; justify-content: space-between; font-size: 8px; color: #555; }
-  .print-btn { position: fixed; bottom: 16px; right: 16px; background: #1A2B5F; color: #fff; border: none; border-radius: 8px; padding: 11px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999; }
+  .print-btn { position: fixed; bottom: 16px; right: 16px; background: #1E3A5F; color: #fff; border: none; border-radius: 8px; padding: 11px 22px; font-size: 13px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999; }
   @media print {
     .print-btn { display: none !important; }
     body { background: #fff; }
@@ -271,12 +271,12 @@ async function imprimirBoletimMatriculaAdmissao(reg: Registro) {
   .qr-box { width: 90px; height: 90px; border: 1.5px solid #000; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 3px; }
   .qr-box img { width: 100%; height: 100%; object-fit: contain; }
   .qr-label { font-size: 6pt; text-align: center; margin-top: 3px; color: #444; font-weight: bold; }
-  .alerta { background: #1A2B5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
-  .status-box { border: 1.5px solid #1A2B5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
+  .alerta { background: #1E3A5F; color: #fff; text-align: center; font-weight: bold; font-size: 9.5pt; padding: 4px 0; margin: 8px 0; letter-spacing: 0.8px; text-transform: uppercase; }
+  .status-box { border: 1.5px solid #1E3A5F; border-radius: 4px; padding: 10px 14px; margin: 10px 0; display: flex; gap: 20px; align-items: center; background: #f7f9ff; }
   .status-label { font-size: 9pt; color: #444; }
-  .status-value { font-size: 11pt; font-weight: bold; color: #1A2B5F; }
+  .status-value { font-size: 11pt; font-weight: bold; color: #1E3A5F; }
   .mat-num { font-size: 12pt; font-weight: bold; color: #0a5e14; letter-spacing: 1px; }
-  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1A2B5F; text-transform: uppercase; }
+  .section-title { font-weight: bold; font-size: 10pt; margin: 10px 0 4px; padding: 3px 6px; background: #f0f0f0; border-left: 3px solid #1E3A5F; text-transform: uppercase; }
   .field-line { display: flex; align-items: baseline; gap: 4px; margin-bottom: 5px; font-size: 9.5pt; flex-wrap: wrap; }
   .field-line .label { white-space: nowrap; color: #444; }
   .field-line .value { border-bottom: 1px solid #555; flex: 1; min-width: 60px; padding-bottom: 1px; font-weight: 600; }
@@ -1027,7 +1027,7 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   refreshBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 },
   refreshBtnText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-  listaBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1A2B5F', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 16, marginBottom: 6 },
+  listaBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#1E3A5F', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, marginHorizontal: 16, marginBottom: 6 },
   listaBtnText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: '#fff', flex: 1 },
 
   regCard: { backgroundColor: Colors.backgroundCard, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 10 },

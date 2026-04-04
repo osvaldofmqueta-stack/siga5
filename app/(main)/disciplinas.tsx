@@ -628,7 +628,7 @@ export default function DisciplinasScreen() {
       />
 
       {/* Hero — estatísticas por componente */}
-      <LinearGradient colors={['#0D1B3E', '#112257']} style={styles.hero}>
+      <LinearGradient colors={['#0D1F35', '#112257']} style={styles.hero}>
         <Text style={styles.heroLabel}>Cursos Técnico-Profissionais</Text>
         <View style={styles.heroComps}>
           {COMPONENTES.map(c => {

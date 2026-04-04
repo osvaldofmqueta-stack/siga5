@@ -96,17 +96,17 @@ export function exportToPDF(
   * { box-sizing: border-box; margin: 0; padding: 0; }
   @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: 12mm 14mm; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 9pt; color: #111; background: #fff; }
-  .doc-header { text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #1A2B5F; }
-  .doc-header h1 { font-size: 14pt; font-weight: bold; color: #1A2B5F; margin-bottom: 3px; }
+  .doc-header { text-align: center; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #1E3A5F; }
+  .doc-header h1 { font-size: 14pt; font-weight: bold; color: #1E3A5F; margin-bottom: 3px; }
   .doc-header h2 { font-size: 11pt; font-weight: bold; color: #111; margin-bottom: 2px; }
   .doc-header p { font-size: 8.5pt; color: #555; }
   .meta-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 8pt; color: #444; }
   table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  thead tr th { background: #1A2B5F; color: #fff; padding: 6px 8px; font-size: 8.5pt; text-align: left; border: 1px solid #0D1B3E; }
+  thead tr th { background: #1E3A5F; color: #fff; padding: 6px 8px; font-size: 8.5pt; text-align: left; border: 1px solid #0D1F35; }
   tbody tr td { padding: 5px 8px; font-size: 8.5pt; border: 1px solid #ddd; vertical-align: top; }
   tbody tr.even td { background: #f4f6fb; }
   .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; font-size: 7.5pt; color: #888; display: flex; justify-content: space-between; }
-  .count-badge { display: inline-block; background: #1A2B5F; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 8pt; margin-bottom: 6px; }
+  .count-badge { display: inline-block; background: #1E3A5F; color: #fff; border-radius: 4px; padding: 2px 8px; font-size: 8pt; margin-bottom: 6px; }
   @media print { .no-print { display: none; } }
 </style>
 </head>

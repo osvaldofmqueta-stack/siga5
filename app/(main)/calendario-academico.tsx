@@ -1260,7 +1260,7 @@ export default function CalendarioAcademicoScreen() {
                     <View key={d} style={[styles.dayCell, { backgroundColor: bgColor }]}>
                       <Text style={[
                         styles.dayNum,
-                        info.isToday && { color: '#0D1B3E', fontFamily: 'Inter_700Bold' },
+                        info.isToday && { color: '#0D1F35', fontFamily: 'Inter_700Bold' },
                         info.isFeriado && { color: '#fff' },
                         info.isProva && { color: '#fff' },
                         isEpoca && { color: '#fff', fontFamily: 'Inter_600SemiBold' },
