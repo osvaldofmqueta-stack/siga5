@@ -1305,6 +1305,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   const [saving, setSaving] = useState(false);
   const [livroSearch, setLivroSearch] = useState('');
   const [livroSel, setLivroSel] = useState<Livro | null>(null);
+  const [livroFocused, setLivroFocused] = useState(false);
   const [form, setForm] = useState({
     nomeLeitor: '', tipoLeitor: 'aluno',
     dataEmprestimo: new Date().toISOString().slice(0, 10),
@@ -1313,14 +1314,18 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   });
 
   useEffect(() => {
-    if (!visible) { setLivroSel(null); setLivroSearch(''); }
+    if (!visible) { setLivroSel(null); setLivroSearch(''); setLivroFocused(false); }
   }, [visible]);
 
-  // Only books with >1 available (to keep last copy)
-  const livrosFiltrados = livros.filter(l =>
-    l.quantidadeDisponivel > 1 &&
-    (l.titulo.toLowerCase().includes(livroSearch.toLowerCase()) || l.autor.toLowerCase().includes(livroSearch.toLowerCase()))
-  );
+  // Books with at least 1 available copy, filtered by search term
+  const livrosFiltrados = livros.filter(l => {
+    if (l.quantidadeDisponivel < 1) return false;
+    if (!livroSearch.trim()) return true;
+    const q = livroSearch.toLowerCase();
+    return l.titulo.toLowerCase().includes(q) || l.autor.toLowerCase().includes(q);
+  });
+
+  const showDropdown = !livroSel && (livroFocused || livroSearch.length > 0);
 
   const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -1379,16 +1384,29 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
               </View>
             ) : (
               <>
-                <MInput value={livroSearch} onChangeText={setLivroSearch} placeholder="Pesquisar livro disponível (mín. 2 exemplares)…" />
-                {livroSearch.length > 0 && (
+                <TextInput
+                  style={[mStyles.input, livroFocused && { borderColor: '#5E6AD2' }]}
+                  value={livroSearch}
+                  onChangeText={setLivroSearch}
+                  onFocus={() => setLivroFocused(true)}
+                  onBlur={() => setTimeout(() => setLivroFocused(false), 200)}
+                  placeholder="Toque para pesquisar por título ou autor…"
+                  placeholderTextColor="#555"
+                  selectionColor="#5E6AD2"
+                />
+                {showDropdown && (
                   <View style={mStyles.livroDropdown}>
-                    {livrosFiltrados.slice(0, 5).map(l => (
-                      <TouchableOpacity key={l.id} style={mStyles.livroOption} onPress={() => { setLivroSel(l); setLivroSearch(''); }}>
+                    {livrosFiltrados.slice(0, 6).map(l => (
+                      <TouchableOpacity key={l.id} style={mStyles.livroOption} onPress={() => { setLivroSel(l); setLivroSearch(''); setLivroFocused(false); }}>
                         <Text style={mStyles.livroOptionTitle} numberOfLines={1}>{l.titulo}</Text>
                         <Text style={mStyles.livroOptionSub}>{l.autor} · {l.quantidadeDisponivel} disponível(is)</Text>
                       </TouchableOpacity>
                     ))}
-                    {livrosFiltrados.length === 0 && <Text style={{ color: '#666', padding: 8, fontSize: 13 }}>Sem livros com exemplares suficientes</Text>}
+                    {livrosFiltrados.length === 0 && (
+                      <Text style={{ color: '#666', padding: 10, fontSize: 13 }}>
+                        {livroSearch.trim() ? 'Nenhum livro encontrado' : 'Sem livros disponíveis no acervo'}
+                      </Text>
+                    )}
                   </View>
                 )}
               </>
@@ -2086,7 +2104,7 @@ const mStyles = StyleSheet.create({
   autorAutoFill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#5E6AD210', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 4, borderWidth: 1, borderColor: '#5E6AD230' },
   autorAutoFillLabel: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
   autorAutoFillValue: { color: '#ccc', fontSize: 12, flex: 1 },
-  livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', overflow: 'hidden' },
+  livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#5E6AD244', overflow: 'hidden', maxHeight: 240 },
   livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },
   livroOptionSub: { color: '#888', fontSize: 11, marginTop: 2 },
