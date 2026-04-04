@@ -620,7 +620,12 @@ export default function PedagogicoScreen() {
     return (
       <View style={{ marginBottom: 8 }}>
         <Text style={st.filterLabel}>{label}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ maxHeight: 40 }}
+          contentContainerStyle={{ gap: 6, paddingVertical: 2, alignItems: 'center' }}
+        >
           {options.map(o => (
             <TouchableOpacity key={String(o.value)} onPress={() => onChange(o.value)}
               style={[st.chip, value === o.value && st.chipActive]}>
@@ -1236,6 +1241,13 @@ export default function PedagogicoScreen() {
 
   function renderFAB() {
     if (tab === 'resultados' || tab === 'planos_aula') return null;
+    const labels: Record<TabKey, string> = {
+      planificacoes: 'Nova Planificação',
+      programa:      'Novo Conteúdo',
+      ocorrencias:   'Nova Ocorrência',
+      resultados:    '',
+      planos_aula:   '',
+    };
     const handlers: Record<TabKey, () => void> = {
       planificacoes: () => { setEditPlan(null); setFormPlan(defaultPlan); setShowPlanModal(true); },
       programa:      () => { setEditProg(null); setFormProg(defaultProg); setShowProgModal(true); },
@@ -1244,8 +1256,9 @@ export default function PedagogicoScreen() {
       planos_aula:   () => {},
     };
     return (
-      <TouchableOpacity style={[st.fab, { bottom: bottom + 16 }]} onPress={handlers[tab]}>
-        <Ionicons name="add" size={26} color="#fff" />
+      <TouchableOpacity style={[st.fab, { bottom: bottom + 80 }]} onPress={handlers[tab]}>
+        <Ionicons name="add" size={22} color="#fff" />
+        <Text style={st.fabLabel}>{labels[tab]}</Text>
       </TouchableOpacity>
     );
   }
@@ -1264,7 +1277,7 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Turma *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
             {turmasVisiveis.map(t => (
               <TouchableOpacity key={t.id} onPress={() => setFormPlan(p => ({ ...p, turmaId: t.id }))}
                 style={[st.chip, formPlan.turmaId === t.id && st.chipActive]}>
@@ -1274,7 +1287,7 @@ export default function PedagogicoScreen() {
           </ScrollView>
 
           <Text style={st.lbl}>Disciplina *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
             {disciplinasVisiveis.map(d => (
               <TouchableOpacity key={d} onPress={() => setFormPlan(p => ({ ...p, disciplina: d }))}
                 style={[st.chip, formPlan.disciplina === d && st.chipActive]}>
@@ -1429,7 +1442,7 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Turma *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
             {turmasVisiveis.map(t => (
               <TouchableOpacity key={t.id} onPress={() => setFormOco(p => ({ ...p, turmaId: t.id, alunoId: '' }))}
                 style={[st.chip, formOco.turmaId === t.id && st.chipActive]}>
@@ -1441,7 +1454,7 @@ export default function PedagogicoScreen() {
           {formOco.turmaId !== '' && (
             <>
               <Text style={st.lbl}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
                 {alunosTurma.map(a => (
                   <TouchableOpacity key={a.id} onPress={() => setFormOco(p => ({ ...p, alunoId: a.id }))}
                     style={[st.chip, formOco.alunoId === a.id && st.chipActive]}>
@@ -1578,10 +1591,15 @@ const st = StyleSheet.create({
   btnPrimaryTxt: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.primaryDark },
   fab: {
     position: 'absolute', right: 20,
-    width: 56, height: 56, borderRadius: 28,
+    height: 44, borderRadius: 22,
+    paddingHorizontal: 16,
+    flexDirection: 'row', gap: 6,
     backgroundColor: Colors.gold, justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8,
     elevation: 8,
+  },
+  fabLabel: {
+    color: Colors.primaryDark, fontFamily: 'Inter_700Bold', fontSize: 13,
   },
   searchInput: {
     backgroundColor: Colors.backgroundCard, borderRadius: 10, paddingHorizontal: 14,
