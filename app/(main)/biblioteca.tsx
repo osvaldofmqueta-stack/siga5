@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, ActivityIndicator, FlatList, Platform,
-  Image, RefreshControl,
+  Image, RefreshControl, useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -230,6 +230,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   onRefresh: () => void;
 }) {
   const { showToast } = useToast();
+  const { width } = useWindowDimensions();
   const [search, setSearch] = useState('');
   const [catFiltro, setCatFiltro] = useState('Todas');
   const [showModal, setShowModal] = useState(false);
@@ -238,6 +239,9 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
 
   const [showCatModal, setShowCatModal] = useState(false);
   const cats = ['Todas', ...Array.from(new Set(livros.map(l => l.categoria))).sort()];
+
+  const numCols = width >= 1100 ? 5 : width >= 800 ? 4 : width >= 550 ? 3 : 2;
+  const cardWidth = (width - 200 - 12 * (numCols + 1)) / numCols;
 
   const filtered = livros.filter(l => {
     const q = search.toLowerCase();
@@ -333,7 +337,8 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
       <FlatList
         data={filtered}
         keyExtractor={i => i.id}
-        numColumns={2}
+        key={numCols}
+        numColumns={numCols}
         columnWrapperStyle={{ paddingHorizontal: 12, gap: 12, marginBottom: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
         contentContainerStyle={{ paddingTop: 12, paddingBottom: 120 }}
@@ -347,6 +352,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         renderItem={({ item }) => (
           <BookCard
             livro={item}
+            cardWidth={cardWidth}
             canManage={canManage}
             onEdit={() => { setEditLivro(item); setShowModal(true); }}
             onSolicitar={() => setSolicitarLivro(item)}
@@ -376,8 +382,9 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
 }
 
 // ─── Book Card (Grid) ─────────────────────────────────────────────────────────
-function BookCard({ livro, canManage, onEdit, onSolicitar }: {
+function BookCard({ livro, cardWidth, canManage, onEdit, onSolicitar }: {
   livro: Livro;
+  cardWidth: number;
   canManage: boolean;
   onEdit: () => void;
   onSolicitar: () => void;
@@ -385,11 +392,12 @@ function BookCard({ livro, canManage, onEdit, onSolicitar }: {
   const available = livro.quantidadeDisponivel > 0;
   const dispColor = !available ? '#EF5350' : livro.quantidadeDisponivel <= 2 ? '#FFA726' : '#66BB6A';
   const cc = catColor(livro.categoria);
+  const coverHeight = Math.min(Math.round(cardWidth * 1.4), 180);
 
   return (
     <View style={bookStyles.card}>
       {/* Cover */}
-      <View style={bookStyles.coverWrap}>
+      <View style={[bookStyles.coverWrap, { height: coverHeight }]}>
         {livro.capaUrl ? (
           <Image source={{ uri: livro.capaUrl }} style={bookStyles.coverImg} resizeMode="cover" />
         ) : (
@@ -649,10 +657,10 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
       };
       if (livro) {
         await req(`/api/livros/${livro.id}`, { method: 'PUT', body: JSON.stringify(payload) });
-        showToast('Livro atualizado.', 'success');
+        showToast(`«${payload.titulo}» atualizado com sucesso.`, 'success');
       } else {
         await req('/api/livros', { method: 'POST', body: JSON.stringify(payload) });
-        showToast('Livro adicionado ao catálogo.', 'success');
+        showToast(`«${payload.titulo}» adicionado ao catálogo! ${qty} exemplar(es) disponível(is).`, 'success');
       }
       onSaved();
     } catch (e) {
@@ -1393,7 +1401,7 @@ const styles = StyleSheet.create({
 // Book card styles
 const bookStyles = StyleSheet.create({
   card: { flex: 1, backgroundColor: '#13131f', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  coverWrap: { width: '100%', aspectRatio: 2 / 3, position: 'relative' },
+  coverWrap: { width: '100%', position: 'relative', overflow: 'hidden' },
   coverImg: { width: '100%', height: '100%' },
   coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10 },
   coverCat: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
