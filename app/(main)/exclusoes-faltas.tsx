@@ -23,6 +23,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
 import { webAlert } from '@/utils/webAlert';
+import { useLookup } from '@/hooks/useLookup';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -94,16 +95,22 @@ function currentMonth() { return new Date().getMonth() + 1; }
 // ─── Hook: disciplinas vinculadas a uma turma ──────────────────────────────────
 
 function useTurmaDisciplinas(turmaId: string) {
+  const { values: fallbackDisciplinas } = useLookup('disciplinas_fallback');
   const [disciplinas, setDisciplinas] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     if (!turmaId) { setDisciplinas([]); return; }
     setLoading(true);
     api.get<{ nome: string }[]>(`/api/turmas/${turmaId}/disciplinas`)
-      .then(rows => setDisciplinas(rows.map(r => r.nome)))
-      .catch(() => setDisciplinas([]))
+      .then(rows => {
+        const nomes = rows.map(r => r.nome);
+        setDisciplinas(nomes.length > 0 ? nomes : fallbackDisciplinas);
+      })
+      .catch(() => setDisciplinas(fallbackDisciplinas))
       .finally(() => setLoading(false));
-  }, [turmaId]);
+  }, [turmaId, fallbackDisciplinas]);
+
   return { disciplinas, loading };
 }
 
@@ -124,12 +131,6 @@ function DisciplinaSelector({
     );
   }
   if (loading) return <ActivityIndicator color={Colors.gold} style={{ marginBottom: 12 }} />;
-  if (disciplinas.length === 0) {
-    return (
-      <TextInput style={styles.input} value={value} onChangeText={onChange}
-        placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} autoCapitalize="words" />
-    );
-  }
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 4 }}>
       {allowAll && (
