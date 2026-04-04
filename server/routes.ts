@@ -411,6 +411,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] presencas_biblioteca migration warning:', (migErr as Error).message);
   }
 
+  // Add utilizadorId to notificacoes (per-user filtering)
+  try {
+    await query(`ALTER TABLE public.notificacoes ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
+    console.log('[migration] notificacoes.utilizadorId ensured.');
+  } catch (migErr) {
+    console.warn('[migration] notificacoes.utilizadorId:', (migErr as Error).message);
+  }
+
+  // Add id as primary key if notificacoes uses serial — ensure varchar fallback
+  try {
+    await query(`ALTER TABLE public.notificacoes ALTER COLUMN "createdAt" SET DEFAULT now()`, []);
+  } catch { /* ignore */ }
+
   // Add notasVisiveis to config_geral (global toggle for student grade visibility)
   try {
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "notasVisiveis" boolean NOT NULL DEFAULT false`, []);

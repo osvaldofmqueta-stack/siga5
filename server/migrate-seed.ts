@@ -115,6 +115,17 @@ async function run() {
       name: 'livros — capaUrl',
       sql: `ALTER TABLE public.livros ADD COLUMN IF NOT EXISTS "capaUrl" text NOT NULL DEFAULT ''`,
     },
+    {
+      name: 'notificacoes — utilizadorId',
+      sql: `ALTER TABLE public.notificacoes ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`,
+    },
+    {
+      name: 'funcionarios — bi + nif + telefone + email',
+      sql: `ALTER TABLE public.funcionarios
+              ADD COLUMN IF NOT EXISTS bi text NOT NULL DEFAULT '',
+              ADD COLUMN IF NOT EXISTS nif text NOT NULL DEFAULT '',
+              ADD COLUMN IF NOT EXISTS "dataAdmissao" text NOT NULL DEFAULT ''`,
+    },
   ];
 
   for (const m of migrations) {
