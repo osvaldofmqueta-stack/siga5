@@ -5260,6 +5260,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const livro = await query<JsonObject>(`SELECT * FROM public.livros WHERE id=$1`, [b.livroId]);
       if (!livro[0]) return json(res, 404, { error: 'Livro não encontrado.' });
       if (Number(livro[0].quantidadeDisponivel) < 1) return json(res, 400, { error: 'Livro sem exemplares disponíveis.' });
+      if (Number(livro[0].quantidadeDisponivel) <= 1) return json(res, 400, { error: 'Não é possível emprestar o último exemplar. Aguarde a devolução de um exemplar.' });
+      // Check penalty for student
+      if (b.alunoId) {
+        const hist = await query<JsonObject>(
+          `SELECT COUNT(*) AS total FROM public.emprestimos WHERE "alunoId"=$1 AND status='devolvido' AND "dataDevolucao" IS NOT NULL AND "dataDevolucao" > "dataPrevistaDevolucao"`,
+          [b.alunoId]
+        );
+        if (Number((hist[0] as any)?.total || 0) >= 2) {
+          return json(res, 400, { error: 'Estudante penalizado por atrasos repetidos. Não é possível realizar novos empréstimos.' });
+        }
+      }
 
       const rows = await query<JsonObject>(
         `INSERT INTO public.emprestimos ("livroId", "livroTitulo", "alunoId", "nomeLeitor", "tipoLeitor", "dataEmprestimo", "dataPrevistaDevolucao", status, observacao, "registadoPor")
@@ -5323,6 +5334,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const livro = await query<JsonObject>(`SELECT * FROM public.livros WHERE id=$1 AND ativo=true`, [b.livroId]);
       if (!livro[0]) return json(res, 404, { error: 'Livro não encontrado.' });
       if (Number(livro[0].quantidadeDisponivel) < 1) return json(res, 400, { error: 'Livro sem exemplares disponíveis.' });
+      if (Number(livro[0].quantidadeDisponivel) <= 1) return json(res, 400, { error: 'Não é possível solicitar o último exemplar. Aguarde a devolução de um exemplar.' });
+      // Check penalty
+      if (b.alunoId) {
+        const hist = await query<JsonObject>(
+          `SELECT COUNT(*) AS total FROM public.emprestimos WHERE "alunoId"=$1 AND status='devolvido' AND "dataDevolucao" IS NOT NULL AND "dataDevolucao" > "dataPrevistaDevolucao"`,
+          [b.alunoId]
+        );
+        if (Number((hist[0] as any)?.total || 0) >= 2) {
+          return json(res, 400, { error: 'Estudante penalizado por atrasos repetidos. Não é possível realizar novos pedidos de empréstimo.' });
+        }
+      }
 
       const rows = await query<JsonObject>(
         `INSERT INTO public.solicitacoes_emprestimo ("livroId","livroTitulo","alunoId","nomeLeitor","tipoLeitor","diasSolicitados",status,"registadoPor")

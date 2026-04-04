@@ -60,6 +60,18 @@ interface Solicitacao {
   createdAt: string;
 }
 
+interface DesejosLivro {
+  id: string;
+  titulo: string;
+  autor: string;
+  motivo: string;
+  alunoId: string | null;
+  nomeLeitor: string;
+  status: 'pendente' | 'adquirido' | 'rejeitado';
+  registadoPor: string;
+  createdAt: string;
+}
+
 const TIPOS_LEITOR = ['aluno', 'professor', 'funcionário', 'externo'];
 
 async function req<T = unknown>(url: string, opts?: RequestInit): Promise<T> {
@@ -102,9 +114,11 @@ function catColor(cat: string) {
   return map[cat] || '#888';
 }
 
+const MESES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 export default function BibliotecaScreen() {
-  const [tab, setTab] = useState<'catalogo' | 'emprestimos' | 'stats'>('catalogo');
+  const [tab, setTab] = useState<'catalogo' | 'emprestimos' | 'desejos' | 'stats'>('catalogo');
   const [livros, setLivros] = useState<Livro[]>([]);
   const [emprestimos, setEmprestimos] = useState<Emprestimo[]>([]);
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
@@ -150,24 +164,27 @@ export default function BibliotecaScreen() {
   const totalEmprestados = totalLivros - totalDisp;
   const pendentesCount = solicitacoes.length;
 
+  const tabs = [
+    { key: 'catalogo', label: 'Catálogo', icon: 'library' },
+    { key: 'emprestimos', label: 'Empréstimos', icon: 'swap-horizontal',
+      badge: atrasados.length + (canManage ? pendentesCount : 0) },
+    { key: 'desejos', label: 'Desejos', icon: 'heart' },
+    { key: 'stats', label: 'Relatórios', icon: 'bar-chart' },
+  ] as const;
+
   return (
     <View style={styles.root}>
       <TopBar title="Biblioteca Escolar" subtitle="Gestão de livros e empréstimos" />
 
       <View style={styles.tabBar}>
-        {([
-          { key: 'catalogo', label: 'Catálogo', icon: 'book' },
-          { key: 'emprestimos', label: 'Empréstimos', icon: 'swap-horizontal',
-            badge: atrasados.length + (canManage ? pendentesCount : 0) },
-          { key: 'stats', label: 'Estatísticas', icon: 'bar-chart' },
-        ] as const).map(t => (
+        {tabs.map(t => (
           <TouchableOpacity
             key={t.key}
             style={[styles.tab, tab === t.key && styles.tabActive]}
             onPress={() => setTab(t.key)}
           >
-            <Ionicons name={t.icon as any} size={17} color={tab === t.key ? '#fff' : '#777'} />
-            <Text style={[styles.tabLabel, tab === t.key && { color: '#fff' }]}>{t.label}</Text>
+            <Ionicons name={t.icon as any} size={16} color={tab === t.key ? '#5E6AD2' : '#666'} />
+            <Text style={[styles.tabLabel, tab === t.key && styles.tabLabelActive]}>{t.label}</Text>
             {'badge' in t && (t as any).badge > 0 && (
               <View style={styles.badge}><Text style={styles.badgeText}>{(t as any).badge}</Text></View>
             )}
@@ -197,6 +214,14 @@ export default function BibliotecaScreen() {
               canManage={canManage}
               user={user}
               onReload={() => load(true)}
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+            />
+          )}
+          {tab === 'desejos' && (
+            <DesejosTab
+              canManage={canManage}
+              user={user}
               refreshing={refreshing}
               onRefresh={onRefresh}
             />
@@ -235,13 +260,17 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   const [catFiltro, setCatFiltro] = useState('Todas');
   const [showModal, setShowModal] = useState(false);
   const [editLivro, setEditLivro] = useState<Livro | null>(null);
+  const [detailLivro, setDetailLivro] = useState<Livro | null>(null);
   const [solicitarLivro, setSolicitarLivro] = useState<Livro | null>(null);
-
   const [showCatModal, setShowCatModal] = useState(false);
+
   const cats = ['Todas', ...Array.from(new Set(livros.map(l => l.categoria))).sort()];
 
-  const numCols = width >= 1100 ? 5 : width >= 800 ? 4 : width >= 550 ? 3 : 2;
-  const cardWidth = (width - 200 - 12 * (numCols + 1)) / numCols;
+  // Compact bookshelf grid: more columns, smaller cards
+  const numCols = width >= 1100 ? 7 : width >= 800 ? 6 : width >= 600 ? 5 : width >= 420 ? 4 : 3;
+  const padding = 12;
+  const gap = 8;
+  const cardWidth = Math.floor((width - 200 - padding * 2 - gap * (numCols - 1)) / numCols);
 
   const filtered = livros.filter(l => {
     const q = search.toLowerCase();
@@ -290,16 +319,27 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         )}
       </View>
 
-      {/* Category Picker Modal */}
+      {/* Count bar */}
+      <View style={shelfStyles.countBar}>
+        <Text style={shelfStyles.countText}>
+          {filtered.length} livro{filtered.length !== 1 ? 's' : ''}
+          {catFiltro !== 'Todas' ? ` em "${catFiltro}"` : ' no catálogo'}
+        </Text>
+        <Text style={shelfStyles.totalText}>
+          {livros.reduce((s, l) => s + l.quantidadeTotal, 0)} exemplares
+        </Text>
+      </View>
+
+      {/* Category Picker Modal — centered */}
       <Modal visible={showCatModal} transparent animationType="fade" onRequestClose={() => setShowCatModal(false)}>
-        <View style={mStyles.overlay}>
+        <View style={centeredOverlay}>
           <View style={mStyles.sheet}>
             <View style={mStyles.header}>
-              <View style={catPickerStyles.headerLeft}>
+              <View style={mStyles.headerLeft}>
                 <Ionicons name="pricetag-outline" size={18} color="#5E6AD2" />
                 <Text style={mStyles.headerTitle}>Filtrar por Categoria</Text>
               </View>
-              <TouchableOpacity onPress={() => setShowCatModal(false)} style={catPickerStyles.closeBtn}>
+              <TouchableOpacity onPress={() => setShowCatModal(false)} style={mStyles.closeBtn}>
                 <Ionicons name="close" size={20} color="#aaa" />
               </TouchableOpacity>
             </View>
@@ -313,11 +353,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
                     style={[catPickerStyles.catRow, isActive && { borderColor: cc, backgroundColor: cc + '18' }]}
                     onPress={() => { setCatFiltro(c); setShowCatModal(false); }}
                   >
-                    {c === 'Todas' ? (
-                      <View style={[catPickerStyles.catDot, { backgroundColor: isActive ? '#5E6AD2' : '#444' }]} />
-                    ) : (
-                      <View style={[catPickerStyles.catDot, { backgroundColor: isActive ? cc : '#444' }]} />
-                    )}
+                    <View style={[catPickerStyles.catDot, { backgroundColor: isActive ? cc : '#444' }]} />
                     <Text style={[catPickerStyles.catLabel, isActive && { color: cc, fontWeight: '700' }]}>{c}</Text>
                     {c !== 'Todas' && (
                       <Text style={catPickerStyles.catCount}>
@@ -333,15 +369,15 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         </View>
       </Modal>
 
-      {/* Book grid */}
+      {/* Bookshelf grid */}
       <FlatList
         data={filtered}
         keyExtractor={i => i.id}
         key={numCols}
         numColumns={numCols}
-        columnWrapperStyle={{ paddingHorizontal: 12, gap: 12, marginBottom: 12 }}
+        columnWrapperStyle={{ paddingHorizontal: padding, gap, marginBottom: gap }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-        contentContainerStyle={{ paddingTop: 12, paddingBottom: 120 }}
+        contentContainerStyle={{ paddingTop: 10, paddingBottom: 120 }}
         ListEmptyComponent={
           <View style={styles.emptyBox}>
             <Ionicons name="library-outline" size={48} color="#444" />
@@ -350,14 +386,22 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
           </View>
         }
         renderItem={({ item }) => (
-          <BookCard
+          <ShelfBookCard
             livro={item}
             cardWidth={cardWidth}
-            canManage={canManage}
-            onEdit={() => { setEditLivro(item); setShowModal(true); }}
-            onSolicitar={() => setSolicitarLivro(item)}
+            onPress={() => setDetailLivro(item)}
           />
         )}
+      />
+
+      {/* Book Detail Modal */}
+      <BookDetailModal
+        visible={!!detailLivro}
+        livro={detailLivro}
+        canManage={canManage}
+        onClose={() => setDetailLivro(null)}
+        onEdit={() => { setEditLivro(detailLivro); setDetailLivro(null); setShowModal(true); }}
+        onSolicitar={() => { setSolicitarLivro(detailLivro); setDetailLivro(null); }}
       />
 
       <LivroModal
@@ -381,63 +425,192 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   );
 }
 
-// ─── Book Card (Grid) ─────────────────────────────────────────────────────────
-function BookCard({ livro, cardWidth, canManage, onEdit, onSolicitar }: {
+// ─── Shelf Book Card (compact bookshelf style) ────────────────────────────────
+function ShelfBookCard({ livro, cardWidth, onPress }: {
   livro: Livro;
   cardWidth: number;
+  onPress: () => void;
+}) {
+  const coverHeight = Math.round(cardWidth * 1.45);
+  const cc = catColor(livro.categoria);
+  const available = livro.quantidadeDisponivel > 1; // needs >1 to allow borrowing
+  const lastCopy = livro.quantidadeDisponivel === 1;
+  const none = livro.quantidadeDisponivel === 0;
+  const dotColor = none ? '#EF5350' : lastCopy ? '#FFA726' : '#66BB6A';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.82}
+      onPress={onPress}
+      style={[shelfStyles.card, { width: cardWidth }]}
+    >
+      {/* Book spine shadow + cover */}
+      <View style={[shelfStyles.coverWrap, { height: coverHeight }]}>
+        {livro.capaUrl ? (
+          <Image source={{ uri: livro.capaUrl }} style={shelfStyles.coverImg} resizeMode="cover" />
+        ) : (
+          <View style={[shelfStyles.coverPlaceholder, { backgroundColor: cc + '28' }]}>
+            <View style={[shelfStyles.spineAccent, { backgroundColor: cc }]} />
+            <Ionicons name="book" size={Math.max(18, cardWidth * 0.28)} color={cc} style={{ opacity: 0.9 }} />
+            <Text style={[shelfStyles.coverCatText, { color: cc, fontSize: Math.max(8, cardWidth * 0.1) }]} numberOfLines={3}>
+              {livro.categoria}
+            </Text>
+          </View>
+        )}
+        {/* Availability dot */}
+        <View style={[shelfStyles.availDot, { backgroundColor: dotColor }]} />
+        {/* Last copy warning badge */}
+        {lastCopy && (
+          <View style={shelfStyles.lastCopyBadge}>
+            <Text style={shelfStyles.lastCopyText}>!1</Text>
+          </View>
+        )}
+      </View>
+      {/* Tiny title below */}
+      <View style={shelfStyles.titleWrap}>
+        <Text style={[shelfStyles.titleText, { fontSize: Math.max(9, Math.min(11, cardWidth * 0.12)) }]} numberOfLines={2}>
+          {livro.titulo}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+// ─── Book Detail Modal ────────────────────────────────────────────────────────
+function BookDetailModal({ visible, livro, canManage, onClose, onEdit, onSolicitar }: {
+  visible: boolean;
+  livro: Livro | null;
   canManage: boolean;
+  onClose: () => void;
   onEdit: () => void;
   onSolicitar: () => void;
 }) {
-  const available = livro.quantidadeDisponivel > 0;
-  const dispColor = !available ? '#EF5350' : livro.quantidadeDisponivel <= 2 ? '#FFA726' : '#66BB6A';
+  if (!livro) return null;
   const cc = catColor(livro.categoria);
-  const coverHeight = Math.min(Math.round(cardWidth * 1.4), 180);
+  const canBorrow = livro.quantidadeDisponivel > 1;
+  const lastCopy = livro.quantidadeDisponivel === 1;
+  const none = livro.quantidadeDisponivel === 0;
+  const dispColor = none ? '#EF5350' : lastCopy ? '#FFA726' : '#66BB6A';
+  const dispLabel = none ? 'Esgotado' : `${livro.quantidadeDisponivel} disponível(is)`;
 
   return (
-    <View style={bookStyles.card}>
-      {/* Cover */}
-      <View style={[bookStyles.coverWrap, { height: coverHeight }]}>
-        {livro.capaUrl ? (
-          <Image source={{ uri: livro.capaUrl }} style={bookStyles.coverImg} resizeMode="cover" />
-        ) : (
-          <View style={[bookStyles.coverPlaceholder, { backgroundColor: cc + '22' }]}>
-            <Ionicons name="book" size={36} color={cc} />
-            <Text style={[bookStyles.coverCat, { color: cc }]} numberOfLines={2}>{livro.categoria}</Text>
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={centeredOverlay}>
+        <View style={[mStyles.sheet, { maxWidth: 520 }]}>
+          <View style={mStyles.header}>
+            <View style={mStyles.headerLeft}>
+              <Ionicons name="book" size={18} color="#5E6AD2" />
+              <Text style={mStyles.headerTitle} numberOfLines={1}>{livro.titulo}</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={mStyles.closeBtn}>
+              <Ionicons name="close" size={20} color="#aaa" />
+            </TouchableOpacity>
           </View>
-        )}
-        {/* Availability badge */}
-        <View style={[bookStyles.availBadge, { backgroundColor: dispColor }]}>
-          <Text style={bookStyles.availText}>{livro.quantidadeDisponivel}/{livro.quantidadeTotal}</Text>
+
+          <ScrollView style={{ maxHeight: 500 }} contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
+            {/* Cover + info row */}
+            <View style={detailStyles.topRow}>
+              <View style={detailStyles.coverBox}>
+                {livro.capaUrl ? (
+                  <Image source={{ uri: livro.capaUrl }} style={detailStyles.coverImg} resizeMode="cover" />
+                ) : (
+                  <View style={[detailStyles.coverPlaceholder, { backgroundColor: cc + '22' }]}>
+                    <Ionicons name="book" size={40} color={cc} />
+                  </View>
+                )}
+              </View>
+              <View style={{ flex: 1, gap: 8 }}>
+                <Text style={detailStyles.title}>{livro.titulo}</Text>
+                <Text style={detailStyles.autor}>{livro.autor}</Text>
+                {livro.editora ? <Text style={detailStyles.editora}>{livro.editora}</Text> : null}
+                {livro.anoPublicacao ? <Text style={detailStyles.editora}>{livro.anoPublicacao}</Text> : null}
+
+                {/* Categoria */}
+                <View style={[detailStyles.catBadge, { backgroundColor: cc + '22', borderColor: cc + '44' }]}>
+                  <View style={[detailStyles.catDot, { backgroundColor: cc }]} />
+                  <Text style={[detailStyles.catText, { color: cc }]}>{livro.categoria}</Text>
+                </View>
+
+                {/* Stock */}
+                <View style={detailStyles.stockRow}>
+                  <View style={[detailStyles.stockBadge, { backgroundColor: dispColor + '22', borderColor: dispColor + '44' }]}>
+                    <View style={[{ width: 7, height: 7, borderRadius: 4, backgroundColor: dispColor }]} />
+                    <Text style={[detailStyles.stockText, { color: dispColor }]}>{dispLabel}</Text>
+                  </View>
+                  <Text style={detailStyles.stockTotal}>{livro.quantidadeTotal} no total</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* ISBN & Location */}
+            {(livro.isbn || livro.localizacao) ? (
+              <View style={detailStyles.metaRow}>
+                {livro.isbn ? (
+                  <View style={detailStyles.metaItem}>
+                    <Ionicons name="barcode-outline" size={13} color="#666" />
+                    <Text style={detailStyles.metaText}>ISBN: {livro.isbn}</Text>
+                  </View>
+                ) : null}
+                {livro.localizacao ? (
+                  <View style={detailStyles.metaItem}>
+                    <Ionicons name="location-outline" size={13} color="#666" />
+                    <Text style={detailStyles.metaText}>{livro.localizacao}</Text>
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
+
+            {/* Description */}
+            {livro.descricao ? (
+              <View style={detailStyles.descBox}>
+                <Text style={detailStyles.descLabel}>Sinopse</Text>
+                <Text style={detailStyles.descText}>{livro.descricao}</Text>
+              </View>
+            ) : null}
+
+            {/* Last copy warning */}
+            {lastCopy && (
+              <View style={detailStyles.warnBox}>
+                <Ionicons name="warning" size={15} color="#FFA726" />
+                <Text style={detailStyles.warnText}>
+                  Último exemplar reservado para consulta em sala. Aguarde a devolução de um exemplar para empréstimo.
+                </Text>
+              </View>
+            )}
+            {none && (
+              <View style={[detailStyles.warnBox, { backgroundColor: '#EF535011', borderColor: '#EF535033' }]}>
+                <Ionicons name="close-circle" size={15} color="#EF5350" />
+                <Text style={[detailStyles.warnText, { color: '#EF5350' }]}>
+                  Sem exemplares disponíveis. Aguarde a devolução.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
+
+          <View style={mStyles.footer}>
+            <TouchableOpacity style={mStyles.cancelBtn} onPress={onClose}>
+              <Text style={{ color: '#aaa', fontWeight: '600' }}>Fechar</Text>
+            </TouchableOpacity>
+            {canManage ? (
+              <TouchableOpacity style={mStyles.saveBtn} onPress={onEdit}>
+                <Ionicons name="pencil" size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Editar</Text>
+              </TouchableOpacity>
+            ) : canBorrow ? (
+              <TouchableOpacity style={mStyles.saveBtn} onPress={onSolicitar}>
+                <Ionicons name="hand-right-outline" size={15} color="#fff" />
+                <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Solicitar Empréstimo</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[mStyles.saveBtn, { backgroundColor: '#333' }]}>
+                <Ionicons name="time-outline" size={15} color="#888" />
+                <Text style={{ color: '#888', fontWeight: '700', marginLeft: 6 }}>Indisponível</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
-
-      {/* Info */}
-      <View style={bookStyles.info}>
-        <Text style={bookStyles.titulo} numberOfLines={2}>{livro.titulo}</Text>
-        <Text style={bookStyles.autor} numberOfLines={1}>{livro.autor}</Text>
-        {livro.editora ? <Text style={bookStyles.editora} numberOfLines={1}>{livro.editora}</Text> : null}
-      </View>
-
-      {/* Actions */}
-      <View style={bookStyles.actions}>
-        {canManage ? (
-          <TouchableOpacity style={bookStyles.editBtn} onPress={onEdit}>
-            <Ionicons name="pencil" size={13} color="#5E6AD2" />
-            <Text style={bookStyles.editBtnText}>Editar</Text>
-          </TouchableOpacity>
-        ) : available ? (
-          <TouchableOpacity style={bookStyles.solicitarBtn} onPress={onSolicitar}>
-            <Ionicons name="hand-right-outline" size={13} color="#fff" />
-            <Text style={bookStyles.solicitarBtnText}>Solicitar</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={bookStyles.esgotadoBtn}>
-            <Text style={bookStyles.esgotadoText}>Esgotado</Text>
-          </View>
-        )}
-      </View>
-    </View>
+    </Modal>
   );
 }
 
@@ -487,15 +660,14 @@ function SolicitarModal({ visible, livro, user, onClose, onSaved }: {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={mStyles.overlay}>
-        <View style={[mStyles.sheet, { maxHeight: 480 }]}>
+      <View style={centeredOverlay}>
+        <View style={[mStyles.sheet, { maxHeight: 500 }]}>
           <View style={mStyles.header}>
             <Text style={mStyles.headerTitle}>Solicitar Empréstimo</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={mStyles.closeBtn}><Ionicons name="close" size={20} color="#aaa" /></TouchableOpacity>
           </View>
 
           <View style={{ padding: 20, gap: 16 }}>
-            {/* Book preview */}
             <View style={solStyles.bookPreview}>
               {livro.capaUrl ? (
                 <Image source={{ uri: livro.capaUrl }} style={solStyles.previewImg} resizeMode="cover" />
@@ -511,7 +683,6 @@ function SolicitarModal({ visible, livro, user, onClose, onSaved }: {
               </View>
             </View>
 
-            {/* Days picker */}
             <View>
               <Text style={solStyles.daysLabel}>Quantos dias precisa?</Text>
               <View style={solStyles.dayBtns}>
@@ -660,7 +831,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         showToast(`«${payload.titulo}» atualizado com sucesso.`, 'success');
       } else {
         await req('/api/livros', { method: 'POST', body: JSON.stringify(payload) });
-        showToast(`«${payload.titulo}» adicionado ao catálogo! ${qty} exemplar(es) disponível(is).`, 'success');
+        showToast(`«${payload.titulo}» adicionado! ${qty} exemplar(es).`, 'success');
       }
       onSaved();
     } catch (e) {
@@ -672,10 +843,8 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={mStyles.overlay}>
+      <View style={centeredOverlay}>
         <View style={mStyles.sheet}>
-
-          {/* ── Cabeçalho ─────────────────────────────────────────────── */}
           <View style={mStyles.header}>
             <View style={mStyles.headerLeft}>
               <Ionicons name={livro ? 'pencil' : 'add-circle'} size={20} color="#5E6AD2" />
@@ -687,8 +856,6 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
           </View>
 
           <ScrollView style={mStyles.body} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
-            {/* ── Secção 1: Identificação ─────────────────────────────── */}
             <View style={mStyles.section}>
               <View style={mStyles.sectionHeader}>
                 <Ionicons name="information-circle-outline" size={14} color="#5E6AD2" />
@@ -712,7 +879,6 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               <MInput value={form.editora} onChangeText={upd('editora')} placeholder="Nome da editora" />
             </View>
 
-            {/* ── Secção 2: Categoria ─────────────────────────────────── */}
             <View style={mStyles.section}>
               <View style={mStyles.sectionHeader}>
                 <Ionicons name="pricetag-outline" size={14} color="#5E6AD2" />
@@ -732,15 +898,12 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                       onPress={() => { upd('categoria')(c); setCustomCat(''); }}
                     >
                       <View style={[mStyles.catDot, { backgroundColor: isActive ? cc : 'rgba(255,255,255,0.15)' }]} />
-                      <Text style={[mStyles.catGridText, isActive && { color: cc, fontWeight: '700' }]} numberOfLines={1}>
-                        {c}
-                      </Text>
+                      <Text style={[mStyles.catGridText, isActive && { color: cc, fontWeight: '700' }]} numberOfLines={1}>{c}</Text>
                       {isActive && <Ionicons name="checkmark" size={11} color={cc} />}
                     </TouchableOpacity>
                   );
                 })}
               </View>
-              {/* Custom category input */}
               <View style={mStyles.customCatRow}>
                 <Ionicons name="add-circle-outline" size={15} color="#5E6AD2" />
                 <Text style={mStyles.customCatLabel}>Outra categoria:</Text>
@@ -759,7 +922,6 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               />
             </View>
 
-            {/* ── Secção 3: Inventário ────────────────────────────────── */}
             <View style={mStyles.section}>
               <View style={mStyles.sectionHeader}>
                 <Ionicons name="cube-outline" size={14} color="#5E6AD2" />
@@ -777,14 +939,11 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               </View>
             </View>
 
-            {/* ── Secção 4: Capa e Descrição ──────────────────────────── */}
             <View style={mStyles.section}>
               <View style={mStyles.sectionHeader}>
                 <Ionicons name="image-outline" size={14} color="#5E6AD2" />
                 <Text style={mStyles.sectionTitle}>CAPA & DESCRIÇÃO</Text>
               </View>
-
-              {/* Cover preview */}
               {form.capaUrl ? (
                 <View style={mStyles.capaPreviewBox}>
                   <Image source={{ uri: form.capaUrl }} style={mStyles.capaImgLarge} resizeMode="cover" onError={() => {}} />
@@ -799,8 +958,6 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                   <Text style={{ color: '#555', fontSize: 12, marginTop: 6 }}>Sem capa definida</Text>
                 </View>
               )}
-
-              {/* Mode toggle */}
               <View style={mStyles.capaModeRow}>
                 <TouchableOpacity
                   style={[mStyles.capaModeBtn, capaMode === 'upload' && mStyles.capaModeBtnActive]}
@@ -817,13 +974,9 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                   <Text style={[mStyles.capaModeBtnText, capaMode === 'url' && { color: '#fff' }]}>Colar URL</Text>
                 </TouchableOpacity>
               </View>
-
               {capaMode === 'upload' ? (
                 <TouchableOpacity style={mStyles.uploadBtn} onPress={pickAndUploadImage} disabled={uploading}>
-                  {uploading
-                    ? <ActivityIndicator size="small" color="#5E6AD2" />
-                    : <Ionicons name="cloud-upload-outline" size={20} color="#5E6AD2" />
-                  }
+                  {uploading ? <ActivityIndicator size="small" color="#5E6AD2" /> : <Ionicons name="cloud-upload-outline" size={20} color="#5E6AD2" />}
                   <Text style={mStyles.uploadBtnText}>
                     {uploading ? 'A carregar…' : form.capaUrl ? 'Substituir imagem' : 'Escolher imagem da galeria'}
                   </Text>
@@ -834,15 +987,12 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                   <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" />
                 </>
               )}
-
               <MLabel>Sinopse / Descrição</MLabel>
               <MInput value={form.descricao} onChangeText={upd('descricao')} placeholder="Breve descrição do livro..." multiline style={{ height: 72, textAlignVertical: 'top' }} />
             </View>
-
             <View style={{ height: 8 }} />
           </ScrollView>
 
-          {/* ── Rodapé ──────────────────────────────────────────────────── */}
           <View style={mStyles.footer}>
             <TouchableOpacity style={mStyles.cancelBtn} onPress={onClose}>
               <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
@@ -857,7 +1007,6 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               }
             </TouchableOpacity>
           </View>
-
         </View>
       </View>
     </Modal>
@@ -943,7 +1092,7 @@ function EmprestimosTab({ emprestimos, livros, solicitacoes, canManage, user, on
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
       keyboardShouldPersistTaps="handled"
     >
-      {/* ── Pedidos Pendentes (staff only) ── */}
+      {/* Pedidos Pendentes */}
       {canManage && solicitacoes.length > 0 && (
         <View style={empStyles.pendentesSection}>
           <View style={empStyles.pendenteHeader}>
@@ -991,7 +1140,7 @@ function EmprestimosTab({ emprestimos, livros, solicitacoes, canManage, user, on
         </View>
       )}
 
-      {/* ── Empréstimos List ── */}
+      {/* Search + Add */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>
           <Ionicons name="search" size={16} color="#888" />
@@ -1051,13 +1200,12 @@ function EmprestimosTab({ emprestimos, livros, solicitacoes, canManage, user, on
         />
       )}
 
-      {/* Reject reason modal */}
       <Modal visible={!!rejectId} transparent animationType="fade" onRequestClose={() => setRejectId(null)}>
-        <View style={mStyles.overlay}>
+        <View style={centeredOverlay}>
           <View style={[mStyles.sheet, { maxHeight: 320 }]}>
             <View style={mStyles.header}>
               <Text style={mStyles.headerTitle}>Rejeitar Pedido</Text>
-              <TouchableOpacity onPress={() => setRejectId(null)}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+              <TouchableOpacity onPress={() => setRejectId(null)} style={mStyles.closeBtn}><Ionicons name="close" size={20} color="#aaa" /></TouchableOpacity>
             </View>
             <View style={{ padding: 20, gap: 12 }}>
               <Text style={{ color: '#aaa', fontSize: 13 }}>Indique o motivo da rejeição (opcional):</Text>
@@ -1118,7 +1266,7 @@ function EmprestimoCard({ emp, canManage, onDevolver }: { emp: Emprestimo; canMa
       {isAtrasado && dias > 0 && (
         <View style={eStyles.atrasoAlert}>
           <Ionicons name="warning" size={13} color="#EF5350" />
-          <Text style={eStyles.atrasoText}>{dias} dia{dias !== 1 ? 's' : ''} de atraso</Text>
+          <Text style={eStyles.atrasoText}>{dias} dia{dias !== 1 ? 's' : ''} de atraso — penalização pode ser aplicada</Text>
         </View>
       )}
       {!isDevolvido && canManage && (
@@ -1149,7 +1297,7 @@ function tipoColor(tipo: string) {
   return m[tipo] || '#888';
 }
 
-// ─── Novo Empréstimo Modal (direct, staff only) ────────────────────────────────────────────────────
+// ─── Novo Empréstimo Modal ─────────────────────────────────────────────────────
 function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   visible: boolean; livros: Livro[]; user: any; onClose: () => void; onSaved: () => void;
 }) {
@@ -1168,8 +1316,9 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
     if (!visible) { setLivroSel(null); setLivroSearch(''); }
   }, [visible]);
 
+  // Only books with >1 available (to keep last copy)
   const livrosFiltrados = livros.filter(l =>
-    l.quantidadeDisponivel > 0 &&
+    l.quantidadeDisponivel > 1 &&
     (l.titulo.toLowerCase().includes(livroSearch.toLowerCase()) || l.autor.toLowerCase().includes(livroSearch.toLowerCase()))
   );
 
@@ -1203,11 +1352,11 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={mStyles.overlay}>
+      <View style={centeredOverlay}>
         <View style={mStyles.sheet}>
           <View style={mStyles.header}>
             <Text style={mStyles.headerTitle}>Registar Empréstimo</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={22} color="#fff" /></TouchableOpacity>
+            <TouchableOpacity onPress={onClose} style={mStyles.closeBtn}><Ionicons name="close" size={20} color="#aaa" /></TouchableOpacity>
           </View>
           <ScrollView style={mStyles.body} contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
             <MLabel>Livro *</MLabel>
@@ -1223,7 +1372,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
               </View>
             ) : (
               <>
-                <MInput value={livroSearch} onChangeText={setLivroSearch} placeholder="Pesquisar livro disponível…" />
+                <MInput value={livroSearch} onChangeText={setLivroSearch} placeholder="Pesquisar livro disponível (mín. 2 exemplares)…" />
                 {livroSearch.length > 0 && (
                   <View style={mStyles.livroDropdown}>
                     {livrosFiltrados.slice(0, 5).map(l => (
@@ -1232,7 +1381,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                         <Text style={mStyles.livroOptionSub}>{l.autor} · {l.quantidadeDisponivel} disponível(is)</Text>
                       </TouchableOpacity>
                     ))}
-                    {livrosFiltrados.length === 0 && <Text style={{ color: '#666', padding: 8, fontSize: 13 }}>Nenhum livro disponível encontrado</Text>}
+                    {livrosFiltrados.length === 0 && <Text style={{ color: '#666', padding: 8, fontSize: 13 }}>Sem livros com exemplares suficientes</Text>}
                   </View>
                 )}
               </>
@@ -1274,6 +1423,246 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   );
 }
 
+// ─── Desejos (Wishlist) Tab ──────────────────────────────────────────────────
+function DesejosTab({ canManage, user, refreshing, onRefresh }: {
+  canManage: boolean; user: any; refreshing: boolean; onRefresh: () => void;
+}) {
+  const { showToast } = useToast();
+  const [desejos, setDesejos] = useState<DesejosLivro[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [filtro, setFiltro] = useState<'pendente' | 'adquirido' | 'rejeitado' | 'todos'>('todos');
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    try {
+      const rows = await req<DesejosLivro[]>('/api/desejos-livros');
+      setDesejos(rows);
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(); }, []);
+
+  const handleRefresh = () => { load(true); };
+
+  const atualizar = async (id: string, status: string) => {
+    setProcessing(id);
+    try {
+      await req(`/api/desejos-livros/${id}`, { method: 'PUT', body: JSON.stringify({ status }) });
+      showToast(status === 'adquirido' ? 'Marcado como adquirido!' : 'Pedido rejeitado.', 'success');
+      load(true);
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setProcessing(null);
+    }
+  };
+
+  const filtered = desejos.filter(d => filtro === 'todos' ? true : d.status === filtro);
+
+  const statusColor = (s: string) => s === 'adquirido' ? '#66BB6A' : s === 'rejeitado' ? '#EF5350' : '#FFA726';
+  const statusLabel = (s: string) => s === 'adquirido' ? 'Adquirido' : s === 'rejeitado' ? 'Rejeitado' : 'Pendente';
+
+  return (
+    <View style={styles.flex}>
+      <View style={styles.searchRow}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 6 }}>
+          {(['todos', 'pendente', 'adquirido', 'rejeitado'] as const).map(f => (
+            <TouchableOpacity
+              key={f}
+              style={[styles.filterChip, filtro === f && styles.filterChipActive]}
+              onPress={() => setFiltro(f)}
+            >
+              <Text style={[styles.filterChipText, filtro === f && { color: '#fff' }]}>
+                {f === 'todos' ? 'Todos' : statusLabel(f)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity style={styles.addBtn} onPress={() => setShowAdd(true)}>
+          <Ionicons name="add" size={20} color="#fff" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Info box */}
+      <View style={desejosStyles.infoBox}>
+        <Ionicons name="heart" size={14} color="#EC407A" />
+        <Text style={desejosStyles.infoText}>
+          Aqui podes sugerir livros que gostarias de ver na biblioteca — para compra ou doação.
+        </Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}><ActivityIndicator color="#5E6AD2" /></View>
+      ) : filtered.length === 0 ? (
+        <View style={styles.emptyBox}>
+          <Ionicons name="heart-outline" size={48} color="#444" />
+          <Text style={styles.emptyText}>Nenhum desejo registado</Text>
+          <Text style={styles.emptySub}>Toca em + para sugerir um livro</Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={{ padding: 16, gap: 10, paddingBottom: 120 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#5E6AD2" />}
+        >
+          {filtered.map(d => {
+            const sc = statusColor(d.status);
+            return (
+              <View key={d.id} style={desejosStyles.card}>
+                <View style={desejosStyles.cardTop}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={desejosStyles.titulo} numberOfLines={1}>{d.titulo}</Text>
+                    {d.autor ? <Text style={desejosStyles.autor}>{d.autor}</Text> : null}
+                    {d.motivo ? (
+                      <View style={desejosStyles.motivoBox}>
+                        <Ionicons name="chatbubble-outline" size={11} color="#666" />
+                        <Text style={desejosStyles.motivo} numberOfLines={2}>{d.motivo}</Text>
+                      </View>
+                    ) : null}
+                    <View style={desejosStyles.metaRow}>
+                      <Ionicons name="person-outline" size={11} color="#666" />
+                      <Text style={desejosStyles.metaText}>{d.nomeLeitor}</Text>
+                      <Text style={desejosStyles.metaDate}>{fmtDate(d.createdAt)}</Text>
+                    </View>
+                  </View>
+                  <View style={[desejosStyles.statusBadge, { backgroundColor: sc + '22', borderColor: sc + '44' }]}>
+                    <Text style={[desejosStyles.statusText, { color: sc }]}>{statusLabel(d.status)}</Text>
+                  </View>
+                </View>
+                {canManage && d.status === 'pendente' && (
+                  <View style={desejosStyles.actions}>
+                    <TouchableOpacity
+                      style={desejosStyles.adquirirBtn}
+                      onPress={() => atualizar(d.id, 'adquirido')}
+                      disabled={processing === d.id}
+                    >
+                      {processing === d.id
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <>
+                            <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                            <Text style={desejosStyles.adquirirText}>Adquirido</Text>
+                          </>
+                      }
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={desejosStyles.rejeitarBtn}
+                      onPress={() => atualizar(d.id, 'rejeitado')}
+                      disabled={processing === d.id}
+                    >
+                      <Ionicons name="close" size={14} color="#fff" />
+                      <Text style={desejosStyles.rejeitarText}>Rejeitar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+        </ScrollView>
+      )}
+
+      <AddDesejoModal
+        visible={showAdd}
+        user={user}
+        onClose={() => setShowAdd(false)}
+        onSaved={() => { setShowAdd(false); load(true); showToast('Sugestão enviada! Obrigado.', 'success'); }}
+      />
+    </View>
+  );
+}
+
+function AddDesejoModal({ visible, user, onClose, onSaved }: {
+  visible: boolean; user: any; onClose: () => void; onSaved: () => void;
+}) {
+  const { showToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ titulo: '', autor: '', motivo: '' });
+
+  useEffect(() => { if (visible) setForm({ titulo: '', autor: '', motivo: '' }); }, [visible]);
+
+  const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.titulo.trim()) { showToast('O título é obrigatório.', 'error'); return; }
+    setSaving(true);
+    try {
+      await req('/api/desejos-livros', {
+        method: 'POST',
+        body: JSON.stringify({
+          titulo: form.titulo.trim(),
+          autor: form.autor.trim(),
+          motivo: form.motivo.trim(),
+          alunoId: user?.id || null,
+          nomeLeitor: user?.nome || 'Utilizador',
+          registadoPor: user?.nome || 'Utilizador',
+        }),
+      });
+      onSaved();
+    } catch (e) {
+      showToast((e as Error).message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={centeredOverlay}>
+        <View style={[mStyles.sheet, { maxHeight: 480 }]}>
+          <View style={mStyles.header}>
+            <View style={mStyles.headerLeft}>
+              <Ionicons name="heart" size={18} color="#EC407A" />
+              <Text style={mStyles.headerTitle}>Sugerir Livro</Text>
+            </View>
+            <TouchableOpacity onPress={onClose} style={mStyles.closeBtn}>
+              <Ionicons name="close" size={20} color="#aaa" />
+            </TouchableOpacity>
+          </View>
+          <View style={{ padding: 20, gap: 4 }}>
+            <MLabel>Título do livro *</MLabel>
+            <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Ex: O Príncipe" />
+            <MLabel>Autor</MLabel>
+            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Ex: Maquiavel" />
+            <MLabel>Motivo / Justificação</MLabel>
+            <MInput
+              value={form.motivo}
+              onChangeText={upd('motivo')}
+              placeholder="Porque achas importante ter este livro na biblioteca?"
+              multiline
+              style={{ height: 70, textAlignVertical: 'top' }}
+            />
+            <View style={[solStyles.infoBox, { marginTop: 8 }]}>
+              <Ionicons name="information-circle-outline" size={15} color="#5E6AD2" />
+              <Text style={solStyles.infoText}>
+                A tua sugestão será analisada pela equipa da biblioteca para possível aquisição.
+              </Text>
+            </View>
+          </View>
+          <View style={mStyles.footer}>
+            <TouchableOpacity style={mStyles.cancelBtn} onPress={onClose}>
+              <Text style={{ color: '#aaa', fontWeight: '600' }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[mStyles.saveBtn, { backgroundColor: '#EC407A' }]} onPress={save} disabled={saving}>
+              {saving
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <>
+                    <Ionicons name="heart" size={15} color="#fff" />
+                    <Text style={{ color: '#fff', fontWeight: '700', marginLeft: 6 }}>Enviar Sugestão</Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 // ─── Estatísticas Tab ─────────────────────────────────────────────────────────
 function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestados, atrasados, devolvidos, refreshing, onRefresh }: {
   livros: Livro[]; emprestimos: Emprestimo[];
@@ -1281,11 +1670,31 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
   atrasados: Emprestimo[]; devolvidos: Emprestimo[];
   refreshing: boolean; onRefresh: () => void;
 }) {
+  const now = new Date();
+  const [mesSel, setMesSel] = useState(now.getMonth() + 1);
+  const [anoSel, setAnoSel] = useState(now.getFullYear());
+  const [statsData, setStatsData] = useState<{ topLivros: { titulo: string; total: number }[]; totalEmprestimos: number; totalAtrasados: number } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [penalizados, setPenalizados] = useState<{ alunoId: string; nomeLeitor: string; totalAtrasos: number }[]>([]);
+
+  useEffect(() => {
+    setStatsLoading(true);
+    Promise.all([
+      req<any>(`/api/emprestimos/stats/mensal?mes=${mesSel}&ano=${anoSel}`),
+      req<any>('/api/biblioteca/penalidades'),
+    ]).then(([stats, pen]) => {
+      setStatsData(stats);
+      setPenalizados(pen.penalizados || []);
+    }).catch(() => {}).finally(() => setStatsLoading(false));
+  }, [mesSel, anoSel]);
+
   const catCounts = livros.reduce<Record<string, number>>((acc, l) => {
     acc[l.categoria] = (acc[l.categoria] || 0) + 1; return acc;
   }, {});
   const topCats = Object.entries(catCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
   const taxaOcupacao = totalLivros > 0 ? Math.round((totalEmprestados / totalLivros) * 100) : 0;
+
+  const anos = [now.getFullYear(), now.getFullYear() - 1, now.getFullYear() - 2];
 
   return (
     <ScrollView
@@ -1293,6 +1702,7 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
       contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 120 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
     >
+      {/* Total overview */}
       <View style={sStyles.kpiGrid}>
         <KpiCard icon="library" label="Títulos" value={livros.length.toString()} color="#5E6AD2" />
         <KpiCard icon="albums" label="Exemplares" value={totalLivros.toString()} color="#26A69A" />
@@ -1302,8 +1712,9 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         <KpiCard icon="return-down-back" label="Devolvidos" value={devolvidos.length.toString()} color="#42A5F5" />
       </View>
 
+      {/* Taxa ocupação */}
       <View style={sStyles.section}>
-        <Text style={sStyles.sectionTitle}>Taxa de Ocupação</Text>
+        <Text style={sStyles.sectionTitle}>Taxa de Ocupação dos Exemplares</Text>
         <View style={sStyles.progressRow}>
           <View style={sStyles.progressBg}>
             <View style={[sStyles.progressFill, { width: `${taxaOcupacao}%` as any, backgroundColor: taxaOcupacao > 80 ? '#EF5350' : taxaOcupacao > 50 ? '#FFA726' : '#66BB6A' }]} />
@@ -1313,6 +1724,83 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         <Text style={sStyles.progressSub}>{totalEmprestados} de {totalLivros} exemplares emprestados</Text>
       </View>
 
+      {/* Monthly report */}
+      <View style={sStyles.section}>
+        <View style={sStyles.reportHeader}>
+          <Ionicons name="bar-chart" size={16} color="#5E6AD2" />
+          <Text style={sStyles.sectionTitle}>Relatório Mensal de Empréstimos</Text>
+        </View>
+
+        {/* Month + Year selector */}
+        <View style={sStyles.monthPicker}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+            {MESES.map((m, i) => (
+              <TouchableOpacity
+                key={i}
+                style={[sStyles.monthBtn, mesSel === i + 1 && sStyles.monthBtnActive]}
+                onPress={() => setMesSel(i + 1)}
+              >
+                <Text style={[sStyles.monthBtnText, mesSel === i + 1 && { color: '#fff' }]}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <View style={sStyles.yearRow}>
+            {anos.map(a => (
+              <TouchableOpacity
+                key={a}
+                style={[sStyles.yearBtn, anoSel === a && sStyles.yearBtnActive]}
+                onPress={() => setAnoSel(a)}
+              >
+                <Text style={[sStyles.yearBtnText, anoSel === a && { color: '#fff' }]}>{a}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {statsLoading ? (
+          <ActivityIndicator color="#5E6AD2" style={{ marginVertical: 16 }} />
+        ) : statsData ? (
+          <>
+            <View style={sStyles.monthKpiRow}>
+              <View style={sStyles.monthKpi}>
+                <Text style={sStyles.monthKpiVal}>{statsData.totalEmprestimos}</Text>
+                <Text style={sStyles.monthKpiLabel}>Empréstimos no mês</Text>
+              </View>
+              <View style={sStyles.monthKpi}>
+                <Text style={[sStyles.monthKpiVal, { color: '#EF5350' }]}>{statsData.totalAtrasados}</Text>
+                <Text style={sStyles.monthKpiLabel}>Em atraso</Text>
+              </View>
+            </View>
+
+            {statsData.topLivros.length > 0 ? (
+              <>
+                <Text style={sStyles.topLivrosTitle}>Livros mais emprestados</Text>
+                {statsData.topLivros.map((l, idx) => (
+                  <View key={idx} style={sStyles.topLivroRow}>
+                    <View style={sStyles.topRankBadge}>
+                      <Text style={sStyles.topRankText}>{idx + 1}</Text>
+                    </View>
+                    <Text style={sStyles.topLivroTitulo} numberOfLines={1}>{l.titulo}</Text>
+                    <View style={sStyles.topLivroBar}>
+                      <View style={[sStyles.topLivroFill, {
+                        width: `${Math.round((l.total / statsData.topLivros[0].total) * 100)}%` as any
+                      }]} />
+                    </View>
+                    <Text style={sStyles.topLivroCount}>{l.total}×</Text>
+                  </View>
+                ))}
+              </>
+            ) : (
+              <View style={styles.emptyBox}>
+                <Ionicons name="bar-chart-outline" size={32} color="#444" />
+                <Text style={[styles.emptyText, { fontSize: 13 }]}>Sem empréstimos em {MESES[mesSel - 1]}/{anoSel}</Text>
+              </View>
+            )}
+          </>
+        ) : null}
+      </View>
+
+      {/* Books by category */}
       {topCats.length > 0 && (
         <View style={sStyles.section}>
           <Text style={sStyles.sectionTitle}>Livros por Categoria</Text>
@@ -1329,6 +1817,31 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
         </View>
       )}
 
+      {/* Penalized students */}
+      {penalizados.length > 0 && (
+        <View style={[sStyles.section, { borderColor: '#EF535033' }]}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Ionicons name="ban" size={16} color="#EF5350" />
+            <Text style={[sStyles.sectionTitle, { color: '#EF5350' }]}>Estudantes Penalizados ({penalizados.length})</Text>
+          </View>
+          <Text style={{ color: '#666', fontSize: 12, marginBottom: 10 }}>
+            Estudantes com 2 ou mais devoluções em atraso — bloqueados de novos empréstimos.
+          </Text>
+          {penalizados.map((p, i) => (
+            <View key={i} style={sStyles.penalizadoRow}>
+              <View style={sStyles.penalizadoIcon}>
+                <Ionicons name="ban" size={14} color="#EF5350" />
+              </View>
+              <Text style={sStyles.penalizadoNome}>{p.nomeLeitor}</Text>
+              <View style={sStyles.penalizadoChip}>
+                <Text style={sStyles.penalizadoChipText}>{p.totalAtrasos} atraso{p.totalAtrasos !== 1 ? 's' : ''}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Late loans */}
       {atrasados.length > 0 && (
         <View style={sStyles.section}>
           <Text style={[sStyles.sectionTitle, { color: '#EF5350' }]}>Em Atraso ({atrasados.length})</Text>
@@ -1371,22 +1884,32 @@ function MInput({ style, ...props }: React.ComponentProps<typeof TextInput> & { 
   return <TextInput style={[mStyles.input, style]} placeholderTextColor="#555" selectionColor="#5E6AD2" {...props} />;
 }
 
+// ─── Shared overlay style for centered modals ──────────────────────────────
+const centeredOverlay: any = {
+  flex: 1,
+  backgroundColor: 'rgba(0,0,0,0.72)',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: 16,
+};
+
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.background },
   flex: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   tabBar: { flexDirection: 'row', backgroundColor: '#0d0d1f', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 12, position: 'relative' },
+  tab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 11, position: 'relative' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: '#5E6AD2' },
-  tabLabel: { color: '#777', fontSize: 12, fontWeight: '600' },
+  tabLabel: { color: '#666', fontSize: 11, fontWeight: '600' },
+  tabLabelActive: { color: '#5E6AD2' },
   badge: { backgroundColor: '#EF5350', borderRadius: 8, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   badgeText: { color: '#fff', fontSize: 9, fontWeight: '800' },
   searchRow: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#1a1a2e', borderRadius: 10, paddingHorizontal: 12, gap: 8, height: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   searchInput: { flex: 1, color: '#fff', fontSize: 14 },
   addBtn: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#5E6AD2', alignItems: 'center', justifyContent: 'center' },
-  catFilterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 0, height: 40, borderRadius: 10, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxWidth: 130 },
+  catFilterBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 40, borderRadius: 10, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', maxWidth: 130 },
   catFilterBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   catFilterBtnText: { color: '#aaa', fontSize: 12, fontWeight: '600', flex: 1 },
   filterRow: { flexDirection: 'row', paddingHorizontal: 12, paddingBottom: 10, gap: 8 },
@@ -1398,26 +1921,48 @@ const styles = StyleSheet.create({
   emptySub: { color: '#444', fontSize: 13 },
 });
 
-// Book card styles
-const bookStyles = StyleSheet.create({
-  card: { flex: 1, backgroundColor: '#13131f', borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+// Shelf book card styles
+const shelfStyles = StyleSheet.create({
+  card: { backgroundColor: '#13131f', borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', shadowColor: '#000', shadowOffset: { width: 2, height: 4 }, shadowOpacity: 0.35, shadowRadius: 4, elevation: 5 },
   coverWrap: { width: '100%', position: 'relative', overflow: 'hidden' },
   coverImg: { width: '100%', height: '100%' },
-  coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10 },
-  coverCat: { fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  availBadge: { position: 'absolute', top: 6, right: 6, borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
-  availText: { color: '#fff', fontSize: 10, fontWeight: '800' },
-  info: { padding: 10, gap: 3, flex: 1 },
-  titulo: { color: '#fff', fontSize: 12, fontWeight: '700', lineHeight: 16 },
-  autor: { color: '#aaa', fontSize: 11 },
-  editora: { color: '#666', fontSize: 10 },
-  actions: { paddingHorizontal: 10, paddingBottom: 10 },
-  editBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#5E6AD222', borderWidth: 1, borderColor: '#5E6AD244' },
-  editBtnText: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
-  solicitarBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#5E6AD2' },
-  solicitarBtnText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  esgotadoBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, backgroundColor: '#EF535022', borderWidth: 1, borderColor: '#EF535044', alignItems: 'center' },
-  esgotadoText: { color: '#EF5350', fontSize: 11, fontWeight: '700' },
+  coverPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 4 },
+  spineAccent: { position: 'absolute', left: 0, top: 0, bottom: 0, width: 4 },
+  coverCatText: { fontWeight: '700', textAlign: 'center', opacity: 0.9 },
+  availDot: { position: 'absolute', top: 5, right: 5, width: 8, height: 8, borderRadius: 4, borderWidth: 1, borderColor: 'rgba(0,0,0,0.3)' },
+  lastCopyBadge: { position: 'absolute', bottom: 4, right: 4, backgroundColor: '#FFA726', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 1 },
+  lastCopyText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+  titleWrap: { paddingHorizontal: 5, paddingVertical: 5, backgroundColor: '#0d0d1a' },
+  titleText: { color: '#ccc', fontWeight: '600', lineHeight: 14 },
+  countBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingBottom: 6 },
+  countText: { color: '#666', fontSize: 12 },
+  totalText: { color: '#5E6AD2', fontSize: 12, fontWeight: '700' },
+});
+
+// Book detail modal styles
+const detailStyles = StyleSheet.create({
+  topRow: { flexDirection: 'row', gap: 14, marginBottom: 14 },
+  coverBox: { width: 90, borderRadius: 8, overflow: 'hidden', elevation: 4, shadowColor: '#000', shadowOffset: { width: 2, height: 4 }, shadowOpacity: 0.4, shadowRadius: 6 },
+  coverImg: { width: 90, height: 130, borderRadius: 8 },
+  coverPlaceholder: { width: 90, height: 130, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  title: { color: '#fff', fontSize: 15, fontWeight: '800', lineHeight: 20 },
+  autor: { color: '#bbb', fontSize: 13 },
+  editora: { color: '#777', fontSize: 12 },
+  catBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, alignSelf: 'flex-start' },
+  catDot: { width: 7, height: 7, borderRadius: 4 },
+  catText: { fontSize: 11, fontWeight: '700' },
+  stockRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  stockBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  stockText: { fontSize: 12, fontWeight: '700' },
+  stockTotal: { color: '#666', fontSize: 11 },
+  metaRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginBottom: 12 },
+  metaItem: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  metaText: { color: '#777', fontSize: 12 },
+  descBox: { backgroundColor: '#0d1120', borderRadius: 10, padding: 12, marginBottom: 10 },
+  descLabel: { color: '#aaa', fontSize: 11, fontWeight: '700', marginBottom: 6 },
+  descText: { color: '#ccc', fontSize: 13, lineHeight: 19 },
+  warnBox: { flexDirection: 'row', gap: 8, backgroundColor: '#FFA72611', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#FFA72633', marginBottom: 8 },
+  warnText: { color: '#FFA726', fontSize: 12, flex: 1, lineHeight: 17 },
 });
 
 // Solicitar modal styles
@@ -1479,12 +2024,34 @@ const eStyles = StyleSheet.create({
   devolverText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 });
 
+// Desejos styles
+const desejosStyles = StyleSheet.create({
+  infoBox: { flexDirection: 'row', gap: 8, marginHorizontal: 12, marginBottom: 10, backgroundColor: '#EC407A11', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: '#EC407A33' },
+  infoText: { color: '#aaa', fontSize: 12, flex: 1, lineHeight: 16 },
+  card: { backgroundColor: '#13131f', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  cardTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  titulo: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  autor: { color: '#888', fontSize: 12, marginTop: 2 },
+  motivoBox: { flexDirection: 'row', gap: 5, marginTop: 6, alignItems: 'flex-start' },
+  motivo: { color: '#777', fontSize: 12, flex: 1, fontStyle: 'italic' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 6 },
+  metaText: { color: '#666', fontSize: 11 },
+  metaDate: { color: '#555', fontSize: 11, marginLeft: 'auto' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, alignSelf: 'flex-start' },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  adquirirBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#66BB6A' },
+  adquirirText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  rejeitarBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, backgroundColor: '#EF5350' },
+  rejeitarText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+});
+
 // Modal styles
 const mStyles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end', alignItems: 'center' },
-  sheet: { backgroundColor: '#0f1423', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', width: '100%', maxWidth: 640 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  sheet: { backgroundColor: '#0f1423', borderRadius: 20, maxHeight: '92%', width: '100%', maxWidth: 640 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
   closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center' },
   body: { maxHeight: 480 },
@@ -1501,10 +2068,7 @@ const mStyles = StyleSheet.create({
   livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   livroOptionTitle: { color: '#fff', fontSize: 13, fontWeight: '600' },
   livroOptionSub: { color: '#888', fontSize: 11, marginTop: 2 },
-  capaPreview: { alignItems: 'center', gap: 6, marginVertical: 8 },
-  capaImg: { width: 80, height: 112, borderRadius: 8 },
   capaImgLarge: { width: 90, height: 130, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
-  capaHint: { color: '#555', fontSize: 11 },
   capaPreviewBox: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14, backgroundColor: '#0a0d1a', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
   capaRemoveBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   capaEmpty: { alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#0a0d1a', height: 80, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderStyle: 'dashed' },
@@ -1516,7 +2080,6 @@ const mStyles = StyleSheet.create({
   uploadBtnText: { color: '#5E6AD2', fontSize: 14, fontWeight: '600' },
   customCatRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 6 },
   customCatLabel: { color: '#888', fontSize: 12, fontWeight: '600' },
-  // LivroModal section styles
   section: { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#0d1120', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
   sectionTitle: { color: '#aaa', fontSize: 11, fontWeight: '700', letterSpacing: 0.8, flex: 1 },
@@ -1528,6 +2091,14 @@ const mStyles = StyleSheet.create({
   catGridText: { color: '#aaa', fontSize: 12 },
 });
 
+// Category picker styles
+const catPickerStyles = StyleSheet.create({
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: '#13131f' },
+  catDot: { width: 10, height: 10, borderRadius: 5 },
+  catLabel: { color: '#ccc', fontSize: 13, flex: 1, fontWeight: '500' },
+  catCount: { color: '#555', fontSize: 11 },
+});
+
 // Stats styles
 const sStyles = StyleSheet.create({
   kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
@@ -1536,7 +2107,8 @@ const sStyles = StyleSheet.create({
   kpiValue: { fontSize: 20, fontWeight: '800' },
   kpiLabel: { color: '#666', fontSize: 11, fontWeight: '600' },
   section: { backgroundColor: '#13131f', borderRadius: 14, padding: 14, gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  reportHeader: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionTitle: { color: '#fff', fontSize: 14, fontWeight: '700', flex: 1 },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   progressBg: { flex: 1, height: 8, borderRadius: 4, backgroundColor: '#1a1a2e', overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 4 },
@@ -1547,20 +2119,37 @@ const sStyles = StyleSheet.create({
   catName: { color: '#aaa', fontSize: 12, width: 100 },
   catBarBg: { flex: 1, height: 6, borderRadius: 3, backgroundColor: '#1a1a2e', overflow: 'hidden' },
   catBarFill: { height: '100%', borderRadius: 3 },
-  catCount: { color: '#666', fontSize: 12, minWidth: 20, textAlign: 'right' },
-  atrasoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  catCount: { color: '#fff', fontSize: 12, fontWeight: '700', minWidth: 20, textAlign: 'right' },
+  atrasoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   atrasoTitulo: { color: '#fff', fontSize: 13, fontWeight: '600' },
   atrasoLeitor: { color: '#888', fontSize: 11, marginTop: 2 },
-  atrasoChip: { backgroundColor: '#EF535022', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#EF535044' },
-  atrasoChipText: { color: '#EF5350', fontSize: 12, fontWeight: '700' },
-});
-
-// Category picker modal styles
-const catPickerStyles = StyleSheet.create({
-  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  closeBtn: { width: 32, height: 32, borderRadius: 8, backgroundColor: '#1a1a2e', alignItems: 'center', justifyContent: 'center' },
-  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  catDot: { width: 9, height: 9, borderRadius: 5 },
-  catLabel: { flex: 1, color: '#ccc', fontSize: 14 },
-  catCount: { color: '#555', fontSize: 12 },
+  atrasoChip: { backgroundColor: '#EF535022', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#EF535044' },
+  atrasoChipText: { color: '#EF5350', fontSize: 12, fontWeight: '800' },
+  // Monthly report
+  monthPicker: { gap: 10 },
+  monthBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  monthBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  monthBtnText: { color: '#888', fontSize: 12, fontWeight: '600' },
+  yearRow: { flexDirection: 'row', gap: 8 },
+  yearBtn: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, backgroundColor: '#1a1a2e', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  yearBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  yearBtnText: { color: '#888', fontSize: 12, fontWeight: '600' },
+  monthKpiRow: { flexDirection: 'row', gap: 12 },
+  monthKpi: { flex: 1, backgroundColor: '#0d1120', borderRadius: 10, padding: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  monthKpiVal: { color: '#5E6AD2', fontSize: 28, fontWeight: '800' },
+  monthKpiLabel: { color: '#666', fontSize: 11, marginTop: 2 },
+  topLivrosTitle: { color: '#aaa', fontSize: 12, fontWeight: '700', marginTop: 4 },
+  topLivroRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 5 },
+  topRankBadge: { width: 22, height: 22, borderRadius: 6, backgroundColor: '#5E6AD222', alignItems: 'center', justifyContent: 'center' },
+  topRankText: { color: '#5E6AD2', fontSize: 11, fontWeight: '800' },
+  topLivroTitulo: { flex: 1, color: '#ddd', fontSize: 12 },
+  topLivroBar: { width: 60, height: 6, borderRadius: 3, backgroundColor: '#1a1a2e', overflow: 'hidden' },
+  topLivroFill: { height: '100%', borderRadius: 3, backgroundColor: '#5E6AD2' },
+  topLivroCount: { color: '#5E6AD2', fontSize: 12, fontWeight: '700', minWidth: 24, textAlign: 'right' },
+  // Penalizados
+  penalizadoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  penalizadoIcon: { width: 26, height: 26, borderRadius: 8, backgroundColor: '#EF535022', alignItems: 'center', justifyContent: 'center' },
+  penalizadoNome: { color: '#fff', fontSize: 13, flex: 1 },
+  penalizadoChip: { backgroundColor: '#EF535022', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: '#EF535044' },
+  penalizadoChipText: { color: '#EF5350', fontSize: 11, fontWeight: '700' },
 });
