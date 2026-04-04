@@ -5,6 +5,7 @@ import {
   Image, RefreshControl,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '@/constants/colors';
 import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
@@ -558,17 +559,23 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
 }) {
   const { showToast } = useToast();
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [capaMode, setCapaMode] = useState<'upload' | 'url'>('upload');
+  const [customCat, setCustomCat] = useState('');
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '',
     anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '',
   });
 
-  const CATS = ['Geral', 'Matemática', 'Ciências', 'Língua Portuguesa', 'História', 'Geografia',
+  const PREDEFINED_CATS = ['Geral', 'Matemática', 'Ciências', 'Língua Portuguesa', 'História', 'Geografia',
     'Física', 'Química', 'Biologia', 'Literatura', 'Filosofia', 'Informática',
     'Inglês', 'Francês', 'Educação Física', 'Artes', 'Religião', 'Outros'];
 
+  const isCustomCat = !PREDEFINED_CATS.includes(form.categoria);
+
   useEffect(() => {
     if (livro) {
+      const isPredefined = PREDEFINED_CATS.includes(livro.categoria);
       setForm({
         titulo: livro.titulo, autor: livro.autor, isbn: livro.isbn,
         categoria: livro.categoria, editora: livro.editora,
@@ -577,10 +584,50 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         localizacao: livro.localizacao, descricao: livro.descricao,
         capaUrl: livro.capaUrl || '',
       });
+      setCustomCat(isPredefined ? '' : livro.categoria);
+      setCapaMode(livro.capaUrl ? 'url' : 'upload');
     } else {
       setForm({ titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '', anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '' });
+      setCustomCat('');
+      setCapaMode('upload');
     }
   }, [livro, visible]);
+
+  const pickAndUploadImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.85,
+        allowsEditing: true,
+        aspect: [2, 3],
+      });
+      if (result.canceled) return;
+      setUploading(true);
+      const asset = result.assets[0];
+      const fd = new FormData();
+      if (Platform.OS === 'web') {
+        const resp = await fetch(asset.uri);
+        const blob = await resp.blob();
+        fd.append('file', blob, 'capa.jpg');
+      } else {
+        fd.append('file', { uri: asset.uri, type: asset.mimeType || 'image/jpeg', name: 'capa.jpg' } as any);
+      }
+      const tok = await getAuthToken();
+      const uploadResp = await fetch('/api/upload', {
+        method: 'POST',
+        headers: tok ? { Authorization: `Bearer ${tok}` } : {},
+        body: fd,
+      });
+      const data = await uploadResp.json();
+      if (!uploadResp.ok) throw new Error(data.error);
+      upd('capaUrl')(data.url);
+      showToast('Capa carregada com sucesso!', 'success');
+    } catch {
+      showToast('Erro ao carregar a imagem.', 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -667,17 +714,17 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 </View>
               </View>
               <View style={mStyles.catGrid}>
-                {CATS.map(c => {
+                {PREDEFINED_CATS.map(c => {
                   const cc = catColor(c);
-                  const isActive = form.categoria === c;
+                  const isActive = form.categoria === c && !isCustomCat;
                   return (
                     <TouchableOpacity
                       key={c}
                       style={[mStyles.catGridItem, isActive && { borderColor: cc, backgroundColor: cc + '20' }]}
-                      onPress={() => upd('categoria')(c)}
+                      onPress={() => { upd('categoria')(c); setCustomCat(''); }}
                     >
                       <View style={[mStyles.catDot, { backgroundColor: isActive ? cc : 'rgba(255,255,255,0.15)' }]} />
-                      <Text style={[mStyles.catGridText, isActive && { color: cc, fontFamily: 'Inter_700Bold' }]} numberOfLines={1}>
+                      <Text style={[mStyles.catGridText, isActive && { color: cc, fontWeight: '700' }]} numberOfLines={1}>
                         {c}
                       </Text>
                       {isActive && <Ionicons name="checkmark" size={11} color={cc} />}
@@ -685,6 +732,23 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                   );
                 })}
               </View>
+              {/* Custom category input */}
+              <View style={mStyles.customCatRow}>
+                <Ionicons name="add-circle-outline" size={15} color="#5E6AD2" />
+                <Text style={mStyles.customCatLabel}>Outra categoria:</Text>
+              </View>
+              <TextInput
+                style={[mStyles.input, isCustomCat && { borderColor: '#5E6AD2' }]}
+                value={customCat}
+                onChangeText={v => {
+                  setCustomCat(v);
+                  if (v.trim()) upd('categoria')(v.trim());
+                  else upd('categoria')('Geral');
+                }}
+                placeholder="Escreva uma categoria personalizada…"
+                placeholderTextColor="#555"
+                selectionColor="#5E6AD2"
+              />
             </View>
 
             {/* ── Secção 3: Inventário ────────────────────────────────── */}
@@ -711,19 +775,58 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 <Ionicons name="image-outline" size={14} color="#5E6AD2" />
                 <Text style={mStyles.sectionTitle}>CAPA & DESCRIÇÃO</Text>
               </View>
-              <View style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
-                {form.capaUrl ? (
-                  <Image source={{ uri: form.capaUrl }} style={mStyles.capaImg} resizeMode="cover" onError={() => {}} />
-                ) : (
-                  <View style={mStyles.capaPlaceholder}>
-                    <Ionicons name="book-outline" size={28} color="#444" />
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <MLabel>URL da Capa</MLabel>
-                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://..." />
+
+              {/* Cover preview */}
+              {form.capaUrl ? (
+                <View style={mStyles.capaPreviewBox}>
+                  <Image source={{ uri: form.capaUrl }} style={mStyles.capaImgLarge} resizeMode="cover" onError={() => {}} />
+                  <TouchableOpacity style={mStyles.capaRemoveBtn} onPress={() => upd('capaUrl')('')}>
+                    <Ionicons name="close-circle" size={20} color="#EF5350" />
+                    <Text style={{ color: '#EF5350', fontSize: 12, fontWeight: '600' }}>Remover capa</Text>
+                  </TouchableOpacity>
                 </View>
+              ) : (
+                <View style={mStyles.capaEmpty}>
+                  <Ionicons name="book-outline" size={36} color="#333" />
+                  <Text style={{ color: '#555', fontSize: 12, marginTop: 6 }}>Sem capa definida</Text>
+                </View>
+              )}
+
+              {/* Mode toggle */}
+              <View style={mStyles.capaModeRow}>
+                <TouchableOpacity
+                  style={[mStyles.capaModeBtn, capaMode === 'upload' && mStyles.capaModeBtnActive]}
+                  onPress={() => setCapaMode('upload')}
+                >
+                  <Ionicons name="cloud-upload-outline" size={14} color={capaMode === 'upload' ? '#fff' : '#777'} />
+                  <Text style={[mStyles.capaModeBtnText, capaMode === 'upload' && { color: '#fff' }]}>Carregar ficheiro</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[mStyles.capaModeBtn, capaMode === 'url' && mStyles.capaModeBtnActive]}
+                  onPress={() => setCapaMode('url')}
+                >
+                  <Ionicons name="link-outline" size={14} color={capaMode === 'url' ? '#fff' : '#777'} />
+                  <Text style={[mStyles.capaModeBtnText, capaMode === 'url' && { color: '#fff' }]}>Colar URL</Text>
+                </TouchableOpacity>
               </View>
+
+              {capaMode === 'upload' ? (
+                <TouchableOpacity style={mStyles.uploadBtn} onPress={pickAndUploadImage} disabled={uploading}>
+                  {uploading
+                    ? <ActivityIndicator size="small" color="#5E6AD2" />
+                    : <Ionicons name="cloud-upload-outline" size={20} color="#5E6AD2" />
+                  }
+                  <Text style={mStyles.uploadBtnText}>
+                    {uploading ? 'A carregar…' : form.capaUrl ? 'Substituir imagem' : 'Escolher imagem da galeria'}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <MLabel>URL da Capa</MLabel>
+                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" />
+                </>
+              )}
+
               <MLabel>Sinopse / Descrição</MLabel>
               <MInput value={form.descricao} onChangeText={upd('descricao')} placeholder="Breve descrição do livro..." multiline style={{ height: 72, textAlignVertical: 'top' }} />
             </View>
@@ -1392,7 +1495,19 @@ const mStyles = StyleSheet.create({
   livroOptionSub: { color: '#888', fontSize: 11, marginTop: 2 },
   capaPreview: { alignItems: 'center', gap: 6, marginVertical: 8 },
   capaImg: { width: 80, height: 112, borderRadius: 8 },
+  capaImgLarge: { width: 90, height: 130, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   capaHint: { color: '#555', fontSize: 11 },
+  capaPreviewBox: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 14, backgroundColor: '#0a0d1a', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  capaRemoveBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  capaEmpty: { alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: '#0a0d1a', height: 80, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderStyle: 'dashed' },
+  capaModeRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  capaModeBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 9, borderRadius: 10, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  capaModeBtnActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
+  capaModeBtnText: { color: '#777', fontSize: 12, fontWeight: '600' },
+  uploadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 16, borderRadius: 12, backgroundColor: '#5E6AD215', borderWidth: 1.5, borderColor: '#5E6AD244', borderStyle: 'dashed', marginBottom: 4 },
+  uploadBtnText: { color: '#5E6AD2', fontSize: 14, fontWeight: '600' },
+  customCatRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 6 },
+  customCatLabel: { color: '#888', fontSize: 12, fontWeight: '600' },
   // LivroModal section styles
   section: { marginHorizontal: 16, marginBottom: 14, backgroundColor: '#0d1120', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 7, marginBottom: 12 },
