@@ -765,25 +765,74 @@ function AnulacaoMatriculaTab({ anulacoes, turmas, alunos, anoLetivo, userName, 
 
 // ─── Responsive Modal Shell ───────────────────────────────────────────────────
 
-function ModalShell({ title, onClose, children }: {
-  title: string; onClose: () => void; children: React.ReactNode;
+function ModalShell({ title, subtitle, icon, iconColor, onClose, children }: {
+  title: string; subtitle?: string; icon?: string; iconColor?: string;
+  onClose: () => void; children: React.ReactNode;
 }) {
   const { width } = useWindowDimensions();
   const isWide = width >= 640;
+  const ic = iconColor ?? Colors.gold;
   return (
     <Modal visible animationType={isWide ? 'fade' : 'slide'} transparent onRequestClose={onClose}>
       <View style={[styles.overlay, isWide && styles.overlayWide]}>
         <View style={[styles.modal, isWide && styles.modalWide]}>
+          {/* ── header ── */}
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{title}</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color={Colors.text} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+              {icon && (
+                <View style={{ width: 38, height: 38, borderRadius: 19,
+                  backgroundColor: ic + '22', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name={icon as any} size={20} color={ic} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>{title}</Text>
+                {subtitle ? <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 1 }}>{subtitle}</Text> : null}
+              </View>
+            </View>
+            <TouchableOpacity onPress={onClose} style={{ marginLeft: 8 }}>
+              <Ionicons name="close" size={24} color={Colors.textSecondary} />
             </TouchableOpacity>
           </View>
+          {/* thin accent line */}
+          <View style={{ height: 2, backgroundColor: ic + '40', borderRadius: 2, marginBottom: 16, marginHorizontal: -20 }} />
           {children}
         </View>
       </View>
     </Modal>
+  );
+}
+
+// ─── Stepper Input ────────────────────────────────────────────────────────────
+
+function StepperInput({ label, value, onChange, min = 0, max = 99, color }:
+  { label: string; value: string; onChange: (v: string) => void; min?: number; max?: number; color?: string }) {
+  const num = parseInt(value) || 0;
+  const accent = color ?? Colors.primary;
+  return (
+    <View style={{ marginBottom: 12 }}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0, borderWidth: 1,
+        borderColor: Colors.border, borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.background }}>
+        <TouchableOpacity
+          onPress={() => onChange(String(Math.max(min, num - 1)))}
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: Colors.backgroundCard, borderRightWidth: 1, borderRightColor: Colors.border }}>
+          <Ionicons name="remove" size={20} color={num <= min ? Colors.textMuted : accent} />
+        </TouchableOpacity>
+        <TextInput
+          style={{ flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: accent,
+            paddingVertical: 8, backgroundColor: 'transparent' }}
+          value={value} onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
+          keyboardType="number-pad" />
+        <TouchableOpacity
+          onPress={() => onChange(String(Math.min(max, num + 1)))}
+          style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center',
+            backgroundColor: Colors.backgroundCard, borderLeftWidth: 1, borderLeftColor: Colors.border }}>
+          <Ionicons name="add" size={20} color={num >= max ? Colors.textMuted : accent} />
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
 
@@ -965,61 +1014,93 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
     finally { setSaving(false); }
   };
 
+  const MESES_PT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Levantamento Mensal de Faltas</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView>
-            <Text style={styles.label}>Turma *</Text>
+    <ModalShell
+      title="Levantamento Mensal"
+      subtitle={`${MESES_PT[mes - 1]} ${ano} · ${anoLetivo}`}
+      icon="calendar-month"
+      iconColor={Colors.info}
+      onClose={onClose}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <Text style={styles.label}>Turma *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          {turmas.map(t => (
+            <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
+              onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
+              <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {turmaId && (
+          <>
+            <Text style={styles.label}>Aluno *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmas.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
-                  <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+              {turmaAlunos.map(a => (
+                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
+                  onPress={() => setAlunoId(a.id)}>
+                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {turmaId && <>
-              <Text style={styles.label}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {turmaAlunos.map(a => (
-                  <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                    onPress={() => setAlunoId(a.id)}>
-                    <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>}
-            <Text style={styles.label}>Disciplina *</Text>
-            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
+          </>
+        )}
 
-            {configTurma && (
-              <View style={styles.infoCard}>
-                <Text style={styles.infoText}>Limite: {maxFaltas} falta(s)/mês · Status actual: <Text style={{ color: STATUS_COLORS[status], fontWeight: '700' }}>{status}</Text></Text>
-              </View>
-            )}
+        <Text style={styles.label}>Disciplina *</Text>
+        <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
 
-            <Text style={styles.label}>Total de Faltas</Text>
-            <TextInput style={styles.input} value={totalFaltas} onChangeText={setTotalFaltas}
-              keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.label}>Faltas Justificadas</Text>
-            <TextInput style={styles.input} value={faltasJust} onChangeText={setFaltasJust}
-              keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.infoText}>Faltas Injustificadas: {faltasInjust}</Text>
-            <Text style={styles.label}>Observação</Text>
-            <TextInput style={[styles.input, { height: 70 }]} value={observacao} onChangeText={setObservacao}
-              multiline placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
-            </TouchableOpacity>
-          </ScrollView>
+        {/* Status do aluno para esta config */}
+        {configTurma && (
+          <View style={[styles.infoCard, { marginBottom: 12, borderLeftColor: STATUS_COLORS[status] }]}>
+            <MaterialCommunityIcons name="information-outline" size={16} color={STATUS_COLORS[status]} />
+            <Text style={styles.infoText}>
+              Limite: <Text style={{ fontWeight: '700', color: Colors.text }}>{maxFaltas}</Text> falta(s)/mês ·{' '}
+              Status previsto:{' '}
+              <Text style={{ color: STATUS_COLORS[status], fontWeight: '700' }}>
+                {status === 'excluido' ? 'Excluído' : status === 'em_risco' ? 'Em Risco' : 'Normal'}
+              </Text>
+            </Text>
+          </View>
+        )}
+
+        {/* Steppers para faltas */}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <StepperInput label="Total de Faltas" value={totalFaltas} onChange={setTotalFaltas} color={Colors.danger} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <StepperInput label="Justificadas" value={faltasJust} onChange={setFaltasJust} max={parseInt(totalFaltas) || 0} color={Colors.success} />
+          </View>
         </View>
-      </View>
-    </Modal>
+
+        {/* Faltas injustificadas calculadas */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.cardAlt,
+          borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <MaterialCommunityIcons name="close-circle-outline" size={18} color={Colors.warning} />
+          <Text style={{ fontSize: 13, color: Colors.textSecondary }}>
+            Faltas injustificadas:{' '}
+            <Text style={{ fontWeight: '800', color: Colors.warning, fontSize: 16 }}>{faltasInjust}</Text>
+          </Text>
+        </View>
+
+        <Text style={styles.label}>Observação</Text>
+        <TextInput
+          style={[styles.input, { height: 70, textAlignVertical: 'top', paddingTop: 8 }]}
+          value={observacao} onChangeText={setObservacao}
+          multiline placeholderTextColor={Colors.textMuted}
+          placeholder="Observações adicionais (opcional)..." />
+
+        <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={styles.saveBtnText}>Guardar Registo</Text>}
+        </TouchableOpacity>
+        <View style={{ height: 12 }} />
+      </ScrollView>
+    </ModalShell>
   );
 }
 
@@ -1063,61 +1144,106 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
     finally { setSaving(false); }
   };
 
+  const TIPO_META: Record<string, { icon: string; color: string; desc: string }> = {
+    exclusao_disciplina: { icon: 'book-remove', color: Colors.danger, desc: 'Faltou além do limite permitido numa disciplina' },
+    anulacao_matricula: { icon: 'account-remove', color: '#8B0000', desc: 'Matrícula cancelada definitivamente este ano lectivo' },
+    dupla_reprovacao: { icon: 'repeat-off', color: Colors.warning, desc: 'Reprovação em dois anos lectivos consecutivos' },
+  };
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Registar Exclusão</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView>
-            <Text style={styles.label}>Tipo de Exclusão *</Text>
-            {TIPOS.map(t => (
-              <TouchableOpacity key={t.key} style={[styles.optRow, tipoExclusao === t.key && styles.optRowActive]}
-                onPress={() => setTipoExclusao(t.key)}>
-                <MaterialCommunityIcons name={tipoExclusao === t.key ? 'radiobox-marked' : 'radiobox-blank'} size={18} color={tipoExclusao === t.key ? Colors.gold : Colors.textSecondary} />
-                <Text style={[styles.optRowText, tipoExclusao === t.key && { color: Colors.text }]}>{t.label}</Text>
+    <ModalShell
+      title="Registar Exclusão"
+      subtitle="Registo formal de exclusão por faltas"
+      icon="account-remove-outline"
+      iconColor={Colors.danger}
+      onClose={onClose}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Tipo de exclusão — card-style */}
+        <Text style={styles.label}>Tipo de Exclusão *</Text>
+        <View style={{ gap: 8, marginBottom: 12 }}>
+          {TIPOS.map(t => {
+            const meta = TIPO_META[t.key];
+            const active = tipoExclusao === t.key;
+            return (
+              <TouchableOpacity key={t.key}
+                onPress={() => setTipoExclusao(t.key)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+                  borderRadius: 10, padding: 12, borderWidth: 1.5,
+                  borderColor: active ? meta.color : Colors.border,
+                  backgroundColor: active ? meta.color + '15' : Colors.backgroundCard }}>
+                <View style={{ width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: active ? meta.color + '30' : Colors.backgroundElevated }}>
+                  <MaterialCommunityIcons name={meta.icon as any} size={18} color={active ? meta.color : Colors.textMuted} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: active ? Colors.text : Colors.textSecondary }}>{t.label}</Text>
+                  <Text style={{ fontSize: 11, color: Colors.textMuted, marginTop: 1 }}>{meta.desc}</Text>
+                </View>
+                <MaterialCommunityIcons
+                  name={active ? 'radiobox-marked' : 'radiobox-blank'}
+                  size={20} color={active ? meta.color : Colors.border} />
               </TouchableOpacity>
-            ))}
-            <Text style={styles.label}>Turma *</Text>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Turma *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          {turmas.map(t => (
+            <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
+              onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
+              <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {turmaId && (
+          <>
+            <Text style={styles.label}>Aluno *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmas.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
-                  <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+              {turmaAlunos.map(a => (
+                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
+                  onPress={() => setAlunoId(a.id)}>
+                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {turmaId && <>
-              <Text style={styles.label}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {turmaAlunos.map(a => (
-                  <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                    onPress={() => setAlunoId(a.id)}>
-                    <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>}
-            <Text style={styles.label}>Disciplina *</Text>
-            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
-            <Text style={styles.label}>Total de Faltas Acumuladas</Text>
-            <TextInput style={styles.input} value={totalFaltas} onChangeText={setTotalFaltas}
-              keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.label}>Limite de Faltas</Text>
-            <TextInput style={styles.input} value={limiteFaltas} onChangeText={setLimiteFaltas}
-              keyboardType="number-pad" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.label}>Motivo / Observação</Text>
-            <TextInput style={[styles.input, { height: 70 }]} value={motivo} onChangeText={setMotivo}
-              multiline placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: Colors.danger }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Registar Exclusão</Text>}
-            </TouchableOpacity>
-          </ScrollView>
+          </>
+        )}
+
+        <Text style={styles.label}>Disciplina *</Text>
+        <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
+
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <StepperInput label="Faltas Acumuladas" value={totalFaltas} onChange={setTotalFaltas} color={Colors.danger} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <StepperInput label="Limite de Faltas" value={limiteFaltas} onChange={setLimiteFaltas} min={1} color={Colors.warning} />
+          </View>
         </View>
-      </View>
-    </Modal>
+
+        <Text style={styles.label}>Motivo / Observação</Text>
+        <TextInput
+          style={[styles.input, { height: 70, textAlignVertical: 'top', paddingTop: 8 }]}
+          value={motivo} onChangeText={setMotivo}
+          multiline placeholderTextColor={Colors.textMuted}
+          placeholder="Descreva brevemente a situação..." />
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: Colors.danger, marginTop: 16, flexDirection: 'row', gap: 8, justifyContent: 'center' }]}
+          onPress={save} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <>
+                <MaterialCommunityIcons name="account-remove" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Registar Exclusão</Text>
+              </>}
+        </TouchableOpacity>
+        <View style={{ height: 12 }} />
+      </ScrollView>
+    </ModalShell>
   );
 }
 
@@ -1150,60 +1276,93 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
     finally { setSaving(false); }
   };
 
+  const PROVA_META: Record<string, { icon: string; label: string }> = {
+    teste:     { icon: 'file-document-outline', label: 'Teste' },
+    exame:     { icon: 'certificate-outline',   label: 'Exame' },
+    mini_teste:{ icon: 'file-check-outline',    label: 'Mini-Teste' },
+    trabalho:  { icon: 'clipboard-text-outline', label: 'Trabalho' },
+    oral:      { icon: 'microphone-outline',    label: 'Oral' },
+  };
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Solicitar Prova Justificada</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView>
-            <Text style={styles.label}>Tipo de Prova *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {TIPOS_PROVA.map(t => (
-                <TouchableOpacity key={t} style={[styles.optChip, tipoProva === t && styles.optChipActive]}
-                  onPress={() => setTipoProva(t)}>
-                  <Text style={[styles.optChipText, tipoProva === t && { color: Colors.gold }]}>
-                    {t === 'mini_teste' ? 'Mini-Teste' : t.charAt(0).toUpperCase() + t.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <Text style={styles.label}>Turma *</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmas.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
-                  <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            {turmaId && <>
-              <Text style={styles.label}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {turmaAlunos.map(a => (
-                  <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                    onPress={() => setAlunoId(a.id)}>
-                    <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>}
-            <Text style={styles.label}>Disciplina *</Text>
-            <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
-            <Text style={styles.label}>Data da Prova Original *</Text>
-            <DateInput style={styles.input} value={dataProvaOriginal} onChangeText={setDataProvaOriginal} />
-            <Text style={styles.label}>Motivo / Justificação *</Text>
-            <TextInput style={[styles.input, { height: 80 }]} value={motivo} onChangeText={setMotivo}
-              multiline placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={styles.saveBtn} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Submeter Solicitação</Text>}
-            </TouchableOpacity>
-          </ScrollView>
+    <ModalShell
+      title="Prova Justificada"
+      subtitle="Solicitar realização de prova em falta"
+      icon="file-document-edit-outline"
+      iconColor={Colors.primary}
+      onClose={onClose}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Tipo de prova — icon chips */}
+        <Text style={styles.label}>Tipo de Prova *</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {TIPOS_PROVA.map(t => {
+            const meta = PROVA_META[t] ?? { icon: 'file', label: t };
+            const active = tipoProva === t;
+            return (
+              <TouchableOpacity key={t} onPress={() => setTipoProva(t)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8,
+                  borderRadius: 20, borderWidth: 1.5,
+                  borderColor: active ? Colors.gold : Colors.border,
+                  backgroundColor: active ? Colors.gold + '20' : Colors.backgroundCard }}>
+                <MaterialCommunityIcons name={meta.icon as any} size={15} color={active ? Colors.gold : Colors.textMuted} />
+                <Text style={{ fontSize: 12, fontWeight: active ? '700' : '400',
+                  color: active ? Colors.gold : Colors.textSecondary }}>{meta.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
-      </View>
-    </Modal>
+
+        <Text style={styles.label}>Turma *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          {turmas.map(t => (
+            <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
+              onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
+              <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {turmaId && (
+          <>
+            <Text style={styles.label}>Aluno *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+              {turmaAlunos.map(a => (
+                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
+                  onPress={() => setAlunoId(a.id)}>
+                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </>
+        )}
+
+        <Text style={styles.label}>Disciplina *</Text>
+        <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} />
+
+        <Text style={styles.label}>Data da Prova Original *</Text>
+        <DateInput style={styles.input} value={dataProvaOriginal} onChangeText={setDataProvaOriginal} />
+
+        <Text style={styles.label}>Motivo / Justificação *</Text>
+        <TextInput
+          style={[styles.input, { height: 80, textAlignVertical: 'top', paddingTop: 8 }]}
+          value={motivo} onChangeText={setMotivo}
+          multiline placeholderTextColor={Colors.textMuted}
+          placeholder="Ex: Doença comprovada, motivo familiar urgente..." />
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 16 }]}
+          onPress={save} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <>
+                <MaterialCommunityIcons name="paper-plane" size={16} color="#fff" />
+                <Text style={styles.saveBtnText}>Submeter Solicitação</Text>
+              </>}
+        </TouchableOpacity>
+        <View style={{ height: 12 }} />
+      </ScrollView>
+    </ModalShell>
   );
 }
 
@@ -1230,46 +1389,88 @@ function RespostaProvaModal({ solicitacao, userName, onClose, onSaved }: {
     finally { setSaving(false); }
   };
 
+  const isAprovada = status === 'aprovada';
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Responder Solicitação</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
+    <ModalShell
+      title="Responder Solicitação"
+      subtitle={`${solicitacao.alunoNomeCompleto}`}
+      icon="comment-check-outline"
+      iconColor={Colors.info}
+      onClose={onClose}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Resumo da solicitação */}
+        <View style={{ backgroundColor: Colors.backgroundElevated, borderRadius: 12, padding: 14, marginBottom: 16, gap: 6 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MaterialCommunityIcons name="account-circle-outline" size={18} color={Colors.primary} />
+            <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>{solicitacao.alunoNomeCompleto}</Text>
           </View>
-          <ScrollView>
-            <View style={styles.infoCard}>
-              <Text style={[styles.infoText, { fontWeight: '700' }]}>{solicitacao.alunoNomeCompleto}</Text>
-              <Text style={styles.infoText}>{solicitacao.disciplina} · {solicitacao.tipoProva}</Text>
-              <Text style={styles.infoText}>Data original: {fmtDate(solicitacao.dataProvaOriginal)}</Text>
-              <Text style={styles.infoText}>Motivo: {solicitacao.motivo}</Text>
+          <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+            <View style={{ backgroundColor: Colors.primary + '25', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ fontSize: 12, color: Colors.primary, fontWeight: '600' }}>{solicitacao.disciplina}</Text>
             </View>
-            <Text style={styles.label}>Decisão *</Text>
-            <View style={styles.decisionRow}>
-              {(['aprovada', 'rejeitada'] as const).map(s => (
-                <TouchableOpacity key={s} style={[styles.decisionBtn,
-                  status === s && { backgroundColor: s === 'aprovada' ? Colors.success : Colors.danger }]}
-                  onPress={() => setStatus(s)}>
-                  <Text style={styles.decisionBtnText}>{s === 'aprovada' ? '✓ Aprovar' : '✗ Rejeitar'}</Text>
-                </TouchableOpacity>
-              ))}
+            <View style={{ backgroundColor: Colors.gold + '25', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+              <Text style={{ fontSize: 12, color: Colors.gold, fontWeight: '600' }}>{solicitacao.tipoProva}</Text>
             </View>
-            {status === 'aprovada' && <>
-              <Text style={styles.label}>Data da Prova Justificada</Text>
-              <DateInput style={styles.input} value={dataProvaJustificada} onChangeText={setDataProvaJustificada} />
-            </>}
-            <Text style={styles.label}>Resposta / Observação</Text>
-            <TextInput style={[styles.input, { height: 70 }]} value={resposta} onChangeText={setResposta}
-              multiline placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: status === 'aprovada' ? Colors.success : Colors.danger }]}
-              onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Confirmar</Text>}
-            </TouchableOpacity>
-          </ScrollView>
+          </View>
+          <Text style={{ fontSize: 12, color: Colors.textSecondary }}>
+            Data original: <Text style={{ color: Colors.text }}>{fmtDate(solicitacao.dataProvaOriginal)}</Text>
+          </Text>
+          <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 8, marginTop: 2 }}>
+            <Text style={{ fontSize: 12, color: Colors.textMuted, fontStyle: 'italic' }}>"{solicitacao.motivo}"</Text>
+          </View>
         </View>
-      </View>
-    </Modal>
+
+        {/* Decisão — dois botões grandes */}
+        <Text style={styles.label}>Decisão *</Text>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <TouchableOpacity
+            onPress={() => setStatus('aprovada')}
+            style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', gap: 4,
+              borderWidth: 2, borderColor: isAprovada ? Colors.success : Colors.border,
+              backgroundColor: isAprovada ? Colors.success + '20' : Colors.backgroundCard }}>
+            <MaterialCommunityIcons name="check-circle-outline" size={26} color={isAprovada ? Colors.success : Colors.textMuted} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: isAprovada ? Colors.success : Colors.textSecondary }}>Aprovar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setStatus('rejeitada')}
+            style={{ flex: 1, paddingVertical: 16, borderRadius: 12, alignItems: 'center', gap: 4,
+              borderWidth: 2, borderColor: !isAprovada ? Colors.danger : Colors.border,
+              backgroundColor: !isAprovada ? Colors.danger + '20' : Colors.backgroundCard }}>
+            <MaterialCommunityIcons name="close-circle-outline" size={26} color={!isAprovada ? Colors.danger : Colors.textMuted} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: !isAprovada ? Colors.danger : Colors.textSecondary }}>Rejeitar</Text>
+          </TouchableOpacity>
+        </View>
+
+        {isAprovada && (
+          <>
+            <Text style={styles.label}>Data da Prova Justificada</Text>
+            <DateInput style={styles.input} value={dataProvaJustificada} onChangeText={setDataProvaJustificada} />
+          </>
+        )}
+
+        <Text style={styles.label}>Resposta / Observação</Text>
+        <TextInput
+          style={[styles.input, { height: 70, textAlignVertical: 'top', paddingTop: 8 }]}
+          value={resposta} onChangeText={setResposta}
+          multiline placeholderTextColor={Colors.textMuted}
+          placeholder={isAprovada ? 'Ex: Aprovado. A prova está marcada para...' : 'Ex: Justificação insuficiente...'} />
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: isAprovada ? Colors.success : Colors.danger,
+            flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 16 }]}
+          onPress={save} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <>
+                <MaterialCommunityIcons name={isAprovada ? 'check-bold' : 'close-thick'} size={16} color="#fff" />
+                <Text style={styles.saveBtnText}>{isAprovada ? 'Confirmar Aprovação' : 'Confirmar Rejeição'}</Text>
+              </>}
+        </TouchableOpacity>
+        <View style={{ height: 12 }} />
+      </ScrollView>
+    </ModalShell>
   );
 }
 
@@ -1318,67 +1519,136 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
     finally { setSaving(false); }
   };
 
+  const MOTIVO_META: Record<string, { icon: string; color: string }> = {
+    voluntaria:      { icon: 'hand-wave-outline',       color: Colors.info },
+    disciplinar:     { icon: 'gavel',                   color: Colors.danger },
+    financeira:      { icon: 'cash-remove',             color: Colors.warning },
+    faltas:          { icon: 'calendar-remove-outline', color: Colors.danger },
+    dupla_reprovacao:{ icon: 'repeat-off',              color: Colors.warning },
+    outro:           { icon: 'help-circle-outline',     color: Colors.textMuted },
+  };
+
   return (
-    <Modal visible animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.overlay}>
-        <View style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Anulação de Matrícula</Text>
-            <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={Colors.text} /></TouchableOpacity>
-          </View>
-          <ScrollView>
-            <View style={[styles.infoCard, { borderLeftColor: Colors.danger }]}>
-              <MaterialCommunityIcons name="alert" size={16} color={Colors.danger} />
-              <Text style={[styles.infoText, { color: Colors.danger }]}>Esta acção marca o aluno como inactivo no sistema.</Text>
-            </View>
-            <Text style={styles.label}>Motivo *</Text>
-            {MOTIVOS_ANULACAO.map(m => (
-              <TouchableOpacity key={m} style={[styles.optRow, motivo === m && styles.optRowActive]}
-                onPress={() => setMotivo(m)}>
-                <MaterialCommunityIcons name={motivo === m ? 'radiobox-marked' : 'radiobox-blank'} size={18}
-                  color={motivo === m ? Colors.gold : Colors.textSecondary} />
-                <Text style={[styles.optRowText, motivo === m && { color: Colors.text }]}>{MOTIVOS_LABEL[m]}</Text>
+    <ModalShell
+      title="Anulação de Matrícula"
+      subtitle="Acção irreversível — o aluno ficará inactivo"
+      icon="account-cancel-outline"
+      iconColor={Colors.danger}
+      onClose={onClose}
+    >
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Aviso */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+          backgroundColor: Colors.danger + '18', borderRadius: 10, padding: 12, marginBottom: 14,
+          borderLeftWidth: 3, borderLeftColor: Colors.danger }}>
+          <MaterialCommunityIcons name="alert-circle" size={20} color={Colors.danger} />
+          <Text style={{ fontSize: 12, color: Colors.danger, flex: 1, lineHeight: 18, fontWeight: '600' }}>
+            Esta acção marca o aluno como inactivo no sistema. Confirme cuidadosamente antes de prosseguir.
+          </Text>
+        </View>
+
+        {/* Motivo — cards compactos em grelha */}
+        <Text style={styles.label}>Motivo *</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+          {MOTIVOS_ANULACAO.map(m => {
+            const meta = MOTIVO_META[m] ?? { icon: 'help-circle-outline', color: Colors.textMuted };
+            const active = motivo === m;
+            return (
+              <TouchableOpacity key={m} onPress={() => setMotivo(m)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 6,
+                  paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20,
+                  borderWidth: 1.5, borderColor: active ? meta.color : Colors.border,
+                  backgroundColor: active ? meta.color + '18' : Colors.backgroundCard }}>
+                <MaterialCommunityIcons name={meta.icon as any} size={14} color={active ? meta.color : Colors.textMuted} />
+                <Text style={{ fontSize: 12, fontWeight: active ? '700' : '400',
+                  color: active ? meta.color : Colors.textSecondary }}>
+                  {MOTIVOS_LABEL[m]}
+                </Text>
               </TouchableOpacity>
-            ))}
-            <Text style={styles.label}>Turma *</Text>
+            );
+          })}
+        </View>
+
+        <Text style={styles.label}>Turma *</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          {turmas.map(t => (
+            <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
+              onPress={() => setTurmaId(t.id)}>
+              <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {turmaId && (
+          <>
+            <Text style={styles.label}>Aluno *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-              {turmas.map(t => (
-                <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
-                  onPress={() => setTurmaId(t.id)}>
-                  <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
+              {turmaAlunos.map(a => (
+                <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
+                  onPress={() => setAlunoId(a.id)}>
+                  <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            {turmaId && <>
-              <Text style={styles.label}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {turmaAlunos.map(a => (
-                  <TouchableOpacity key={a.id} style={[styles.optChip, alunoId === a.id && styles.optChipActive]}
-                    onPress={() => setAlunoId(a.id)}>
-                    <Text style={[styles.optChipText, alunoId === a.id && { color: Colors.gold }]}>{a.nome} {a.apelido}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </>}
-            <Text style={styles.label}>Data de Anulação *</Text>
-            <DateInput style={styles.input} value={dataAnulacao} onChangeText={setDataAnulacao} />
-            <Text style={styles.label}>Descrição / Observações</Text>
-            <TextInput style={[styles.input, { height: 70 }]} value={descricao} onChangeText={setDescricao}
-              multiline placeholderTextColor={Colors.textMuted} />
-            <TouchableOpacity style={styles.toggleRow} onPress={() => setReAdmissaoPermitida(!reAdmissaoPermitida)}>
-              <MaterialCommunityIcons
-                name={reAdmissaoPermitida ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                size={22} color={reAdmissaoPermitida ? Colors.success : Colors.textSecondary}
-              />
-              <Text style={styles.toggleText}>Permitir re-admissão futura</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: Colors.danger }]} onPress={save} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Confirmar Anulação</Text>}
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
+          </>
+        )}
+
+        {/* Resumo do aluno selecionado */}
+        {alunoSel && turmaSel && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10,
+            backgroundColor: Colors.backgroundElevated, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+            <MaterialCommunityIcons name="account-circle" size={28} color={Colors.textMuted} />
+            <View>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>{alunoSel.nome} {alunoSel.apelido}</Text>
+              <Text style={{ fontSize: 12, color: Colors.textSecondary }}>{turmaSel.nome} · {anoLetivo}</Text>
+            </View>
+          </View>
+        )}
+
+        <Text style={styles.label}>Data de Anulação *</Text>
+        <DateInput style={styles.input} value={dataAnulacao} onChangeText={setDataAnulacao} />
+
+        <Text style={styles.label}>Descrição / Observações</Text>
+        <TextInput
+          style={[styles.input, { height: 70, textAlignVertical: 'top', paddingTop: 8 }]}
+          value={descricao} onChangeText={setDescricao}
+          multiline placeholderTextColor={Colors.textMuted}
+          placeholder="Descreva as circunstâncias da anulação..." />
+
+        {/* Toggle re-admissão */}
+        <TouchableOpacity
+          onPress={() => setReAdmissaoPermitida(!reAdmissaoPermitida)}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12,
+            backgroundColor: reAdmissaoPermitida ? Colors.success + '18' : Colors.backgroundCard,
+            borderRadius: 10, padding: 12, borderWidth: 1,
+            borderColor: reAdmissaoPermitida ? Colors.success : Colors.border }}>
+          <MaterialCommunityIcons
+            name={reAdmissaoPermitida ? 'checkbox-marked' : 'checkbox-blank-outline'}
+            size={22} color={reAdmissaoPermitida ? Colors.success : Colors.textSecondary} />
+          <View>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: reAdmissaoPermitida ? Colors.success : Colors.text }}>
+              Permitir re-admissão futura
+            </Text>
+            <Text style={{ fontSize: 11, color: Colors.textMuted }}>
+              O aluno poderá ser readmitido posteriormente
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { backgroundColor: Colors.danger,
+            flexDirection: 'row', gap: 8, justifyContent: 'center', marginTop: 16 }]}
+          onPress={save} disabled={saving}>
+          {saving
+            ? <ActivityIndicator color="#fff" />
+            : <>
+                <MaterialCommunityIcons name="account-cancel" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Confirmar Anulação</Text>
+              </>}
+        </TouchableOpacity>
+        <View style={{ height: 12 }} />
+      </ScrollView>
+    </ModalShell>
   );
 }
 
@@ -1450,9 +1720,11 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 13, color: Colors.textSecondary, textAlign: 'center', lineHeight: 20 },
 
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  overlayWide: { justifyContent: 'center', alignItems: 'center' },
   modal: { backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '92%', padding: 20 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: Colors.text },
+  modalWide: { borderRadius: 20, width: 560, maxWidth: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  modalTitle: { fontSize: 17, fontWeight: '700', color: Colors.text },
 
   label: { fontSize: 12, color: Colors.textSecondary, marginBottom: 4, marginTop: 8 },
   input: { backgroundColor: Colors.background, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, color: Colors.text, fontSize: 14 },
