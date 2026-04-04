@@ -1,5 +1,5 @@
-const CACHE_NAME = 'siga-v5';
-const API_CACHE_NAME = 'siga-api-v5';
+const CACHE_NAME = 'siga-v6';
+const API_CACHE_NAME = 'siga-api-v6';
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
