@@ -372,6 +372,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "createdAt" timestamp with time zone NOT NULL DEFAULT now()
       )
     `, []);
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.desejos_livros (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        titulo text NOT NULL,
+        autor text NOT NULL DEFAULT '',
+        motivo text NOT NULL DEFAULT '',
+        "alunoId" varchar,
+        "nomeLeitor" text NOT NULL,
+        status text NOT NULL DEFAULT 'pendente',
+        "registadoPor" text NOT NULL DEFAULT 'Sistema',
+        "createdAt" timestamp with time zone NOT NULL DEFAULT now()
+      )
+    `, []);
   } catch (migErr) {
     console.warn('[migration] biblioteca migration warning:', (migErr as Error).message);
   }
@@ -5361,6 +5374,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
         json(res, 400, { error: 'Status inválido. Use "aprovado" ou "rejeitado".' });
       }
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // ─── BIBLIOTECA: Desejos (Wishlist) ──────────────────────────────────────────
+
+  app.get('/api/desejos-livros', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+    try {
+      const rows = await query<JsonObject>(`SELECT * FROM public.desejos_livros ORDER BY "createdAt" DESC`);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post('/api/desejos-livros', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const { titulo, autor, motivo, alunoId, nomeLeitor, registadoPor } = b as Record<string, string>;
+      if (!titulo?.trim()) { json(res, 400, { error: 'Título é obrigatório.' }); return; }
+      if (!nomeLeitor?.trim()) { json(res, 400, { error: 'Nome do leitor é obrigatório.' }); return; }
+      const [row] = await query<JsonObject>(
+        `INSERT INTO public.desejos_livros (titulo, autor, motivo, "alunoId", "nomeLeitor", "registadoPor")
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [titulo.trim(), autor?.trim() || '', motivo?.trim() || '', alunoId || null, nomeLeitor.trim(), registadoPor || nomeLeitor]
+      );
+      json(res, 201, row);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put('/api/desejos-livros/:id', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const { status } = b as { status: string };
+      if (!['pendente','adquirido','rejeitado'].includes(status)) {
+        json(res, 400, { error: 'Status inválido.' }); return;
+      }
+      await query(`UPDATE public.desejos_livros SET status=$1 WHERE id=$2`, [status, id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // ─── BIBLIOTECA: Estatísticas mensais ────────────────────────────────────────
+
+  app.get('/api/emprestimos/stats/mensal', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+    try {
+      const now = new Date();
+      const mes = parseInt((req.query.mes as string) || String(now.getMonth() + 1));
+      const ano = parseInt((req.query.ano as string) || String(now.getFullYear()));
+      const topLivros = await query<JsonObject>(
+        `SELECT "livroTitulo", COUNT(*) AS total
+         FROM public.emprestimos
+         WHERE EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2
+         GROUP BY "livroTitulo"
+         ORDER BY total DESC
+         LIMIT 10`,
+        [mes, ano]
+      );
+      const totalMes = await query<JsonObject>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2`,
+        [mes, ano]
+      );
+      const atrasosMes = await query<JsonObject>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE status='atrasado'
+           AND EXTRACT(MONTH FROM "dataEmprestimo") = $1
+           AND EXTRACT(YEAR FROM "dataEmprestimo") = $2`,
+        [mes, ano]
+      );
+      json(res, 200, {
+        mes, ano,
+        topLivros: topLivros.map(r => ({ titulo: r.livroTitulo, total: Number(r.total) })),
+        totalEmprestimos: Number((totalMes[0] as any)?.total || 0),
+        totalAtrasados: Number((atrasosMes[0] as any)?.total || 0),
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // ─── BIBLIOTECA: Verificar/Gerir penalidades ──────────────────────────────────
+
+  app.get('/api/biblioteca/penalidades', requireAuth, requirePermission('biblioteca'), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT "alunoId", "nomeLeitor", COUNT(*) AS total_atrasos
+         FROM public.emprestimos
+         WHERE status = 'devolvido'
+           AND "dataDevolucao" IS NOT NULL
+           AND "dataDevolucao" > "dataPrevistaDevolucao"
+         GROUP BY "alunoId", "nomeLeitor"
+         HAVING COUNT(*) >= 2
+         ORDER BY total_atrasos DESC`,
+        []
+      );
+      const ativos = await query<JsonObject>(
+        `SELECT "alunoId", "nomeLeitor" FROM public.emprestimos WHERE status = 'atrasado'`,
+        []
+      );
+      json(res, 200, {
+        penalizados: rows.map(r => ({ alunoId: r.alunoId, nomeLeitor: r.nomeLeitor, totalAtrasos: Number(r.total_atrasos) })),
+        comAtrasoAtivo: ativos.map(r => ({ alunoId: r.alunoId, nomeLeitor: r.nomeLeitor })),
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.get('/api/biblioteca/check-penalidade/:alunoId', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { alunoId } = req.params;
+      const hist = await query<JsonObject>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos
+         WHERE "alunoId"=$1
+           AND status='devolvido'
+           AND "dataDevolucao" IS NOT NULL
+           AND "dataDevolucao" > "dataPrevistaDevolucao"`,
+        [alunoId]
+      );
+      const ativo = await query<JsonObject>(
+        `SELECT COUNT(*) AS total FROM public.emprestimos WHERE "alunoId"=$1 AND status='atrasado'`,
+        [alunoId]
+      );
+      const totalHistorico = Number((hist[0] as any)?.total || 0);
+      const temAtrasoAtivo = Number((ativo[0] as any)?.total || 0) > 0;
+      json(res, 200, { penalizado: totalHistorico >= 2, totalAtrasos: totalHistorico, temAtrasoAtivo });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
   // -----------------------
