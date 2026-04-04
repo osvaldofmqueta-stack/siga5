@@ -175,6 +175,7 @@ export default function AvaliacaoProfessoresScreen() {
   const [editing, setEditing]   = useState<Avaliacao | null>(null);
   const [showProfSearch, setShowProfSearch] = useState(false);
   const [profSearch, setProfSearch] = useState('');
+  const [modalError, setModalError] = useState('');
 
   const emptyForm = useCallback(() => ({
     professorId: '', profNome: '', periodoLetivo: new Date().getFullYear().toString(),
@@ -225,17 +226,19 @@ export default function AvaliacaoProfessoresScreen() {
     .filter(p => `${p.nome} ${p.apelido} ${p.numeroProfessor}`.toLowerCase().includes(profSearch.toLowerCase()))
     .slice(0, 10);
 
-  const setF = (k: string, v: unknown) => setForm(f => ({ ...f, [k]: v }));
+  const setF = (k: string, v: unknown) => { setModalError(''); setForm(f => ({ ...f, [k]: v })); };
 
   // ─── Actions ──────────────────────────────────────────────────────────────
   const openNew = () => {
     setEditing(null);
     setForm(emptyForm());
+    setModalError('');
     setShowModal(true);
   };
 
   const openEdit = (av: Avaliacao) => {
     setEditing(av);
+    setModalError('');
     setForm({
       professorId: av.professorId,
       profNome: `${av.nome ?? ''} ${av.apelido ?? ''}`.trim(),
@@ -258,13 +261,17 @@ export default function AvaliacaoProfessoresScreen() {
   };
 
   const guardar = async (statusOverride?: 'rascunho' | 'submetida' | 'aprovada') => {
-    if (!form.professorId)  return alertErro('Selecione um professor.');
-    if (!form.periodoLetivo) return alertErro('Indique o período lectivo.');
+    setModalError('');
+    if (!form.professorId)  { setModalError('Selecione um professor.'); return; }
+    if (!form.periodoLetivo) { setModalError('Indique o período lectivo.'); return; }
 
     const targetStatus = statusOverride ?? form.status;
     if (targetStatus !== 'rascunho') {
       const notasPreenchidas = CRITERIOS.filter(c => ((form as unknown as Record<string, number>)[c.key as string] ?? 0) > 0).length;
-      if (notasPreenchidas === 0) return alertErro('Preencha pelo menos um critério de avaliação antes de submeter.');
+      if (notasPreenchidas === 0) {
+        setModalError('Preencha pelo menos um critério de avaliação (estrelas) antes de submeter ou aprovar.');
+        return;
+      }
     }
 
     const payload = {
@@ -290,7 +297,8 @@ export default function AvaliacaoProfessoresScreen() {
       setShowModal(false);
       loadData();
     } catch (e: unknown) {
-      alertErro('Erro ao guardar', (e as Error).message);
+      const msg = (e as Error).message || 'Erro desconhecido';
+      setModalError(`Erro ao guardar: ${msg}`);
     }
   };
 
@@ -482,7 +490,7 @@ export default function AvaliacaoProfessoresScreen() {
       </ScrollView>
 
       {/* ── Modal: Edição / Nova avaliação ──────────────────────────────────── */}
-      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => setShowModal(false)}>
+      <Modal visible={showModal} transparent animationType="slide" onRequestClose={() => { setShowModal(false); setModalError(''); }}>
         <View style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={styles.modalScrollContent} keyboardShouldPersistTaps="handled">
             <View style={styles.modalBox}>
@@ -622,9 +630,17 @@ export default function AvaliacaoProfessoresScreen() {
                 })}
               </View>
 
+              {/* Inline error */}
+              {!!modalError && (
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: 'rgba(239,83,80,0.15)', borderWidth: 1, borderColor: '#EF5350', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                  <Ionicons name="alert-circle-outline" size={18} color="#EF5350" style={{ marginTop: 1 }} />
+                  <Text style={{ color: '#EF5350', fontSize: 13, flex: 1, lineHeight: 18 }}>{modalError}</Text>
+                </View>
+              )}
+
               {/* Buttons */}
               <View style={styles.modalBtns}>
-                <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowModal(false)}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => { setShowModal(false); setModalError(''); }}>
                   <Text style={styles.cancelBtnText}>Cancelar</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={[styles.saveBtn, { flex: 1.2 }]} onPress={() => guardar()}>
