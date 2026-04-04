@@ -1086,13 +1086,14 @@ export default function LoginScreen() {
         )}
       </View>
       <TouchableOpacity
-        style={styles.provisorioBtn}
-        onPress={() => router.push('/login-provisorio' as any)}
-        activeOpacity={0.85}
+        style={[styles.provisorioBtn, !inscricoesAbertas && { opacity: 0.45, borderColor: '#555' }]}
+        onPress={() => inscricoesAbertas && router.push('/login-provisorio' as any)}
+        activeOpacity={inscricoesAbertas ? 0.85 : 1}
+        disabled={!inscricoesAbertas}
       >
-        <Ionicons name="person-circle-outline" size={15} color={Colors.gold} />
-        <Text style={styles.provisorioBtnText}>Já tenho uma inscrição — Acompanhar processo</Text>
-        <Ionicons name="chevron-forward" size={13} color={Colors.gold} />
+        <Ionicons name={inscricoesAbertas ? "person-circle-outline" : "lock-closed-outline"} size={15} color={inscricoesAbertas ? Colors.gold : '#888'} />
+        <Text style={[styles.provisorioBtnText, !inscricoesAbertas && { color: '#888' }]}>Já tenho uma inscrição — Acompanhar processo</Text>
+        <Ionicons name="chevron-forward" size={13} color={inscricoesAbertas ? Colors.gold : '#888'} />
       </TouchableOpacity>
     </Animated.View>
   );
