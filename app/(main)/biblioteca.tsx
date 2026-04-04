@@ -1314,6 +1314,7 @@ interface AlunoResult {
   turmaNome: string | null;
   sala: string | null;
   curso: string | null;
+  classe: string | null;
 }
 
 function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
@@ -1385,7 +1386,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
   });
 
   const showDropdown = !livroSel && (livroFocused || livroSearch.length > 0);
-  const showAlunoDropdown = !alunoSel && alunoFocused && alunoResults.length > 0;
+  const showAlunoDropdown = !alunoSel && alunoResults.length > 0;
 
   const upd = (k: keyof typeof form) => (v: string) => setForm(f => ({ ...f, [k]: v }));
 
@@ -1437,6 +1438,11 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                   <TouchableOpacity onPress={() => setLivroSel(null)}>
                     <Ionicons name="close-circle" size={18} color="#EF5350" />
                   </TouchableOpacity>
+                </View>
+                <View style={mStyles.autorAutoFill}>
+                  <Ionicons name="person-outline" size={13} color="#5E6AD2" />
+                  <Text style={mStyles.autorAutoFillLabel}>Autor:</Text>
+                  <Text style={mStyles.autorAutoFillValue} numberOfLines={1}>{livroSel.autor}</Text>
                 </View>
               </View>
             ) : (
@@ -2518,7 +2524,10 @@ const mStyles = StyleSheet.create({
   chip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 14, backgroundColor: '#13131f', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
   chipActive: { backgroundColor: '#5E6AD2', borderColor: '#5E6AD2' },
   chipText: { color: '#aaa', fontSize: 11, fontWeight: '600' },
-  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  livroSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 0, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
+  autorAutoFill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#5E6AD210', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, marginBottom: 4, borderWidth: 1, borderColor: '#5E6AD230' },
+  autorAutoFillLabel: { color: '#5E6AD2', fontSize: 11, fontWeight: '700' },
+  autorAutoFillValue: { color: '#ccc', fontSize: 12, flex: 1 },
   alunoSel: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#13131f', borderRadius: 10, padding: 10, marginBottom: 8, gap: 10, borderWidth: 1, borderColor: '#5E6AD244' },
   livroDropdown: { backgroundColor: '#0d1120', borderRadius: 10, marginBottom: 8, borderWidth: 1, borderColor: '#5E6AD244', overflow: 'hidden', maxHeight: 240 },
   livroOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
