@@ -5548,8 +5548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const q = (req.query.q as string || '').toLowerCase().trim();
       let sql = `
-        SELECT a.id, a.nome, a.apelido, a."turmaId", a.classe,
-               t.nome AS "turmaNome", t.sala, t."cursoId",
+        SELECT a.id, a.nome, a.apelido, a."turmaId",
+               t.nome AS "turmaNome", t.sala, t.classe, t."cursoId",
                c.nome AS "curso"
         FROM public.alunos a
         LEFT JOIN public.turmas t ON t.id = a."turmaId"

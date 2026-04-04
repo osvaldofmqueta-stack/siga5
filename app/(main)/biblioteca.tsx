@@ -1442,7 +1442,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
                 <View style={mStyles.autorAutoFill}>
                   <Ionicons name="person-outline" size={13} color="#5E6AD2" />
                   <Text style={mStyles.autorAutoFillLabel}>Autor:</Text>
-                  <Text style={mStyles.autorAutoFillValue} numberOfLines={1}>{livroSel.autor}</Text>
+                  <Text style={mStyles.autorAutoFillValue} numberOfLines={1}>{livroSel.autor || '—'}</Text>
                 </View>
               </View>
             ) : (
