@@ -65,7 +65,7 @@ interface Criterio {
 }
 
 const CRITERIOS: Criterio[] = [
-  { key: 'notaPlaneamento',     label: 'Planeamento de Aulas',      desc: 'Organização e preparação das aulas',              icon: 'clipboard-text-outline',      color: '#4FC3F7' },
+  { key: 'notaPlaneamento',     label: 'Planeamento de Aulas',      desc: 'Organização e preparação das aulas',              icon: 'document-text-outline',       color: '#4FC3F7' },
   { key: 'notaPontualidade',    label: 'Pontualidade & Assiduidade', desc: 'Cumprimento de horários e presença regular',      icon: 'time-outline',                color: '#81C784' },
   { key: 'notaMetodologia',     label: 'Metodologia de Ensino',     desc: 'Técnicas e estratégias pedagógicas usadas',       icon: 'bulb-outline',                color: '#FFB74D' },
   { key: 'notaRelacaoAlunos',   label: 'Relação com Alunos',        desc: 'Comunicação, apoio e motivação dos alunos',       icon: 'people-outline',              color: '#CE93D8' },
@@ -261,6 +261,12 @@ export default function AvaliacaoProfessoresScreen() {
     if (!form.professorId)  return alertErro('Selecione um professor.');
     if (!form.periodoLetivo) return alertErro('Indique o período lectivo.');
 
+    const targetStatus = statusOverride ?? form.status;
+    if (targetStatus !== 'rascunho') {
+      const notasPreenchidas = CRITERIOS.filter(c => ((form as unknown as Record<string, number>)[c.key as string] ?? 0) > 0).length;
+      if (notasPreenchidas === 0) return alertErro('Preencha pelo menos um critério de avaliação antes de submeter.');
+    }
+
     const payload = {
       professorId: form.professorId,
       periodoLetivo: form.periodoLetivo,
@@ -438,17 +444,24 @@ export default function AvaliacaoProfessoresScreen() {
                       </View>
                     </View>
                     {/* mini bars for each criterion */}
-                    <View style={{ gap: 3, marginTop: 4 }}>
-                      {CRITERIOS.slice(0, 4).map(c => (
-                        <View key={c.key as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, width: 90 }}>{c.label.slice(0, 18)}</Text>
-                          <RadarBar nota={(av[c.key] as number) ?? 0} color={c.color} />
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, width: 16, textAlign: 'right' }}>
-                            {((av[c.key] as number) ?? 0) > 0 ? (av[c.key] as number).toFixed(0) : '—'}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
+                    {CRITERIOS.every(c => ((av[c.key] as number) ?? 0) === 0) ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, backgroundColor: 'rgba(255,193,7,0.1)', borderRadius: 6, paddingVertical: 4, paddingHorizontal: 8 }}>
+                        <Ionicons name="warning-outline" size={12} color="#FFC107" />
+                        <Text style={{ color: '#FFC107', fontSize: 10 }}>Pontuações não preenchidas — editar para corrigir</Text>
+                      </View>
+                    ) : (
+                      <View style={{ gap: 3, marginTop: 4 }}>
+                        {CRITERIOS.slice(0, 4).map(c => (
+                          <View key={c.key as string} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9, width: 90 }}>{c.label.slice(0, 18)}</Text>
+                            <RadarBar nota={(av[c.key] as number) ?? 0} color={c.color} />
+                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, width: 16, textAlign: 'right' }}>
+                              {((av[c.key] as number) ?? 0) > 0 ? (av[c.key] as number).toFixed(0) : '—'}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
                     <Text style={styles.rowMeta}>Avaliado por {av.avaliador}</Text>
                   </View>
 
