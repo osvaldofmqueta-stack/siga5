@@ -284,14 +284,14 @@ export default function DrawerLeft() {
       items: [
         ...(isCeo ? [{ label: 'Painel CEO (Subscrição)', route: '/(main)/ceo', icon: <MaterialCommunityIcons name="crown" size={20} color="inherit" />, permKey: 'ceo_dashboard' as PermKey }] : []),
         { label: 'Dashboard Escolar', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
-        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
-        { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
 
       ],
     },
     {
       title: 'Área Pedagógica',
       items: [
+        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
         {
           label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico',
           subItems: [
@@ -352,7 +352,6 @@ export default function DrawerLeft() {
       title: 'Administração',
       items: [
         { label: 'Configurações do Sistema', route: '/(main)/admin', icon: <Ionicons name="settings" size={20} color="inherit" />, permKey: 'admin' },
-        { label: 'Auditoria do Sistema', route: '/(main)/auditoria', icon: <MaterialCommunityIcons name="file-search-outline" size={20} color="inherit" />, permKey: 'admin' },
       ],
     },
   ];
@@ -362,14 +361,14 @@ export default function DrawerLeft() {
       title: 'Principal',
       items: [
         { label: 'Dashboard', route: '/(main)/dashboard', icon: <Ionicons name="grid" size={20} color="inherit" />, permKey: 'dashboard' },
-        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
-        { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
 
       ],
     },
     {
       title: 'Área Pedagógica',
       items: [
+        { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
+        { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
         {
           label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico',
           subItems: [
@@ -928,33 +927,6 @@ export default function DrawerLeft() {
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#4A90D9" />
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
-
-          {/* ── Controlo Financeiro ── */}
-          {(isCeo || isPca || isAdmin) && (
-            <TouchableOpacity
-              style={styles.financeiroCTA}
-              onPress={() => { router.push('/(main)/financeiro' as any); closeLeft && closeLeft(); }}
-              activeOpacity={0.85}
-            >
-              <LinearGradient
-                colors={['#0A3D1A', '#052610', '#021508']}
-                style={styles.financeiroCTAGrad}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.financeiroCTALeft}>
-                  <View style={styles.financeiroCTAIcon}>
-                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#4ADE80" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.financeiroCTATitle}>Controlo Financeiro</Text>
-                    <Text style={styles.financeiroCTASub}>Propinas · Pagamentos · Multas · RUPEs</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#4ADE80" />
               </LinearGradient>
             </TouchableOpacity>
           )}
