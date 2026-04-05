@@ -303,17 +303,12 @@ export default function DrawerLeft() {
             { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'grelha' },
             { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'biblioteca' },
             { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={18} color="inherit" /> },
+            { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={18} color="inherit" />, permKey: 'avaliacao_professores' },
+            { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={18} color="inherit" />, permKey: 'disciplinas' },
+            { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={18} color="inherit" />, permKey: 'pedagogico' },
           ],
         },
-      ],
-    },
-    {
-      title: 'Pedagógico',
-      items: [
-        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
-        { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={20} color="inherit" />, permKey: 'disciplinas' },
-        { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={20} color="inherit" />, permKey: 'pedagogico' },
-        { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={20} color="inherit" />, permKey: 'pedagogico' },
       ],
     },
     {
@@ -375,16 +370,12 @@ export default function DrawerLeft() {
             { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'grelha' },
             { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'biblioteca' },
             { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={18} color="inherit" /> },
+            { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={18} color="inherit" />, permKey: 'avaliacao_professores' },
+            { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={18} color="inherit" />, permKey: 'disciplinas' },
+            { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={18} color="inherit" />, permKey: 'pedagogico' },
           ],
         },
-      ],
-    },
-    {
-      title: 'Pedagógico',
-      items: [
-        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
-        { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={20} color="inherit" />, permKey: 'pedagogico' },
-        { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={20} color="inherit" />, permKey: 'pedagogico' },
       ],
     },
     {
@@ -502,15 +493,12 @@ export default function DrawerLeft() {
             { label: 'Grelha Curricular', route: '/(main)/grelha', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'grelha' },
             { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={18} color="inherit" />, permKey: 'disciplinas' },
             { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={18} color="inherit" />, permKey: 'biblioteca' },
+            { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={18} color="inherit" />, permKey: 'avaliacao_professores' },
+            { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Gestão Académica', route: '/(main)/gestao-academica', icon: <MaterialCommunityIcons name="school" size={18} color="inherit" />, permKey: 'gestao_academica' },
           ],
         },
-      ],
-    },
-    {
-      title: 'Pedagógico',
-      items: [
-        { label: 'Avaliação de Professores', route: '/(main)/avaliacao-professores', icon: <MaterialCommunityIcons name="star-check-outline" size={20} color="inherit" />, permKey: 'avaliacao_professores' },
-        { label: 'Gestão Académica', route: '/(main)/gestao-academica', icon: <MaterialCommunityIcons name="school" size={20} color="inherit" />, permKey: 'gestao_academica' },
       ],
     },
     {
