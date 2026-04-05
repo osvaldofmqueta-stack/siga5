@@ -172,6 +172,7 @@ export default function RHControleScreen() {
   const [acessoEmail, setAcessoEmail] = useState('');
   const [acessoSenha, setAcessoSenha] = useState('');
   const [acessoSaving, setAcessoSaving] = useState(false);
+  const [showAcessoPassword, setShowAcessoPassword] = useState(false);
   const [showProfModal, setShowProfModal] = useState(false);
   const [profHabilitacoes, setProfHabilitacoes] = useState('');
   const [profSaving, setProfSaving] = useState(false);
@@ -1121,111 +1122,151 @@ export default function RHControleScreen() {
       {/* ════════════════════════════════════════════════════════════════ */}
       <Modal visible={showDetailModal && !!selectedFunc} transparent animationType="slide" onRequestClose={() => setShowDetailModal(false)}>
         <View style={styles.overlay}>
-          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
+          <View style={[styles.modalBox, { maxHeight: '93%', padding: 0, overflow: 'hidden' }]}>
             {selectedFunc && (() => {
               const dept = getDepartamentoByKey(selectedFunc.departamento);
               const cargo = getCargoById(selectedFunc.cargo);
               const color = DEPT_COLORS[selectedFunc.departamento] || Colors.gold;
+              const initials = `${selectedFunc.nome?.[0] || ''}${selectedFunc.apelido?.[0] || ''}`.toUpperCase();
+              const vinculo = TIPO_CONTRATO.find(t => t.id === selectedFunc.tipoContrato)?.label || selectedFunc.tipoContrato;
               return (
                 <>
-                  <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>{selectedFunc.nome} {selectedFunc.apelido}</Text>
-                    <TouchableOpacity onPress={() => setShowDetailModal(false)} style={styles.closeBtn}>
-                      <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                  {/* ── Cabeçalho com banda colorida ── */}
+                  <View style={[styles.detailHeader, { backgroundColor: color + '1A' }]}>
+                    <TouchableOpacity onPress={() => setShowDetailModal(false)} style={styles.detailCloseBtn}>
+                      <Ionicons name="close" size={20} color={Colors.textSecondary} />
                     </TouchableOpacity>
-                  </View>
-                  <ScrollView showsVerticalScrollIndicator={false}>
-                    {/* Dept badge */}
-                    <View style={[styles.detailDeptBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
-                      <MaterialCommunityIcons name={DEPT_ICONS[selectedFunc.departamento] as any} size={16} color={color} />
-                      <Text style={[styles.detailDeptText, { color }]}>{dept?.label}</Text>
-                      <Text style={styles.detailDeptSep}>·</Text>
-                      <Text style={[styles.detailDeptText, { color }]}>{cargo?.label}</Text>
+                    <View style={[styles.detailAvatar, { backgroundColor: color + '33', borderColor: color + '66' }]}>
+                      <Text style={[styles.detailAvatarText, { color }]}>{initials || '?'}</Text>
                     </View>
+                    <Text style={styles.detailName}>{selectedFunc.nome} {selectedFunc.apelido}</Text>
+                    <View style={[styles.detailCargoBadge, { backgroundColor: color + '22', borderColor: color + '44' }]}>
+                      <MaterialCommunityIcons name={DEPT_ICONS[selectedFunc.departamento] as any} size={13} color={color} />
+                      <Text style={[styles.detailCargoBadgeText, { color }]}>{dept?.label} · {cargo?.label}</Text>
+                    </View>
+                    {selectedFunc.email ? (
+                      <Text style={styles.detailEmail}>{selectedFunc.email}</Text>
+                    ) : null}
+                  </View>
 
-                    <DetailRow label="BI" value={selectedFunc.bi || '—'} />
-                    <DetailRow label="NIF" value={selectedFunc.nif || '—'} />
-                    <DetailRow label="Telefone" value={selectedFunc.telefone || '—'} />
-                    <DetailRow label="Email" value={selectedFunc.email || '—'} />
-                    <DetailRow label="Data de Nascimento" value={selectedFunc.dataNascimento || '—'} />
-                    <DetailRow label="Província / Município" value={selectedFunc.provincia ? `${selectedFunc.provincia} / ${selectedFunc.municipio}` : '—'} />
-                    {selectedFunc.seccao ? <DetailRow label="Secção / Unidade" value={selectedFunc.seccao} /> : null}
-                    <DetailRow label="Vínculo" value={TIPO_CONTRATO.find(t => t.id === selectedFunc.tipoContrato)?.label || selectedFunc.tipoContrato} />
-                    <DetailRow label="Data de Contratação" value={selectedFunc.dataContratacao || '—'} />
-                    <DetailRow label="Habilitações" value={selectedFunc.habilitacoes || '—'} />
-                    <DetailRow label="Especialidade" value={selectedFunc.especialidade || '—'} />
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 16 }}>
+
+                    {/* ── Secção: Identificação ── */}
+                    <DetailSection icon="card-account-details" label="Identificação" color={Colors.info}>
+                      <DetailRow2 icon="id-card" label="BI" value={selectedFunc.bi || '—'} />
+                      <DetailRow2 icon="receipt-text" label="NIF" value={selectedFunc.nif || '—'} />
+                      <DetailRow2 icon={selectedFunc.genero === 'F' ? 'gender-female' : 'gender-male'} label="Género" value={selectedFunc.genero === 'F' ? 'Feminino' : 'Masculino'} />
+                      {selectedFunc.dataNascimento ? <DetailRow2 icon="cake-variant" label="Data de Nascimento" value={selectedFunc.dataNascimento} /> : null}
+                    </DetailSection>
+
+                    {/* ── Secção: Contacto ── */}
+                    <DetailSection icon="phone" label="Contacto" color={Colors.success}>
+                      <DetailRow2 icon="phone" label="Telefone" value={selectedFunc.telefone || '—'} />
+                      <DetailRow2 icon="email" label="Email" value={selectedFunc.email || '—'} />
+                    </DetailSection>
+
+                    {/* ── Secção: Localização ── */}
+                    {(selectedFunc.provincia || selectedFunc.morada) ? (
+                      <DetailSection icon="map-marker" label="Localização" color={Colors.warning}>
+                        {selectedFunc.provincia ? <DetailRow2 icon="city" label="Município" value={`${selectedFunc.provincia} / ${selectedFunc.municipio || '—'}`} /> : null}
+                        {selectedFunc.morada ? <DetailRow2 icon="home" label="Morada" value={selectedFunc.morada} /> : null}
+                      </DetailSection>
+                    ) : null}
+
+                    {/* ── Secção: Cargo & Contrato ── */}
+                    <DetailSection icon="briefcase" label="Cargo & Contrato" color={color}>
+                      <DetailRow2 icon="account-tie" label="Vínculo" value={vinculo} />
+                      {selectedFunc.dataContratacao ? <DetailRow2 icon="calendar-start" label="Data de Contratação" value={selectedFunc.dataContratacao} /> : null}
+                      {selectedFunc.dataFimContrato ? <DetailRow2 icon="calendar-end" label="Fim de Contrato" value={selectedFunc.dataFimContrato} /> : null}
+                      {selectedFunc.seccao ? <DetailRow2 icon="sitemap" label="Secção / Unidade" value={selectedFunc.seccao} /> : null}
+                      {selectedFunc.especialidade ? <DetailRow2 icon="book-education" label="Especialidade" value={selectedFunc.especialidade} /> : null}
+                      {selectedFunc.habilitacoes ? <DetailRow2 icon="school" label="Habilitações" value={selectedFunc.habilitacoes} /> : null}
+                    </DetailSection>
+
+                    {/* ── Secção: Remuneração ── */}
                     {selectedFunc.salarioBase > 0 && (
-                      <DetailRow label="Salário Base" value={`${selectedFunc.salarioBase.toLocaleString('pt-AO')} AOA`} />
+                      <DetailSection icon="cash" label="Remuneração" color={Colors.gold}>
+                        <DetailRow2 icon="cash-multiple" label="Salário Base" value={`${selectedFunc.salarioBase.toLocaleString('pt-AO')} AOA`} highlight />
+                      </DetailSection>
                     )}
 
-                    {/* Acesso ao sistema */}
+                    {/* ── Card: Acesso ao Sistema ── */}
                     {cargo && cargo.nivelAcesso !== 'sem_acesso' && (
-                      <View style={styles.acessoCard}>
-                        <View style={styles.acessoTop}>
-                          <MaterialCommunityIcons name="shield-account" size={18} color={selectedFunc.utilizadorId ? Colors.success : Colors.warning} />
-                          <Text style={[styles.acessoTitle, { color: selectedFunc.utilizadorId ? Colors.success : Colors.warning }]}>
-                            {selectedFunc.utilizadorId ? 'Acesso ao Sistema Activo' : 'Sem Acesso ao Sistema'}
-                          </Text>
+                      <View style={[styles.infoCard, { borderColor: (selectedFunc.utilizadorId ? Colors.success : Colors.warning) + '44' }]}>
+                        <View style={styles.infoCardHeader}>
+                          <View style={[styles.infoCardIcon, { backgroundColor: (selectedFunc.utilizadorId ? Colors.success : Colors.warning) + '22' }]}>
+                            <MaterialCommunityIcons name="shield-account" size={18} color={selectedFunc.utilizadorId ? Colors.success : Colors.warning} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.infoCardTitle, { color: selectedFunc.utilizadorId ? Colors.success : Colors.warning }]}>
+                              {selectedFunc.utilizadorId ? 'Acesso Activo' : 'Sem Acesso ao Sistema'}
+                            </Text>
+                            {selectedFunc.utilizadorId ? (
+                              <Text style={styles.infoCardSub}>Perfil: <Text style={{ color: Colors.gold }}>{cargo.role}</Text></Text>
+                            ) : (
+                              <Text style={styles.infoCardSub}>Este funcionário ainda não pode iniciar sessão</Text>
+                            )}
+                          </View>
+                          {selectedFunc.utilizadorId && (
+                            <View style={[styles.statusDot, { backgroundColor: Colors.success }]} />
+                          )}
                         </View>
                         {!selectedFunc.utilizadorId && (
                           <TouchableOpacity
-                            style={styles.criarAcessoBtn}
+                            style={styles.infoCardBtn}
                             onPress={() => {
                               setAcessoEmail(selectedFunc.email || '');
                               setAcessoSenha('');
+                              setShowAcessoPassword(false);
                               setShowAcessoModal(true);
                             }}
                           >
                             <Ionicons name="person-add" size={14} color="#fff" />
-                            <Text style={styles.criarAcessoText}>Criar Acesso ao Sistema</Text>
+                            <Text style={styles.infoCardBtnText}>Criar Credenciais de Acesso</Text>
                           </TouchableOpacity>
                         )}
-                        {selectedFunc.utilizadorId && (
-                          <Text style={styles.acessoNote}>
-                            Permissões configuradas como: <Text style={{ color: Colors.gold }}>{cargo.role}</Text>
-                          </Text>
-                        )}
                       </View>
                     )}
 
-                    {/* Módulo Pedagógico — só visível para cargos docentes */}
+                    {/* ── Card: Módulo Pedagógico ── */}
                     {getCargoById(selectedFunc.cargo)?.role === 'professor' && (
-                      <View style={styles.acessoCard}>
-                        <View style={styles.acessoTop}>
-                          <MaterialCommunityIcons name="school" size={18} color={selectedFunc.professorId ? Colors.success : Colors.info} />
-                          <Text style={[styles.acessoTitle, { color: selectedFunc.professorId ? Colors.success : Colors.info }]}>
-                            {selectedFunc.professorId ? 'Registado no Módulo Pedagógico' : 'Não registado como Professor'}
-                          </Text>
-                        </View>
-                        {selectedFunc.professorId ? (
-                          <View style={styles.nifBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                            <Text style={[styles.nifBadgeText, { color: Colors.success }]}>
-                              Pode ser atribuído a turmas e disciplinas
+                      <View style={[styles.infoCard, { borderColor: (selectedFunc.professorId ? Colors.success : Colors.info) + '44' }]}>
+                        <View style={styles.infoCardHeader}>
+                          <View style={[styles.infoCardIcon, { backgroundColor: (selectedFunc.professorId ? Colors.success : Colors.info) + '22' }]}>
+                            <MaterialCommunityIcons name="school" size={18} color={selectedFunc.professorId ? Colors.success : Colors.info} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.infoCardTitle, { color: selectedFunc.professorId ? Colors.success : Colors.info }]}>
+                              {selectedFunc.professorId ? 'Módulo Pedagógico Activo' : 'Não registado como Professor'}
+                            </Text>
+                            <Text style={styles.infoCardSub}>
+                              {selectedFunc.professorId
+                                ? 'Pode ser atribuído a turmas e disciplinas'
+                                : 'Registe-o para associar a turmas e lançar notas'}
                             </Text>
                           </View>
-                        ) : (
-                          <>
-                            <Text style={styles.acessoNote}>
-                              O funcionário tem cargo docente mas ainda não está registado no módulo de professores. Ao atribuir, será criado um número de professor e poderá ser associado a turmas.
-                            </Text>
-                            <TouchableOpacity
-                              style={[styles.criarAcessoBtn, { backgroundColor: Colors.info }]}
-                              onPress={() => {
-                                setProfHabilitacoes(selectedFunc.habilitacoes || '');
-                                setShowProfModal(true);
-                              }}
-                            >
-                              <Ionicons name="school" size={14} color="#fff" />
-                              <Text style={styles.criarAcessoText}>Atribuir como Professor</Text>
-                            </TouchableOpacity>
-                          </>
+                          {selectedFunc.professorId && (
+                            <View style={[styles.statusDot, { backgroundColor: Colors.success }]} />
+                          )}
+                        </View>
+                        {!selectedFunc.professorId && (
+                          <TouchableOpacity
+                            style={[styles.infoCardBtn, { backgroundColor: Colors.info }]}
+                            onPress={() => {
+                              setProfHabilitacoes(selectedFunc.habilitacoes || '');
+                              setShowProfModal(true);
+                            }}
+                          >
+                            <Ionicons name="school" size={14} color="#fff" />
+                            <Text style={styles.infoCardBtnText}>Atribuir como Professor</Text>
+                          </TouchableOpacity>
                         )}
                       </View>
                     )}
 
+                    {/* ── Observações ── */}
                     {selectedFunc.observacoes ? (
-                      <View style={{ marginTop: 12 }}>
+                      <View style={{ marginTop: 4, marginBottom: 4 }}>
                         <Text style={styles.fieldLabel}>Observações</Text>
                         <View style={styles.conteudoBox}>
                           <Text style={styles.conteudoText}>{selectedFunc.observacoes}</Text>
@@ -1233,19 +1274,18 @@ export default function RHControleScreen() {
                       </View>
                     ) : null}
 
-                    {/* Actions */}
-                    <View style={[styles.actionRow, { marginTop: 16 }]}>
-                      <TouchableOpacity style={styles.rejectBtn} onPress={() => deleteFuncionario(selectedFunc.id)}>
-                        <Ionicons name="trash" size={16} color="#fff" />
-                        <Text style={styles.actionBtnText}>Eliminar</Text>
+                    {/* ── Botões de Acção ── */}
+                    <View style={styles.detailActions}>
+                      <TouchableOpacity style={styles.detailDeleteBtn} onPress={() => deleteFuncionario(selectedFunc.id)}>
+                        <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+                        <Text style={[styles.detailActionText, { color: Colors.danger }]}>Eliminar</Text>
                       </TouchableOpacity>
-                      <TouchableOpacity style={styles.acceptBtn} onPress={() => {
+                      <TouchableOpacity style={styles.detailEditBtn} onPress={() => {
                         setEditingFunc(selectedFunc);
                         setFuncForm(selectedFunc);
                         setFormStep('pessoal');
                         setFuncFormErrors({});
                         setCompletedSteps(new Set(['pessoal', 'organizacao', 'contrato']));
-                        // Populate dynamic subsidies from existing data
                         const existingSubs = Array.isArray((selectedFunc as any).subsidios) ? (selectedFunc as any).subsidios : [];
                         if (existingSubs.length > 0) {
                           setSubsidiosCustom(existingSubs);
@@ -1263,9 +1303,10 @@ export default function RHControleScreen() {
                         setShowFuncForm(true);
                       }}>
                         <Ionicons name="pencil" size={16} color="#fff" />
-                        <Text style={styles.actionBtnText}>Editar</Text>
+                        <Text style={[styles.detailActionText, { color: '#fff' }]}>Editar Funcionário</Text>
                       </TouchableOpacity>
                     </View>
+                    <View style={{ height: 8 }} />
                   </ScrollView>
                 </>
               );
@@ -1281,22 +1322,89 @@ export default function RHControleScreen() {
         <View style={styles.overlay}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Criar Acesso ao Sistema</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.infoCardIcon, { backgroundColor: Colors.accent + '22' }]}>
+                  <MaterialCommunityIcons name="shield-key" size={20} color={Colors.accent} />
+                </View>
+                <Text style={styles.modalTitle}>Criar Acesso ao Sistema</Text>
+              </View>
               <TouchableOpacity onPress={() => setShowAcessoModal(false)} style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.sectionNote}>
-                Ao criar o acesso, o funcionário poderá iniciar sessão no QUETA com as permissões do cargo: <Text style={{ color: Colors.gold, fontFamily: 'Inter_600SemiBold' }}>{getCargoById(selectedFunc?.cargo || '')?.label}</Text>
+              {/* Cargo badge */}
+              {selectedFunc && (() => {
+                const cargo = getCargoById(selectedFunc.cargo);
+                const color = DEPT_COLORS[selectedFunc.departamento] || Colors.gold;
+                return (
+                  <View style={styles.acessoFuncPreview}>
+                    <View style={[styles.acessoFuncAvatar, { backgroundColor: color + '22' }]}>
+                      <Text style={[styles.acessoFuncAvatarText, { color }]}>
+                        {(selectedFunc.nome?.[0] || '').toUpperCase()}{(selectedFunc.apelido?.[0] || '').toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.acessoFuncNome}>{selectedFunc.nome} {selectedFunc.apelido}</Text>
+                      <Text style={styles.acessoFuncCargo}>{cargo?.label}</Text>
+                    </View>
+                    <View style={[styles.acessoRoleBadge, { backgroundColor: color + '18', borderColor: color + '44' }]}>
+                      <Text style={[styles.acessoRoleText, { color }]}>{cargo?.role || '—'}</Text>
+                    </View>
+                  </View>
+                );
+              })()}
+
+              <Text style={[styles.sectionNote, { marginBottom: 16 }]}>
+                Após criar o acesso, o funcionário pode iniciar sessão no QUETA School com as permissões associadas ao cargo.
               </Text>
+
               <Text style={styles.fieldLabel}>Email Institucional *</Text>
-              <TextInput style={styles.input} placeholder="funcionario@escola.ao" placeholderTextColor={Colors.textMuted} value={acessoEmail} onChangeText={setAcessoEmail} keyboardType="email-address" autoCapitalize="none" />
-              <Text style={styles.fieldLabel}>Senha de Acesso *</Text>
-              <TextInput style={styles.input} placeholder="Mínimo 8 caracteres" placeholderTextColor={Colors.textMuted} value={acessoSenha} onChangeText={setAcessoSenha} secureTextEntry />
-              <TouchableOpacity style={[styles.saveBtn, acessoSaving && { opacity: 0.6 }]} onPress={criarAcesso} disabled={acessoSaving}>
-                {acessoSaving ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="person-add" size={18} color="#fff" />}
-                <Text style={styles.saveBtnText}>Criar Acesso</Text>
+              <View style={styles.inputIconRow}>
+                <MaterialCommunityIcons name="email-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputWithIcon]}
+                  placeholder="funcionario@escola.ao"
+                  placeholderTextColor={Colors.textMuted}
+                  value={acessoEmail}
+                  onChangeText={setAcessoEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
+
+              <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Senha de Acesso *</Text>
+              <View style={styles.inputIconRow}>
+                <MaterialCommunityIcons name="lock-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputWithIcon, { flex: 1, paddingRight: 44 }]}
+                  placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor={Colors.textMuted}
+                  value={acessoSenha}
+                  onChangeText={setAcessoSenha}
+                  secureTextEntry={!showAcessoPassword}
+                />
+                <TouchableOpacity
+                  style={styles.inputPasswordToggle}
+                  onPress={() => setShowAcessoPassword(v => !v)}
+                >
+                  <Ionicons name={showAcessoPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {acessoSenha.length > 0 && acessoSenha.length < 8 && (
+                <View style={[styles.inlineError, { marginTop: 6 }]}>
+                  <Ionicons name="alert-circle-outline" size={13} color={Colors.warning} />
+                  <Text style={[styles.inlineErrorText, { color: Colors.warning }]}>A senha deve ter pelo menos 8 caracteres</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { marginTop: 20 }, (acessoSaving || acessoSenha.length < 8 || !acessoEmail) && { opacity: 0.5 }]}
+                onPress={criarAcesso}
+                disabled={acessoSaving || acessoSenha.length < 8 || !acessoEmail}
+              >
+                {acessoSaving ? <ActivityIndicator size="small" color="#fff" /> : <MaterialCommunityIcons name="shield-check" size={18} color="#fff" />}
+                <Text style={styles.saveBtnText}>Criar Acesso ao Sistema</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -1310,37 +1418,68 @@ export default function RHControleScreen() {
         <View style={styles.overlay}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Atribuir como Professor</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={[styles.infoCardIcon, { backgroundColor: Colors.info + '22' }]}>
+                  <MaterialCommunityIcons name="school" size={20} color={Colors.info} />
+                </View>
+                <Text style={styles.modalTitle}>Atribuir como Professor</Text>
+              </View>
               <TouchableOpacity onPress={() => setShowProfModal(false)} style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={[styles.nifBadge, { marginBottom: 12, backgroundColor: Colors.info + '18' }]}>
-                <MaterialCommunityIcons name="school" size={16} color={Colors.info} />
-                <Text style={[styles.nifBadgeText, { color: Colors.info, flex: 1 }]}>
-                  Será criado um registo de professor para <Text style={{ fontFamily: 'Inter_700Bold' }}>{selectedFunc?.nome} {selectedFunc?.apelido}</Text> com um número único (ex: PROF-2025-0001). Após atribuição, o funcionário pode ser associado a turmas e disciplinas.
-                </Text>
+
+              {/* Prévia do funcionário */}
+              {selectedFunc && (() => {
+                const color = DEPT_COLORS[selectedFunc.departamento] || Colors.gold;
+                return (
+                  <View style={styles.acessoFuncPreview}>
+                    <View style={[styles.acessoFuncAvatar, { backgroundColor: color + '22' }]}>
+                      <Text style={[styles.acessoFuncAvatarText, { color }]}>
+                        {(selectedFunc.nome?.[0] || '').toUpperCase()}{(selectedFunc.apelido?.[0] || '').toUpperCase()}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.acessoFuncNome}>{selectedFunc.nome} {selectedFunc.apelido}</Text>
+                      {selectedFunc.especialidade ? (
+                        <Text style={styles.acessoFuncCargo}>{selectedFunc.especialidade}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })()}
+
+              {/* O que vai acontecer */}
+              <View style={styles.profStepsList}>
+                <ProfStep icon="identifier" text="Será atribuído um número de professor único (ex: PROF-2025-0001)" />
+                <ProfStep icon="google-classroom" text="Ficará disponível para ser atribuído a turmas e disciplinas" />
+                <ProfStep icon="notebook-edit" text="Poderá lançar sumários, presenças e notas" />
               </View>
+
               <Text style={styles.fieldLabel}>Habilitações Académicas</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ex: Licenciatura em Matemática"
-                placeholderTextColor={Colors.textMuted}
-                value={profHabilitacoes}
-                onChangeText={setProfHabilitacoes}
-              />
-              <Text style={[styles.sectionNote, { marginTop: 8 }]}>
+              <View style={styles.inputIconRow}>
+                <MaterialCommunityIcons name="certificate-outline" size={18} color={Colors.textMuted} style={styles.inputIcon} />
+                <TextInput
+                  style={[styles.input, styles.inputWithIcon]}
+                  placeholder="Ex: Licenciatura em Matemática"
+                  placeholderTextColor={Colors.textMuted}
+                  value={profHabilitacoes}
+                  onChangeText={setProfHabilitacoes}
+                />
+              </View>
+              <Text style={[styles.sectionNote, { marginTop: 10 }]}>
                 As habilitações podem ser editadas posteriormente no módulo de professores.
               </Text>
+
               <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: Colors.info }, profSaving && { opacity: 0.6 }]}
+                style={[styles.saveBtn, { backgroundColor: Colors.info, marginTop: 8 }, profSaving && { opacity: 0.6 }]}
                 onPress={atribuirComoProfessor}
                 disabled={profSaving}
               >
                 {profSaving
                   ? <ActivityIndicator size="small" color="#fff" />
-                  : <MaterialCommunityIcons name="school" size={18} color="#fff" />}
+                  : <MaterialCommunityIcons name="check-decagram" size={18} color="#fff" />}
                 <Text style={styles.saveBtnText}>Confirmar Atribuição</Text>
               </TouchableOpacity>
             </ScrollView>
@@ -1513,6 +1652,60 @@ function FuncCard({ f, onPress }: { f: Funcionario; onPress: () => void }) {
     </TouchableOpacity>
   );
 }
+
+function DetailSection({ icon, label, color, children }: { icon: string; label: string; color: string; children: React.ReactNode }) {
+  return (
+    <View style={detailSectionStyles.wrap}>
+      <View style={detailSectionStyles.header}>
+        <View style={[detailSectionStyles.iconWrap, { backgroundColor: color + '22' }]}>
+          <MaterialCommunityIcons name={icon as any} size={14} color={color} />
+        </View>
+        <Text style={[detailSectionStyles.label, { color }]}>{label}</Text>
+      </View>
+      <View style={detailSectionStyles.body}>{children}</View>
+    </View>
+  );
+}
+const detailSectionStyles = StyleSheet.create({
+  wrap: { marginBottom: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 },
+  iconWrap: { width: 22, height: 22, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  label: { fontSize: 11, fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  body: { backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+});
+
+function DetailRow2({ icon, label, value, highlight }: { icon: string; label: string; value: string; highlight?: boolean }) {
+  return (
+    <View style={dr2Styles.row}>
+      <MaterialCommunityIcons name={icon as any} size={15} color={Colors.textMuted} style={{ marginTop: 1 }} />
+      <View style={{ flex: 1 }}>
+        <Text style={dr2Styles.label}>{label}</Text>
+        <Text style={[dr2Styles.value, highlight && { color: Colors.gold, fontFamily: 'Inter_700Bold' }]}>{value}</Text>
+      </View>
+    </View>
+  );
+}
+const dr2Styles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  label: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted, marginBottom: 1 },
+  value: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text },
+});
+
+function ProfStep({ icon, text }: { icon: string; text: string }) {
+  return (
+    <View style={profStepStyles.row}>
+      <View style={profStepStyles.iconWrap}>
+        <MaterialCommunityIcons name={icon as any} size={16} color={Colors.info} />
+      </View>
+      <Text style={profStepStyles.text}>{text}</Text>
+    </View>
+  );
+}
+const profStepStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  iconWrap: { width: 30, height: 30, borderRadius: 8, backgroundColor: Colors.info + '18', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  text: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 19, marginTop: 6 },
+});
 
 function FormRow({ label, children, error }: { label: string; children: React.ReactNode; error?: string }) {
   return (
@@ -1692,21 +1885,58 @@ const styles = StyleSheet.create({
   subsidioCalc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6 },
   subsidioCalcVal: { fontFamily: 'Inter_600SemiBold', color: Colors.gold },
 
-  // Detail modal
-  detailDeptBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
-  detailDeptText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
-  detailDeptSep: { color: Colors.textMuted },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  detailLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-  detailValue: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, flex: 1, textAlign: 'right' },
+  // Detail modal — redesigned
+  detailHeader: { paddingTop: 20, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center', borderTopLeftRadius: 20, borderTopRightRadius: 20, position: 'relative' },
+  detailCloseBtn: { position: 'absolute', top: 14, right: 14, padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.08)' },
+  detailAvatar: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center', borderWidth: 2, marginBottom: 10 },
+  detailAvatarText: { fontSize: 26, fontFamily: 'Inter_700Bold' },
+  detailName: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text, textAlign: 'center', marginBottom: 8 },
+  detailCargoBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginBottom: 6 },
+  detailCargoBadgeText: { fontSize: 12, fontFamily: 'Inter_600SemiBold' },
+  detailEmail: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
 
-  // Acesso card
+  // Info card (system access / professor module)
+  infoCard: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginTop: 10, borderWidth: 1 },
+  infoCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  infoCardIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  infoCardTitle: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  infoCardSub: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  infoCardBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.accent, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, alignSelf: 'flex-start' },
+  infoCardBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+
+  // Detail action buttons
+  detailActions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  detailDeleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.danger + '18', borderWidth: 1, borderColor: Colors.danger + '44' },
+  detailEditBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16, paddingVertical: 11, borderRadius: 10, backgroundColor: Colors.accent },
+  detailActionText: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
+
+  // Acesso modal — redesigned
+  acessoFuncPreview: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: Colors.surface, borderRadius: 12, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: Colors.border },
+  acessoFuncAvatar: { width: 42, height: 42, borderRadius: 21, alignItems: 'center', justifyContent: 'center' },
+  acessoFuncAvatarText: { fontSize: 16, fontFamily: 'Inter_700Bold' },
+  acessoFuncNome: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  acessoFuncCargo: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  acessoRoleBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  acessoRoleText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
+  inputIconRow: { position: 'relative', flexDirection: 'row', alignItems: 'center', width: '100%' },
+  inputIcon: { position: 'absolute', left: 12, zIndex: 1 },
+  inputWithIcon: { paddingLeft: 38, flex: 1 },
+  inputPasswordToggle: { position: 'absolute', right: 12, padding: 4, zIndex: 1 },
+
+  // Prof steps list
+  profStepsList: { backgroundColor: Colors.info + '0D', borderRadius: 10, padding: 12, marginBottom: 16, borderWidth: 1, borderColor: Colors.info + '22' },
+
+  // Keep legacy for review modals
   acessoCard: { backgroundColor: Colors.surface, borderRadius: 12, padding: 14, marginTop: 16, borderWidth: 1, borderColor: Colors.border },
   acessoTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   acessoTitle: { fontSize: 14, fontFamily: 'Inter_600SemiBold' },
   acessoNote: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   criarAcessoBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.accent, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, alignSelf: 'flex-start' },
   criarAcessoText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  detailLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  detailValue: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, flex: 1, textAlign: 'right' },
 
   // Review modal
   reviewLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, marginTop: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
