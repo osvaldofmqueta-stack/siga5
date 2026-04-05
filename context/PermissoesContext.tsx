@@ -17,7 +17,8 @@ export type PermKey =
   | 'biblioteca' | 'transferencias' | 'avaliacao_professores' | 'chat_interno'
   | 'auditoria' | 'bolsas' | 'calendario_academico' | 'pagamentos_hub'
   | 'extrato_propinas' | 'quadro_honra' | 'rh_payroll' | 'trabalhos_finais'
-  | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios';
+  | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios'
+  | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento';
 
 export interface FeatureDef {
   key: PermKey;
@@ -74,6 +75,9 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'professor_sumario', label: 'Sumário / Presenças', desc: 'Registos de aula e assiduidade', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_mensagens', label: 'Mensagens', desc: 'Comunicação interna do professor', roles: ['professor', 'ceo', 'pca'] },
       { key: 'professor_materiais', label: 'Materiais Didáticos', desc: 'Partilha de conteúdos pedagógicos', roles: ['professor', 'ceo', 'pca'] },
+      { key: 'diario_classe', label: 'Diário de Classe', desc: 'Registo diário das actividades lectivas e ocorrências de sala de aula', roles: ['professor', 'admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'director_turma', label: 'Director de Turma', desc: 'Funções do director de turma: comunicação com encarregados, gestão de faltas e ocorrências', roles: ['professor', 'admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'relatorio_faltas', label: 'Relatório de Faltas', desc: 'Geração e análise de relatórios de assiduidade por turma e aluno', roles: ['professor', 'admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'pedagogico', label: 'Área Pedagógica', desc: 'Gestão pedagógica: sumários, calendário de provas, solicitações e pautas', roles: ['admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
@@ -110,6 +114,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     features: [
       { key: 'editor_documentos', label: 'Editor de Documentos', desc: 'Modelos e emissão de documentos', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
       { key: 'boletim_matricula', label: 'Boletim de Matrícula', desc: 'Impressão de ficha de matrícula', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
+      { key: 'gerar_documento', label: 'Gerar Documento PDF', desc: 'Geração de documentos PDF oficiais: declarações, certidões e outros documentos escolares', roles: ['secretaria', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -208,12 +213,13 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Pedagógico (supervisão)
     'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
+    'plano_aula', 'diario_classe', 'director_turma', 'relatorio_faltas',
     // Financeiro (supervisão — ver relatórios, não operar)
-    'financeiro_relatorios', 'extrato_propinas',
+    'financeiro_relatorios', 'extrato_propinas', 'bolsas',
     // RH (supervisão estratégica — ver relatórios e controlo, não operar folhas de salário)
     'rh_hub', 'rh_controle',
     // Documentos (director assina e revê documentos oficiais)
-    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
+    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub', 'gerar_documento',
   ] as PermKey[],
 
   // ── Admin: configuração do sistema e gestão de utilizadores ──────
@@ -230,7 +236,10 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'boletim_matricula', 'editor_documentos', 'secretaria_hub',
     'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
-    'biblioteca', 'documentos_hub',
+    'biblioteca', 'documentos_hub', 'gerar_documento',
+    'plano_aula', 'diario_classe', 'director_turma', 'relatorio_faltas',
+    // Financeiro (supervisão e relatórios — admin não opera mas vê relatórios)
+    'financeiro_relatorios', 'extrato_propinas', 'bolsas',
     // RH (administrador supervisiona pessoal e processa vencimentos)
     'rh_hub', 'rh_controle', 'rh_payroll',
   ],
@@ -246,9 +255,10 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Parametrização curricular (cursos, disciplinas, áreas de formação)
     'disciplinas', 'grelha',
     // Documentos (responsabilidade da secretaria)
-    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub',
-    // Planeamento
+    'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub', 'gerar_documento',
+    // Planeamento & análise
     'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
+    'relatorios', 'extrato_propinas', 'exclusoes_faltas', 'desempenho', 'relatorio_faltas',
   ],
 
   // ── Financeiro: gestão financeira completa ───────────────────────
@@ -285,6 +295,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'desempenho', 'visao_geral', 'relatorios',
     // Qualidade académica
     'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas', 'plano_aula',
+    'diario_classe', 'director_turma', 'relatorio_faltas',
   ],
 
   // ── Professor: docência e actividade lectiva ──────────────────────
@@ -295,6 +306,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Actividade lectiva (core do professor)
     'professor_turmas', 'professor_pauta', 'horario',
     'professor_sumario', 'professor_mensagens', 'professor_materiais',
+    // Funções de docente
+    'diario_classe', 'director_turma', 'relatorio_faltas',
     // Recursos
     'biblioteca', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
   ],
