@@ -253,6 +253,19 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
+        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
+      ],
+    },
+    {
+      title: 'Recursos Humanos',
+      items: [
         {
           label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
           subItems: [
@@ -261,9 +274,6 @@ export default function DrawerLeft() {
             { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' },
           ],
         },
-        { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
       ],
     },
   ];
@@ -311,6 +321,11 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
         {
           label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
           subItems: [
@@ -318,6 +333,11 @@ export default function DrawerLeft() {
             { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
           ],
         },
+      ],
+    },
+    {
+      title: 'Recursos Humanos',
+      items: [
         {
           label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
           subItems: [
@@ -380,6 +400,11 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
         {
           label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
           subItems: [
@@ -387,16 +412,19 @@ export default function DrawerLeft() {
             { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
           ],
         },
-        ...(isRH ? [{
-          label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey,
-          subItems: [
-            { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_controle' as PermKey },
-            { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
-            { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
-          ],
-        }] : []),
       ],
     },
+    ...(isRH ? [{
+      title: 'Recursos Humanos',
+      items: [{
+        label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey,
+        subItems: [
+          { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_controle' as PermKey },
+          { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
+          { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
+        ],
+      }],
+    }] : []),
   ];
 
   const CHEFE_SECRETARIA_SECTIONS: NavSection[] = [
@@ -435,12 +463,17 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Finanças & RH',
+      title: 'Financeiro',
       items: [
         { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Documentos & Multicaixa', route: '/(main)/documentos-hub', icon: <MaterialCommunityIcons name="file-document-multiple" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
+      ],
+    },
+    {
+      title: 'Recursos Humanos',
+      items: [
         {
           label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
           subItems: [
@@ -511,6 +544,11 @@ export default function DrawerLeft() {
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Análise de Desempenho', route: '/(main)/desempenho', icon: <MaterialCommunityIcons name="chart-areaspline" size={20} color="inherit" />, permKey: 'desempenho' },
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
+      ],
+    },
+    {
+      title: 'Financeiro',
+      items: [
         {
           label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
           subItems: [
