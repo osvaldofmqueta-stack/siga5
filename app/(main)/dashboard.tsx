@@ -141,7 +141,8 @@ export default function DashboardScreen() {
   const isAluno = role === 'aluno';
   const isProfessor = role === 'professor';
   const isEncarregado = role === 'encarregado';
-  const isAdminRole = ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'financeiro', 'rh'].includes(role);
+  const isDirector = role === 'director';
+  const isAdminRole = ['ceo', 'pca', 'admin', 'chefe_secretaria', 'secretaria', 'financeiro', 'rh'].includes(role);
   const isRhViewer = ['ceo', 'pca', 'admin', 'director'].includes(role);
   const isFinanceRole = ['pca', 'ceo', 'admin', 'financeiro'].includes(role);
 
@@ -252,9 +253,9 @@ export default function DashboardScreen() {
     };
   }, [isProfessor, professores, user, turmas, alunos, sumarios, pautas, materiais, mensagens, eventos]);
 
-  // ── Dados ADMIN ─────────────────────────────────────────────────────
+  // ── Dados ADMIN / DIRECTOR ──────────────────────────────────────────
   const adminData = useMemo(() => {
-    if (!isAdminRole) return null;
+    if (!isAdminRole && !isDirector) return null;
     const alunosAtivos = alunos.filter(a => a.ativo);
     const profsAtivos   = professores.filter(p => p.ativo);
     const turmasAtivas  = turmas.filter(t => t.ativo);
@@ -337,7 +338,7 @@ export default function DashboardScreen() {
       presentes, faltas, justif, taxaP, presencaTotal: recentes.length,
       estadosAdmissao, desempenhoPorDisciplina, proximosEventos,
     };
-  }, [isAdminRole, alunos, professores, turmas, notas, presencas, eventos, registros]);
+  }, [isAdminRole, isDirector, alunos, professores, turmas, notas, presencas, eventos, registros]);
 
   const refreshing = isLoading || loadingReg;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -649,6 +650,134 @@ export default function DashboardScreen() {
               <Text style={st.portalBtnText}>Acompanhar o meu educando</Text>
             </TouchableOpacity>
           </View>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {/* PAINEL DO DIRECTOR                                         */}
+        {/* ═══════════════════════════════════════════════════════════ */}
+        {isDirector && adminData && (
+          <>
+            {/* Cartão de papel */}
+            <View style={[st.card, { borderColor: Colors.gold + '44', backgroundColor: Colors.gold + '08', flexDirection: 'row', alignItems: 'center', gap: 14 }]}>
+              <View style={[st.kpiIcon, { backgroundColor: Colors.gold + '22', width: 48, height: 48, borderRadius: 14 }]}>
+                <Ionicons name="briefcase" size={24} color={Colors.gold} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.gold }}>Direcção Escolar</Text>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 }}>
+                  Visão estratégica de todos os departamentos · {anoLetivo}
+                </Text>
+              </View>
+            </View>
+
+            {/* KPIs estratégicos */}
+            <View style={st.section}>
+              <SectionTitle label="Indicadores Globais" color={Colors.gold} />
+              <View style={st.kpiGrid}>
+                <KpiCard label="Alunos" value={adminData.alunosAtivos.length} sub="Matriculados" color={Colors.info} icon="people" onPress={() => router.push('/(main)/alunos')} />
+                <KpiCard label="Professores" value={adminData.profsAtivos.length} sub="Activos" color={Colors.gold} icon="school" onPress={() => router.push('/(main)/professores')} />
+                <KpiCard label="Turmas" value={adminData.turmasAtivas.length} sub="Activas" color={Colors.success} icon="layers" onPress={() => router.push('/(main)/turmas')} />
+                <KpiCard label="Ocupação" value={`${adminData.taxaOcupacao}%`} sub={`${adminData.alunosAtivos.length}/${adminData.totalCap} vagas`} color={adminData.taxaOcupacao >= 90 ? Colors.danger : adminData.taxaOcupacao >= 70 ? Colors.warning : Colors.success} icon="business" />
+                <KpiCard label="Aprovação" value={`${adminData.taxaAprov}%`} sub="Taxa global" color={adminData.taxaAprov >= 70 ? Colors.success : adminData.taxaAprov >= 50 ? Colors.warning : Colors.danger} icon="checkmark-circle" onPress={() => router.push('/(main)/desempenho')} />
+                <KpiCard label="Média Geral" value={adminData.mediaGeral} sub="Escala 0–20" color={Colors.accent} icon="ribbon" onPress={() => router.push('/(main)/desempenho')} />
+              </View>
+            </View>
+
+            {/* Distribuição de alunos */}
+            {adminData.matriculasPorNivel.length > 0 && (
+              <View style={st.section}>
+                <SectionTitle label="Distribuição Académica" color={Colors.info} action={() => router.push('/(main)/alunos')} actionLabel="Ver alunos" />
+                <View style={st.card}>
+                  <View style={st.nivelChipsRow}>
+                    {adminData.matriculasPorNivel.map(n => (
+                      <View key={n.label} style={[st.nivelChip, { borderColor: n.color + '55', backgroundColor: n.color + '11' }]}>
+                        <Text style={[st.nivelChipVal, { color: n.color }]}>{n.value}</Text>
+                        <Text style={[st.nivelChipLabel, { color: n.color }]}>{n.label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <View style={st.cardDivider} />
+                  <Text style={st.subCardTitle}>Distribuição por Género</Text>
+                  <GenderBar masculino={adminData.masculino} feminino={adminData.feminino} total={adminData.alunosAtivos.length} />
+                </View>
+              </View>
+            )}
+
+            {/* Presenças resumidas */}
+            <View style={st.section}>
+              <SectionTitle label="Presenças (Últimos 7 dias)" color={Colors.success} action={() => router.push('/(main)/presencas')} actionLabel="Ver detalhes" />
+              <View style={st.card}>
+                {adminData.presencaTotal === 0 ? (
+                  <View style={st.emptySmall}>
+                    <Ionicons name="calendar-outline" size={28} color={Colors.textMuted} />
+                    <Text style={st.emptySmallText}>Sem registos de presença neste período</Text>
+                  </View>
+                ) : (
+                  <View style={st.presencaResumo}>
+                    <View style={st.presencaItem}><Text style={[st.presencaVal, { color: Colors.success }]}>{adminData.presentes}</Text><Text style={st.presencaLbl}>Presentes</Text></View>
+                    <View style={st.presencaItem}><Text style={[st.presencaVal, { color: Colors.danger }]}>{adminData.faltas}</Text><Text style={st.presencaLbl}>Faltas</Text></View>
+                    <View style={st.presencaItem}><Text style={[st.presencaVal, { color: Colors.warning }]}>{adminData.justif}</Text><Text style={st.presencaLbl}>Justif.</Text></View>
+                    <View style={st.presencaItem}><Text style={[st.presencaVal, { color: Colors.gold }]}>{adminData.taxaP}%</Text><Text style={st.presencaLbl}>Assiduidade</Text></View>
+                  </View>
+                )}
+              </View>
+            </View>
+
+            {/* RH resumo */}
+            {funcionarios.length > 0 && (
+              <View style={st.section}>
+                <SectionTitle label="Recursos Humanos" color="#8B5CF6" action={() => router.push('/(main)/rh-hub' as any)} actionLabel="Ver RH" />
+                <View style={st.card}>
+                  <View style={st.matriculaResumo}>
+                    <View style={st.matriculaResumoItem}>
+                      <Text style={[st.matriculaBig, { color: '#8B5CF6' }]}>{funcionarios.length}</Text>
+                      <Text style={st.matriculaSmall}>Total</Text>
+                    </View>
+                    <View style={st.matriculaDivider} />
+                    <View style={st.matriculaResumoItem}>
+                      <Text style={[st.matriculaBig, { color: Colors.success }]}>{funcionarios.filter(f => f.ativo).length}</Text>
+                      <Text style={st.matriculaSmall}>Activos</Text>
+                    </View>
+                    <View style={st.matriculaDivider} />
+                    <View style={st.matriculaResumoItem}>
+                      <Text style={[st.matriculaBig, { color: Colors.textMuted }]}>{funcionarios.filter(f => !f.ativo).length}</Text>
+                      <Text style={st.matriculaSmall}>Inactivos</Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Próximos Eventos */}
+            <View style={st.section}>
+              <SectionTitle label="Próximos Eventos" color={Colors.accent} action={() => router.push('/(main)/eventos')} actionLabel="Ver todos" />
+              {adminData.proximosEventos.length === 0 ? (
+                <View style={[st.card, st.emptySmall]}>
+                  <Ionicons name="calendar-outline" size={28} color={Colors.textMuted} />
+                  <Text style={st.emptySmallText}>Sem eventos programados</Text>
+                </View>
+              ) : (
+                adminData.proximosEventos.map(ev => (
+                  <EventCard key={ev.id} evento={ev} onPress={() => router.push('/(main)/eventos')} eventoTypeColor={eventoTypeColor} />
+                ))
+              )}
+            </View>
+
+            {/* Acesso a todos os departamentos */}
+            <View style={st.section}>
+              <SectionTitle label="Supervisão por Departamento" color={Colors.primaryLight} />
+              <QuickActions actions={[
+                { label: 'Académico', icon: 'school', route: '/(main)/alunos', color: Colors.info },
+                { label: 'Financeiro', icon: 'cash', route: '/(main)/financeiro', color: Colors.success },
+                { label: 'Pedagógico', icon: 'book', route: '/(main)/pedagogico', color: Colors.gold },
+                { label: 'RH', icon: 'people', route: '/(main)/rh-hub', color: '#8B5CF6' },
+                { label: 'Desempenho', icon: 'stats-chart', route: '/(main)/desempenho', color: Colors.accent },
+                { label: 'Relatórios', icon: 'bar-chart', route: '/(main)/relatorios', color: Colors.warning },
+                { label: 'Eventos', icon: 'calendar', route: '/(main)/eventos', color: Colors.danger },
+                { label: 'Quadro Honra', icon: 'trophy', route: '/(main)/quadro-honra', color: Colors.gold },
+              ]} />
+            </View>
+          </>
         )}
 
         {/* ═══════════════════════════════════════════════════════════ */}

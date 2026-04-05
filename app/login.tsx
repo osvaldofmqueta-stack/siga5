@@ -444,11 +444,16 @@ export default function LoginScreen() {
 
   function getRouteForRole(role: string): string {
     if (role === 'ceo' || role === 'pca') return '/(main)/ceo';
+    if (role === 'admin') return '/(main)/admin';
+    if (role === 'director') return '/(main)/dashboard';
+    if (role === 'chefe_secretaria') return '/(main)/secretaria-hub';
     if (role === 'secretaria') return '/(main)/secretaria-hub';
+    if (role === 'financeiro') return '/(main)/financeiro';
+    if (role === 'pedagogico') return '/(main)/pedagogico';
     if (role === 'professor') return '/(main)/professor-hub';
+    if (role === 'rh') return '/(main)/rh-hub';
     if (role === 'aluno') return '/(main)/portal-estudante';
     if (role === 'encarregado') return '/(main)/portal-encarregado';
-    if (role === 'rh') return '/(main)/rh-hub';
     return '/(main)/dashboard';
   }
 
