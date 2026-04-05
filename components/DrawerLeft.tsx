@@ -24,6 +24,7 @@ interface NavItem {
   icon: React.ReactNode;
   badgeCount?: number;
   permKey?: PermKey;
+  subItems?: NavItem[];
 }
 
 interface NavSection {
@@ -43,11 +44,18 @@ export default function DrawerLeft() {
 
   const [yearDropdownOpen, setYearDropdownOpen] = useState(false);
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const [expandedNavItems, setExpandedNavItems] = useState<Record<string, boolean>>(() => {
+    return { '/(main)/rh-hub': true };
+  });
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
   const toggleSection = (title: string) => {
     setCollapsedSections(prev => ({ ...prev, [title]: !prev[title] }));
+  };
+
+  const toggleNavItem = (route: string) => {
+    setExpandedNavItems(prev => ({ ...prev, [route]: !prev[route] }));
   };
 
   useEffect(() => {
@@ -250,7 +258,14 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
-        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
+        {
+          label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
+          subItems: [
+            { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' },
+          ],
+        },
         { label: 'Pagamentos', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
@@ -305,10 +320,14 @@ export default function DrawerLeft() {
         { label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
+        {
+          label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
+          subItems: [
+            { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' },
+          ],
+        },
       ],
     },
     {
@@ -366,15 +385,16 @@ export default function DrawerLeft() {
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+        ...(isRH ? [{
+          label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey,
+          subItems: [
+            { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_controle' as PermKey },
+            { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
+            { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' as PermKey },
+          ],
+        }] : []),
       ],
     },
-    ...(isRH ? [{
-      title: 'Recursos Humanos',
-      items: [
-        { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_controle' as PermKey },
-        { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey },
-      ],
-    }] : []),
   ];
 
   const CHEFE_SECRETARIA_SECTIONS: NavSection[] = [
@@ -419,8 +439,14 @@ export default function DrawerLeft() {
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Documentos & Multicaixa', route: '/(main)/documentos-hub', icon: <MaterialCommunityIcons name="file-document-multiple" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' },
-        { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'rh_hub' },
+        {
+          label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
+          subItems: [
+            { label: 'Gestão de Pessoal', route: '/(main)/rh-controle', icon: <MaterialCommunityIcons name="account-group" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={18} color="inherit" />, permKey: 'rh_hub' },
+            { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={18} color="inherit" />, permKey: 'rh_hub' },
+          ],
+        },
       ],
     },
     {
@@ -499,7 +525,12 @@ export default function DrawerLeft() {
   // CEO/PCA/ChefeSec always see everything; others get filtered by permissions
   const NAV_SECTIONS: NavSection[] = (isCeo || isPca || isChefeSec) ? RAW_SECTIONS : RAW_SECTIONS.map(section => ({
     ...section,
-    items: section.items.filter(item => !item.permKey || hasPermission(item.permKey)),
+    items: section.items
+      .filter(item => !item.permKey || hasPermission(item.permKey))
+      .map(item => ({
+        ...item,
+        subItems: item.subItems?.filter(sub => !sub.permKey || hasPermission(sub.permKey)),
+      })),
   })).filter(section => section.items.length > 0);
 
   function renderNavContent(showClose: boolean) {
@@ -987,26 +1018,72 @@ export default function DrawerLeft() {
                 )}
                 {!isCollapsed && section.items.map((item) => {
                   const active = isActive(item.route);
+                  const hasChildren = item.subItems && item.subItems.length > 0;
+                  const isExpanded = !!expandedNavItems[item.route];
+                  const anyChildActive = hasChildren && item.subItems!.some(s => isActive(s.route));
                   return (
-                    <TouchableOpacity
-                      key={item.route}
-                      style={[styles.navItem, active && styles.navItemActive]}
-                      onPress={() => navigate(item.route)}
-                      activeOpacity={0.7}
-                    >
-                      <View style={[styles.navIcon, active && styles.navIconActive]}>
-                        {React.cloneElement(item.icon as React.ReactElement, {
-                          color: active ? Colors.gold : Colors.textSecondary,
-                        })}
-                      </View>
-                      <Text style={[styles.navLabel, active && styles.navLabelActive]}>{item.label}</Text>
-                      {item.badgeCount !== undefined && item.badgeCount > 0 && (
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
+                    <View key={item.route}>
+                      <TouchableOpacity
+                        style={[
+                          styles.navItem,
+                          !hasChildren && active && styles.navItemActive,
+                          hasChildren && anyChildActive && styles.navItemParentActive,
+                        ]}
+                        onPress={() => {
+                          if (hasChildren) {
+                            toggleNavItem(item.route);
+                            navigate(item.route);
+                          } else {
+                            navigate(item.route);
+                          }
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.navIcon, !hasChildren && active && styles.navIconActive, hasChildren && anyChildActive && styles.navIconActive]}>
+                          {React.cloneElement(item.icon as React.ReactElement, {
+                            color: (!hasChildren && active) || (hasChildren && anyChildActive) ? Colors.gold : Colors.textSecondary,
+                          })}
                         </View>
-                      )}
-                      {active && !item.badgeCount && <View style={styles.activeIndicator} />}
-                    </TouchableOpacity>
+                        <Text style={[styles.navLabel, ((!hasChildren && active) || (hasChildren && anyChildActive)) && styles.navLabelActive]}>{item.label}</Text>
+                        {hasChildren ? (
+                          <Ionicons
+                            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+                            size={13}
+                            color={anyChildActive ? Colors.gold : Colors.textMuted}
+                          />
+                        ) : (
+                          <>
+                            {item.badgeCount !== undefined && item.badgeCount > 0 && (
+                              <View style={styles.badge}>
+                                <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
+                              </View>
+                            )}
+                            {active && !item.badgeCount && <View style={styles.activeIndicator} />}
+                          </>
+                        )}
+                      </TouchableOpacity>
+                      {hasChildren && isExpanded && item.subItems!.map((sub) => {
+                        const subActive = isActive(sub.route);
+                        return (
+                          <TouchableOpacity
+                            key={sub.route}
+                            style={[styles.navSubItem, subActive && styles.navItemActive]}
+                            onPress={() => navigate(sub.route)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={styles.navSubLine} />
+                            <View style={[styles.navSubIcon, subActive && styles.navIconActive]}>
+                              {React.cloneElement(sub.icon as React.ReactElement, {
+                                color: subActive ? Colors.gold : Colors.textSecondary,
+                                size: 16,
+                              })}
+                            </View>
+                            <Text style={[styles.navSubLabel, subActive && styles.navLabelActive]}>{sub.label}</Text>
+                            {subActive && <View style={styles.activeIndicator} />}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   );
                 })}
               </View>
@@ -1439,6 +1516,42 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: Colors.gold,
+  },
+  navItemParentActive: {
+    backgroundColor: 'rgba(74,144,217,0.08)',
+  },
+  navSubItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingRight: 16,
+    paddingLeft: 20,
+    marginHorizontal: 8,
+    marginLeft: 16,
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 1,
+  },
+  navSubLine: {
+    width: 1,
+    height: 18,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginRight: 6,
+    borderRadius: 1,
+  },
+  navSubIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 7,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navSubLabel: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
+    color: Colors.textMuted,
   },
   footer: {
     borderTopWidth: 1,
