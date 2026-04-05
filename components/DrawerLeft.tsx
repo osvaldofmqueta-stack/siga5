@@ -112,7 +112,7 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Académico',
+      title: 'Área Pedagógica',
       items: [
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
         { label: 'Histórico', route: '/(main)/historico', icon: <MaterialCommunityIcons name="chart-timeline-variant" size={20} color="inherit" />, permKey: 'historico' },
@@ -155,7 +155,7 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Académico',
+      title: 'Área Pedagógica',
       items: [
         { label: 'Minhas Turmas', route: '/(main)/professor-turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'professor_turmas' },
         { label: 'Pautas & Notas', route: '/(main)/professor-pauta', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'professor_pauta' },
@@ -285,7 +285,7 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Académico',
+      title: 'Área Pedagógica',
       items: [
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Processo de Admissão', route: '/(main)/admissao', icon: <MaterialCommunityIcons name="account-school" size={20} color="inherit" />, permKey: 'admissao' },
@@ -353,7 +353,7 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Académico',
+      title: 'Área Pedagógica',
       items: [
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Processo de Admissão', route: '/(main)/admissao', icon: <MaterialCommunityIcons name="account-school" size={20} color="inherit" />, permKey: 'admissao' },
@@ -476,7 +476,7 @@ export default function DrawerLeft() {
       ],
     },
     {
-      title: 'Académico',
+      title: 'Área Pedagógica',
       items: [
         { label: 'Alunos', route: '/(main)/alunos', icon: <Ionicons name="people" size={20} color="inherit" />, permKey: 'alunos' },
         { label: 'Professores', route: '/(main)/professores', icon: <FontAwesome5 name="chalkboard-teacher" size={18} color="inherit" />, permKey: 'professores' },
