@@ -2484,6 +2484,7 @@ export default function EditorDocumentos() {
   const [showVarsPanel, setShowVarsPanel] = useState(true);
   const [showAppearPanel, setShowAppearPanel] = useState(false);
   const [activeVarGroup, setActiveVarGroup] = useState(0);
+  const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Emit state
@@ -7423,8 +7424,8 @@ export default function EditorDocumentos() {
           </TouchableOpacity>
         </View>
 
-        {/* Tipo selector — grelha flex-wrap */}
-        <View style={styles.tipoGrid}>
+        {/* Tipo selector — grelha flex-wrap (hidden when expanded) */}
+        {!isEditorExpanded && <View style={styles.tipoGrid}>
           {(Object.keys(TIPO_LABELS) as DocTipo[]).map(t => (
             <TouchableOpacity
               key={t}
@@ -7437,10 +7438,10 @@ export default function EditorDocumentos() {
               <Text style={[styles.tipoChipText, editorTipo === t && { color: '#fff', fontFamily: 'Inter_600SemiBold' }]}>{TIPO_LABELS[t]}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </View>}
 
-        {/* Aparência do documento */}
-        <View style={styles.appearSection}>
+        {/* Aparência do documento (hidden when expanded) */}
+        {!isEditorExpanded && <View style={styles.appearSection}>
           <TouchableOpacity style={styles.appearHeader} onPress={() => setShowAppearPanel(v => !v)} activeOpacity={0.7}>
             <Ionicons name="image-outline" size={15} color={Colors.gold} />
             <Text style={styles.appearHeaderTitle}>Aparência do Documento</Text>
@@ -7513,17 +7514,33 @@ export default function EditorDocumentos() {
               </View>
             </View>
           )}
-        </View>
+        </View>}
 
-        <View style={[styles.editorBody, isWide && { flexDirection: 'row' }]}>
+        <View style={[styles.editorBody, isWide && { flexDirection: 'row' }, isEditorExpanded && { flex: 1 }]}>
           {/* Text area */}
           <View style={[styles.editorTextWrap, isWide && { flex: 1 }]}>
             <View style={styles.editorToolbar}>
-              <Text style={styles.editorToolbarLabel}>Área de edição</Text>
-              <TouchableOpacity onPress={() => setShowVarsPanel(v => !v)} style={styles.toggleVarsBtn}>
-                <Ionicons name={showVarsPanel ? 'eye-off-outline' : 'code-slash'} size={15} color={Colors.textSecondary} />
-                <Text style={styles.toggleVarsText}>{showVarsPanel ? 'Ocultar variáveis' : 'Ver variáveis'}</Text>
-              </TouchableOpacity>
+              <Text style={styles.editorToolbarLabel}>
+                {isEditorExpanded ? `${TIPO_LABELS[editorTipo]}` : 'Área de edição'}
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                {!isEditorExpanded && (
+                  <TouchableOpacity onPress={() => setShowVarsPanel(v => !v)} style={styles.toggleVarsBtn}>
+                    <Ionicons name={showVarsPanel ? 'eye-off-outline' : 'code-slash'} size={15} color={Colors.textSecondary} />
+                    <Text style={styles.toggleVarsText}>{showVarsPanel ? 'Ocultar variáveis' : 'Ver variáveis'}</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setIsEditorExpanded(v => !v)}
+                  style={styles.expandEditorBtn}
+                  activeOpacity={0.75}
+                >
+                  <Ionicons name={isEditorExpanded ? 'contract-outline' : 'expand-outline'} size={16} color={isEditorExpanded ? Colors.gold : Colors.textSecondary} />
+                  <Text style={[styles.toggleVarsText, isEditorExpanded && { color: Colors.gold }]}>
+                    {isEditorExpanded ? 'Sair do ecrã inteiro' : 'Expandir'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
             {Platform.OS === 'web' ? (
               <Editor
@@ -7551,48 +7568,44 @@ export default function EditorDocumentos() {
             </View>
           </View>
 
-          {/* Variables panel */}
-          {showVarsPanel && (
-            <View style={[styles.varsPanel, isWide && { width: 260 }]}>
+          {/* Variables panel — all groups in one continuous list */}
+          {showVarsPanel && !isEditorExpanded && (
+            <View style={[styles.varsPanel, isWide && { width: 270 }]}>
               <View style={styles.varsPanelHeader}>
                 <Ionicons name="code-slash" size={15} color={Colors.gold} />
                 <Text style={styles.varsPanelTitle}>Variáveis disponíveis</Text>
               </View>
-              <Text style={styles.varsPanelHint}>Toque numa variável para inserir no documento</Text>
+              <Text style={styles.varsPanelHint}>Toque para inserir no documento</Text>
 
-              {/* Group tabs */}
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.groupTabScroll} contentContainerStyle={{ gap: 6 }}>
-                {VARIABLE_GROUPS.map((g, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[styles.groupTab, activeVarGroup === i && { backgroundColor: g.cor + '22', borderColor: g.cor }]}
-                    onPress={() => setActiveVarGroup(i)}
-                  >
-                    <Ionicons name={g.icon as any} size={13} color={activeVarGroup === i ? g.cor : Colors.textMuted} />
-                    <Text style={[styles.groupTabText, activeVarGroup === i && { color: g.cor }]}>{g.grupo}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* Variables list */}
+              {/* All groups — single continuous scrollable list */}
               <ScrollView style={styles.varsList} showsVerticalScrollIndicator={false}>
-                {VARIABLE_GROUPS[activeVarGroup].vars.map((v, i) => {
-                  const cor = VARIABLE_GROUPS[activeVarGroup].cor;
-                  return (
-                    <TouchableOpacity key={i} style={styles.varItem} onPress={() => insertVariable(v.tag)} activeOpacity={0.75}>
-                      <View style={styles.varItemInner}>
-                        <View style={[styles.varTagBadge, { backgroundColor: cor + '1A', borderColor: cor + '55' }]}>
-                          <Text style={[styles.varTag, { color: cor }]}>{v.tag}</Text>
+                {VARIABLE_GROUPS.map((g, gi) => (
+                  <View key={gi}>
+                    {/* Section header */}
+                    <View style={[styles.varGroupHeader, { borderLeftColor: g.cor }]}>
+                      <Ionicons name={g.icon as any} size={13} color={g.cor} />
+                      <Text style={[styles.varGroupHeaderText, { color: g.cor }]}>{g.grupo}</Text>
+                      <View style={[styles.varGroupHeaderLine, { backgroundColor: g.cor + '33' }]} />
+                    </View>
+                    {/* Variables */}
+                    {g.vars.map((v, vi) => (
+                      <TouchableOpacity key={vi} style={styles.varItem} onPress={() => insertVariable(v.tag)} activeOpacity={0.75}>
+                        <View style={styles.varItemInner}>
+                          <View style={[styles.varTagBadge, { backgroundColor: g.cor + '18', borderColor: g.cor + '50' }]}>
+                            <Text style={[styles.varTag, { color: g.cor }]}>{v.tag}</Text>
+                          </View>
+                          <Text style={styles.varDesc}>{v.desc}</Text>
+                          <Text style={styles.varExemplo}>Ex: {v.exemplo}</Text>
                         </View>
-                        <Text style={styles.varDesc}>{v.desc}</Text>
-                        <Text style={styles.varExemplo}>Ex: {v.exemplo}</Text>
-                      </View>
-                      <View style={[styles.varInsertBtn, { backgroundColor: cor + '22' }]}>
-                        <Ionicons name="add" size={14} color={cor} />
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
+                        <View style={[styles.varInsertBtn, { backgroundColor: g.cor + '22' }]}>
+                          <Ionicons name="add" size={14} color={g.cor} />
+                        </View>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ))}
+                {/* Bottom padding */}
+                <View style={{ height: 16 }} />
               </ScrollView>
             </View>
           )}
@@ -8292,6 +8305,12 @@ const styles = StyleSheet.create({
   editorToolbarLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8 },
   toggleVarsBtn: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   toggleVarsText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  expandEditorBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 8, borderWidth: 1, borderColor: Colors.border,
+    backgroundColor: Colors.backgroundCard,
+  },
   editorTextInput: {
     flex: 1, paddingHorizontal: 16, paddingVertical: 14,
     fontSize: 14, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Inter_400Regular',
@@ -8307,22 +8326,23 @@ const styles = StyleSheet.create({
   // Variables panel
   varsPanel: {
     backgroundColor: Colors.primaryDark, borderTopWidth: 1, borderTopColor: Colors.border,
-    borderLeftWidth: 1, borderLeftColor: Colors.border, maxHeight: 320,
+    borderLeftWidth: 1, borderLeftColor: Colors.border,
+    maxHeight: 480,
   },
   varsPanelHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4,
   },
   varsPanelTitle: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text, textTransform: 'uppercase', letterSpacing: 0.8 },
-  varsPanelHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, paddingHorizontal: 14, paddingBottom: 8 },
-  groupTabScroll: { paddingHorizontal: 10, paddingBottom: 8 },
-  groupTab: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 20,
-    paddingHorizontal: 10, paddingVertical: 5,
+  varsPanelHint: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, paddingHorizontal: 14, paddingBottom: 6 },
+  varGroupHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    borderLeftWidth: 3, paddingLeft: 8,
+    marginHorizontal: 4, marginTop: 10, marginBottom: 4,
   },
-  groupTabText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
-  varsList: { flex: 1, paddingHorizontal: 10 },
+  varGroupHeaderText: { fontSize: 10, fontFamily: 'Inter_700Bold', textTransform: 'uppercase', letterSpacing: 0.9, flex: 0 },
+  varGroupHeaderLine: { flex: 1, height: 1, marginLeft: 4 },
+  varsList: { flex: 1 },
   varItem: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 7, paddingHorizontal: 10,
