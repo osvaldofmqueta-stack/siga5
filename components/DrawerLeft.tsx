@@ -1023,45 +1023,46 @@ export default function DrawerLeft() {
                   const anyChildActive = hasChildren && item.subItems!.some(s => isActive(s.route));
                   return (
                     <View key={item.route}>
-                      <TouchableOpacity
+                      <View
                         style={[
                           styles.navItem,
                           !hasChildren && active && styles.navItemActive,
                           hasChildren && anyChildActive && styles.navItemParentActive,
                         ]}
-                        onPress={() => {
-                          if (hasChildren) {
-                            toggleNavItem(item.route);
-                            navigate(item.route);
-                          } else {
-                            navigate(item.route);
-                          }
-                        }}
-                        activeOpacity={0.7}
                       >
-                        <View style={[styles.navIcon, !hasChildren && active && styles.navIconActive, hasChildren && anyChildActive && styles.navIconActive]}>
-                          {React.cloneElement(item.icon as React.ReactElement, {
-                            color: (!hasChildren && active) || (hasChildren && anyChildActive) ? Colors.gold : Colors.textSecondary,
-                          })}
-                        </View>
-                        <Text style={[styles.navLabel, ((!hasChildren && active) || (hasChildren && anyChildActive)) && styles.navLabelActive]}>{item.label}</Text>
-                        {hasChildren ? (
-                          <Ionicons
-                            name={isExpanded ? 'chevron-down' : 'chevron-forward'}
-                            size={13}
-                            color={anyChildActive ? Colors.gold : Colors.textMuted}
-                          />
-                        ) : (
-                          <>
-                            {item.badgeCount !== undefined && item.badgeCount > 0 && (
-                              <View style={styles.badge}>
-                                <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
-                              </View>
-                            )}
-                            {active && !item.badgeCount && <View style={styles.activeIndicator} />}
-                          </>
+                        <TouchableOpacity
+                          style={styles.navItemMain}
+                          onPress={() => navigate(item.route)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={[styles.navIcon, !hasChildren && active && styles.navIconActive, hasChildren && anyChildActive && styles.navIconActive]}>
+                            {React.cloneElement(item.icon as React.ReactElement, {
+                              color: (!hasChildren && active) || (hasChildren && anyChildActive) ? Colors.gold : Colors.textSecondary,
+                            })}
+                          </View>
+                          <Text style={[styles.navLabel, ((!hasChildren && active) || (hasChildren && anyChildActive)) && styles.navLabelActive]}>{item.label}</Text>
+                          {!hasChildren && item.badgeCount !== undefined && item.badgeCount > 0 && (
+                            <View style={styles.badge}>
+                              <Text style={styles.badgeText}>{item.badgeCount > 99 ? '99+' : item.badgeCount}</Text>
+                            </View>
+                          )}
+                          {!hasChildren && active && !item.badgeCount && <View style={styles.activeIndicator} />}
+                        </TouchableOpacity>
+                        {hasChildren && (
+                          <TouchableOpacity
+                            style={styles.navItemChevron}
+                            onPress={() => toggleNavItem(item.route)}
+                            activeOpacity={0.6}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons
+                              name={isExpanded ? 'chevron-down' : 'chevron-forward'}
+                              size={14}
+                              color={anyChildActive ? Colors.gold : Colors.textMuted}
+                            />
+                          </TouchableOpacity>
                         )}
-                      </TouchableOpacity>
+                      </View>
                       {hasChildren && isExpanded && item.subItems!.map((sub) => {
                         const subActive = isActive(sub.route);
                         return (
@@ -1519,6 +1520,20 @@ const styles = StyleSheet.create({
   },
   navItemParentActive: {
     backgroundColor: 'rgba(74,144,217,0.08)',
+  },
+  navItemMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  navItemChevron: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   navSubItem: {
     flexDirection: 'row',
