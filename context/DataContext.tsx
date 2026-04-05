@@ -335,16 +335,24 @@ export function DataProvider({ children }: { children: ReactNode }) {
           eApiRes.json() as Promise<Evento[]>,
         ]);
 
-        // Merge strategy: API wins for existing records; locally-cached records not
-        // yet synced to DB (e.g. saved offline) are preserved instead of being wiped.
+        // Merge strategy: API is source of truth for existing records.
+        // Locally-cached records whose IDs are NOT yet on the server (created offline,
+        // not yet synced) are preserved and appended so they are never lost during sync.
         function mergeWithCache<T extends { id: string }>(apiData: T[], cacheData: T[]): T[] {
-          if (apiData.length > 0) return apiData; // API has data — use it as source of truth
-          // API returned empty: keep cache to avoid wiping locally-saved records
-          if (cacheData.length > 0) {
+          if (apiData.length === 0 && cacheData.length > 0) {
+            // API returned nothing — keep local cache intact (server might be empty or unreachable)
             console.warn('[DataContext] API returned [] — keeping local cache to preserve offline data');
             return cacheData;
           }
-          return [];
+          if (apiData.length === 0) return [];
+          // API has data — use as source of truth, but also keep any locally-created
+          // records that haven't made it to the server yet (offline queue pending)
+          const apiIds = new Set(apiData.map(r => r.id));
+          const offlinePending = cacheData.filter(r => !apiIds.has(r.id));
+          if (offlinePending.length > 0) {
+            console.warn(`[DataContext] Preserving ${offlinePending.length} offline-created record(s) not yet on server`);
+          }
+          return offlinePending.length > 0 ? [...apiData, ...offlinePending] : apiData;
         }
 
         const finalAlunos     = mergeWithCache(aApi,  cached.alunos);
