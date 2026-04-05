@@ -1623,7 +1623,7 @@ export default function FinanceiroScreen() {
             }}
           />
         )}
-        <View style={{ position: 'absolute', bottom: bottomInset + 16, right: 16, gap: 10, alignItems: 'flex-end' }}>
+        <View style={{ position: 'absolute', bottom: bottomInset + 88, right: 16, gap: 10, alignItems: 'flex-end' }}>
           <TouchableOpacity
             style={[st.fab, { backgroundColor: Colors.info, paddingHorizontal: 16 }]}
             onPress={() => { setFormAvulso(defaultFormAvulso); setShowAvulsoModal(true); }}
@@ -4339,7 +4339,7 @@ const st = StyleSheet.create({
   pagValor: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.gold },
   confirmarBtn: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.success, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   confirmarTxt: { fontSize: 10, fontFamily: 'Inter_600SemiBold', color: '#fff' },
-  fab: { position: 'absolute', bottom: 20, right: 16, backgroundColor: Colors.accent, borderRadius: 28, paddingHorizontal: 20, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
+  fab: { position: 'absolute', bottom: 90, right: 16, backgroundColor: Colors.accent, borderRadius: 28, paddingHorizontal: 20, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 4, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 } },
   fabTxt: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: '#fff' },
   rubricaInfoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.info + '15', borderRadius: 10, padding: 10, marginBottom: 14, borderWidth: 1, borderColor: Colors.info + '33' },
   rubricaInfoTxt: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
