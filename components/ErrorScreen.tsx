@@ -241,7 +241,7 @@ export default function ErrorScreen({
     <View style={[styles.root, { paddingTop: insets.top || (IS_WEB ? 0 : 20), paddingBottom: insets.bottom || 16 }]}>
 
       {/* === Background Mesh === */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { pointerEvents: 'none' } as any]}>
         <View style={[styles.bgGradTop, { backgroundColor: cfg.accentColor + '08' }]} />
         <View style={[styles.bgGradBottom, { backgroundColor: Colors.primaryDark }]} />
         {[...Array(IS_WIDE ? 8 : 5)].map((_, i) => (

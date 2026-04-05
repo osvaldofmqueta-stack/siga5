@@ -869,7 +869,7 @@ const mS = StyleSheet.create({
   directorOptionMeta: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
   directorFooter: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: `${Colors.info}08`, borderTopWidth: 1, borderTopColor: Colors.border },
   directorFooterText: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
-  directorEmptyHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: `${Colors.textMuted}0D`, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: `${Colors.textMuted}20` },
+  directorEmptyHint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: 'rgba(232,238,246,0.05)', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: 'rgba(232,238,246,0.12)' },
   directorEmptyText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, flex: 1, lineHeight: 16 },
   selectorBox: { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   checkbox: { width: 18, height: 18, borderRadius: 5, borderWidth: 1.5, borderColor: Colors.border, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent' },

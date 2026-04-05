@@ -37,14 +37,14 @@ export const Colors = {
   surfaceLight:       "#253F66",
 
   // ── Bordas ────────────────────────────────────────────────────────────────
-  border:             "rgba(255,255,255,0.08)",
-  borderLight:        "rgba(255,255,255,0.15)",
+  border:             "#FFFFFF14",   // rgba(255,255,255,0.08) — compatible with hex suffix usage
+  borderLight:        "#FFFFFF26",   // rgba(255,255,255,0.15)
 
   // ── Texto ─────────────────────────────────────────────────────────────────
   // Branco levemente quente em vez de #FFFFFF puro — muito menos cansativo
   text:               "#E8EEF6",
-  textSecondary:      "rgba(232,238,246,0.62)",
-  textMuted:          "rgba(232,238,246,0.35)",
+  textSecondary:      "#E8EEF69E",   // rgba(232,238,246,0.62)
+  textMuted:          "#E8EEF659",   // rgba(232,238,246,0.35)
 
   // ── Semânticas ────────────────────────────────────────────────────────────
   success:            "#22C47A",           // verde esmeralda suave

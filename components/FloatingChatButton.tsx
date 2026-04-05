@@ -166,8 +166,7 @@ export default function FloatingChatButton() {
     <>
       {/* Floating Button */}
       <Animated.View
-        style={[styles.container, { transform: [{ scale: scaleAnim }] }]}
-        pointerEvents="box-none"
+        style={[styles.container, { transform: [{ scale: scaleAnim }], pointerEvents: 'box-none' } as any]}
       >
         <TouchableOpacity
           style={[styles.btn, panelOpen && styles.btnActive]}

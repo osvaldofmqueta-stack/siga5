@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import { api } from '../lib/api';
+import { useAuth } from './AuthContext';
 
 export type TipoNotificacao = 'info' | 'aviso' | 'urgente' | 'sucesso';
 
@@ -41,17 +42,25 @@ export function timeAgo(dateStr: string): string {
 }
 
 export function NotificacoesProvider({ children }: { children: ReactNode }) {
+  const { isAuthenticated } = useAuth();
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    load();
+  }, [isAuthenticated]);
 
   async function load() {
+    if (!isAuthenticated) return;
     try {
       const data = await api.get<Notificacao[]>('/api/notificacoes');
       setNotificacoes(data);
-    } catch (e) {
-      console.error('NotificacoesContext load error', e);
+    } catch (e: any) {
+      const status = e?.status || e?.statusCode || (typeof e?.message === 'string' && e.message.includes('401') ? 401 : 0);
+      if (status !== 401 && status !== 403) {
+        console.error('NotificacoesContext load error', e);
+      }
     } finally {
       setIsLoading(false);
     }

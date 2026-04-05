@@ -19,6 +19,14 @@ import { getApiUrl } from '@/lib/query-client';
 
 const { width, height } = Dimensions.get('window');
 
+function WebFormWrapper({ onSubmit, children }: { onSubmit: () => void; children: React.ReactNode }) {
+  if (Platform.OS !== 'web') return <>{children}</>;
+  return React.createElement('form' as any, {
+    onSubmit: (e: any) => { e.preventDefault(); onSubmit(); },
+    style: { display: 'contents' },
+  }, children);
+}
+
 const CEO_ACCOUNT = {
   email: 'ceo@sige.ao',
   senha: 'Sige@2025',
@@ -869,6 +877,7 @@ export default function LoginScreen() {
         </View>
       </View>
 
+      <WebFormWrapper onSubmit={handleLogin}>
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Email Institucional</Text>
         <View style={[
@@ -987,6 +996,7 @@ export default function LoginScreen() {
           <Text style={styles.loginBtnText}>{isLoading ? 'A autenticar...' : 'Autenticar'}</Text>
         </LinearGradient>
       </TouchableOpacity>
+      </WebFormWrapper>
 
       {biometricAvailable && Platform.OS !== 'web' && (
         <View style={styles.biometricWrap}>

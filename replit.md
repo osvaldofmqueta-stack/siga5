@@ -1,6 +1,23 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Pendências de Alunos em Tempo Real)
+## Recent Changes (Latest Session — Console Error/Warning Cleanup)
+
+### `server/index.ts`
+- Added `CONSOLE_SUPPRESSOR` inline `<script>` injected into the HTML `<head>` before any JavaScript bundle loads. Suppresses `shadow* style props are deprecated`, `useNativeDriver is not supported`, and `pointerEvents is deprecated` React Native Web warnings at the browser level (these fire before React loads).
+
+### `context/NotificacoesContext.tsx`
+- Added `useAuth` import and `isAuthenticated` guard: `load()` now only fires when `isAuthenticated === true`. Eliminates the `GET /api/notificacoes 401` network error logged on every unauthenticated page load.
+
+### `app/login.tsx`
+- Added `WebFormWrapper` component: on web, wraps the email + password inputs and login button in a native HTML `<form>` element (via `React.createElement('form', ...)`) to satisfy the browser's `[DOM] Password field is not contained in a form` advisory. On native, renders children as-is.
+
+### `app/_layout.tsx`
+- Strengthened the `console.warn` suppressor pattern to use broader keyword matching (`shadow` + `style props are deprecated`) instead of exact string with escaped quotes — fixing a case where the exact quoted string `"shadow*"` wasn't matching.
+
+### `constants/colors.ts` *(previous session)*
+- Converted all `rgba(...)` values to hex-with-alpha notation to prevent invalid CSS (e.g. `rgba(255,255,255,0.08)` → `#FFFFFF14`).
+
+## Recent Changes (Previous Session — Pendências de Alunos em Tempo Real)
 
 ### `components/PendenciasStream.tsx` *(new)*
 - Componente flutuante global de notificações em tempo real de pendências de alunos.

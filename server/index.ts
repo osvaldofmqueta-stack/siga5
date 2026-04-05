@@ -19,6 +19,22 @@ declare module "http" {
   }
 }
 
+const CONSOLE_SUPPRESSOR = `
+  <script>
+    (function() {
+      var _w = console.warn.bind(console);
+      console.warn = function() {
+        var msg = typeof arguments[0] === 'string' ? arguments[0] : '';
+        if (
+          (msg.indexOf('shadow') >= 0 && msg.indexOf('style props are deprecated') >= 0) ||
+          (msg.indexOf('useNativeDriver') >= 0 && msg.indexOf('not supported') >= 0) ||
+          (msg.indexOf('pointerEvents') >= 0 && msg.indexOf('deprecated') >= 0)
+        ) return;
+        return _w.apply(console, arguments);
+      };
+    })();
+  </script>`;
+
 const FONT_STYLE = `
   <link rel="preload" href="/fonts/Inter_400Regular.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
   <link rel="preload" href="/fonts/Inter_500Medium.ttf" as="font" type="font/ttf" crossorigin="anonymous" />
@@ -56,6 +72,11 @@ const SW_SCRIPT = `
 
 function injectPwaTags(html: string): string {
   let result = html;
+
+  // Inject console suppressor as the very first thing in <head> so it runs before any JS bundle
+  if (!result.includes('style props are deprecated')) {
+    result = result.replace("<head>", `<head>\n${CONSOLE_SUPPRESSOR}`);
+  }
 
   // Always ensure the proper mobile viewport tag is present
   if (!result.includes('name="viewport"')) {

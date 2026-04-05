@@ -396,7 +396,7 @@ export default function PortalEncarregadoScreen() {
                   <Text style={styles.notaDetail}>T3: {n.aval3 || 0}</Text>
                   {n.mac > 0 && <Text style={styles.notaDetail}>MAC: {n.mac}</Text>}
                 </View>
-                <View style={[styles.badge, { backgroundColor: n.nf >= 10 ? `${Colors.success}20` : n.nf > 0 ? `${Colors.danger}20` : `${Colors.textMuted}20`, alignSelf: 'flex-start' }]}>
+                <View style={[styles.badge, { backgroundColor: n.nf >= 10 ? `${Colors.success}20` : n.nf > 0 ? `${Colors.danger}20` : 'rgba(232,238,246,0.12)', alignSelf: 'flex-start' }]}>
                   <Text style={[styles.badgeText, { color: n.nf >= 10 ? Colors.success : n.nf > 0 ? Colors.danger : Colors.textMuted }]}>
                     {n.nf >= 10 ? 'Aprovado' : n.nf > 0 ? 'Reprovado' : 'Sem nota'}
                   </Text>

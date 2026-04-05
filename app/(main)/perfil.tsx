@@ -468,7 +468,7 @@ export default function PerfilScreen() {
                       {config.notasVisiveis ? 'Os estudantes podem ver as notas lançadas' : 'As notas estão ocultas para os estudantes'}
                     </Text>
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: config.notasVisiveis ? Colors.success + '20' : Colors.textMuted + '20', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: config.notasVisiveis ? Colors.success + '20' : 'rgba(232,238,246,0.12)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 }}>
                     <Ionicons name={config.notasVisiveis ? 'eye-outline' : 'eye-off-outline'} size={13} color={config.notasVisiveis ? Colors.success : Colors.textMuted} />
                     <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: config.notasVisiveis ? Colors.success : Colors.textMuted }}>
                       {config.notasVisiveis ? 'Visíveis' : 'Ocultas'}

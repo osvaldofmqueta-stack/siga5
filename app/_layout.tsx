@@ -38,6 +38,19 @@ if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
 }
 
+if (Platform.OS === 'web' && typeof console !== 'undefined') {
+  const _warn = console.warn.bind(console);
+  console.warn = (...args: unknown[]) => {
+    const msg = typeof args[0] === 'string' ? args[0] : '';
+    if (
+      msg.includes('shadow') && msg.includes('style props are deprecated') ||
+      msg.includes('useNativeDriver') && msg.includes('not supported') ||
+      msg.includes('pointerEvents') && msg.includes('deprecated')
+    ) return;
+    _warn(...args);
+  };
+}
+
 // On web, expo-font's fontfaceobserver fires internally even without useFonts().
 // Fonts are already loaded via @font-face CSS injected by the Express server.
 // Intercept in capture phase (before Replit's logger) to suppress this non-fatal noise.

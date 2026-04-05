@@ -1060,7 +1060,7 @@ const styles = StyleSheet.create({
   tipoBadgeTerminal: { backgroundColor: Colors.warning + '18' },
   tipoBadgeCont: { backgroundColor: Colors.info + '18' },
   tipoBadgeText: { fontSize: 10, fontFamily: 'Inter_600SemiBold' },
-  inactiveBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: Colors.textMuted + '20' },
+  inactiveBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, backgroundColor: 'rgba(232,238,246,0.12)' },
   inactiveText: { fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
   // Componente badge na lista
   compBadge: {
