@@ -888,47 +888,79 @@ export default function RHHubScreen() {
       {/* Sumário Review Modal */}
       <Modal visible={!!selectedSumario} transparent animationType="slide" onRequestClose={() => setSelectedSumario(null)}>
         <View style={styles.overlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Validar Sumário</Text>
-              <TouchableOpacity onPress={() => { setSelectedSumario(null); setObservacao(''); }} style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            {sumarioSelecionado && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <LabelValue label="Professor" value={sumarioSelecionado.professorNome} />
-                <LabelValue label="Turma / Disciplina" value={`${sumarioSelecionado.turmaNome} · ${sumarioSelecionado.disciplina}`} />
-                <LabelValue label="Data / Horário" value={`${sumarioSelecionado.data} · ${sumarioSelecionado.horaInicio}–${sumarioSelecionado.horaFim} · Aula ${sumarioSelecionado.numeroAula}`} />
-                <Text style={styles.reviewLabel}>Conteúdo Lecionado</Text>
-                <View style={styles.conteudoBox}>
-                  <Text style={styles.conteudoText}>{sumarioSelecionado.conteudo}</Text>
-                </View>
-                <Text style={styles.fieldLabel}>Observação {sumarioSelecionado.status === 'pendente' ? '(obrigatória na rejeição)' : ''}</Text>
-                <TextInput
-                  style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                  placeholder="Escreva uma observação..."
-                  placeholderTextColor={Colors.textMuted}
-                  value={observacao}
-                  onChangeText={setObservacao}
-                  multiline
-                  editable={sumarioSelecionado.status === 'pendente'}
-                />
-                {sumarioSelecionado.status === 'pendente' && (
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.rejectBtn} onPress={rejeitarSumario}>
-                      <Ionicons name="close-circle" size={18} color="#fff" />
-                      <Text style={styles.actionBtnText}>Rejeitar</Text>
+          <View style={[styles.modalBox, { padding: 0, overflow: 'hidden' }]}>
+            {sumarioSelecionado && (() => {
+              const sc = sumarioSelecionado.status === 'aceite' ? Colors.success : sumarioSelecionado.status === 'rejeitado' ? Colors.danger : Colors.warning;
+              const sIcon = sumarioSelecionado.status === 'aceite' ? 'checkmark-circle' : sumarioSelecionado.status === 'rejeitado' ? 'close-circle' : 'time';
+              const sLabel = sumarioSelecionado.status === 'aceite' ? 'Aceite' : sumarioSelecionado.status === 'rejeitado' ? 'Rejeitado' : 'Pendente';
+              const initials = sumarioSelecionado.professorNome?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+              return (
+                <>
+                  <View style={[styles.reviewModalHead, { backgroundColor: sc + '18' }]}>
+                    <TouchableOpacity onPress={() => { setSelectedSumario(null); setObservacao(''); }} style={styles.reviewModalClose}>
+                      <Ionicons name="close" size={20} color={Colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.acceptBtn} onPress={aceitarSumario}>
-                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                      <Text style={styles.actionBtnText}>Aceitar</Text>
-                    </TouchableOpacity>
+                    <View style={[styles.reviewAvatar, { backgroundColor: Colors.accent + '33', borderColor: Colors.accent + '55' }]}>
+                      <Text style={styles.reviewAvatarText}>{initials}</Text>
+                    </View>
+                    <Text style={styles.reviewModalName}>{sumarioSelecionado.professorNome}</Text>
+                    <View style={[styles.reviewStatusBadge, { backgroundColor: sc + '22', borderColor: sc + '44' }]}>
+                      <Ionicons name={sIcon as any} size={12} color={sc} />
+                      <Text style={[styles.reviewStatusText, { color: sc }]}>{sLabel}</Text>
+                    </View>
                   </View>
-                )}
-                <View style={{ height: 16 }} />
-              </ScrollView>
-            )}
+
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 16 }}>
+                    <View style={styles.reviewInfoCard}>
+                      <View style={styles.reviewInfoRow}>
+                        <MaterialCommunityIcons name="google-classroom" size={15} color={Colors.textMuted} />
+                        <Text style={styles.reviewInfoText}>{sumarioSelecionado.turmaNome} · {sumarioSelecionado.disciplina}</Text>
+                      </View>
+                      <View style={[styles.reviewInfoRow, { borderTopWidth: 1, borderTopColor: Colors.border }]}>
+                        <MaterialCommunityIcons name="clock-outline" size={15} color={Colors.textMuted} />
+                        <Text style={styles.reviewInfoText}>{sumarioSelecionado.data} · {sumarioSelecionado.horaInicio}–{sumarioSelecionado.horaFim}</Text>
+                        <View style={styles.aulaChip}>
+                          <Text style={styles.aulaChipText}>Aula {sumarioSelecionado.numeroAula}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <Text style={styles.reviewSectionLabel}>Conteúdo Lecionado</Text>
+                    <View style={styles.conteudoBoxEnhanced}>
+                      <MaterialCommunityIcons name="text-box-outline" size={16} color={Colors.textMuted} style={{ marginBottom: 6 }} />
+                      <Text style={styles.conteudoText}>{sumarioSelecionado.conteudo}</Text>
+                    </View>
+
+                    <Text style={styles.reviewSectionLabel}>
+                      Observação{sumarioSelecionado.status === 'pendente' ? ' (obrigatória na rejeição)' : ''}
+                    </Text>
+                    <TextInput
+                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                      placeholder="Escreva uma observação..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={observacao}
+                      onChangeText={setObservacao}
+                      multiline
+                      editable={sumarioSelecionado.status === 'pendente'}
+                    />
+
+                    {sumarioSelecionado.status === 'pendente' && (
+                      <View style={styles.actionRow}>
+                        <TouchableOpacity style={styles.rejectBtn} onPress={rejeitarSumario}>
+                          <Ionicons name="close-circle" size={18} color="#fff" />
+                          <Text style={styles.actionBtnText}>Rejeitar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.acceptBtn} onPress={aceitarSumario}>
+                          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                          <Text style={styles.actionBtnText}>Aceitar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={{ height: 16 }} />
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -936,46 +968,75 @@ export default function RHHubScreen() {
       {/* Solicitação Review Modal */}
       <Modal visible={!!selectedSolicitude} transparent animationType="slide" onRequestClose={() => setSelectedSolicitude(null)}>
         <View style={styles.overlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Solicitação de Reabertura</Text>
-              <TouchableOpacity onPress={() => { setSelectedSolicitude(null); setObservacao(''); }} style={styles.closeBtn}>
-                <Ionicons name="close" size={22} color={Colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            {solicitSelecionada && (
-              <ScrollView showsVerticalScrollIndicator={false}>
-                <LabelValue label="Professor" value={solicitSelecionada.professorNome} />
-                <LabelValue label="Pauta" value={`${solicitSelecionada.disciplina} · ${solicitSelecionada.turmaNome} · Trimestre ${solicitSelecionada.trimestre}`} />
-                <Text style={styles.reviewLabel}>Motivo do Pedido</Text>
-                <View style={styles.conteudoBox}>
-                  <Text style={styles.conteudoText}>{solicitSelecionada.motivo}</Text>
-                </View>
-                <Text style={styles.fieldLabel}>Resposta / Observação</Text>
-                <TextInput
-                  style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                  placeholder="Escreva uma resposta..."
-                  placeholderTextColor={Colors.textMuted}
-                  value={observacao}
-                  onChangeText={setObservacao}
-                  multiline
-                  editable={solicitSelecionada.status === 'pendente'}
-                />
-                {solicitSelecionada.status === 'pendente' && (
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity style={styles.rejectBtn} onPress={rejeitarSolicitacao}>
-                      <Ionicons name="close-circle" size={18} color="#fff" />
-                      <Text style={styles.actionBtnText}>Rejeitar</Text>
+          <View style={[styles.modalBox, { padding: 0, overflow: 'hidden' }]}>
+            {solicitSelecionada && (() => {
+              const sc = solicitSelecionada.status === 'aprovada' ? Colors.success : solicitSelecionada.status === 'rejeitada' ? Colors.danger : Colors.warning;
+              const initials = solicitSelecionada.professorNome?.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+              return (
+                <>
+                  <View style={[styles.reviewModalHead, { backgroundColor: Colors.warning + '14' }]}>
+                    <TouchableOpacity onPress={() => { setSelectedSolicitude(null); setObservacao(''); }} style={styles.reviewModalClose}>
+                      <Ionicons name="close" size={20} color={Colors.textSecondary} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.acceptBtn} onPress={aprovarSolicitacao}>
-                      <Ionicons name="checkmark-circle" size={18} color="#fff" />
-                      <Text style={styles.actionBtnText}>Aprovar</Text>
-                    </TouchableOpacity>
+                    <View style={[styles.reviewAvatar, { backgroundColor: Colors.gold + '33', borderColor: Colors.gold + '55' }]}>
+                      <Text style={[styles.reviewAvatarText, { color: Colors.gold }]}>{initials}</Text>
+                    </View>
+                    <Text style={styles.reviewModalName}>{solicitSelecionada.professorNome}</Text>
+                    <View style={[styles.reviewStatusBadge, { backgroundColor: sc + '22', borderColor: sc + '44' }]}>
+                      <MaterialCommunityIcons name="folder-open-outline" size={12} color={sc} />
+                      <Text style={[styles.reviewStatusText, { color: sc }]}>Reabertura de Pauta</Text>
+                    </View>
                   </View>
-                )}
-                <View style={{ height: 16 }} />
-              </ScrollView>
-            )}
+
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 16 }}>
+                    <View style={styles.reviewInfoCard}>
+                      <View style={styles.reviewInfoRow}>
+                        <MaterialCommunityIcons name="book-open-outline" size={15} color={Colors.textMuted} />
+                        <Text style={styles.reviewInfoText}>{solicitSelecionada.disciplina}</Text>
+                      </View>
+                      <View style={[styles.reviewInfoRow, { borderTopWidth: 1, borderTopColor: Colors.border }]}>
+                        <MaterialCommunityIcons name="google-classroom" size={15} color={Colors.textMuted} />
+                        <Text style={styles.reviewInfoText}>{solicitSelecionada.turmaNome}</Text>
+                        <View style={styles.aulaChip}>
+                          <Text style={styles.aulaChipText}>Trim. {solicitSelecionada.trimestre}</Text>
+                        </View>
+                      </View>
+                    </View>
+
+                    <Text style={styles.reviewSectionLabel}>Motivo do Pedido</Text>
+                    <View style={styles.conteudoBoxEnhanced}>
+                      <MaterialCommunityIcons name="comment-text-outline" size={16} color={Colors.textMuted} style={{ marginBottom: 6 }} />
+                      <Text style={styles.conteudoText}>{solicitSelecionada.motivo}</Text>
+                    </View>
+
+                    <Text style={styles.reviewSectionLabel}>Resposta / Observação</Text>
+                    <TextInput
+                      style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                      placeholder="Escreva uma resposta..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={observacao}
+                      onChangeText={setObservacao}
+                      multiline
+                      editable={solicitSelecionada.status === 'pendente'}
+                    />
+
+                    {solicitSelecionada.status === 'pendente' && (
+                      <View style={styles.actionRow}>
+                        <TouchableOpacity style={styles.rejectBtn} onPress={rejeitarSolicitacao}>
+                          <Ionicons name="close-circle" size={18} color="#fff" />
+                          <Text style={styles.actionBtnText}>Rejeitar</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.acceptBtn} onPress={aprovarSolicitacao}>
+                          <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                          <Text style={styles.actionBtnText}>Aprovar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    <View style={{ height: 16 }} />
+                  </ScrollView>
+                </>
+              );
+            })()}
           </View>
         </View>
       </Modal>
@@ -985,37 +1046,60 @@ export default function RHHubScreen() {
         <View style={styles.overlay}>
           <View style={styles.modalBox}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Agendar Prova / Avaliação</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.accent + '22', alignItems: 'center', justifyContent: 'center' }}>
+                  <MaterialCommunityIcons name="calendar-plus" size={20} color={Colors.accent} />
+                </View>
+                <Text style={styles.modalTitle}>Agendar Prova</Text>
+              </View>
               <TouchableOpacity onPress={() => { setShowProvaForm(false); resetProvaForm(); }} style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={styles.fieldLabel}>Tipo de Avaliação</Text>
-              <View style={styles.tipoRow}>
-                {(['teste', 'exame', 'trabalho', 'prova_oral'] as const).map(t => (
-                  <TouchableOpacity
-                    key={t}
-                    style={[styles.tipoBtn, provaTipo === t && { borderColor: tipoProvaColor[t] }, { borderWidth: 1.5, borderColor: provaTipo === t ? tipoProvaColor[t] : 'transparent', backgroundColor: provaTipo === t ? tipoProvaColor[t] + '22' : Colors.surface }]}
-                    onPress={() => setProvaTipo(t)}
-                  >
-                    <Text style={[styles.tipoBtnText, provaTipo === t && { color: tipoProvaColor[t] }]}>
-                      {t === 'prova_oral' ? 'Oral' : t.charAt(0).toUpperCase() + t.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.tipoCardGrid}>
+                {([
+                  { id: 'teste', label: 'Teste', icon: 'clipboard-text-outline' },
+                  { id: 'exame', label: 'Exame', icon: 'file-document-outline' },
+                  { id: 'trabalho', label: 'Trabalho', icon: 'briefcase-outline' },
+                  { id: 'prova_oral', label: 'Oral', icon: 'microphone-outline' },
+                ] as const).map(t => {
+                  const color = tipoProvaColor[t.id];
+                  const isActive = provaTipo === t.id;
+                  return (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.tipoCard, isActive && { borderColor: color, backgroundColor: color + '18' }]}
+                      onPress={() => setProvaTipo(t.id)}
+                    >
+                      <MaterialCommunityIcons name={t.icon as any} size={22} color={isActive ? color : Colors.textMuted} />
+                      <Text style={[styles.tipoCardText, isActive && { color, fontWeight: '700' }]}>{t.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+
               <Text style={styles.fieldLabel}>Título *</Text>
               <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre" placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} />
-              <Text style={styles.fieldLabel}>Disciplina *</Text>
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Disciplina *</Text>
               <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} />
-              <Text style={styles.fieldLabel}>Data *</Text>
-              <DateInput style={styles.input} value={provaData} onChangeText={setProvaData} />
-              <Text style={styles.fieldLabel}>Hora</Text>
-              <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
-              <Text style={styles.fieldLabel}>Descrição</Text>
+
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>Data *</Text>
+                  <DateInput style={styles.input} value={provaData} onChangeText={setProvaData} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.fieldLabel}>Hora</Text>
+                  <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
+                </View>
+              </View>
+
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Descrição</Text>
               <TextInput style={[styles.input, { height: 60, textAlignVertical: 'top' }]} placeholder="Informações adicionais..." placeholderTextColor={Colors.textMuted} value={provaDesc} onChangeText={setProvaDesc} multiline />
-              <Text style={styles.fieldLabel}>Turmas</Text>
+
+              <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Turmas</Text>
               <View style={styles.turmasGrid}>
                 {turmas.map(t => {
                   const sel = provaTurmasIds.includes(t.id);
@@ -1025,12 +1109,15 @@ export default function RHHubScreen() {
                       style={[styles.turmaBadge, sel && styles.turmaBadgeActive]}
                       onPress={() => setProvaTurmasIds(prev => sel ? prev.filter(id => id !== t.id) : [...prev, t.id])}
                     >
+                      {sel && <Ionicons name="checkmark" size={12} color={Colors.gold} />}
                       <Text style={[styles.turmaBadgeText, sel && styles.turmaBadgeTextActive]}>{t.nome}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
+
               <TouchableOpacity style={styles.saveBtn} onPress={publicarProva}>
+                <MaterialCommunityIcons name="calendar-check" size={18} color="#fff" />
                 <Text style={styles.saveBtnText}>{editingProva ? 'Actualizar' : 'Agendar Prova'}</Text>
               </TouchableOpacity>
               <View style={{ height: 16 }} />
@@ -1242,11 +1329,32 @@ const styles = StyleSheet.create({
   tipoBtnText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '600' },
 
   turmasGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
-  turmaBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  turmaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   turmaBadgeActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
   turmaBadgeText: { fontSize: 12, color: Colors.textMuted },
   turmaBadgeTextActive: { color: Colors.gold, fontWeight: '700' },
 
-  saveBtn: { backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 16 },
+  saveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 14, marginTop: 16 },
   saveBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+
+  // Review modal — enhanced
+  reviewModalHead: { paddingTop: 22, paddingBottom: 18, paddingHorizontal: 20, alignItems: 'center', borderTopLeftRadius: 24, borderTopRightRadius: 24, position: 'relative' },
+  reviewModalClose: { position: 'absolute', top: 14, right: 14, padding: 6, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.06)' },
+  reviewAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', borderWidth: 2, marginBottom: 8 },
+  reviewAvatarText: { fontSize: 20, fontWeight: '800', color: Colors.accent },
+  reviewModalName: { fontSize: 16, fontWeight: '800', color: Colors.text, textAlign: 'center', marginBottom: 8 },
+  reviewStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
+  reviewStatusText: { fontSize: 12, fontWeight: '700' },
+  reviewInfoCard: { backgroundColor: Colors.surface, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden', marginBottom: 14 },
+  reviewInfoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  reviewInfoText: { flex: 1, fontSize: 13, color: Colors.textSecondary },
+  reviewSectionLabel: { fontSize: 11, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  aulaChip: { backgroundColor: Colors.accent + '22', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  aulaChipText: { fontSize: 11, fontWeight: '700', color: Colors.accent },
+  conteudoBoxEnhanced: { backgroundColor: Colors.surface, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 12, marginBottom: 14 },
+
+  // Tipo card grid (prova modal)
+  tipoCardGrid: { flexDirection: 'row', gap: 8, marginBottom: 14 },
+  tipoCard: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: Colors.border, backgroundColor: Colors.surface, gap: 6 },
+  tipoCardText: { fontSize: 11, color: Colors.textMuted },
 });
