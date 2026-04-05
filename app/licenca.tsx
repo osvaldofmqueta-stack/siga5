@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Circle, Defs, LinearGradient as SvgGradient, Stop } from 'react-native-svg';
 import { Colors } from '@/constants/colors';
-import { useLicense } from '@/context/LicenseContext';
+import { useLicense, NIVEL_LABEL, NIVEL_COLOR, NIVEL_EMOJI } from '@/context/LicenseContext';
 import { useAuth } from '@/context/AuthContext';
 import { webAlert } from '@/utils/webAlert';
 
@@ -237,9 +237,18 @@ export default function LicencaScreen() {
               <Text style={styles.detailsTitle}>DETALHES DA LICENÇA</Text>
               <View style={styles.detailsGrid}>
                 <View style={styles.detailItem}>
+                  <Text style={{ fontSize: 20 }}>{NIVEL_EMOJI[licenca.nivel || 'rubi']}</Text>
+                  <View>
+                    <Text style={styles.detailLabel}>Nível</Text>
+                    <Text style={[styles.detailVal, { color: NIVEL_COLOR[licenca.nivel || 'rubi'] }]}>
+                      {NIVEL_LABEL[licenca.nivel || 'rubi']}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.detailItem}>
                   <Ionicons name="ribbon-outline" size={16} color={info.cor} />
                   <View>
-                    <Text style={styles.detailLabel}>Plano</Text>
+                    <Text style={styles.detailLabel}>Duração</Text>
                     <Text style={[styles.detailVal, { color: info.cor }]}>
                       {licenca.plano.charAt(0).toUpperCase() + licenca.plano.slice(1)}
                     </Text>

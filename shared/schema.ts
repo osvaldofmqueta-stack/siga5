@@ -958,6 +958,9 @@ export const configGeral = pgTable("config_geral", {
   licencaAtivacao: text("licencaAtivacao"),   // "YYYY-MM-DD" — data em que o sistema foi ativado pela 1ª vez
   licencaExpiracao: text("licencaExpiracao"), // "YYYY-MM-DD" — data de expiração
   licencaPlano: text("licencaPlano").default('avaliacao'),
+  licencaNivel: text("licencaNivel").default('rubi'),          // prata | ouro | rubi
+  licencaPrecoPorAluno: integer("licencaPrecoPorAluno").default(50), // KZ por aluno matriculado
+  licencaSaldoCredito: integer("licencaSaldoCredito").default(0),    // crédito acumulado para desconto na próxima renovação
 
   updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
 

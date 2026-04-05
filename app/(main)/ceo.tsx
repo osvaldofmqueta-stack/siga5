@@ -18,35 +18,29 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import {
-  useLicense, TipoPlano, CodigoAtivacao,
+  useLicense, TipoPlano, TipoNivel, CodigoAtivacao,
   PLANO_LABEL, PLANO_DIAS,
+  NIVEL_LABEL, NIVEL_COLOR, NIVEL_EMOJI, NIVEL_DESC, NIVEL_FEATURES,
+  PRECO_POR_ALUNO_DEFAULT,
 } from '@/context/LicenseContext';
 import { useData } from '@/context/DataContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
 
 const PLANO_PRECO: Record<TipoPlano, string> = {
-  demo: 'Grátis',
-  mensal: '5.000 AOA',
-  trimestral: '13.500 AOA',
-  semestral: '25.000 AOA',
-  anual: '45.000 AOA',
+  avaliacao: 'Grátis',
+  mensal: '× alunos × 50 KZ',
+  trimestral: '× alunos × 50 KZ',
+  semestral: '× alunos × 50 KZ',
+  anual: '× alunos × 50 KZ',
 };
 
 const PLANO_COLOR: Record<TipoPlano, string> = {
-  demo: Colors.textMuted,
+  avaliacao: Colors.textMuted,
   mensal: Colors.info,
   trimestral: Colors.warning,
   semestral: Colors.success,
   anual: Colors.gold,
-};
-
-const PLANO_SALDO_DEFAULT: Record<TipoPlano, number> = {
-  demo: 10,
-  mensal: 100,
-  trimestral: 300,
-  semestral: 600,
-  anual: 1200,
 };
 
 type Section = 'dashboard' | 'codigos' | 'gerar' | 'historico';
@@ -76,8 +70,14 @@ function CodigoCard({ cod, onCopy, onRevogar }: {
   return (
     <View style={[cS.card, cod.usado && cS.cardUsado, expirado && !cod.usado && cS.cardExpirado]}>
       <View style={cS.cardTop}>
-        <View style={[cS.planoPill, { backgroundColor: cor + '22', borderColor: cor + '55' }]}>
-          <Text style={[cS.planoText, { color: cor }]}>{PLANO_LABEL[cod.plano]}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <View style={[cS.planoPill, { backgroundColor: NIVEL_COLOR[cod.nivel || 'rubi'] + '22', borderColor: NIVEL_COLOR[cod.nivel || 'rubi'] + '55' }]}>
+            <Text style={{ fontSize: 10 }}>{NIVEL_EMOJI[cod.nivel || 'rubi']}</Text>
+            <Text style={[cS.planoText, { color: NIVEL_COLOR[cod.nivel || 'rubi'] }]}>{NIVEL_LABEL[cod.nivel || 'rubi']}</Text>
+          </View>
+          <View style={[cS.planoPill, { backgroundColor: cor + '22', borderColor: cor + '55' }]}>
+            <Text style={[cS.planoText, { color: cor }]}>{PLANO_LABEL[cod.plano]}</Text>
+          </View>
         </View>
         <View style={cS.actions}>
           {!cod.usado && !expirado && (
@@ -100,10 +100,20 @@ function CodigoCard({ cod, onCopy, onRevogar }: {
           <Ionicons name="time-outline" size={12} color={Colors.textMuted} />
           <Text style={cS.metaText}>{cod.diasValidade} dias</Text>
         </View>
-        <View style={cS.metaItem}>
-          <Ionicons name="wallet-outline" size={12} color={Colors.textMuted} />
-          <Text style={cS.metaText}>{cod.saldoCreditos} créditos</Text>
-        </View>
+        {(cod.valorFinal != null && cod.valorFinal >= 0) ? (
+          <View style={cS.metaItem}>
+            <Ionicons name="cash-outline" size={12} color={Colors.gold} />
+            <Text style={[cS.metaText, { color: Colors.gold }]}>
+              {(cod.valorFinal).toLocaleString('pt-AO')} KZ
+            </Text>
+          </View>
+        ) : null}
+        {(cod.totalAlunos != null && cod.totalAlunos > 0) ? (
+          <View style={cS.metaItem}>
+            <Ionicons name="people-outline" size={12} color={Colors.textMuted} />
+            <Text style={cS.metaText}>{cod.totalAlunos} alunos</Text>
+          </View>
+        ) : null}
         <View style={cS.metaItem}>
           <Ionicons name="calendar-outline" size={12} color={Colors.textMuted} />
           <Text style={cS.metaText}>Gerado: {cod.dataGeracao}</Text>
@@ -397,12 +407,22 @@ export default function CeoScreen() {
   const [section, setSection] = useState<Section>('dashboard');
   const [showGerar, setShowGerar] = useState(false);
   const [formPlano, setFormPlano] = useState<TipoPlano>('anual');
-  const [formSaldo, setFormSaldo] = useState('');
+  const [formNivel, setFormNivel] = useState<TipoNivel>('rubi');
+  const [formPrecoPorAluno, setFormPrecoPorAluno] = useState(String(PRECO_POR_ALUNO_DEFAULT));
+  const [formCreditoAplicar, setFormCreditoAplicar] = useState('0');
+  const [alunosMatriculados, setAlunosMatriculados] = useState(0);
   const [formNotas, setFormNotas] = useState('');
   const [showSaldo, setShowSaldo] = useState(false);
   const [formAddSaldo, setFormAddSaldo] = useState('');
   const [codigoGerado, setCodigoGerado] = useState<CodigoAtivacao | null>(null);
   const [filterUsado, setFilterUsado] = useState<'todos' | 'disponivel' | 'usado'>('todos');
+
+  useEffect(() => {
+    fetch('/api/licenca/alunos-matriculados')
+      .then(r => r.json())
+      .then(d => { if (d.total !== undefined) setAlunosMatriculados(d.total); })
+      .catch(() => {});
+  }, []);
 
   const stats = useMemo(() => {
     const total = codigosGerados.length;
@@ -422,17 +442,22 @@ export default function CeoScreen() {
       .sort((a, b) => b.dataGeracao.localeCompare(a.dataGeracao));
   }, [codigosGerados, filterUsado]);
 
+  const calcPreco = useMemo(() => {
+    const preco = parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT;
+    const total = alunosMatriculados;
+    const valorTotal = preco * total;
+    const credito = Math.min(parseInt(formCreditoAplicar) || 0, valorTotal);
+    const valorFinal = Math.max(0, valorTotal - credito);
+    return { preco, total, valorTotal, credito, valorFinal };
+  }, [formPrecoPorAluno, alunosMatriculados, formCreditoAplicar]);
+
   async function handleGerar() {
-    const saldo = parseInt(formSaldo) || PLANO_SALDO_DEFAULT[formPlano];
-    if (saldo <= 0) {
-      webAlert('Erro', 'Saldo deve ser maior que zero.');
-      return;
-    }
+    const { preco, total, valorTotal, credito, valorFinal } = calcPreco;
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    const cod = await gerarCodigo(formPlano, saldo, formNotas);
+    const cod = await gerarCodigo(formPlano, formNivel, preco, total, credito, formNotas);
     setCodigoGerado(cod);
     setFormNotas('');
-    setFormSaldo('');
+    setFormCreditoAplicar('0');
   }
 
   function copiarCodigo(codigo: string) {
@@ -464,6 +489,10 @@ export default function CeoScreen() {
     { key: 'codigos', label: 'Códigos', icon: 'key' },
     { key: 'historico', label: 'Histórico', icon: 'time' },
   ] as const;
+
+  function irParaGestaoPLanos() {
+    router.push('/(main)/gestao-planos' as any);
+  }
 
   const alunosActivos = alunos.filter(a => a.activo !== false).length;
   const turmasActivas = turmas.length;
@@ -800,9 +829,17 @@ export default function CeoScreen() {
                   <MaterialCommunityIcons name="shield-check" size={22} color={isLicencaValida ? Colors.success : Colors.danger} />
                   <View>
                     <Text style={styles.licencaCardTitle}>Licença do Sistema</Text>
-                    <Text style={[styles.licencaCardPlano, { color: PLANO_COLOR[licenca?.plano || 'demo'] }]}>
-                      Plano {PLANO_LABEL[licenca?.plano || 'demo']}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+                      <View style={[styles.nivelPill, { backgroundColor: NIVEL_COLOR[licenca?.nivel || 'rubi'] + '22', borderColor: NIVEL_COLOR[licenca?.nivel || 'rubi'] + '55' }]}>
+                        <Text style={{ fontSize: 10 }}>{NIVEL_EMOJI[licenca?.nivel || 'rubi']}</Text>
+                        <Text style={[styles.nivelPillText, { color: NIVEL_COLOR[licenca?.nivel || 'rubi'] }]}>
+                          {NIVEL_LABEL[licenca?.nivel || 'rubi']}
+                        </Text>
+                      </View>
+                      <Text style={[styles.licencaCardPlano, { color: PLANO_COLOR[licenca?.plano || 'avaliacao'] }]}>
+                        {PLANO_LABEL[licenca?.plano || 'avaliacao']}
+                      </Text>
+                    </View>
                   </View>
                 </View>
                 <View style={[styles.licencaStatusBadge, { backgroundColor: isLicencaValida ? Colors.success + '22' : Colors.danger + '22' }]}>
@@ -858,16 +895,48 @@ export default function CeoScreen() {
               <StatCard label="Expirados" value={String(stats.expirados)} icon="time" color={Colors.accent} />
             </View>
 
-            {/* Planos */}
-            <Text style={styles.sectionTitle}>Planos Disponíveis</Text>
+            {/* Níveis de Subscrição */}
+            <Text style={styles.sectionTitle}>Níveis de Subscrição</Text>
+            {(['prata', 'ouro', 'rubi'] as TipoNivel[]).map(n => (
+              <View key={n} style={[styles.planoRow, { borderColor: NIVEL_COLOR[n] + '44' }]}>
+                <Text style={{ fontSize: 18 }}>{NIVEL_EMOJI[n]}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.planoNome, { color: NIVEL_COLOR[n] }]}>{NIVEL_LABEL[n]}</Text>
+                  <Text style={styles.planoDias}>{NIVEL_DESC[n]}</Text>
+                  <Text style={[styles.planoDias, { color: Colors.textMuted }]}>
+                    {NIVEL_FEATURES[n].length} funcionalidades incluídas
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.planoGerarBtn, { backgroundColor: NIVEL_COLOR[n] + 'dd' }]}
+                  onPress={() => { setFormNivel(n); setShowGerar(true); }}
+                >
+                  <Text style={styles.planoGerarText}>Gerar</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.planoRow, { backgroundColor: Colors.gold + '10', borderColor: Colors.gold + '33' }]}
+              onPress={irParaGestaoPLanos}
+            >
+              <MaterialCommunityIcons name="view-list" size={18} color={Colors.gold} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.planoNome, { color: Colors.gold }]}>Ver Comparação de Planos</Text>
+                <Text style={styles.planoDias}>Funcionalidades por nível • Prata, Ouro, Rubi</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.gold} />
+            </TouchableOpacity>
+
+            {/* Planos de Duração */}
+            <Text style={styles.sectionTitle}>Duração dos Planos</Text>
             {(['mensal', 'trimestral', 'semestral', 'anual'] as TipoPlano[]).map(plano => (
               <View key={plano} style={styles.planoRow}>
                 <View style={[styles.planoDot, { backgroundColor: PLANO_COLOR[plano] }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.planoNome}>{PLANO_LABEL[plano]}</Text>
-                  <Text style={styles.planoDias}>{PLANO_DIAS[plano]} dias · {PLANO_SALDO_DEFAULT[plano]} créditos base</Text>
+                  <Text style={styles.planoDias}>{PLANO_DIAS[plano]} dias de validade</Text>
                 </View>
-                <Text style={[styles.planoPreco, { color: PLANO_COLOR[plano] }]}>{PLANO_PRECO[plano]}</Text>
                 <TouchableOpacity
                   style={styles.planoGerarBtn}
                   onPress={() => { setFormPlano(plano); setShowGerar(true); }}
@@ -932,12 +1001,21 @@ export default function CeoScreen() {
             )}
             {codigosGerados.filter(c => c.usado).map(cod => (
               <View key={cod.id} style={styles.histCard}>
-                <View style={[styles.histPlanoDot, { backgroundColor: PLANO_COLOR[cod.plano] }]} />
+                <View style={{ alignItems: 'center', gap: 2 }}>
+                  <Text style={{ fontSize: 18 }}>{NIVEL_EMOJI[cod.nivel || 'rubi']}</Text>
+                  <View style={[styles.histPlanoDot, { backgroundColor: PLANO_COLOR[cod.plano] }]} />
+                </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.histEscola}>{cod.usadoPor}</Text>
-                  <Text style={styles.histMeta}>
-                    Plano {PLANO_LABEL[cod.plano]} · {cod.saldoCreditos} créditos · {cod.diasValidade} dias
+                  <Text style={[styles.histMeta, { color: NIVEL_COLOR[cod.nivel || 'rubi'] }]}>
+                    {NIVEL_LABEL[cod.nivel || 'rubi']} · {PLANO_LABEL[cod.plano]} · {cod.diasValidade} dias
                   </Text>
+                  {(cod.valorFinal || cod.valorTotal) > 0 && (
+                    <Text style={[styles.histMeta, { color: Colors.gold }]}>
+                      {(cod.valorFinal || cod.valorTotal || 0).toLocaleString('pt-AO')} KZ
+                      {(cod.creditoAplicado || 0) > 0 && ` (−${cod.creditoAplicado.toLocaleString('pt-AO')} KZ crédito)`}
+                    </Text>
+                  )}
                   <Text style={styles.histData}>Activado em {cod.usadoEm}</Text>
                 </View>
                 <View style={[styles.histStatusBadge, { backgroundColor: Colors.success + '22' }]}>
@@ -972,23 +1050,58 @@ export default function CeoScreen() {
                   <Text style={mS.codigoCopyText} selectable>{codigoGerado.codigo}</Text>
                   <Ionicons name="copy-outline" size={18} color={Colors.gold} />
                 </TouchableOpacity>
-                <Text style={mS.codigoMeta}>
-                  Plano {PLANO_LABEL[codigoGerado.plano]} · {codigoGerado.diasValidade} dias · {codigoGerado.saldoCreditos} créditos
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                  <Text style={{ fontSize: 16 }}>{NIVEL_EMOJI[codigoGerado.nivel || 'rubi']}</Text>
+                  <Text style={[mS.codigoMeta, { color: NIVEL_COLOR[codigoGerado.nivel || 'rubi'] }]}>
+                    {NIVEL_LABEL[codigoGerado.nivel || 'rubi']}
+                  </Text>
+                  <Text style={mS.codigoMeta}>· {PLANO_LABEL[codigoGerado.plano]} · {codigoGerado.diasValidade} dias</Text>
+                </View>
+                <Text style={[mS.codigoMeta, { color: Colors.gold, fontFamily: 'Inter_700Bold' }]}>
+                  Valor Final: {(codigoGerado.valorFinal || 0).toLocaleString('pt-AO')} KZ
                 </Text>
-                <Text style={mS.codigoExp}>Código válido para usar até {codigoGerado.dataExpiracaoCodigo}</Text>
+                {(codigoGerado.creditoAplicado || 0) > 0 && (
+                  <Text style={[mS.codigoMeta, { color: Colors.success }]}>
+                    Crédito aplicado: −{codigoGerado.creditoAplicado.toLocaleString('pt-AO')} KZ
+                  </Text>
+                )}
+                <Text style={mS.codigoExp}>
+                  {codigoGerado.totalAlunos} alunos × {codigoGerado.precoPorAluno} KZ · expira em {codigoGerado.dataExpiracaoCodigo}
+                </Text>
                 <TouchableOpacity style={mS.novoBtn} onPress={() => setCodigoGerado(null)}>
                   <Text style={mS.novoBtnText}>Gerar Outro</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                <Text style={mS.fieldLabel}>Plano de Subscrição</Text>
+                {/* Nível */}
+                <Text style={mS.fieldLabel}>Nível de Subscrição</Text>
                 <View style={mS.planosGrid}>
-                  {(['demo', 'mensal', 'trimestral', 'semestral', 'anual'] as TipoPlano[]).map(p => (
+                  {(['prata', 'ouro', 'rubi'] as TipoNivel[]).map(n => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[mS.planoBtn, formNivel === n && { borderColor: NIVEL_COLOR[n], backgroundColor: NIVEL_COLOR[n] + '18' }]}
+                      onPress={() => setFormNivel(n)}
+                    >
+                      <Text style={{ fontSize: 18 }}>{NIVEL_EMOJI[n]}</Text>
+                      <Text style={[mS.planoBtnLabel, { color: formNivel === n ? NIVEL_COLOR[n] : Colors.text }]}>
+                        {NIVEL_LABEL[n]}
+                      </Text>
+                      <Text style={[mS.planoBtnDias, formNivel === n && { color: NIVEL_COLOR[n] }]}>
+                        {NIVEL_FEATURES[n].length} func.
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Duração */}
+                <Text style={mS.fieldLabel}>Duração do Plano</Text>
+                <View style={mS.planosGrid}>
+                  {(['mensal', 'trimestral', 'semestral', 'anual'] as TipoPlano[]).map(p => (
                     <TouchableOpacity
                       key={p}
                       style={[mS.planoBtn, formPlano === p && { borderColor: PLANO_COLOR[p], backgroundColor: PLANO_COLOR[p] + '18' }]}
-                      onPress={() => { setFormPlano(p); setFormSaldo(String(PLANO_SALDO_DEFAULT[p])); }}
+                      onPress={() => setFormPlano(p)}
                     >
                       <Text style={[mS.planoBtnLabel, formPlano === p && { color: PLANO_COLOR[p] }]}>
                         {PLANO_LABEL[p]}
@@ -996,18 +1109,31 @@ export default function CeoScreen() {
                       <Text style={[mS.planoBtnDias, formPlano === p && { color: PLANO_COLOR[p] }]}>
                         {PLANO_DIAS[p]}d
                       </Text>
-                      <Text style={[mS.planoBtnPreco, { color: PLANO_COLOR[p] }]}>{PLANO_PRECO[p]}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                <Text style={mS.fieldLabel}>Créditos Incluídos</Text>
+                {/* Preço por aluno */}
+                <Text style={mS.fieldLabel}>
+                  Preço por Aluno (KZ) · {alunosMatriculados} alunos matriculados
+                </Text>
                 <TextInput
                   style={mS.input}
-                  value={formSaldo || String(PLANO_SALDO_DEFAULT[formPlano])}
-                  onChangeText={setFormSaldo}
+                  value={formPrecoPorAluno}
+                  onChangeText={setFormPrecoPorAluno}
                   keyboardType="number-pad"
-                  placeholder={String(PLANO_SALDO_DEFAULT[formPlano])}
+                  placeholder={String(PRECO_POR_ALUNO_DEFAULT)}
+                  placeholderTextColor={Colors.textMuted}
+                />
+
+                {/* Crédito acumulado */}
+                <Text style={mS.fieldLabel}>Crédito a Aplicar (KZ)</Text>
+                <TextInput
+                  style={mS.input}
+                  value={formCreditoAplicar}
+                  onChangeText={setFormCreditoAplicar}
+                  keyboardType="number-pad"
+                  placeholder="0"
                   placeholderTextColor={Colors.textMuted}
                 />
 
@@ -1022,22 +1148,44 @@ export default function CeoScreen() {
                 />
 
                 <View style={mS.resumo}>
-                  <Text style={mS.resumoTitle}>Resumo</Text>
+                  <Text style={mS.resumoTitle}>Resumo de Cobrança</Text>
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Plano</Text>
-                    <Text style={[mS.resumoVal, { color: PLANO_COLOR[formPlano] }]}>{PLANO_LABEL[formPlano]}</Text>
+                    <Text style={mS.resumoLabel}>Nível</Text>
+                    <Text style={[mS.resumoVal, { color: NIVEL_COLOR[formNivel] }]}>
+                      {NIVEL_EMOJI[formNivel]} {NIVEL_LABEL[formNivel]}
+                    </Text>
                   </View>
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Validade</Text>
-                    <Text style={mS.resumoVal}>{PLANO_DIAS[formPlano]} dias após activação</Text>
+                    <Text style={mS.resumoLabel}>Duração</Text>
+                    <Text style={[mS.resumoVal, { color: PLANO_COLOR[formPlano] }]}>
+                      {PLANO_LABEL[formPlano]} — {PLANO_DIAS[formPlano]} dias
+                    </Text>
                   </View>
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Créditos</Text>
-                    <Text style={mS.resumoVal}>{formSaldo || PLANO_SALDO_DEFAULT[formPlano]}</Text>
+                    <Text style={mS.resumoLabel}>Alunos × Preço/aluno</Text>
+                    <Text style={mS.resumoVal}>
+                      {calcPreco.total} × {calcPreco.preco} KZ
+                    </Text>
                   </View>
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Preço Sugerido</Text>
-                    <Text style={[mS.resumoVal, { color: Colors.gold }]}>{PLANO_PRECO[formPlano]}</Text>
+                    <Text style={mS.resumoLabel}>Subtotal</Text>
+                    <Text style={mS.resumoVal}>{calcPreco.valorTotal.toLocaleString('pt-AO')} KZ</Text>
+                  </View>
+                  {calcPreco.credito > 0 && (
+                    <View style={mS.resumoRow}>
+                      <Text style={mS.resumoLabel}>Crédito Aplicado</Text>
+                      <Text style={[mS.resumoVal, { color: Colors.success }]}>
+                        −{calcPreco.credito.toLocaleString('pt-AO')} KZ
+                      </Text>
+                    </View>
+                  )}
+                  <View style={[mS.resumoRow, { borderBottomWidth: 0, paddingTop: 8 }]}>
+                    <Text style={[mS.resumoLabel, { fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 14 }]}>
+                      Total a Cobrar
+                    </Text>
+                    <Text style={[mS.resumoVal, { color: Colors.gold, fontSize: 16 }]}>
+                      {calcPreco.valorFinal.toLocaleString('pt-AO')} KZ
+                    </Text>
                   </View>
                 </View>
 
@@ -1113,7 +1261,7 @@ const cS = StyleSheet.create({
   cardUsado: { opacity: 0.7, borderColor: Colors.success + '33' },
   cardExpirado: { opacity: 0.6, borderColor: Colors.danger + '33' },
   cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  planoPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
+  planoPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10, borderWidth: 1 },
   planoText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
   actions: { flexDirection: 'row', gap: 6 },
   actionBtn: { padding: 6, borderRadius: 8, backgroundColor: Colors.gold + '22' },
@@ -1254,6 +1402,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12,
     borderWidth: 1, borderColor: Colors.border,
   },
+  nivelPill: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1 },
+  nivelPillText: { fontSize: 11, fontFamily: 'Inter_700Bold' },
   histPlanoDot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
   histEscola: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
   histMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2 },

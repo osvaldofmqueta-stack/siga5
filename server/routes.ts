@@ -517,6 +517,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] avaliacoes_parciais constraint:', (migErr as Error).message);
   }
 
+  // ─── LICENÇA: COLUNAS DE NÍVEL E PREÇO POR ALUNO ────────────────────────────
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "licencaNivel" text NOT NULL DEFAULT 'rubi'`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "licencaPrecoPorAluno" integer NOT NULL DEFAULT 50`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "licencaSaldoCredito" integer NOT NULL DEFAULT 0`, []);
+    console.log('[migration] config_geral licencaNivel + licencaPrecoPorAluno + licencaSaldoCredito ensured.');
+  } catch (migErr) {
+    console.warn('[migration] licenca columns:', (migErr as Error).message);
+  }
+
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
@@ -3641,10 +3651,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, config);
   });
 
+  // GET /api/licenca/alunos-matriculados — conta alunos com status matriculado para cálculo de preço
+  app.get("/api/licenca/alunos-matriculados", async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<{ total: string }>(
+        `SELECT COUNT(*) AS total FROM public.alunos WHERE status = 'matriculado' AND ativo = true`,
+        []
+      );
+      const total = parseInt(rows[0]?.total || '0', 10);
+      json(res, 200, { total });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // POST /api/licenca/credito — adiciona crédito acumulado a uma escola (para desconto no próximo pagamento)
+  app.post("/api/licenca/credito", async (req: Request, res: Response) => {
+    try {
+      const { valor } = requireBodyObject(req) as { valor: number };
+      if (!valor || valor <= 0) return json(res, 400, { error: 'Valor inválido.' });
+      const existing = await query<{ id: string; licencaSaldoCredito: number }>(
+        `SELECT id, "licencaSaldoCredito" FROM public.config_geral LIMIT 1`, []
+      );
+      if (!existing[0]) return json(res, 404, { error: 'Configuração não encontrada.' });
+      const novoSaldo = (existing[0].licencaSaldoCredito || 0) + valor;
+      const updated = await query(
+        `UPDATE public.config_geral SET "licencaSaldoCredito"=$1 WHERE id=$2 RETURNING *`,
+        [novoSaldo, existing[0].id]
+      );
+      json(res, 200, { success: true, saldoCredito: novoSaldo, config: updated[0] });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
+  // POST /api/licenca/ativar — activa licença e grava nível no servidor
+  app.post("/api/licenca/ativar", async (req: Request, res: Response) => {
+    try {
+      const { nivel, plano, dataExpiracao, escolaNome, precoPorAluno, totalAlunos, creditoAplicado } =
+        requireBodyObject(req) as {
+          nivel: string; plano: string; dataExpiracao: string;
+          escolaNome?: string; precoPorAluno?: number;
+          totalAlunos?: number; creditoAplicado?: number;
+        };
+      const existing = await query<{ id: string; licencaSaldoCredito: number }>(
+        `SELECT id, "licencaSaldoCredito" FROM public.config_geral LIMIT 1`, []
+      );
+      if (!existing[0]) return json(res, 404, { error: 'Configuração não encontrada.' });
+
+      const creditoConsumir = creditoAplicado || 0;
+      const saldoAtual = existing[0].licencaSaldoCredito || 0;
+      const novoSaldo = Math.max(0, saldoAtual - creditoConsumir);
+
+      const updated = await query(
+        `UPDATE public.config_geral SET
+          "licencaNivel"=$1, "licencaPlano"=$2, "licencaExpiracao"=$3,
+          "licencaSaldoCredito"=$4, "nomeEscola"=COALESCE($5, "nomeEscola")
+        WHERE id=$6 RETURNING *`,
+        [nivel || 'rubi', plano || 'avaliacao', dataExpiracao, novoSaldo, escolaNome, existing[0].id]
+      );
+      json(res, 200, { success: true, config: updated[0] });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {

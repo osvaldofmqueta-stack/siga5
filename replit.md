@@ -1,6 +1,55 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Console Error/Warning Cleanup)
+## Recent Changes (Latest Session — Sistema de Subscrição por Nível: Prata / Ouro / Rubi)
+
+### `context/LicenseContext.tsx` — REESCRITO COMPLETAMENTE
+- Adicionado tipo `TipoNivel = 'prata' | 'ouro' | 'rubi'`
+- Interface `CodigoAtivacao` expandida: `nivel`, `precoPorAluno`, `totalAlunos`, `valorTotal`, `creditoAplicado`, `valorFinal`
+- Interface `LicencaAtiva` expandida: `nivel`, `saldoCreditoAcumulado`
+- Constantes exportadas: `NIVEL_LABEL`, `NIVEL_COLOR`, `NIVEL_EMOJI`, `NIVEL_DESC`, `NIVEL_FEATURES`, `PRECO_POR_ALUNO_DEFAULT = 50`
+- `NIVEL_FEATURES` define quais funcionalidades cada nível inclui (Prata ≤ Ouro ≤ Rubi)
+- `gerarCodigo()` agora aceita `(plano, nivel, precoPorAluno, totalAlunos, creditoAplicado, notas?)`
+- `isFeatureAvailableForNivel(key)` — verifica se feature está disponível para o nível activo
+- `adicionarCreditoAcumulado()` — adiciona crédito para desconto na próxima renovação
+- Código de activação: formato `SIGE-PRA-XXXX` / `SIGE-OUR-XXXX` / `SIGE-RUB-XXXX`
+
+### `server/routes.ts`
+- **Migration**: adicionadas 3 colunas a `config_geral`: `licencaNivel` (TEXT DEFAULT 'rubi'), `licencaPrecoPorAluno` (INT DEFAULT 50), `licencaSaldoCredito` (INT DEFAULT 0)
+- **GET** `/api/licenca/alunos-matriculados` — conta alunos com `status='matriculado'` para cálculo de preço
+- **POST** `/api/licenca/credito` — adiciona crédito acumulado a uma escola
+- **POST** `/api/licenca/ativar` — activa licença no servidor e consome crédito acumulado
+- **PUT** `/api/config` — allowlist expandida com `licencaNivel`, `licencaPrecoPorAluno`, `licencaSaldoCredito`
+
+### `app/(main)/ceo.tsx`
+- Importações: `TipoNivel`, `NIVEL_LABEL`, `NIVEL_COLOR`, `NIVEL_EMOJI`, `NIVEL_DESC`, `NIVEL_FEATURES`, `PRECO_POR_ALUNO_DEFAULT`
+- Novos estados: `formNivel`, `formPrecoPorAluno`, `formCreditoAplicar`, `alunosMatriculados`
+- `useEffect` para buscar contagem de alunos matriculados em `/api/licenca/alunos-matriculados`
+- `calcPreco` (memo): `alunos × preço − crédito = valorFinal`
+- `handleGerar()` usa a nova assinatura de `gerarCodigo()`
+- Dashboard: badge de nível (🥈/🥇/💎) no cartão de licença + cor do nível
+- Dashboard: secção "Níveis de Subscrição" com 3 cards (Prata/Ouro/Rubi) + botão "Gerar"
+- Dashboard: link "Ver Comparação de Planos" → `gestao-planos`
+- Modal de geração: selector de nível + selector de duração + preço/aluno + crédito a aplicar + resumo de cobrança com total
+- `CodigoCard`: mostra badge de nível + valor em KZ + número de alunos
+- Histórico: mostra nível + valor pago + crédito aplicado
+
+### `app/licenca.tsx`
+- Importações: `NIVEL_LABEL`, `NIVEL_COLOR`, `NIVEL_EMOJI`
+- Cartão de detalhes: novo campo "Nível" com emoji + cor + label antes do campo "Duração"
+
+### `app/(main)/gestao-planos.tsx` *(novo)*
+- Tela de comparação de planos com tabs Prata / Ouro / Rubi
+- Mostra: card do plano, número de funcionalidades, funcionalidades exclusivas de cada nível
+- Indica claramente o que o nível inferior já inclui
+- Card de pricing explicando o modelo `Alunos × KZ/aluno − Crédito`
+- Botão "Gerar Código de Activação" → navega para ceo.tsx
+
+### `shared/schema.ts`
+- `configGeral`: adicionados `licencaNivel`, `licencaPrecoPorAluno`, `licencaSaldoCredito`
+
+---
+
+## Recent Changes (Previous Session — Console Error/Warning Cleanup)
 
 ### `server/index.ts`
 - Added `CONSOLE_SUPPRESSOR` inline `<script>` injected into the HTML `<head>` before any JavaScript bundle loads. Suppresses `shadow* style props are deprecated`, `useNativeDriver is not supported`, and `pointerEvents is deprecated` React Native Web warnings at the browser level (these fire before React loads).
