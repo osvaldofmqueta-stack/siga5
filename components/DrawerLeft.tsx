@@ -338,7 +338,6 @@ export default function DrawerLeft() {
       items: [
         { label: 'Configurações do Sistema', route: '/(main)/admin', icon: <Ionicons name="settings" size={20} color="inherit" />, permKey: 'admin' },
         { label: 'Gestão de Acessos', route: '/(main)/gestao-acessos', icon: <MaterialCommunityIcons name="account-key" size={20} color="inherit" />, permKey: 'gestao_acessos' },
-        { label: 'Controlo & Supervisão', route: '/(main)/controlo-supervisao', icon: <MaterialCommunityIcons name="shield-search" size={20} color="inherit" />, permKey: 'controlo_supervisao' },
         { label: 'Auditoria do Sistema', route: '/(main)/auditoria', icon: <MaterialCommunityIcons name="file-search-outline" size={20} color="inherit" />, permKey: 'admin' },
         { label: 'Integração MED / SIGE Gov', route: '/(main)/med-integracao', icon: <MaterialCommunityIcons name="shield-star-outline" size={20} color="inherit" />, permKey: 'admin' },
       ],
