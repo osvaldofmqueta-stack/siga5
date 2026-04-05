@@ -935,6 +935,7 @@ function StepperInput({ label, value, onChange, min = 0, max = 99, color }:
         </TouchableOpacity>
         <TextInput
           style={{ flex: 1, textAlign: 'center', fontSize: 20, fontWeight: '800', color: accent,
+                        placeholderTextColor={Colors.textMuted}
             paddingVertical: 8, backgroundColor: 'transparent' }}
           value={value} onChangeText={v => onChange(v.replace(/[^0-9]/g, ''))}
           keyboardType="number-pad" />

@@ -1310,12 +1310,12 @@ export default function PedagogicoScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Semana *</Text>
-              <TextInput style={st.input} keyboardType="numeric" value={String(formPlan.semana)}
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={String(formPlan.semana)}
                 onChangeText={v => setFormPlan(p => ({ ...p, semana: parseInt(v)||1 }))} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Nº Aulas</Text>
-              <TextInput style={st.input} keyboardType="numeric" value={formPlan.numAulas}
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formPlan.numAulas}
                 onChangeText={v => setFormPlan(p => ({ ...p, numAulas: v }))} />
             </View>
           </View>
@@ -1323,7 +1323,7 @@ export default function PedagogicoScreen() {
           {([['tema','Tema / Título *'],['objectivos','Objectivos'],['conteudos','Conteúdos'],['metodologia','Metodologia'],['recursos','Recursos Necessários'],['avaliacao','Avaliação'],['observacoes','Observações']] as [keyof typeof formPlan, string][]).map(([key, label]) => (
             <View key={key} style={{ marginBottom: 14 }}>
               <Text style={st.lbl}>{label}</Text>
-              <TextInput style={[st.input, { height: key === 'tema' ? 44 : 80, textAlignVertical: 'top' }]}
+              <TextInput style={[st.input, { height: key === 'tema' ? 44 : 80, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted}
                 multiline={key !== 'tema'}
                 value={String(formPlan[key])}
                 onChangeText={v => setFormPlan(p => ({ ...p, [key]: v }))}
@@ -1390,7 +1390,7 @@ export default function PedagogicoScreen() {
             placeholder="Ex: Funções e Gráficos" placeholderTextColor={Colors.textMuted} />
 
           <Text style={st.lbl}>Descrição</Text>
-          <TextInput style={[st.input, { height: 80, textAlignVertical: 'top', marginBottom: 14 }]}
+          <TextInput style={[st.input, { height: 80, textAlignVertical: 'top', marginBottom: 14 }]} placeholderTextColor={Colors.textMuted}
             multiline value={formProg.descricao}
             onChangeText={v => setFormProg(p => ({ ...p, descricao: v }))}
             placeholder="Descrição detalhada..." placeholderTextColor={Colors.textMuted} />
@@ -1398,12 +1398,12 @@ export default function PedagogicoScreen() {
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>% Cumprimento</Text>
-              <TextInput style={st.input} keyboardType="numeric" value={formProg.percentagem}
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formProg.percentagem}
                 onChangeText={v => setFormProg(p => ({ ...p, percentagem: v }))} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Ordem</Text>
-              <TextInput style={st.input} keyboardType="numeric" value={formProg.ordem}
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formProg.ordem}
                 onChangeText={v => setFormProg(p => ({ ...p, ordem: v }))} />
             </View>
           </View>
@@ -1489,19 +1489,19 @@ export default function PedagogicoScreen() {
           <DateInput style={[st.input, { marginBottom: 14 }]} value={formOco.data} onChangeText={v => setFormOco(p => ({ ...p, data: v }))} />
 
           <Text style={st.lbl}>Descrição da Ocorrência *</Text>
-          <TextInput style={[st.input, { height: 90, textAlignVertical: 'top', marginBottom: 14 }]}
+          <TextInput style={[st.input, { height: 90, textAlignVertical: 'top', marginBottom: 14 }]} placeholderTextColor={Colors.textMuted}
             multiline value={formOco.descricao}
             onChangeText={v => setFormOco(p => ({ ...p, descricao: v }))}
             placeholder="Descreva o incidente..." placeholderTextColor={Colors.textMuted} />
 
           <Text style={st.lbl}>Medida Tomada</Text>
-          <TextInput style={[st.input, { height: 70, textAlignVertical: 'top', marginBottom: 14 }]}
+          <TextInput style={[st.input, { height: 70, textAlignVertical: 'top', marginBottom: 14 }]} placeholderTextColor={Colors.textMuted}
             multiline value={formOco.medidaTomada}
             onChangeText={v => setFormOco(p => ({ ...p, medidaTomada: v }))}
             placeholder="Acção disciplinar tomada..." placeholderTextColor={Colors.textMuted} />
 
           <Text style={st.lbl}>Observações</Text>
-          <TextInput style={[st.input, { height: 60, textAlignVertical: 'top', marginBottom: 20 }]}
+          <TextInput style={[st.input, { height: 60, textAlignVertical: 'top', marginBottom: 20 }]} placeholderTextColor={Colors.textMuted}
             multiline value={formOco.observacoes}
             onChangeText={v => setFormOco(p => ({ ...p, observacoes: v }))}
             placeholder="Notas adicionais..." placeholderTextColor={Colors.textMuted} />

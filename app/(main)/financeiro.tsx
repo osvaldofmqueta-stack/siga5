@@ -2831,9 +2831,9 @@ export default function FinanceiroScreen() {
               </View>
               <ScrollView>
                 <Text style={st.inputLabel}>Código *</Text>
-                <TextInput style={st.input} placeholder="Ex: 1.1.1" value={formPlano.codigo} onChangeText={v => setFormPlano(f => ({ ...f, codigo: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: 1.1.1" value={formPlano.codigo} onChangeText={v => setFormPlano(f => ({ ...f, codigo: v }))} />
                 <Text style={st.inputLabel}>Nome *</Text>
-                <TextInput style={st.input} placeholder="Nome da conta" value={formPlano.nome} onChangeText={v => setFormPlano(f => ({ ...f, nome: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome da conta" value={formPlano.nome} onChangeText={v => setFormPlano(f => ({ ...f, nome: v }))} />
                 <Text style={st.inputLabel}>Tipo *</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                   {['receita','despesa','ativo','passivo'].map(t => (
@@ -2857,7 +2857,7 @@ export default function FinanceiroScreen() {
                   ))}
                 </View>
                 <Text style={st.inputLabel}>Descrição</Text>
-                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline placeholder="Descrição opcional" value={formPlano.descricao} onChangeText={v => setFormPlano(f => ({ ...f, descricao: v }))} />
+                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline placeholder="Descrição opcional" value={formPlano.descricao} onChangeText={v => setFormPlano(f => ({ ...f, descricao: v }))} />
                 <TouchableOpacity onPress={savePlano} disabled={savingPlano} style={st.saveBtn}>
                   {savingPlano ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Guardar</Text>}
                 </TouchableOpacity>
@@ -2977,15 +2977,15 @@ export default function FinanceiroScreen() {
               </View>
               <ScrollView>
                 <Text style={st.inputLabel}>Descrição *</Text>
-                <TextInput style={st.input} placeholder="Ex: Pagamento de electricidade" value={formConta.descricao} onChangeText={v => setFormConta(f => ({ ...f, descricao: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Pagamento de electricidade" value={formConta.descricao} onChangeText={v => setFormConta(f => ({ ...f, descricao: v }))} />
                 <Text style={st.inputLabel}>Fornecedor</Text>
-                <TextInput style={st.input} placeholder="Nome do fornecedor" value={formConta.fornecedor} onChangeText={v => setFormConta(f => ({ ...f, fornecedor: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome do fornecedor" value={formConta.fornecedor} onChangeText={v => setFormConta(f => ({ ...f, fornecedor: v }))} />
                 <Text style={st.inputLabel}>Valor (Kz) *</Text>
-                <TextInput style={st.input} placeholder="0.00" keyboardType="decimal-pad" value={formConta.valor} onChangeText={v => setFormConta(f => ({ ...f, valor: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formConta.valor} onChangeText={v => setFormConta(f => ({ ...f, valor: v }))} />
                 <Text style={st.inputLabel}>Data de Vencimento *</Text>
-                <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formConta.dataVencimento} onChangeText={v => setFormConta(f => ({ ...f, dataVencimento: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formConta.dataVencimento} onChangeText={v => setFormConta(f => ({ ...f, dataVencimento: v }))} />
                 <Text style={st.inputLabel}>Data de Pagamento</Text>
-                <TextInput style={st.input} placeholder="AAAA-MM-DD (deixar em branco se ainda não pago)" value={formConta.dataPagamento} onChangeText={v => setFormConta(f => ({ ...f, dataPagamento: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD (deixar em branco se ainda não pago)" value={formConta.dataPagamento} onChangeText={v => setFormConta(f => ({ ...f, dataPagamento: v }))} />
                 <Text style={st.inputLabel}>Estado</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                   {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }, { k: 'cancelado', l: 'Cancelado' }].map(s => (
@@ -3022,9 +3022,9 @@ export default function FinanceiroScreen() {
                   </>
                 )}
                 <Text style={st.inputLabel}>Referência</Text>
-                <TextInput style={st.input} placeholder="Número de referência" value={formConta.referencia} onChangeText={v => setFormConta(f => ({ ...f, referencia: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Número de referência" value={formConta.referencia} onChangeText={v => setFormConta(f => ({ ...f, referencia: v }))} />
                 <Text style={st.inputLabel}>Observação</Text>
-                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline value={formConta.observacao} onChangeText={v => setFormConta(f => ({ ...f, observacao: v }))} />
+                <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline value={formConta.observacao} onChangeText={v => setFormConta(f => ({ ...f, observacao: v }))} />
                 <TouchableOpacity onPress={saveConta} disabled={savingConta} style={st.saveBtn}>
                   {savingConta ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Guardar</Text>}
                 </TouchableOpacity>
@@ -3066,7 +3066,7 @@ export default function FinanceiroScreen() {
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 14 }}>
             <Ionicons name="calendar-outline" size={16} color={Colors.textMuted} />
             <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Ano:</Text>
-            <TextInput style={[st.input, { flex: 1, marginBottom: 0, height: 36 }]} value={relFinAno} onChangeText={setRelFinAno} keyboardType="number-pad" placeholder="2026" />
+            <TextInput style={[st.input, { flex: 1, marginBottom: 0, height: 36 }]} placeholderTextColor={Colors.textMuted} value={relFinAno} onChangeText={setRelFinAno} keyboardType="number-pad" placeholder="2026" />
             <TouchableOpacity onPress={() => relFinTab === 'comparativo' ? loadRelFinComparativo() : loadRelFinInadimplencia()}
               style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
               <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' }}>Gerar</Text>
@@ -3180,11 +3180,11 @@ export default function FinanceiroScreen() {
               <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
                   <Text style={st.inputLabel}>De</Text>
-                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholder="AAAA-MM-DD" value={relFinDataInicio} onChangeText={setRelFinDataInicio} />
+                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={relFinDataInicio} onChangeText={setRelFinDataInicio} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={st.inputLabel}>Até</Text>
-                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholder="AAAA-MM-DD" value={relFinDataFim} onChangeText={setRelFinDataFim} />
+                  <TextInput style={[st.input, { marginBottom: 0 }]} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={relFinDataFim} onChangeText={setRelFinDataFim} />
                 </View>
               </View>
               <TouchableOpacity onPress={loadRelFinEntradasSaidas} style={{ backgroundColor: Colors.gold, borderRadius: 10, paddingVertical: 10, alignItems: 'center', marginTop: 10 }}>
@@ -3337,9 +3337,9 @@ export default function FinanceiroScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={st.inputLabel}>Nome *</Text>
-              <TextInput style={st.input} placeholder="Ex: Independência Nacional" value={formFeriado.nome} onChangeText={v => setFormFeriado(f => ({ ...f, nome: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Independência Nacional" value={formFeriado.nome} onChangeText={v => setFormFeriado(f => ({ ...f, nome: v }))} />
               <Text style={st.inputLabel}>Data * (AAAA-MM-DD)</Text>
-              <TextInput style={st.input} placeholder="2026-11-11" value={formFeriado.data} onChangeText={v => setFormFeriado(f => ({ ...f, data: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2026-11-11" value={formFeriado.data} onChangeText={v => setFormFeriado(f => ({ ...f, data: v }))} />
               <Text style={st.inputLabel}>Tipo</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                 {[{ k: 'nacional', l: 'Nacional' }, { k: 'municipal', l: 'Municipal' }, { k: 'escolar', l: 'Escolar' }].map(t => (
@@ -3490,11 +3490,11 @@ export default function FinanceiroScreen() {
                 </ScrollView>
               )}
               <Text style={st.inputLabel}>Valor (Kz) *</Text>
-              <TextInput style={st.input} placeholder="0.00" keyboardType="decimal-pad" value={formAvulso.valor} onChangeText={v => setFormAvulso(f => ({ ...f, valor: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formAvulso.valor} onChangeText={v => setFormAvulso(f => ({ ...f, valor: v }))} />
               <Text style={st.inputLabel}>Data *</Text>
-              <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formAvulso.data} onChangeText={v => setFormAvulso(f => ({ ...f, data: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formAvulso.data} onChangeText={v => setFormAvulso(f => ({ ...f, data: v }))} />
               <Text style={st.inputLabel}>Ano Lectivo *</Text>
-              <TextInput style={st.input} placeholder="2025/26" value={formAvulso.ano} onChangeText={v => setFormAvulso(f => ({ ...f, ano: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2025/26" value={formAvulso.ano} onChangeText={v => setFormAvulso(f => ({ ...f, ano: v }))} />
               <Text style={st.inputLabel}>Mês (opcional)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -3527,9 +3527,9 @@ export default function FinanceiroScreen() {
                 ))}
               </View>
               <Text style={st.inputLabel}>Referência</Text>
-              <TextInput style={st.input} placeholder="Referência opcional" value={formAvulso.referencia} onChangeText={v => setFormAvulso(f => ({ ...f, referencia: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Referência opcional" value={formAvulso.referencia} onChangeText={v => setFormAvulso(f => ({ ...f, referencia: v }))} />
               <Text style={st.inputLabel}>Observação</Text>
-              <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline value={formAvulso.observacao} onChangeText={v => setFormAvulso(f => ({ ...f, observacao: v }))} />
+              <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline value={formAvulso.observacao} onChangeText={v => setFormAvulso(f => ({ ...f, observacao: v }))} />
               <TouchableOpacity onPress={saveAvulso} disabled={savingAvulso} style={st.saveBtn}>
                 {savingAvulso ? <ActivityIndicator size="small" color="#fff" /> : <Text style={st.saveBtnTxt}>Registar Cobrança Avulsa</Text>}
               </TouchableOpacity>
@@ -3554,9 +3554,9 @@ export default function FinanceiroScreen() {
               </Text>
             </View>
             <Text style={st.inputLabel}>Novo Valor (Kz) — opcional</Text>
-            <TextInput style={st.input} placeholder="Deixar em branco = manter original" keyboardType="decimal-pad" value={formRecriar.valor} onChangeText={v => setFormRecriar(f => ({ ...f, valor: v }))} />
+            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Deixar em branco = manter original" keyboardType="decimal-pad" value={formRecriar.valor} onChangeText={v => setFormRecriar(f => ({ ...f, valor: v }))} />
             <Text style={st.inputLabel}>Nova Data — opcional</Text>
-            <TextInput style={st.input} placeholder="AAAA-MM-DD" value={formRecriar.data} onChangeText={v => setFormRecriar(f => ({ ...f, data: v }))} />
+            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formRecriar.data} onChangeText={v => setFormRecriar(f => ({ ...f, data: v }))} />
             <Text style={st.inputLabel}>Estado da Nova Cobrança</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }].map(s => (
@@ -3567,7 +3567,7 @@ export default function FinanceiroScreen() {
               ))}
             </View>
             <Text style={st.inputLabel}>Observação</Text>
-            <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} multiline placeholder="Motivo da recriação" value={formRecriar.observacao} onChangeText={v => setFormRecriar(f => ({ ...f, observacao: v }))} />
+            <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline placeholder="Motivo da recriação" value={formRecriar.observacao} onChangeText={v => setFormRecriar(f => ({ ...f, observacao: v }))} />
             <TouchableOpacity onPress={cancelarERecriar} disabled={cancelarRecriarLoading} style={[st.saveBtn, { backgroundColor: Colors.danger }]}>
               {cancelarRecriarLoading ? <ActivityIndicator size="small" color="#fff" /> : <><Ionicons name="refresh-circle" size={18} color="#fff" /><Text style={st.saveBtnTxt}>Cancelar e Recriar</Text></>}
             </TouchableOpacity>
@@ -4381,6 +4381,7 @@ const st = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   modalTitle: { fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text },
   fieldLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },
+  inputLabel: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 4 },
   input: { backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 11, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
   selector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
   selectorVal: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.text },
