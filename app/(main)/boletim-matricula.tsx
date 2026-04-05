@@ -54,6 +54,7 @@ function generateBoletimHTML(
   nomeEscola: string,
   qrDataUrl: string,
   origin = '',
+  municipioEscola = 'Luanda',
 ): string {
   const nomeCompleto = `${aluno.nome} ${aluno.apelido}`;
   const classe = turma?.classe ?? '___';
@@ -386,7 +387,7 @@ function generateBoletimHTML(
 
       <!-- Assinatura do funcionário -->
       <div style="display:flex;justify-content:flex-end;margin-top:8px;font-size:9pt;gap:4px;">
-        <span>Luanda,</span>
+        <span>${municipioEscola},</span>
         <span style="border-bottom:1px solid #000;min-width:30px;"></span>
         <span>de</span>
         <span style="border-bottom:1px solid #000;min-width:80px;"></span>
@@ -434,7 +435,7 @@ function generateBoletimHTML(
 
     <!-- Assinaturas -->
     <div class="local-data">
-      Luanda,&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:30px;"></span>
+      ${municipioEscola},&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:30px;"></span>
       &nbsp;de&nbsp;<span style="border-bottom:1px solid #000;display:inline-block;min-width:100px;"></span>
       &nbsp;de 20<span style="border-bottom:1px solid #000;display:inline-block;min-width:30px;"></span>
     </div>
@@ -504,7 +505,7 @@ export default function BoletimMatriculaScreen() {
 
     if (qrSvgRef.current && typeof qrSvgRef.current.toDataURL === 'function') {
       qrSvgRef.current.toDataURL((dataUrl: string) => {
-        const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, dataUrl, window.location.origin);
+        const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, dataUrl, window.location.origin, config.municipioEscola || 'Luanda');
         const win = window.open('', '_blank');
         if (win) {
           win.document.write(html);
@@ -516,7 +517,7 @@ export default function BoletimMatriculaScreen() {
         setPrinting(false);
       });
     } else {
-      const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, '', window.location.origin);
+      const html = generateBoletimHTML(selectedAluno, turmaDoAluno, config.nomeEscola, '', window.location.origin, config.municipioEscola || 'Luanda');
       const win = window.open('', '_blank');
       if (win) {
         win.document.write(html);

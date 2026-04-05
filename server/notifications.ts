@@ -32,6 +32,15 @@ export interface GuardianNotificationPayload {
 
 type JsonObject = Record<string, unknown>;
 
+async function getNomeEscola(): Promise<string> {
+  try {
+    const rows = await query<JsonObject>(`SELECT "nomeEscola" FROM public.config_geral LIMIT 1`, []);
+    return (rows[0]?.nomeEscola as string) || "SIGA School";
+  } catch {
+    return "SIGA School";
+  }
+}
+
 async function getGuardianByAlunoId(alunoId: string): Promise<{ email: string | null; userId: string | null }> {
   const rows = await query<JsonObject>(
     `SELECT u.id, u.email
@@ -139,8 +148,11 @@ export async function notifyGuardianAboutNota(
   trimestre: string
 ) {
   try {
-    const aluno = await getAlunoEmailEncarregado(alunoId);
-    const { userId } = await getGuardianByAlunoId(alunoId);
+    const [aluno, { userId }, nomeEscola] = await Promise.all([
+      getAlunoEmailEncarregado(alunoId),
+      getGuardianByAlunoId(alunoId),
+      getNomeEscola(),
+    ]);
 
     const nfDisplay = nf !== null ? `${nf} valores` : "lançada";
     const titulo = "📋 Nova Nota Lançada";
@@ -170,7 +182,8 @@ export async function notifyGuardianAboutNota(
           titulo,
           mensagem,
           "nota",
-          aluno.nomeAluno ?? undefined
+          aluno.nomeAluno ?? undefined,
+          nomeEscola
         )
       );
     }
@@ -190,8 +203,11 @@ export async function notifyGuardianAboutFalta(
   if (status !== "falta" && status !== "F") return;
 
   try {
-    const aluno = await getAlunoEmailEncarregado(alunoId);
-    const { userId } = await getGuardianByAlunoId(alunoId);
+    const [aluno, { userId }, nomeEscola] = await Promise.all([
+      getAlunoEmailEncarregado(alunoId),
+      getGuardianByAlunoId(alunoId),
+      getNomeEscola(),
+    ]);
 
     const titulo = "⚠️ Falta Registada";
     const mensagem = `${aluno.nomeAluno ?? "Seu educando"} teve falta em ${disciplina} no dia ${data}.`;
@@ -220,7 +236,8 @@ export async function notifyGuardianAboutFalta(
           titulo,
           mensagem,
           "falta",
-          aluno.nomeAluno ?? undefined
+          aluno.nomeAluno ?? undefined,
+          nomeEscola
         )
       );
     }
@@ -238,8 +255,11 @@ export async function notifyGuardianAboutPropina(
   status: string
 ) {
   try {
-    const aluno = await getAlunoEmailEncarregado(alunoId);
-    const { userId } = await getGuardianByAlunoId(alunoId);
+    const [aluno, { userId }, nomeEscola] = await Promise.all([
+      getAlunoEmailEncarregado(alunoId),
+      getGuardianByAlunoId(alunoId),
+      getNomeEscola(),
+    ]);
 
     const isPendente = status === "pendente" || status === "em_atraso";
     const titulo = isPendente ? "💳 Propina em Atraso" : "✅ Pagamento Confirmado";
@@ -277,7 +297,8 @@ export async function notifyGuardianAboutPropina(
           titulo,
           mensagem,
           "propina",
-          aluno.nomeAluno ?? undefined
+          aluno.nomeAluno ?? undefined,
+          nomeEscola
         )
       );
     }
@@ -294,8 +315,11 @@ export async function notifyGuardianGeneric(
   mensagem: string
 ) {
   try {
-    const aluno = await getAlunoEmailEncarregado(alunoId);
-    const { userId } = await getGuardianByAlunoId(alunoId);
+    const [aluno, { userId }, nomeEscola] = await Promise.all([
+      getAlunoEmailEncarregado(alunoId),
+      getGuardianByAlunoId(alunoId),
+      getNomeEscola(),
+    ]);
 
     const payload: GuardianNotificationPayload = {
       titulo,
@@ -319,7 +343,8 @@ export async function notifyGuardianGeneric(
           titulo,
           mensagem,
           "geral",
-          aluno.nomeAluno ?? undefined
+          aluno.nomeAluno ?? undefined,
+          nomeEscola
         )
       );
     }
