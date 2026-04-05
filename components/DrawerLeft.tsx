@@ -184,6 +184,7 @@ export default function DrawerLeft() {
         { label: 'Gestão Financeira', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Documentos & Multicaixa', route: '/(main)/documentos-hub', icon: <MaterialCommunityIcons name="file-document-multiple" size={20} color="inherit" />, permKey: 'financeiro' },
+        { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={20} color="inherit" /> },
         { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
 
       ],
@@ -198,12 +199,6 @@ export default function DrawerLeft() {
         { label: 'Faltas & Remunerações', route: '/(main)/rh-faltas-tempos', icon: <MaterialCommunityIcons name="calendar-remove" size={20} color="inherit" />, permKey: 'rh_hub' },
         { label: 'Folha de Salários', route: '/(main)/rh-payroll', icon: <MaterialCommunityIcons name="cash-multiple" size={20} color="inherit" />, permKey: 'rh_hub' },
 
-      ],
-    },
-    {
-      title: 'Pessoal Docente',
-      items: [
-        { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
       ],
     },
     {
