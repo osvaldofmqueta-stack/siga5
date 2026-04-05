@@ -574,8 +574,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }).catch(() => {});
         return json(res, 401, { error: "Email não encontrado. Verifique o endereço de email.", field: "email" });
       }
-      // Email existe — verificar senha
-      if (emailRows[0].senha !== senha) {
+      // Email existe — verificar senha (suporta texto plano e bcrypt)
+      const senhaGuardada = String(emailRows[0].senha ?? '');
+      let senhaValida = false;
+      if (senhaGuardada.startsWith('$2b$') || senhaGuardada.startsWith('$2a$')) {
+        const bcrypt = await import('bcrypt');
+        senhaValida = await bcrypt.compare(senha, senhaGuardada);
+      } else {
+        senhaValida = senhaGuardada === senha;
+      }
+      if (!senhaValida) {
         logAudit({
           userId: String(emailRows[0].id), userEmail: email, userRole: "desconhecido",
           acao: "login_falhado", modulo: "Autenticação", descricao: `Senha incorrecta para: ${email}`,
@@ -633,7 +641,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [email]
       );
       if (!rows[0]) return json(res, 200, { valid: false, emailExists: false });
-      const valid = rows[0].senha === senha;
+      const sg = String(rows[0].senha ?? '');
+      let valid = false;
+      if (sg.startsWith('$2b$') || sg.startsWith('$2a$')) {
+        const bcrypt = await import('bcrypt');
+        valid = await bcrypt.compare(senha, sg);
+      } else {
+        valid = sg === senha;
+      }
       return json(res, 200, { valid, emailExists: true });
     } catch {
       return json(res, 200, { valid: false, emailExists: false });

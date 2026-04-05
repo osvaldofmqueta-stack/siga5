@@ -2,7 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { query } from "./db";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "siga_v3_secret_2025_angola";
+const JWT_SECRET = process.env.JWT_SECRET as string;
+if (!JWT_SECRET) throw new Error("JWT_SECRET environment variable is not set.");
 const JWT_EXPIRES = "12h";
 
 export type UserRole =

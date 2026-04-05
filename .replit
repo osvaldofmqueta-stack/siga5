@@ -74,3 +74,4 @@ build = ["bash", "-c", "node node_modules/.bin/patch-package && npx expo export 
 VAPID_PUBLIC_KEY = "BCgpPBzjV-anmdQl9jMbX2JWEpLNW_izqrh_rsZliZvYMKEpYdFsBzsCRhqbNTBvEXH3RfSnCLh4IHDNS6j8TFE"
 VAPID_SUBJECT = "mailto:sige@escola.ao"
 NEON_DATABASE_URL = "postgresql://neondb_owner:npg_v2qroExba0tH@ep-dawn-hat-an0e6ord-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+JWT_SECRET = "b51edd7da2fb568c3141573f060b687cd154ae5aa011d7ae0f5c9f1c6dff6fef"
