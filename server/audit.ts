@@ -47,6 +47,21 @@ const MODULES: Record<string, string> = {
   "calendario-academico":   "Calendário Académico",
   "rh-payroll":             "Processamento de Salários",
   "saldo-aluno":            "Saldo de Aluno",
+  // ── Novas funcionalidades ──────────────────────────────────────────────────
+  funcionarios:             "Funcionários / Pessoal",
+  "processos-secretaria":   "Processos da Secretaria",
+  "doc-templates":          "Modelos de Documentos",
+  "documentos-emitidos":    "Documentos Emitidos",
+  "solicitacoes-documentos":"Solicitações de Documentos",
+  licenca:                  "Licença de Software",
+  "contas-pagar":           "Contas a Pagar",
+  feriados:                 "Feriados",
+  "presencas-biblioteca":   "Presenças na Biblioteca",
+  "multa-isencoes":         "Multas e Isenções",
+  "avaliacoes-parciais":    "Avaliações Parciais",
+  "pendencias-alunos":      "Pendências de Alunos",
+  "gestao-planos":          "Gestão de Planos",
+  "med-config":             "Configuração MED",
 };
 
 const SKIP_PATHS = new Set([

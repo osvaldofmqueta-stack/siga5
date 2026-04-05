@@ -18,7 +18,8 @@ export type PermKey =
   | 'auditoria' | 'bolsas' | 'calendario_academico' | 'pagamentos_hub'
   | 'extrato_propinas' | 'quadro_honra' | 'rh_payroll' | 'trabalhos_finais'
   | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios'
-  | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento';
+  | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento'
+  | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios';
 
 export interface FeatureDef {
   key: PermKey;
@@ -181,6 +182,16 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'gestao_acessos', label: 'Gestão de Acessos', desc: 'Controlar permissões e acessos de utilizadores', roles: ['chefe_secretaria', 'ceo', 'pca'] },
       { key: 'controlo_supervisao', label: 'Controlo & Supervisão', desc: 'Painel de supervisão geral: utilizadores, secretaria, académico e financeiro', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'auditoria', label: 'Auditoria do Sistema', desc: 'Registo detalhado de todas as acções realizadas no sistema', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'med_integracao', label: 'Integração MED / SIGE Gov', desc: 'Exportação de dados para o portal SIGE do Ministério da Educação de Angola (matrículas, professores, resultados, frequências)', roles: ['admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+    ],
+  },
+  {
+    categoria: 'Novas Funcionalidades',
+    icon: 'star-outline',
+    features: [
+      { key: 'funcionarios', label: 'Registo de Funcionários', desc: 'Gestão completa do registo de pessoal: dados pessoais, BI, NIF, departamento, cargo e contrato', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'processos_secretaria', label: 'Processos da Secretaria', desc: 'Gestão e acompanhamento de processos e solicitações da secretaria escolar', roles: ['secretaria', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'gestao_planos', label: 'Gestão de Planos de Subscrição', desc: 'Comparação e gestão dos planos Prata, Ouro e Rubi — exclusivo à direcção executiva', roles: ['ceo', 'pca'] },
     ],
   },
 ];
@@ -220,6 +231,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_hub', 'rh_controle',
     // Documentos (director assina e revê documentos oficiais)
     'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub', 'gerar_documento',
+    // Integrações e supervisão de novas funcionalidades
+    'med_integracao', 'funcionarios',
   ] as PermKey[],
 
   // ── Admin: configuração do sistema e gestão de utilizadores ──────
@@ -241,7 +254,9 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Financeiro (supervisão e relatórios — admin não opera mas vê relatórios)
     'financeiro_relatorios', 'extrato_propinas', 'bolsas',
     // RH (administrador supervisiona pessoal e processa vencimentos)
-    'rh_hub', 'rh_controle', 'rh_payroll',
+    'rh_hub', 'rh_controle', 'rh_payroll', 'funcionarios',
+    // Integrações e novas funcionalidades
+    'med_integracao',
   ],
 
   // ── Secretaria: operações administrativas académicas ─────────────
@@ -259,6 +274,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Planeamento & análise
     'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
     'relatorios', 'extrato_propinas', 'exclusoes_faltas', 'desempenho', 'relatorio_faltas',
+    // Novas funcionalidades da secretaria
+    'processos_secretaria',
   ],
 
   // ── Financeiro: gestão financeira completa ───────────────────────
@@ -280,6 +297,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'rh_hub', 'rh_controle', 'rh_payroll', 'notificacoes', 'chat_interno',
     // Acesso ao registo do pessoal docente (necessário para contratos e avaliações)
     'professores', 'horario', 'calendario_academico',
+    // Novas funcionalidades de RH
+    'funcionarios',
   ],
 
   // ── Pedagógico: qualidade académica e currículo ──────────────────

@@ -2482,7 +2482,7 @@ export default function EditorDocumentos() {
   const [editorInsignia, setEditorInsignia] = useState<string | undefined>(undefined);
   const [editorMarcaAgua, setEditorMarcaAgua] = useState<string | undefined>(undefined);
   const [showVarsPanel, setShowVarsPanel] = useState(true);
-  const [showAppearPanel, setShowAppearPanel] = useState(true);
+  const [showAppearPanel, setShowAppearPanel] = useState(false);
   const [activeVarGroup, setActiveVarGroup] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -7423,18 +7423,21 @@ export default function EditorDocumentos() {
           </TouchableOpacity>
         </View>
 
-        {/* Tipo selector */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tipoScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        {/* Tipo selector — grelha flex-wrap */}
+        <View style={styles.tipoGrid}>
           {(Object.keys(TIPO_LABELS) as DocTipo[]).map(t => (
             <TouchableOpacity
               key={t}
               style={[styles.tipoChip, editorTipo === t && { backgroundColor: TIPO_COLORS[t], borderColor: TIPO_COLORS[t] }]}
               onPress={() => handleTipoChange(t)}
             >
-              <Text style={[styles.tipoChipText, editorTipo === t && { color: '#fff' }]}>{TIPO_LABELS[t]}</Text>
+              {editorTipo === t && (
+                <View style={[styles.tipoChipDot, { backgroundColor: '#fff' }]} />
+              )}
+              <Text style={[styles.tipoChipText, editorTipo === t && { color: '#fff', fontFamily: 'Inter_600SemiBold' }]}>{TIPO_LABELS[t]}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {/* Aparência do documento */}
         <View style={styles.appearSection}>
@@ -7573,16 +7576,23 @@ export default function EditorDocumentos() {
 
               {/* Variables list */}
               <ScrollView style={styles.varsList} showsVerticalScrollIndicator={false}>
-                {VARIABLE_GROUPS[activeVarGroup].vars.map((v, i) => (
-                  <TouchableOpacity key={i} style={styles.varItem} onPress={() => insertVariable(v.tag)} activeOpacity={0.7}>
-                    <View style={styles.varItemInner}>
-                      <Text style={styles.varTag}>{v.tag}</Text>
-                      <Text style={styles.varDesc}>{v.desc}</Text>
-                      <Text style={styles.varExemplo}>Ex: {v.exemplo}</Text>
-                    </View>
-                    <Ionicons name="add-circle-outline" size={18} color={VARIABLE_GROUPS[activeVarGroup].cor} />
-                  </TouchableOpacity>
-                ))}
+                {VARIABLE_GROUPS[activeVarGroup].vars.map((v, i) => {
+                  const cor = VARIABLE_GROUPS[activeVarGroup].cor;
+                  return (
+                    <TouchableOpacity key={i} style={styles.varItem} onPress={() => insertVariable(v.tag)} activeOpacity={0.75}>
+                      <View style={styles.varItemInner}>
+                        <View style={[styles.varTagBadge, { backgroundColor: cor + '1A', borderColor: cor + '55' }]}>
+                          <Text style={[styles.varTag, { color: cor }]}>{v.tag}</Text>
+                        </View>
+                        <Text style={styles.varDesc}>{v.desc}</Text>
+                        <Text style={styles.varExemplo}>Ex: {v.exemplo}</Text>
+                      </View>
+                      <View style={[styles.varInsertBtn, { backgroundColor: cor + '22' }]}>
+                        <Ionicons name="add" size={14} color={cor} />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
               </ScrollView>
             </View>
           )}
@@ -8258,12 +8268,20 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.success, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10,
   },
   saveBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: '#fff' },
-  tipoScroll: { maxHeight: 48, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tipoChip: {
-    borderWidth: 1, borderColor: Colors.border, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6, alignSelf: 'center',
+  tipoGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 12, paddingVertical: 10, gap: 6,
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1, borderBottomColor: Colors.border,
   },
-  tipoChipText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  tipoChip: {
+    borderWidth: 1.5, borderColor: Colors.border, borderRadius: 16,
+    paddingHorizontal: 10, paddingVertical: 4,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.backgroundCard,
+  },
+  tipoChipDot: { width: 5, height: 5, borderRadius: 3 },
+  tipoChipText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   editorBody: { flex: 1, flexDirection: 'column' },
   editorTextWrap: { flex: 1, display: 'flex', flexDirection: 'column' },
   editorToolbar: {
@@ -8307,14 +8325,24 @@ const styles = StyleSheet.create({
   varsList: { flex: 1, paddingHorizontal: 10 },
   varItem: {
     flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 8, paddingHorizontal: 8,
-    borderBottomWidth: 1, borderBottomColor: Colors.border,
-    gap: 8,
+    paddingVertical: 7, paddingHorizontal: 10,
+    borderBottomWidth: 1, borderBottomColor: Colors.border + '80',
+    gap: 8, backgroundColor: Colors.backgroundCard,
   },
-  varItemInner: { flex: 1 },
-  varTag: { fontSize: 12, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Inter_600SemiBold', color: Colors.gold },
-  varDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 1 },
-  varExemplo: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1, fontStyle: 'italic' },
+  varItemInner: { flex: 1, gap: 2 },
+  varTagBadge: {
+    alignSelf: 'flex-start',
+    borderWidth: 1, borderRadius: 6,
+    paddingHorizontal: 6, paddingVertical: 2,
+    marginBottom: 2,
+  },
+  varTag: { fontSize: 11, fontFamily: Platform.OS === 'web' ? 'monospace' : 'Inter_600SemiBold', letterSpacing: 0.3 },
+  varDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary },
+  varExemplo: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontStyle: 'italic' },
+  varInsertBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    alignItems: 'center', justifyContent: 'center',
+  },
 
   // Emit
   emitBody: { flex: 1, flexDirection: 'column' },
