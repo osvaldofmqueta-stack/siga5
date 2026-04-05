@@ -316,9 +316,13 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
-        { label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro' },
-        { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
-        { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={20} color="inherit" />, permKey: 'financeiro' },
+        {
+          label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
+          subItems: [
+            { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+            { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
+          ],
+        },
         {
           label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub',
           subItems: [
@@ -383,7 +387,13 @@ export default function DrawerLeft() {
       items: [
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
-        { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+        {
+          label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
+          subItems: [
+            { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+            { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
+          ],
+        },
         ...(isRH ? [{
           label: 'Recursos Humanos', route: '/(main)/rh-hub', icon: <MaterialCommunityIcons name="account-tie" size={20} color="inherit" />, permKey: 'rh_hub' as PermKey,
           subItems: [
@@ -508,7 +518,13 @@ export default function DrawerLeft() {
         { label: 'Relatórios', route: '/(main)/relatorios', icon: <Ionicons name="bar-chart" size={20} color="inherit" />, permKey: 'relatorios' },
         { label: 'Análise de Desempenho', route: '/(main)/desempenho', icon: <MaterialCommunityIcons name="chart-areaspline" size={20} color="inherit" />, permKey: 'desempenho' },
         { label: 'Visão Geral Multi-Ano', route: '/(main)/visao-geral', icon: <MaterialCommunityIcons name="chart-line" size={20} color="inherit" />, permKey: 'visao_geral' },
-        { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+        {
+          label: 'Módulo Financeiro', route: '/(main)/financeiro', icon: <MaterialCommunityIcons name="cash" size={20} color="inherit" />, permKey: 'financeiro',
+          subItems: [
+            { label: 'Extracto de Propinas', route: '/(main)/extrato-propinas', icon: <FontAwesome5 name="file-invoice-dollar" size={16} color="inherit" /> },
+            { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
+          ],
+        },
       ],
     },
   ];
