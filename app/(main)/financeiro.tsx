@@ -1739,10 +1739,9 @@ export default function FinanceiroScreen() {
       return { label: nome.slice(0, 3), value: val, color: Colors.info };
     });
     const TRIMS = [
-      { label: '1.º Trim.', meses: [1,2,3], color: Colors.info },
-      { label: '2.º Trim.', meses: [4,5,6], color: Colors.success },
-      { label: '3.º Trim.', meses: [7,8,9], color: Colors.gold },
-      { label: '4.º Trim.', meses: [10,11,12], color: '#8B5CF6' },
+      { label: '1.º Trim.', meses: [1,2,3,4], color: Colors.info },
+      { label: '2.º Trim.', meses: [5,6,7,8], color: Colors.success },
+      { label: '3.º Trim.', meses: [9,10,11,12], color: Colors.gold },
     ];
     const receitaPorTrimestre = TRIMS.map(tr => {
       const val = pagamentosAnoCompleto.filter(p => tr.meses.includes(p.mes || 0)).reduce((s, p) => s + p.valor, 0);
