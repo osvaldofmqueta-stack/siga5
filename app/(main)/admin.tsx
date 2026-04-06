@@ -83,7 +83,6 @@ const SECTION_COLORS: Record<string, string> = {
   comunicacoes: Colors.accent,
   seguranca: Colors.danger,
   reabertura: Colors.warning,
-  'pagamentos-online': '#10B981',
 };
 
 const GROUPS = [
@@ -106,7 +105,7 @@ const GROUPS = [
     label: 'Sistema',
     icon: 'construct' as const,
     color: Colors.info,
-    sections: ['escola', 'config', 'pagamentos-online', 'comunicacoes', 'seguranca'],
+    sections: ['escola', 'config', 'comunicacoes', 'seguranca'],
   },
 ];
 
@@ -474,22 +473,8 @@ export default function AdminScreen() {
     dataFim: config.flashScreen?.dataFim || '',
   });
   const [flashSaved, setFlashSaved] = useState(false);
-
-  // EMIS / Pagamentos Online state
-  const [emisForm, setEmisForm] = useState({
-    emisHabilitado: false,
-    emisAmbiente: 'sandbox' as 'sandbox' | 'producao',
-    emisProvedor: '',
-    emisEntidadeId: '',
-    emisApiKey: '',
-    emisApiUrl: '',
-    emisPrazoPagamento: 24,
-    emisNotificarSMS: true,
-  });
-  const [emisSaving, setEmisSaving] = useState(false);
   const [emisTesting, setEmisTesting] = useState(false);
   const [emisTestResult, setEmisTestResult] = useState<{ sucesso: boolean; mensagem: string } | null>(null);
-  const [emisInitialised, setEmisInitialised] = useState(false);
 
   const isApprover = user && AUTHORIZED_APPROVER_ROLES.includes(user.role);
 
@@ -509,44 +494,8 @@ export default function AdminScreen() {
     });
   }, [config]);
 
-  // Sincronizar formulário EMIS quando config carrega
-  useEffect(() => {
-    if (!emisInitialised && config.emisEntidadeId !== undefined) {
-      setEmisForm({
-        emisHabilitado: config.emisHabilitado ?? false,
-        emisAmbiente: config.emisAmbiente ?? 'sandbox',
-        emisProvedor: config.emisProvedor ?? '',
-        emisEntidadeId: config.emisEntidadeId ?? '',
-        emisApiKey: config.emisApiKey ?? '',
-        emisApiUrl: config.emisApiUrl ?? '',
-        emisPrazoPagamento: config.emisPrazoPagamento ?? 24,
-        emisNotificarSMS: config.emisNotificarSMS ?? true,
-      });
-      setEmisInitialised(true);
-    }
-  }, [config, emisInitialised]);
-
-  async function guardarEmis() {
-    setEmisSaving(true);
-    try {
-      await updateConfig({
-        emisHabilitado: emisForm.emisHabilitado,
-        emisAmbiente: emisForm.emisAmbiente,
-        emisProvedor: emisForm.emisProvedor || undefined,
-        emisEntidadeId: emisForm.emisEntidadeId || undefined,
-        emisApiKey: emisForm.emisApiKey || undefined,
-        emisApiUrl: emisForm.emisApiUrl || undefined,
-        emisPrazoPagamento: emisForm.emisPrazoPagamento,
-        emisNotificarSMS: emisForm.emisNotificarSMS,
-      } as never);
-      alertSucesso('Guardado', 'Configuração de pagamentos online guardada.');
-      setEmisTestResult(null);
-    } catch { alertErro('Erro', 'Não foi possível guardar.'); }
-    finally { setEmisSaving(false); }
-  }
-
   async function testarLigacaoEmis() {
-    if (!emisForm.emisEntidadeId.trim()) {
+    if (!config.numeroEntidade?.trim()) {
       alertErro('Campo obrigatório', 'Preencha o Número de Entidade primeiro.');
       return;
     }
@@ -554,10 +503,10 @@ export default function AdminScreen() {
     setEmisTestResult(null);
     try {
       const result = await api.post<{ sucesso: boolean; mensagem: string }>('/api/emis/testar-ligacao', {
-        entidadeId: emisForm.emisEntidadeId,
-        apiKey: emisForm.emisApiKey,
-        apiUrl: emisForm.emisApiUrl,
-        ambiente: emisForm.emisAmbiente,
+        entidadeId: config.numeroEntidade,
+        apiKey: config.emisApiKey,
+        apiUrl: config.emisApiUrl,
+        ambiente: config.emisAmbiente || 'sandbox',
       });
       setEmisTestResult(result);
     } catch { setEmisTestResult({ sucesso: false, mensagem: 'Erro de rede ao testar a ligação.' }); }
@@ -738,7 +687,6 @@ export default function AdminScreen() {
     { key: 'usuarios', label: 'Utilizadores', icon: 'people' },
     { key: 'acessos', label: 'Acessos', icon: 'key' },
     { key: 'config', label: 'Configurações', icon: 'settings' },
-    { key: 'pagamentos-online', label: 'Pag. Online', icon: 'card' },
     { key: 'comunicacoes', label: 'Comunicações', icon: 'megaphone' },
     { key: 'seguranca', label: 'Segurança', icon: 'shield-checkmark' },
   ];
