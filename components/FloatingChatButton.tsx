@@ -294,6 +294,12 @@ export default function FloatingChatButton() {
                     onChangeText={setInputText}
                     multiline
                     maxLength={1000}
+                    onKeyPress={({ nativeEvent }: any) => {
+                      if (Platform.OS === 'web' && nativeEvent.key === 'Enter' && !nativeEvent.shiftKey) {
+                        nativeEvent.preventDefault?.();
+                        handleSend();
+                      }
+                    }}
                   />
                   <TouchableOpacity
                     style={[styles.sendBtn, (!inputText.trim() || sending) && { opacity: 0.4 }]}

@@ -40,9 +40,13 @@ interface ChatInternoCtx {
 const Ctx = createContext<ChatInternoCtx | null>(null);
 
 async function req<T>(path: string, opts?: RequestInit): Promise<T> {
+  const token = await getAuthToken();
   const res = await fetch(path, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    },
     ...opts,
   });
   const data = await res.json();
