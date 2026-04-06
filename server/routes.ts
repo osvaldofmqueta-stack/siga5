@@ -527,6 +527,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] licenca columns:', (migErr as Error).message);
   }
 
+  // ─── QUADRO DE HONRA: colunas melhorCurso, cursoNome, cursoId, foto ─────────
+  try {
+    await query(`ALTER TABLE public.quadro_honra ADD COLUMN IF NOT EXISTS "melhorCurso" boolean NOT NULL DEFAULT false`, []);
+    await query(`ALTER TABLE public.quadro_honra ADD COLUMN IF NOT EXISTS "cursoNome" text NOT NULL DEFAULT ''`, []);
+    await query(`ALTER TABLE public.quadro_honra ADD COLUMN IF NOT EXISTS "cursoId" varchar`, []);
+    await query(`ALTER TABLE public.quadro_honra ADD COLUMN IF NOT EXISTS foto text`, []);
+    console.log('[migration] quadro_honra melhorCurso + cursoNome + cursoId + foto ensured.');
+  } catch (migErr) {
+    console.warn('[migration] quadro_honra cols:', (migErr as Error).message);
+  }
+
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
@@ -7594,7 +7605,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { anoLetivo, trimestre, geradoPor } = b as Record<string, unknown>;
       if (!anoLetivo) return json(res, 400, { error: "anoLetivo é obrigatório" });
 
-      // Agregar médias por aluno (considerando apenas alunos activos com notas lançadas)
+      // Agregar médias por aluno (alunos activos com notas lançadas)
       let mediasQuery = `
         SELECT n."alunoId", n."turmaId", n."anoLetivo",
           AVG(n.nf) as "mediaGeral",
@@ -7604,18 +7615,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const params: unknown[] = [anoLetivo];
       if (trimestre) { params.push(trimestre); mediasQuery += ` AND n.trimestre=$${params.length}`; }
       mediasQuery += ` GROUP BY n."alunoId", n."turmaId", n."anoLetivo"
-        HAVING COUNT(DISTINCT n.disciplina) >= 1
-        ORDER BY AVG(n.nf) DESC`;
+        HAVING COUNT(DISTINCT n.disciplina) >= 1`;
 
       const medias = await query<JsonObject>(mediasQuery, params);
       if (!medias.length) return json(res, 200, { gerados: 0, msg: "Sem dados suficientes" });
 
-      // Calcular posição por turma
+      // Obter alunos com foto
+      const alunoRows = await query<JsonObject>(`SELECT id, nome, apelido, foto, "numeroMatricula" FROM public.alunos`);
+      const alunoMap: Record<string, JsonObject> = {};
+      for (const a of alunoRows) alunoMap[String(a.id)] = a;
+
+      // Obter turmas com cursoId e classe
+      const turmaRows = await query<JsonObject>(`SELECT id, nome, classe, "cursoId" FROM public.turmas`);
+      const turmaMap: Record<string, JsonObject> = {};
+      for (const t of turmaRows) turmaMap[String(t.id)] = t;
+
+      // Obter cursos
+      const cursoRows = await query<JsonObject>(`SELECT id, nome FROM public.cursos`);
+      const cursoMap: Record<string, string> = {};
+      for (const c of cursoRows) cursoMap[String(c.id)] = String(c.nome);
+
+      // Ordenar todos os alunos globalmente por média decrescente → posicaoGeral correcta
+      const allSorted = [...medias].sort((a, b) => Number(b.mediaGeral) - Number(a.mediaGeral));
+      const posicaoGeralMap: Record<string, number> = {};
+      allSorted.forEach((m, idx) => {
+        posicaoGeralMap[`${m.alunoId}_${m.turmaId}`] = idx + 1;
+      });
+
+      // Agrupar por turma e ordenar por média dentro de cada turma → posicaoClasse
       const porTurma: Record<string, JsonObject[]> = {};
       for (const m of medias) {
         const tid = String(m.turmaId);
         if (!porTurma[tid]) porTurma[tid] = [];
         porTurma[tid].push(m);
+      }
+      for (const tid in porTurma) {
+        porTurma[tid].sort((a, b) => Number(b.mediaGeral) - Number(a.mediaGeral));
+      }
+
+      // Melhor por curso: percorrer lista global e registar o 1º de cada curso
+      const melhorPorCurso: Record<string, string> = {};
+      for (const m of allSorted) {
+        const turma = turmaMap[String(m.turmaId)];
+        if (!turma?.cursoId) continue;
+        const cid = String(turma.cursoId);
+        if (!melhorPorCurso[cid]) {
+          melhorPorCurso[cid] = `${m.alunoId}_${m.turmaId}`;
+        }
       }
 
       // Limpar entradas anteriores do mesmo período
@@ -7624,45 +7670,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [anoLetivo, trimestre ? parseInt(String(trimestre)) : null]
       );
 
-      // Obter nomes de turmas
-      const turmaRows = await query<JsonObject>(`SELECT id, nome FROM public.turmas`);
-      const turmaNomeMap: Record<string, string> = {};
-      for (const t of turmaRows) turmaNomeMap[String(t.id)] = String(t.nome);
-
-      // Obter nomes de alunos
-      const alunoRows = await query<JsonObject>(`SELECT id, nome, apelido FROM public.alunos`);
-      const alunoNomeMap: Record<string, string> = {};
-      for (const a of alunoRows) alunoNomeMap[String(a.id)] = `${a.nome} ${a.apelido}`;
-
-      let posicaoGeral = 0;
       const insertedIds: string[] = [];
 
       for (const [turmaId, alunos] of Object.entries(porTurma)) {
-        // Ordenar por média (já estão ordenados, mas garantir por turma)
-        alunos.sort((a, b) => Number(b.mediaGeral) - Number(a.mediaGeral));
+        const turma = turmaMap[turmaId] || {};
+        const cursoId = turma.cursoId ? String(turma.cursoId) : null;
+        const cursoNome = cursoId ? (cursoMap[cursoId] || '') : '';
 
         for (let i = 0; i < alunos.length; i++) {
-          posicaoGeral++;
           const m = alunos[i];
           const media = Number(m.mediaGeral);
+          const chave = `${m.alunoId}_${turmaId}`;
+          const pgeral = posicaoGeralMap[chave] ?? (i + 1);
+          const aluno = alunoMap[String(m.alunoId)] || {};
 
           let mencao = '';
           if (media >= 18) mencao = 'excelencia';
           else if (media >= 15) mencao = 'louvor';
           else if (media >= 14) mencao = 'honra';
 
-          const isMelhorEscola = posicaoGeral === 1;
+          const isMelhorEscola = pgeral === 1;
+          const isMelhorCurso = cursoId ? melhorPorCurso[cursoId] === chave : false;
+          const alunoNome = `${aluno.nome || ''} ${aluno.apelido || ''}`.trim();
 
           const rows = await query<JsonObject>(
             `INSERT INTO public.quadro_honra
              ("alunoId","alunoNome","turmaId","turmaNome","anoLetivo",trimestre,"mediaGeral",
-              "posicaoClasse","posicaoGeral","melhorEscola",mencionado,publicado,"geradoPor")
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,$12) RETURNING id`,
-            [m.alunoId, alunoNomeMap[String(m.alunoId)] || '', turmaId,
-             turmaNomeMap[turmaId] || '', anoLetivo,
+              "posicaoClasse","posicaoGeral","melhorEscola","melhorCurso","cursoNome","cursoId",foto,mencionado,publicado,"geradoPor")
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,true,$16) RETURNING id`,
+            [m.alunoId, alunoNome, turmaId,
+             String(turma.nome || ''), anoLetivo,
              trimestre ? parseInt(String(trimestre)) : null,
-             Math.round(media * 100) / 100, i + 1, posicaoGeral,
-             isMelhorEscola, mencao, geradoPor || 'Sistema']
+             Math.round(media * 100) / 100, i + 1, pgeral,
+             isMelhorEscola, isMelhorCurso, cursoNome, cursoId,
+             aluno.foto || null, mencao, geradoPor || 'Sistema']
           );
           insertedIds.push(String(rows[0].id));
         }

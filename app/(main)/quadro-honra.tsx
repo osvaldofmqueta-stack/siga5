@@ -8,7 +8,8 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
-  Platform
+  Platform,
+  Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,12 +33,15 @@ interface QuadroEntry {
   turmaId: string;
   turmaNome: string;
   classe?: string;
+  cursoId?: string;
+  cursoNome?: string;
   anoLetivo: string;
   trimestre?: number;
   mediaGeral: number;
   posicaoClasse: number;
   posicaoGeral?: number;
   melhorEscola: boolean;
+  melhorCurso?: boolean;
   mencionado: string;
   publicado: boolean;
   geradoPor: string;
@@ -87,7 +91,7 @@ export default function QuadroHonraScreen() {
 
   const [filtroTrimestre, setFiltroTrimestre] = useState<number | null>(null);
   const [filtroTurma, setFiltroTurma] = useState('');
-  const [viewMode, setViewMode] = useState<'geral' | 'classe'>('geral');
+  const [viewMode, setViewMode] = useState<'geral' | 'classe' | 'curso'>('geral');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
   const anoLetivo = anoAtivo?.ano || '';
@@ -168,10 +172,27 @@ export default function QuadroHonraScreen() {
       if (!map[key]) map[key] = [];
       map[key].push(e);
     }
-    // Sort each class by posicaoClasse
     for (const k in map) map[k].sort((a, b) => a.posicaoClasse - b.posicaoClasse);
     return map;
   }, [entries]);
+
+  const porCurso = useMemo(() => {
+    const map: Record<string, QuadroEntry[]> = {};
+    for (const e of entries) {
+      if (!e.cursoNome) continue;
+      const key = e.cursoNome;
+      if (!map[key]) map[key] = [];
+      map[key].push(e);
+    }
+    for (const k in map) map[k].sort((a, b) => (a.posicaoGeral ?? 999) - (b.posicaoGeral ?? 999));
+    return map;
+  }, [entries]);
+
+  const melhorDeCadaClasse = useMemo(() =>
+    entries.filter(e => e.posicaoClasse === 1).sort((a, b) => (a.posicaoGeral ?? 999) - (b.posicaoGeral ?? 999)),
+  [entries]);
+
+  const temCursos = useMemo(() => Object.keys(porCurso).length > 0, [porCurso]);
 
   const entriesGeralSorted = useMemo(() =>
     [...entries].sort((a, b) => (a.posicaoGeral ?? 999) - (b.posicaoGeral ?? 999)),
@@ -211,6 +232,13 @@ export default function QuadroHonraScreen() {
             <MaterialCommunityIcons name="google-classroom" size={14} color={viewMode === 'classe' ? Colors.gold : Colors.textSecondary} />
             <Text style={[styles.chipText, viewMode === 'classe' && styles.chipTextActive]}>Por Classe</Text>
           </TouchableOpacity>
+          {temCursos && (
+            <TouchableOpacity style={[styles.chip, viewMode === 'curso' && styles.chipActive]}
+              onPress={() => setViewMode('curso')}>
+              <MaterialCommunityIcons name="school" size={14} color={viewMode === 'curso' ? Colors.gold : Colors.textSecondary} />
+              <Text style={[styles.chipText, viewMode === 'curso' && styles.chipTextActive]}>Por Curso</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </View>
 
@@ -259,15 +287,17 @@ export default function QuadroHonraScreen() {
           {/* Summary stats */}
           <View style={styles.statsRow}>
             <StatBox label="Alunos" value={entries.length} color={Colors.info} />
-            <StatBox label="Turmas" value={Object.keys(porClasse).length} color={Colors.gold} />
+            <StatBox label="Classes" value={Object.keys(porClasse).length} color={Colors.gold} />
             <StatBox label="Excelência" value={entries.filter(e => e.mencionado === 'excelencia').length} color="#FFD700" />
             <StatBox label="Louvor" value={entries.filter(e => e.mencionado === 'louvor').length} color={Colors.gold} />
           </View>
 
           {viewMode === 'geral' ? (
-            <GeralView entries={entriesGeralSorted} />
-          ) : (
+            <GeralView entries={entriesGeralSorted} melhorDeCadaClasse={melhorDeCadaClasse} />
+          ) : viewMode === 'classe' ? (
             <ClasseView porClasse={porClasse} />
+          ) : (
+            <CursoView porCurso={porCurso} />
           )}
         </ScrollView>
       )}
@@ -301,17 +331,44 @@ export default function QuadroHonraScreen() {
   );
 }
 
+// ─── Avatar helper ────────────────────────────────────────────────────────────
+
+function AlunoAvatar({ foto, nome, size = 48, borderColor = Colors.border }: {
+  foto?: string; nome: string; size?: number; borderColor?: string;
+}) {
+  const initials = nome.split(' ').slice(0, 2).map(w => w[0] || '').join('').toUpperCase();
+  if (foto) {
+    return (
+      <Image
+        source={{ uri: foto }}
+        style={[styles.avatarImg, { width: size, height: size, borderRadius: size / 2, borderColor }]}
+      />
+    );
+  }
+  return (
+    <View style={[styles.avatarFallback, { width: size, height: size, borderRadius: size / 2, borderColor }]}>
+      <Text style={[styles.avatarInitials, { fontSize: size * 0.35 }]}>{initials}</Text>
+    </View>
+  );
+}
+
 // ─── Melhor da Escola Card ────────────────────────────────────────────────────
 
 function MelhorEscolaCard({ entry }: { entry: QuadroEntry }) {
+  const nome = entry.alunoNomeCompleto || entry.alunoNome;
   return (
     <View style={styles.bestCard}>
       <View style={styles.bestCardBg} />
       <View style={styles.bestCardContent}>
-        <MaterialCommunityIcons name="trophy" size={36} color="#FFD700" />
+        <View style={styles.bestCardAvatarWrap}>
+          <AlunoAvatar foto={entry.foto} nome={nome} size={72} borderColor="#FFD700" />
+          <View style={styles.bestCardTrophyBadge}>
+            <Text style={{ fontSize: 18 }}>🏆</Text>
+          </View>
+        </View>
         <View style={styles.bestCardText}>
-          <Text style={styles.bestCardLabel}>🏆 Melhor Aluno da Escola</Text>
-          <Text style={styles.bestCardName}>{entry.alunoNomeCompleto || entry.alunoNome}</Text>
+          <Text style={styles.bestCardLabel}>Melhor Aluno da Escola</Text>
+          <Text style={styles.bestCardName}>{nome}</Text>
           <Text style={styles.bestCardSub}>{entry.turmaNome} · {entry.classe}</Text>
           <Text style={styles.bestCardMedia}>
             Média: <Text style={{ color: '#FFD700', fontSize: 22, fontWeight: '900' }}>{entry.mediaGeral.toFixed(1)}</Text>
@@ -332,11 +389,26 @@ function MelhorEscolaCard({ entry }: { entry: QuadroEntry }) {
 
 // ─── Geral View ───────────────────────────────────────────────────────────────
 
-function GeralView({ entries }: { entries: QuadroEntry[] }) {
+function GeralView({ entries, melhorDeCadaClasse }: { entries: QuadroEntry[]; melhorDeCadaClasse: QuadroEntry[] }) {
   return (
     <View style={styles.section}>
+      {/* Melhor de cada classe */}
+      {melhorDeCadaClasse.length > 0 && (
+        <View style={styles.classeSection}>
+          <View style={styles.classeSectionHeader}>
+            <MaterialCommunityIcons name="star-circle" size={18} color={Colors.gold} />
+            <Text style={styles.classeSectionTitle}>Melhores por Classe</Text>
+            <View style={styles.classeBadge}>
+              <Text style={styles.classeBadgeText}>{melhorDeCadaClasse.length} classes</Text>
+            </View>
+          </View>
+          {melhorDeCadaClasse.map(entry => (
+            <EntryCard key={entry.id + '_classe'} entry={entry} showGeral={true} destacado />
+          ))}
+        </View>
+      )}
       <Text style={styles.sectionTitle}>Classificação Geral</Text>
-      {entries.map((entry, idx) => (
+      {entries.map(entry => (
         <EntryCard key={entry.id} entry={entry} showGeral />
       ))}
     </View>
@@ -359,7 +431,7 @@ function ClasseView({ porClasse }: { porClasse: Record<string, QuadroEntry[]> })
             </View>
           </View>
           {porClasse[classe].map(entry => (
-            <EntryCard key={entry.id} entry={entry} showGeral={false} />
+            <EntryCard key={entry.id} entry={entry} showGeral={false} destacado={entry.posicaoClasse === 1} />
           ))}
         </View>
       ))}
@@ -367,16 +439,68 @@ function ClasseView({ porClasse }: { porClasse: Record<string, QuadroEntry[]> })
   );
 }
 
+// ─── Por Curso View ───────────────────────────────────────────────────────────
+
+function CursoView({ porCurso }: { porCurso: Record<string, QuadroEntry[]> }) {
+  const cursoNames = Object.keys(porCurso).sort();
+  return (
+    <View style={styles.section}>
+      {cursoNames.map(curso => {
+        const melhor = porCurso[curso][0];
+        return (
+          <View key={curso} style={styles.classeSection}>
+            <View style={styles.classeSectionHeader}>
+              <MaterialCommunityIcons name="school" size={18} color={Colors.gold} />
+              <Text style={styles.classeSectionTitle}>{curso}</Text>
+              <View style={styles.classeBadge}>
+                <Text style={styles.classeBadgeText}>{porCurso[curso].length} alunos</Text>
+              </View>
+            </View>
+            {/* Melhor do curso em destaque */}
+            {melhor && (
+              <View style={styles.melhorCursoCard}>
+                <View style={styles.melhorCursoLeft}>
+                  <AlunoAvatar foto={melhor.foto} nome={melhor.alunoNomeCompleto || melhor.alunoNome} size={52} borderColor={Colors.gold} />
+                  <View style={styles.melhorCursoBadge}>
+                    <Text style={{ fontSize: 12 }}>🥇</Text>
+                  </View>
+                </View>
+                <View style={styles.melhorCursoInfo}>
+                  <Text style={styles.melhorCursoLabel}>Melhor do Curso</Text>
+                  <Text style={styles.melhorCursoNome}>{melhor.alunoNomeCompleto || melhor.alunoNome}</Text>
+                  <Text style={styles.melhorCursoSub}>{melhor.turmaNome}</Text>
+                </View>
+                <View style={styles.mediaBox}>
+                  <Text style={[styles.mediaValue, { color: medaColor(melhor.mediaGeral) }]}>{melhor.mediaGeral.toFixed(1)}</Text>
+                  <Text style={styles.mediaLabel}>/ 20</Text>
+                </View>
+              </View>
+            )}
+            {porCurso[curso].slice(1).map(entry => (
+              <EntryCard key={entry.id} entry={entry} showGeral={true} />
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // ─── Entry Card ───────────────────────────────────────────────────────────────
 
-function EntryCard({ entry, showGeral }: { entry: QuadroEntry; showGeral: boolean }) {
+function EntryCard({ entry, showGeral, destacado }: { entry: QuadroEntry; showGeral: boolean; destacado?: boolean }) {
   const mencao = MENCAO_CONFIG[entry.mencionado] || MENCAO_CONFIG[''];
   const pos = showGeral ? entry.posicaoGeral ?? entry.posicaoClasse : entry.posicaoClasse;
   const isTop3 = pos <= 3;
   const isFirst = pos === 1;
+  const nome = entry.alunoNomeCompleto || entry.alunoNome;
 
   return (
-    <View style={[styles.entryCard, isFirst && !showGeral && styles.entryCardFirst, entry.melhorEscola && showGeral && styles.entryCardBest]}>
+    <View style={[
+      styles.entryCard,
+      destacado && styles.entryCardFirst,
+      entry.melhorEscola && showGeral && styles.entryCardBest,
+    ]}>
       {/* Position */}
       <View style={[styles.posBox, isFirst && { backgroundColor: '#FFD70030' }]}>
         <Text style={[styles.posText, { color: isTop3 ? medaColor(entry.mediaGeral) : Colors.textSecondary }]}>
@@ -384,11 +508,15 @@ function EntryCard({ entry, showGeral }: { entry: QuadroEntry; showGeral: boolea
         </Text>
       </View>
 
+      {/* Avatar */}
+      <AlunoAvatar foto={entry.foto} nome={nome} size={38} borderColor={destacado ? Colors.gold : Colors.border} />
+
       {/* Info */}
       <View style={styles.entryInfo}>
         <Text style={[styles.entryName, entry.melhorEscola && showGeral && { color: '#FFD700' }]}>
-          {entry.alunoNomeCompleto || entry.alunoNome}
+          {nome}
           {entry.melhorEscola && showGeral ? ' 🏆' : ''}
+          {entry.melhorCurso && showGeral && !entry.melhorEscola ? ' 🎓' : ''}
         </Text>
         <Text style={styles.entrySub}>
           {showGeral ? entry.turmaNome : `Nº ${entry.numeroMatricula || '—'}`}
@@ -449,10 +577,17 @@ const styles = StyleSheet.create({
 
   content: { flex: 1 },
 
+  // Avatar
+  avatarImg: { borderWidth: 2 },
+  avatarFallback: { borderWidth: 2, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
+  avatarInitials: { color: Colors.gold, fontWeight: '800' },
+
   // Best of school card
   bestCard: { margin: 16, borderRadius: 16, overflow: 'hidden', backgroundColor: Colors.backgroundCard, borderWidth: 1.5, borderColor: '#FFD70060' },
   bestCardBg: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#FFD70008' },
   bestCardContent: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 14 },
+  bestCardAvatarWrap: { position: 'relative' },
+  bestCardTrophyBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 2 },
   bestCardText: { flex: 1, gap: 3 },
   bestCardLabel: { fontSize: 12, color: Colors.textSecondary, fontWeight: '600', letterSpacing: 0.5 },
   bestCardName: { fontSize: 18, fontWeight: '900', color: '#FFD700' },
@@ -460,6 +595,15 @@ const styles = StyleSheet.create({
   bestCardMedia: { fontSize: 14, color: Colors.text, marginTop: 4 },
   mencaoBadge: { margin: 12, marginTop: 0, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: 'flex-start' },
   mencaoBadgeText: { fontSize: 13, fontWeight: '700' },
+
+  // Melhor curso card
+  melhorCursoCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.primary, borderRadius: 12, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: Colors.gold + '40', gap: 10 },
+  melhorCursoLeft: { position: 'relative' },
+  melhorCursoBadge: { position: 'absolute', bottom: -4, right: -4, backgroundColor: Colors.backgroundCard, borderRadius: 10, padding: 2 },
+  melhorCursoInfo: { flex: 1, gap: 2 },
+  melhorCursoLabel: { fontSize: 10, color: Colors.gold, fontWeight: '700', letterSpacing: 0.5 },
+  melhorCursoNome: { fontSize: 14, fontWeight: '800', color: Colors.text },
+  melhorCursoSub: { fontSize: 12, color: Colors.textSecondary },
 
   // Stats row
   statsRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8 },
