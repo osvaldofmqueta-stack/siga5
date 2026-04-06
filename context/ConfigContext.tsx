@@ -76,6 +76,15 @@ export interface ConfigGeral {
   avaliacaoPeriodoInicio?: string;
   avaliacaoPeriodoFim?: string;
   avaliacaoPeriodoLabel?: string;
+  // Pagamentos Online — EMIS/Multicaixa
+  emisHabilitado?: boolean;
+  emisAmbiente?: 'sandbox' | 'producao';
+  emisProvedor?: string;
+  emisEntidadeId?: string;
+  emisApiKey?: string;
+  emisApiUrl?: string;
+  emisPrazoPagamento?: number;
+  emisNotificarSMS?: boolean;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -197,6 +206,14 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           avaliacaoPeriodoInicio: (raw.avaliacaoPeriodoInicio as string) || undefined,
           avaliacaoPeriodoFim: (raw.avaliacaoPeriodoFim as string) || undefined,
           avaliacaoPeriodoLabel: (raw.avaliacaoPeriodoLabel as string) || undefined,
+          emisHabilitado: raw.emisHabilitado !== undefined ? Boolean(raw.emisHabilitado) : false,
+          emisAmbiente: ((raw.emisAmbiente as string) === 'producao' ? 'producao' : 'sandbox') as 'sandbox' | 'producao',
+          emisProvedor: (raw.emisProvedor as string) || undefined,
+          emisEntidadeId: (raw.emisEntidadeId as string) || undefined,
+          emisApiKey: (raw.emisApiKey as string) || undefined,
+          emisApiUrl: (raw.emisApiUrl as string) || undefined,
+          emisPrazoPagamento: (raw.emisPrazoPagamento as number) ?? 24,
+          emisNotificarSMS: raw.emisNotificarSMS !== undefined ? Boolean(raw.emisNotificarSMS) : true,
         };
         setConfig(parsed);
       })

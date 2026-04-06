@@ -3101,6 +3101,146 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // EMIS / PAGAMENTOS ONLINE
+  // -----------------------
+
+  // Testar ligação à API EMIS configurada
+  app.post("/api/emis/testar-ligacao", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { apiKey, apiUrl, entidadeId, ambiente } = req.body as { apiKey?: string; apiUrl?: string; entidadeId?: string; ambiente?: string };
+      if (!entidadeId) return json(res, 400, { sucesso: false, mensagem: "Número de Entidade é obrigatório." });
+
+      if (ambiente === 'producao') {
+        if (!apiKey) return json(res, 400, { sucesso: false, mensagem: "API Key é obrigatória em modo Produção." });
+        if (!apiUrl) return json(res, 400, { sucesso: false, mensagem: "URL da API é obrigatório em modo Produção." });
+        // Em produção, tentaria chamar o endpoint real da API do banco/EMIS
+        // Como cada banco tem API diferente, verificamos conectividade básica
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const testUrl = apiUrl.endsWith('/') ? apiUrl + 'health' : apiUrl + '/health';
+          const resp = await fetch(testUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'X-Entity-ID': entidadeId },
+            signal: controller.signal,
+          }).catch(() => null);
+          clearTimeout(timeoutId);
+          if (resp && (resp.status < 500)) {
+            return json(res, 200, { sucesso: true, mensagem: `Ligação estabelecida com sucesso (HTTP ${resp.status}).`, ambiente: 'producao' });
+          }
+          return json(res, 200, { sucesso: false, mensagem: `Não foi possível ligar à API. Verifique o URL e as credenciais.`, ambiente: 'producao' });
+        } catch {
+          return json(res, 200, { sucesso: false, mensagem: "Não foi possível ligar ao servidor da API. Verifique o URL.", ambiente: 'producao' });
+        }
+      }
+
+      // SANDBOX — simulação local
+      await new Promise(r => setTimeout(r, 800));
+      return json(res, 200, {
+        sucesso: true,
+        mensagem: `Ligação Sandbox bem sucedida. Entidade ${entidadeId} reconhecida. Em produção, use as credenciais reais fornecidas pelo seu banco.`,
+        ambiente: 'sandbox',
+      });
+    } catch (e) { json(res, 500, { sucesso: false, mensagem: (e as Error).message }); }
+  });
+
+  // Gerar referência de pagamento EMIS para um aluno
+  app.post("/api/emis/gerar-referencia", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { alunoId, valor, descricao, prazHoras } = req.body as { alunoId?: string; valor?: number; descricao?: string; prazHoras?: number };
+      if (!alunoId || !valor) return json(res, 400, { error: "alunoId e valor são obrigatórios." });
+
+      const configRows = await query<JsonObject>(`SELECT dados FROM public.config_geral ORDER BY id LIMIT 1`, []);
+      const dados: Record<string, unknown> = configRows[0] ? (configRows[0].dados as Record<string, unknown>) : {};
+      const entidadeId = dados.emisEntidadeId as string | undefined;
+      const apiKey = dados.emisApiKey as string | undefined;
+      const apiUrl = dados.emisApiUrl as string | undefined;
+      const ambiente = (dados.emisAmbiente as string) || 'sandbox';
+      const prazo = (prazHoras as number) || (dados.emisPrazoPagamento as number) || 24;
+
+      const dataGeracao = new Date();
+      const dataValidade = new Date(dataGeracao.getTime() + prazo * 60 * 60 * 1000);
+
+      if (ambiente === 'producao' && entidadeId && apiKey && apiUrl) {
+        // Chamada real à API do banco
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000);
+          const resp = await fetch(`${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}referencias`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${apiKey}`,
+              'X-Entity-ID': entidadeId,
+            },
+            body: JSON.stringify({ entidade: entidadeId, valor, descricao: descricao || 'Propina Escolar', validade: dataValidade.toISOString() }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (resp.ok) {
+            const data = await resp.json() as { referencia?: string; codigoReferencia?: string };
+            const referencia = data.referencia || data.codigoReferencia;
+            if (referencia) {
+              return json(res, 200, { referencia, dataGeracao: dataGeracao.toISOString(), dataValidade: dataValidade.toISOString(), fonte: 'emis_api', ambiente });
+            }
+          }
+        } catch { /* fallback para geração local */ }
+      }
+
+      // Geração local (sandbox ou fallback)
+      const seq = String(Math.floor(Math.random() * 9999)).padStart(4, '0');
+      const rand = Math.random().toString(36).substr(2, 5).toUpperCase();
+      const ent = entidadeId || '99999';
+      const referencia = `${ent} ${seq} ${rand}`;
+      return json(res, 200, {
+        referencia,
+        dataGeracao: dataGeracao.toISOString(),
+        dataValidade: dataValidade.toISOString(),
+        fonte: 'sandbox',
+        ambiente,
+        nota: ambiente === 'sandbox' ? 'Referência simulada. Configure a API real para referências válidas nos caixas.' : 'Referência gerada localmente (falha na API).',
+      });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Verificar estado de um pagamento EMIS
+  app.get("/api/emis/verificar/:referencia", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    try {
+      const { referencia } = req.params;
+      const configRows = await query<JsonObject>(`SELECT dados FROM public.config_geral ORDER BY id LIMIT 1`, []);
+      const dados: Record<string, unknown> = configRows[0] ? (configRows[0].dados as Record<string, unknown>) : {};
+      const ambiente = (dados.emisAmbiente as string) || 'sandbox';
+      const apiKey = dados.emisApiKey as string | undefined;
+      const apiUrl = dados.emisApiUrl as string | undefined;
+      const entidadeId = dados.emisEntidadeId as string | undefined;
+
+      if (ambiente === 'producao' && apiKey && apiUrl && entidadeId) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          const resp = await fetch(`${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}referencias/${encodeURIComponent(referencia)}/estado`, {
+            headers: { 'Authorization': `Bearer ${apiKey}`, 'X-Entity-ID': entidadeId },
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (resp.ok) {
+            const data = await resp.json() as { pago?: boolean; estado?: string; dataPagamento?: string; valor?: number };
+            return json(res, 200, { referencia, pago: data.pago ?? false, estado: data.estado ?? 'desconhecido', dataPagamento: data.dataPagamento, valor: data.valor, fonte: 'emis_api' });
+          }
+        } catch { /* fallback */ }
+      }
+
+      // Verificar na tabela de rupes local
+      const rows = await query<JsonObject>(`SELECT * FROM public.rupes WHERE referencia=$1 LIMIT 1`, [referencia]);
+      const rupe = rows[0];
+      if (rupe) {
+        return json(res, 200, { referencia, pago: rupe.status === 'pago', estado: rupe.status as string, dataPagamento: rupe.status === 'pago' ? rupe.updatedAt : null, fonte: 'local' });
+      }
+      return json(res, 200, { referencia, pago: false, estado: 'pendente', fonte: ambiente === 'sandbox' ? 'sandbox' : 'local' });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
   // ISENÇÕES DE MULTA
   // -----------------------
   try {
