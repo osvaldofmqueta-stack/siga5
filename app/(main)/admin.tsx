@@ -384,6 +384,7 @@ export default function AdminScreen() {
 
   async function salvarCurso() {
     if (!cursoForm.nome.trim()) { webAlert('Campo obrigatório', 'Introduza o nome do curso.'); return; }
+    if (!cursoForm.areaFormacao.trim()) { webAlert('Campo obrigatório', 'Introduza a área de formação do curso.'); return; }
     setSavingCurso(true);
     try {
       const method = editingCurso ? 'PUT' : 'POST';
@@ -2447,6 +2448,38 @@ export default function AdminScreen() {
                         ]}>{a}</Text>
                       </TouchableOpacity>
                     ))}
+                    {(() => {
+                      const isCustom = !!cursoForm.areaFormacao && !areasFormacao.includes(cursoForm.areaFormacao);
+                      return (
+                        <>
+                          <TouchableOpacity
+                            onPress={() => { if (!isCustom) setCursoForm(f => ({ ...f, areaFormacao: '' })); }}
+                            style={[
+                              { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', flexDirection: 'row', alignItems: 'center', gap: 10 },
+                              (isCustom || cursoForm.areaFormacao === '') && { backgroundColor: 'rgba(167,139,250,0.15)', borderColor: '#A78BFA' },
+                            ]}
+                          >
+                            <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: (isCustom || cursoForm.areaFormacao === '') ? '#A78BFA' : 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                              {(isCustom || cursoForm.areaFormacao === '') && <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: '#A78BFA' }} />}
+                            </View>
+                            <Text style={[
+                              { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+                              (isCustom || cursoForm.areaFormacao === '') && { color: '#A78BFA', fontFamily: 'Inter_600SemiBold' },
+                            ]}>Outra área de formação...</Text>
+                          </TouchableOpacity>
+                          {(isCustom || cursoForm.areaFormacao === '') && (
+                            <TextInput
+                              style={[styles.input, { marginTop: 2 }]}
+                              value={cursoForm.areaFormacao}
+                              onChangeText={v => setCursoForm(f => ({ ...f, areaFormacao: v }))}
+                              placeholder="Ex: Ciências da Saúde, Turismo, Agropecuária..."
+                              placeholderTextColor={Colors.textMuted}
+                              autoFocus
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
