@@ -2,6 +2,7 @@ import React, {
   createContext, useContext, useState, useCallback, useEffect, ReactNode,
 } from 'react';
 import { useAuth } from './AuthContext';
+import { getAuthToken } from './AuthContext';
 
 export interface ChatMsg {
   id: string;
