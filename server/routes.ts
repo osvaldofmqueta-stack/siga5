@@ -3240,6 +3240,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // Webhook — Confirmação automática de pagamento (chamado pelo banco/EMIS)
+  // Quando o estudante paga no ATM ou Multicaixa Express, o banco chama este endpoint.
+  // O sistema actualiza o RUPE para 'pago' e cria um registo em pagamentos.
+  app.post("/api/emis/webhook", async (req: Request, res: Response) => {
+    try {
+      const body = req.body as Record<string, unknown>;
+      // Campos aceites por diferentes bancos (BFA, BAI, etc.)
+      const referencia =
+        (body.referencia as string) ||
+        (body.reference as string) ||
+        (body.ref as string) ||
+        (body.transactionRef as string) ||
+        '';
+      const valor =
+        parseFloat((body.valor ?? body.amount ?? body.montante ?? 0) as string) || 0;
+      const dataPagamento =
+        (body.dataPagamento as string) ||
+        (body.paymentDate as string) ||
+        (body.transactionDate as string) ||
+        new Date().toISOString();
+
+      if (!referencia) {
+        return json(res, 400, { error: 'Referência não fornecida.' });
+      }
+
+      // Procurar o RUPE pela referência
+      const rupeRows = await query<JsonObject>(
+        `SELECT * FROM public.rupes WHERE referencia=$1 LIMIT 1`,
+        [referencia]
+      );
+      if (!rupeRows || rupeRows.length === 0) {
+        // Retorna 200 para o banco não repetir a notificação
+        return json(res, 200, { recebido: true, aviso: 'Referência não encontrada no sistema.' });
+      }
+      const rupe = rupeRows[0] as Record<string, unknown>;
+
+      // Já foi marcado como pago — idempotente
+      if (rupe.status === 'pago') {
+        return json(res, 200, { recebido: true, aviso: 'Já marcado como pago.' });
+      }
+
+      // Actualizar RUPE para 'pago'
+      await query(
+        `UPDATE public.rupes SET status='pago', "updatedAt"=NOW() WHERE id=$1`,
+        [rupe.id]
+      );
+
+      // Criar registo de pagamento na tabela pagamentos
+      const alunoId = rupe.alunoId as string;
+      const taxaId = rupe.taxaId as string | null;
+      const valorPago = valor > 0 ? valor : (rupe.valor as number) || 0;
+      const anoAtual = new Date().getFullYear();
+
+      await query(
+        `INSERT INTO public.pagamentos
+          (id, "alunoId", "taxaId", valor, data, ano, status, "metodoPagamento", referencia, observacao)
+         VALUES
+          (gen_random_uuid(), $1, $2, $3, $4, $5, 'pago', 'referencia_bancaria', $6, $7)`,
+        [
+          alunoId,
+          taxaId || null,
+          valorPago,
+          dataPagamento,
+          anoAtual,
+          referencia,
+          'Pagamento confirmado automaticamente via ATM/Multicaixa (webhook EMIS)',
+        ]
+      );
+
+      return json(res, 200, { recebido: true, mensagem: 'Pagamento confirmado e registado com sucesso.' });
+    } catch (e) {
+      // Sempre retorna 200 para evitar reenvios do banco
+      console.error('[EMIS Webhook] Erro:', e);
+      return json(res, 200, { recebido: true, erro: (e as Error).message });
+    }
+  });
+
   // -----------------------
   // ISENÇÕES DE MULTA
   // -----------------------

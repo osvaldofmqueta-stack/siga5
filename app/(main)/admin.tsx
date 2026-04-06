@@ -1960,101 +1960,311 @@ export default function AdminScreen() {
               </View>
             </View>
 
-            {/* Pagamentos Online */}
+            {/* NOVA SECÇÃO — Pagamentos Online / EMIS */}
+            <View style={[styles.card, { borderWidth: 2, borderColor: config.emisHabilitado ? '#10B981' + '60' : Colors.textMuted + '30' }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
+                <LinearGradient colors={['#10B981', '#059669']} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="card" size={24} color="#fff" />
+                </LinearGradient>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Pagamentos Online (EMIS / Multicaixa)</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2, lineHeight: 18 }}>
+                    O estudante recebe uma referência bancária (RUPE), paga em qualquer ATM ou Multicaixa Express e o sistema marca automaticamente como Pago.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Toggle Activar */}
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.emisHabilitado ? '#10B981' + '22' : Colors.danger + '22' }]}>
+                    <Ionicons name={config.emisHabilitado ? 'checkmark-circle' : 'close-circle'} size={18} color={config.emisHabilitado ? '#10B981' : Colors.danger} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Pagamentos Online</Text>
+                    <Text style={[styles.configToggleDesc, { color: config.emisHabilitado ? '#10B981' : Colors.danger }]}>
+                      {config.emisHabilitado ? 'ACTIVO — Referências geradas automaticamente via API' : 'INACTIVO — Modo manual (referências locais)'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.emisHabilitado}
+                  onValueChange={v => updateConfig({ emisHabilitado: v } as never)}
+                  trackColor={{ false: Colors.danger + '88', true: '#10B981' + '88' }}
+                  thumbColor={config.emisHabilitado ? '#10B981' : Colors.danger}
+                />
+              </View>
+            </View>
+
+            {/* Info: Como obter credenciais */}
+            <View style={[styles.card, { backgroundColor: Colors.info + '0D', borderColor: Colors.info + '30', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+                <Ionicons name="information-circle" size={20} color={Colors.info} style={{ marginTop: 1 }} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.info, marginBottom: 6 }}>Como obter as credenciais?</Text>
+                  {[
+                    '1. Dirija-se ao seu banco parceiro (BFA, BAI, BPC, BIC, etc.) ou à AGT.',
+                    '2. Solicite a adesão ao serviço de cobrança por referência bancária / EMIS.',
+                    '3. Receberá um Número de Entidade e credenciais de API (API Key + URL).',
+                    '4. Preencha os campos abaixo, teste a ligação e active em Produção.',
+                  ].map((t, i) => (
+                    <Text key={i} style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20 }}>{t}</Text>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Ambiente */}
             <View style={styles.card}>
-              <SectionHeader title="Pagamentos Online" icon="card" color={Colors.success} />
-              <Text style={styles.configSectionDesc}>
-                Configure os dados bancários e o número Multicaixa Express da escola. Os encarregados poderão gerar referências e pagar propinas directamente pelo portal, sem se deslocarem à escola.
+              <SectionHeader title="Ambiente" icon="globe-outline" color="#10B981" />
+              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>
+                Use Sandbox para testes. Mude para Produção apenas quando tiver as credenciais reais.
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                {(['sandbox', 'producao'] as const).map(amb => (
+                  <TouchableOpacity
+                    key={amb}
+                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, borderWidth: 2, borderColor: (config.emisAmbiente || 'sandbox') === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.surface, backgroundColor: (config.emisAmbiente || 'sandbox') === amb ? (amb === 'sandbox' ? Colors.warning + '15' : '#10B981' + '15') : Colors.surface }}
+                    onPress={() => updateConfig({ emisAmbiente: amb } as never)}
+                  >
+                    <Ionicons name={amb === 'sandbox' ? 'construct-outline' : 'shield-checkmark'} size={16} color={(config.emisAmbiente || 'sandbox') === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.textMuted} />
+                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 13, color: (config.emisAmbiente || 'sandbox') === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.textMuted }}>
+                      {amb === 'sandbox' ? 'Sandbox (Teste)' : 'Produção'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {config.emisAmbiente === 'producao' && (
+                <View style={{ marginTop: 10, flexDirection: 'row', gap: 8, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12, alignItems: 'flex-start' }}>
+                  <Ionicons name="warning" size={14} color={Colors.warning} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 16 }}>
+                    Modo Produção activo. As referências geradas serão cobradas em ATM e Multicaixa Express reais.
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Banco / Provedor */}
+            <View style={styles.card}>
+              <SectionHeader title="Banco / Provedor" icon="business" color="#10B981" />
+              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Banco com que a escola tem contrato para cobrança por referência.</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                {['BFA', 'BAI', 'BPC', 'BIC', 'ATL', 'EMIS', 'BCI', 'Outro'].map(p => (
+                  <TouchableOpacity
+                    key={p}
+                    style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: config.emisProvedor === p ? '#10B981' : Colors.surface, backgroundColor: config.emisProvedor === p ? '#10B981' + '20' : Colors.surface }}
+                    onPress={() => updateConfig({ emisProvedor: p, bancoTransferencia: p } as never)}
+                  >
+                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: config.emisProvedor === p ? '#10B981' : Colors.textMuted }}>{p}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.configFieldLabel}>Nome completo do banco (para recibos)</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6 }]}
+                value={config.bancoTransferencia || ''}
+                onChangeText={v => updateConfig({ bancoTransferencia: v })}
+                placeholder="Ex: Banco de Fomento Angola (BFA)"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            {/* Credenciais de API */}
+            <View style={styles.card}>
+              <SectionHeader title="Credenciais de API" icon="key" color={Colors.gold} />
+              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Dados fornecidos pelo banco após adesão ao serviço de cobrança.</Text>
+
+              <Text style={styles.configFieldLabel}>Nome do Beneficiário *</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6, marginBottom: 12 }]}
+                value={config.nomeBeneficiario || ''}
+                onChangeText={v => updateConfig({ nomeBeneficiario: v })}
+                placeholder="Ex: Escola Secundária N.º 1 de Luanda"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={styles.configFieldLabel}>Número de Entidade *</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6, marginBottom: 12 }]}
+                value={config.numeroEntidade || ''}
+                onChangeText={v => updateConfig({ numeroEntidade: v })}
+                placeholder="Ex: 12345"
+                keyboardType="number-pad"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={styles.configFieldLabel}>API Key / Token</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6, marginBottom: 12 }]}
+                value={config.emisApiKey || ''}
+                onChangeText={v => updateConfig({ emisApiKey: v } as never)}
+                placeholder="Token de autenticação fornecido pelo banco"
+                placeholderTextColor={Colors.textMuted}
+                secureTextEntry
+              />
+
+              <Text style={styles.configFieldLabel}>URL da API</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6, marginBottom: 4 }]}
+                value={config.emisApiUrl || ''}
+                onChangeText={v => updateConfig({ emisApiUrl: v } as never)}
+                placeholder="https://api.banco.ao/cobranca/v1/"
+                placeholderTextColor={Colors.textMuted}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>
+                Em Sandbox pode deixar vazio — o sistema usa o endpoint de teste.
               </Text>
 
-              {/* Multicaixa Express */}
-              <View style={{ backgroundColor: `${Colors.success}10`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.success}30`, padding: 12, marginBottom: 12, gap: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <MaterialCommunityIcons name="cellphone" size={16} color={Colors.success} />
-                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Multicaixa Express</Text>
+              <Text style={styles.configFieldLabel}>IBAN</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6, marginBottom: 12 }]}
+                value={config.iban || ''}
+                onChangeText={v => updateConfig({ iban: v })}
+                placeholder="Ex: AO06.0040.0000.0000.1234.1019.2"
+                placeholderTextColor={Colors.textMuted}
+              />
+
+              <Text style={styles.configFieldLabel}>NIB (alternativo)</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6 }]}
+                value={config.nib || ''}
+                onChangeText={v => updateConfig({ nib: v })}
+                placeholder="Ex: 000400001234101920"
+                keyboardType="number-pad"
+                placeholderTextColor={Colors.textMuted}
+              />
+            </View>
+
+            {/* Multicaixa Express */}
+            <View style={styles.card}>
+              <SectionHeader title="Multicaixa Express" icon="phone-portrait" color={Colors.success} />
+              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>
+                Pagamento directo por telemóvel — o encarregado aprova o pagamento no Multicaixa Express.
+              </Text>
+              <Text style={styles.configFieldLabel}>Número de Telemóvel (Multicaixa Express)</Text>
+              <TextInput
+                style={[styles.input, { marginTop: 6 }]}
+                value={config.telefoneMulticaixaExpress || ''}
+                onChangeText={v => updateConfig({ telefoneMulticaixaExpress: v })}
+                placeholder="Ex: 923 456 789"
+                keyboardType="phone-pad"
+                placeholderTextColor={Colors.textMuted}
+              />
+              {config.telefoneMulticaixaExpress ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                  <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success }}>Multicaixa Express activo.</Text>
                 </View>
-                <Text style={styles.configFieldLabel}>Número de Telemóvel (Multicaixa Express)</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6 }]}
-                  value={config.telefoneMulticaixaExpress || ''}
-                  onChangeText={v => updateConfig({ telefoneMulticaixaExpress: v })}
-                  placeholder="Ex: 923 456 789"
-                  keyboardType="phone-pad"
-                  placeholderTextColor={Colors.textMuted}
-                />
-                {config.telefoneMulticaixaExpress ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.success} />
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.success }}>Multicaixa Express activo — os encarregados podem pagar por este número.</Text>
-                  </View>
-                ) : (
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>Deixe em branco para desactivar esta opção.</Text>
-                )}
-              </View>
+              ) : (
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8 }}>Deixe em branco para desactivar.</Text>
+              )}
+            </View>
 
-              {/* Referência Bancária / RUPE */}
-              <View style={{ backgroundColor: `${Colors.info}10`, borderRadius: 12, borderWidth: 1, borderColor: `${Colors.info}30`, padding: 12, gap: 4 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                  <Ionicons name="document-text" size={16} color={Colors.info} />
-                  <Text style={{ fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Referência Bancária / RUPE</Text>
+            {/* Comportamento */}
+            <View style={styles.card}>
+              <SectionHeader title="Comportamento" icon="settings" color={Colors.info} />
+
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 8 }}>Prazo de Pagamento (horas)</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {[12, 24, 48, 72].map(h => (
+                  <TouchableOpacity
+                    key={h}
+                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: (config.emisPrazoPagamento ?? 24) === h ? Colors.info : Colors.surface, backgroundColor: (config.emisPrazoPagamento ?? 24) === h ? Colors.info + '20' : Colors.surface, alignItems: 'center' }}
+                    onPress={() => updateConfig({ emisPrazoPagamento: h } as never)}
+                  >
+                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 14, color: (config.emisPrazoPagamento ?? 24) === h ? Colors.info : Colors.textMuted }}>{h}h</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6, marginBottom: 14 }}>
+                O estudante terá {config.emisPrazoPagamento ?? 24} horas para pagar após receber a referência.
+              </Text>
+
+              <View style={styles.configToggleRow}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: Colors.info + '22' }]}>
+                    <Ionicons name="chatbubble-ellipses" size={18} color={Colors.info} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Notificar por SMS</Text>
+                    <Text style={styles.configToggleDesc}>Enviar referência de pagamento por SMS ao encarregado</Text>
+                  </View>
                 </View>
-
-                <Text style={styles.configFieldLabel}>Nome do Beneficiário</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
-                  value={config.nomeBeneficiario || ''}
-                  onChangeText={v => updateConfig({ nomeBeneficiario: v })}
-                  placeholder="Ex: Escola Secundária N.º 1 de Luanda"
-                  placeholderTextColor={Colors.textMuted}
+                <Switch
+                  value={!!config.emisNotificarSMS}
+                  onValueChange={v => updateConfig({ emisNotificarSMS: v } as never)}
+                  trackColor={{ false: Colors.textMuted + '44', true: Colors.info + '88' }}
+                  thumbColor={config.emisNotificarSMS ? Colors.info : Colors.textMuted}
                 />
-
-                <Text style={styles.configFieldLabel}>Número de Entidade</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
-                  value={config.numeroEntidade || ''}
-                  onChangeText={v => updateConfig({ numeroEntidade: v })}
-                  placeholder="Ex: 12345"
-                  keyboardType="number-pad"
-                  placeholderTextColor={Colors.textMuted}
-                />
-
-                <Text style={styles.configFieldLabel}>Banco</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
-                  value={config.bancoTransferencia || ''}
-                  onChangeText={v => updateConfig({ bancoTransferencia: v })}
-                  placeholder="Ex: Banco de Fomento Angola (BFA)"
-                  placeholderTextColor={Colors.textMuted}
-                />
-
-                <Text style={styles.configFieldLabel}>IBAN / NIB</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6, marginBottom: 10 }]}
-                  value={config.iban || ''}
-                  onChangeText={v => updateConfig({ iban: v })}
-                  placeholder="Ex: AO06.0040.0000.0000.1234.1019.2"
-                  placeholderTextColor={Colors.textMuted}
-                />
-
-                <Text style={styles.configFieldLabel}>NIB (alternativo)</Text>
-                <TextInput
-                  style={[styles.input, { marginTop: 6 }]}
-                  value={config.nib || ''}
-                  onChangeText={v => updateConfig({ nib: v })}
-                  placeholder="Ex: 000400001234101920"
-                  keyboardType="number-pad"
-                  placeholderTextColor={Colors.textMuted}
-                />
-
-                {(config.numeroEntidade || config.iban) ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                    <Ionicons name="checkmark-circle" size={14} color={Colors.info} />
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info }}>Referências bancárias activas — os encarregados podem gerar referências RUPE.</Text>
-                  </View>
-                ) : (
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8 }}>Preencha o número de entidade ou IBAN para activar esta opção.</Text>
-                )}
               </View>
+            </View>
+
+            {/* Webhook — Confirmação Automática */}
+            <View style={[styles.card, { backgroundColor: '#10B981' + '08', borderColor: '#10B981' + '40', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Ionicons name="flash" size={18} color="#10B981" />
+                <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: '#10B981' }}>Confirmação Automática de Pagamento</Text>
+              </View>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 18, marginBottom: 12 }}>
+                Quando o estudante paga no ATM ou Multicaixa Express, o banco notifica este sistema automaticamente (webhook) e o estado é marcado como <Text style={{ fontFamily: 'Inter_700Bold', color: '#10B981' }}>Pago</Text> em todas as rubricas correspondentes — sem intervenção manual.
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, marginBottom: 6 }}>URL DO WEBHOOK — forneça ao seu banco</Text>
+              <View style={{ backgroundColor: Colors.background, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: Colors.surface }}>
+                <Text selectable style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.text, letterSpacing: 0.3 }}>
+                  [URL-DO-SISTEMA]/api/emis/webhook
+                </Text>
+              </View>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8 }}>
+                Configure este URL no portal do seu banco como "URL de notificação de pagamento" ou "Webhook URL". O banco chamará este endereço assim que o pagamento for confirmado.
+              </Text>
+            </View>
+
+            {/* Testar Ligação */}
+            <View style={styles.card}>
+              <SectionHeader title="Testar Ligação" icon="wifi" color="#10B981" />
+              <Text style={[styles.configSectionDesc, { marginBottom: 12 }]}>
+                Verifica se as credenciais e o URL estão correctos antes de activar em Produção.
+              </Text>
+
+              {emisTestResult && (
+                <View style={{ marginBottom: 12, flexDirection: 'row', gap: 10, padding: 12, borderRadius: 10, backgroundColor: emisTestResult.sucesso ? '#10B981' + '18' : Colors.danger + '18', borderWidth: 1, borderColor: emisTestResult.sucesso ? '#10B981' + '55' : Colors.danger + '55', alignItems: 'flex-start' }}>
+                  <Ionicons name={emisTestResult.sucesso ? 'checkmark-circle' : 'close-circle'} size={18} color={emisTestResult.sucesso ? '#10B981' : Colors.danger} />
+                  <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: emisTestResult.sucesso ? '#10B981' : Colors.danger, lineHeight: 18 }}>
+                    {emisTestResult.mensagem}
+                  </Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.saveBtn, { backgroundColor: Colors.info + 'DD', opacity: emisTesting ? 0.6 : 1 }]}
+                onPress={testarLigacaoEmis}
+                disabled={emisTesting}
+              >
+                <Ionicons name={emisTesting ? 'hourglass' : 'wifi'} size={17} color="#fff" />
+                <Text style={styles.saveBtnText}>{emisTesting ? 'A testar...' : 'Testar Ligação API'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Estado actual */}
+            <View style={[styles.card, { backgroundColor: Colors.surface }]}>
+              <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, fontSize: 11, marginBottom: 10 }}>ESTADO ACTUAL DA INTEGRAÇÃO</Text>
+              {[
+                { label: 'Estado', value: config.emisHabilitado ? 'Activo' : 'Inactivo', color: config.emisHabilitado ? '#10B981' : Colors.danger },
+                { label: 'Ambiente', value: config.emisAmbiente === 'producao' ? 'Produção' : 'Sandbox (Teste)', color: config.emisAmbiente === 'producao' ? '#10B981' : Colors.warning },
+                { label: 'Banco / Provedor', value: config.emisProvedor || config.bancoTransferencia || 'Não definido' },
+                { label: 'Entidade', value: config.numeroEntidade || 'Não configurado' },
+                { label: 'API Key', value: config.emisApiKey ? '••••••••' + (config.emisApiKey as string).slice(-4) : 'Não configurada' },
+                { label: 'Prazo Pagamento', value: `${config.emisPrazoPagamento ?? 24} horas` },
+                { label: 'Notif. SMS', value: config.emisNotificarSMS ? 'Activo' : 'Inactivo' },
+                { label: 'Multicaixa Express', value: config.telefoneMulticaixaExpress || 'Não configurado' },
+              ].map(row => (
+                <View key={row.label} style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>{row.label}</Text>
+                  <Text style={[styles.infoValue, row.color ? { color: row.color } : {}]}>{row.value}</Text>
+                </View>
+              ))}
             </View>
 
           </View>
@@ -2341,247 +2551,6 @@ export default function AdminScreen() {
                 );
               })
             )}
-          </View>
-        )}
-
-        {/* PAGAMENTOS ONLINE / EMIS */}
-        {activeSection === 'pagamentos-online' && (
-          <View style={{ gap: 14, paddingBottom: 0 }}>
-
-            {/* Cabeçalho explicativo */}
-            <View style={[styles.card, { borderWidth: 2, borderColor: emisForm.emisHabilitado ? '#10B981' + '60' : Colors.textMuted + '30' }]}>
-              <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
-                <LinearGradient colors={['#10B981', '#059669']} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="card" size={24} color="#fff" />
-                </LinearGradient>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Pagamentos Online (EMIS / Multicaixa)</Text>
-                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2, lineHeight: 18 }}>
-                    Integração com a plataforma EMIS/Multicaixa para gerar referências de pagamento (RUPE) automaticamente. O aluno recebe a referência por SMS e tem um prazo para pagar em qualquer ATM, Multicaixa Express ou internet banking.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.configToggleRow}>
-                <View style={styles.configToggleLeft}>
-                  <View style={[styles.configToggleIcon, { backgroundColor: emisForm.emisHabilitado ? '#10B981' + '22' : Colors.danger + '22' }]}>
-                    <Ionicons name={emisForm.emisHabilitado ? 'checkmark-circle' : 'close-circle'} size={18} color={emisForm.emisHabilitado ? '#10B981' : Colors.danger} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>Pagamentos Online</Text>
-                    <Text style={[styles.configToggleDesc, { color: emisForm.emisHabilitado ? '#10B981' : Colors.danger }]}>
-                      {emisForm.emisHabilitado ? 'ACTIVO — Referências geradas automaticamente' : 'INACTIVO — Modo manual (referências locais)'}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={emisForm.emisHabilitado}
-                  onValueChange={v => setEmisForm(f => ({ ...f, emisHabilitado: v }))}
-                  trackColor={{ false: Colors.danger + '88', true: '#10B981' + '88' }}
-                  thumbColor={emisForm.emisHabilitado ? '#10B981' : Colors.danger}
-                />
-              </View>
-            </View>
-
-            {/* Como obter credenciais */}
-            <View style={[styles.card, { backgroundColor: Colors.info + '0D', borderColor: Colors.info + '30', borderWidth: 1 }]}>
-              <View style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-                <Ionicons name="information-circle" size={20} color={Colors.info} style={{ marginTop: 1 }} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.info, marginBottom: 6 }}>Como obter as credenciais?</Text>
-                  {[
-                    '1. Dirija-se à AGT (Administração Geral Tributária) ou ao seu banco parceiro (BFA, BAI, BPC, BIC, etc.).',
-                    '2. Solicite a adesão ao serviço de cobrança por referência bancária / EMIS.',
-                    '3. Receberá um Número de Entidade e as credenciais de API (API Key + URL).',
-                    '4. Preencha os campos abaixo e teste a ligação antes de activar em Produção.',
-                  ].map((t, i) => (
-                    <Text key={i} style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 20, marginBottom: 2 }}>{t}</Text>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Ambiente */}
-            <View style={styles.card}>
-              <SectionHeader title="Ambiente" icon="globe-outline" color="#10B981" />
-              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>
-                Use Sandbox para testes sem dinheiro real. Mude para Produção apenas quando tiver as credenciais reais do banco.
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
-                {(['sandbox', 'producao'] as const).map(amb => (
-                  <TouchableOpacity
-                    key={amb}
-                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, borderWidth: 2, borderColor: emisForm.emisAmbiente === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.surface, backgroundColor: emisForm.emisAmbiente === amb ? (amb === 'sandbox' ? Colors.warning + '15' : '#10B981' + '15') : Colors.surface }}
-                    onPress={() => setEmisForm(f => ({ ...f, emisAmbiente: amb }))}
-                  >
-                    <Ionicons name={amb === 'sandbox' ? 'construct-outline' : 'shield-checkmark'} size={16} color={emisForm.emisAmbiente === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.textMuted} />
-                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 13, color: emisForm.emisAmbiente === amb ? (amb === 'sandbox' ? Colors.warning : '#10B981') : Colors.textMuted }}>
-                      {amb === 'sandbox' ? 'Sandbox (Teste)' : 'Produção'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {emisForm.emisAmbiente === 'producao' && (
-                <View style={{ marginTop: 10, flexDirection: 'row', gap: 8, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 12, alignItems: 'flex-start' }}>
-                  <Ionicons name="warning" size={14} color={Colors.warning} />
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.warning, flex: 1, lineHeight: 16 }}>
-                    Modo Produção activo. As referências geradas serão válidas nos caixas ATM, Multicaixa Express e internet banking reais.
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Provedor / Banco */}
-            <View style={styles.card}>
-              <SectionHeader title="Banco / Provedor" icon="business" color="#10B981" />
-              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Seleccione o banco ou plataforma com que a escola tem contrato para cobrança por referência.</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {['BFA', 'BAI', 'BPC', 'BIC', 'ATL', 'EMIS', 'BCI', 'Outro'].map(p => (
-                  <TouchableOpacity
-                    key={p}
-                    style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: emisForm.emisProvedor === p ? '#10B981' : Colors.surface, backgroundColor: emisForm.emisProvedor === p ? '#10B981' + '20' : Colors.surface }}
-                    onPress={() => setEmisForm(f => ({ ...f, emisProvedor: p }))}
-                  >
-                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: emisForm.emisProvedor === p ? '#10B981' : Colors.textMuted }}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Credenciais */}
-            <View style={styles.card}>
-              <SectionHeader title="Credenciais de API" icon="key" color={Colors.gold} />
-              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Dados fornecidos pelo banco/AGT após adesão ao serviço de cobrança por referência.</Text>
-
-              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 2 }}>Número de Entidade *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ex: 12345"
-                placeholderTextColor={Colors.textMuted}
-                value={emisForm.emisEntidadeId}
-                onChangeText={v => setEmisForm(f => ({ ...f, emisEntidadeId: v }))}
-                keyboardType="numeric"
-              />
-
-              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 14 }}>API Key / Token</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Token de autenticação fornecido pelo banco"
-                placeholderTextColor={Colors.textMuted}
-                value={emisForm.emisApiKey}
-                onChangeText={v => setEmisForm(f => ({ ...f, emisApiKey: v }))}
-                secureTextEntry
-              />
-
-              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 6, marginTop: 14 }}>URL da API</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="https://api.banco.ao/cobranca/v1/"
-                placeholderTextColor={Colors.textMuted}
-                value={emisForm.emisApiUrl}
-                onChangeText={v => setEmisForm(f => ({ ...f, emisApiUrl: v }))}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>
-                O URL base da API fornecido pelo banco. Em Sandbox pode deixar vazio.
-              </Text>
-            </View>
-
-            {/* Configurações de comportamento */}
-            <View style={styles.card}>
-              <SectionHeader title="Comportamento" icon="settings" color={Colors.info} />
-
-              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.textSecondary, marginBottom: 8 }}>Prazo de Pagamento (horas)</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                {[12, 24, 48, 72].map(h => (
-                  <TouchableOpacity
-                    key={h}
-                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: emisForm.emisPrazoPagamento === h ? Colors.info : Colors.surface, backgroundColor: emisForm.emisPrazoPagamento === h ? Colors.info + '20' : Colors.surface, alignItems: 'center' }}
-                    onPress={() => setEmisForm(f => ({ ...f, emisPrazoPagamento: h }))}
-                  >
-                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 14, color: emisForm.emisPrazoPagamento === h ? Colors.info : Colors.textMuted }}>{h}h</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6 }}>
-                O aluno terá {emisForm.emisPrazoPagamento} horas para pagar após a geração da referência.
-              </Text>
-
-              <View style={[styles.configToggleRow, { marginTop: 14 }]}>
-                <View style={styles.configToggleLeft}>
-                  <View style={[styles.configToggleIcon, { backgroundColor: Colors.info + '22' }]}>
-                    <Ionicons name="chatbubble-ellipses" size={18} color={Colors.info} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.configToggleLabel}>Notificar por SMS</Text>
-                    <Text style={styles.configToggleDesc}>Enviar referência de pagamento por SMS ao encarregado</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={emisForm.emisNotificarSMS}
-                  onValueChange={v => setEmisForm(f => ({ ...f, emisNotificarSMS: v }))}
-                  trackColor={{ false: Colors.textMuted + '44', true: Colors.info + '88' }}
-                  thumbColor={emisForm.emisNotificarSMS ? Colors.info : Colors.textMuted}
-                />
-              </View>
-            </View>
-
-            {/* Teste de Ligação */}
-            <View style={styles.card}>
-              <SectionHeader title="Testar Ligação" icon="wifi" color="#10B981" />
-              <Text style={[styles.configSectionDesc, { marginBottom: 12 }]}>
-                Clique para verificar se as credenciais e o URL estão correctos antes de guardar.
-              </Text>
-
-              {emisTestResult && (
-                <View style={{ marginBottom: 12, flexDirection: 'row', gap: 10, padding: 12, borderRadius: 10, backgroundColor: emisTestResult.sucesso ? '#10B981' + '18' : Colors.danger + '18', borderWidth: 1, borderColor: emisTestResult.sucesso ? '#10B981' + '55' : Colors.danger + '55', alignItems: 'flex-start' }}>
-                  <Ionicons name={emisTestResult.sucesso ? 'checkmark-circle' : 'close-circle'} size={18} color={emisTestResult.sucesso ? '#10B981' : Colors.danger} />
-                  <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: emisTestResult.sucesso ? '#10B981' : Colors.danger, lineHeight: 18 }}>
-                    {emisTestResult.mensagem}
-                  </Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[styles.saveBtn, { backgroundColor: Colors.info + 'DD', opacity: emisTesting ? 0.6 : 1 }]}
-                onPress={testarLigacaoEmis}
-                disabled={emisTesting}
-              >
-                <Ionicons name={emisTesting ? 'hourglass' : 'wifi'} size={17} color="#fff" />
-                <Text style={styles.saveBtnText}>{emisTesting ? 'A testar...' : 'Testar Ligação'}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Botão Guardar */}
-            <TouchableOpacity
-              style={[styles.saveBtn, { opacity: emisSaving ? 0.6 : 1 }]}
-              onPress={guardarEmis}
-              disabled={emisSaving}
-            >
-              <Ionicons name="save" size={17} color="#fff" />
-              <Text style={styles.saveBtnText}>{emisSaving ? 'A guardar...' : 'Guardar Configuração de Pagamentos'}</Text>
-            </TouchableOpacity>
-
-            {/* Estado actual */}
-            <View style={[styles.card, { backgroundColor: Colors.surface }]}>
-              <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, fontSize: 11, marginBottom: 10 }}>ESTADO ACTUAL DA INTEGRAÇÃO</Text>
-              {[
-                { label: 'Estado', value: emisForm.emisHabilitado ? 'Activo' : 'Inactivo', color: emisForm.emisHabilitado ? '#10B981' : Colors.danger },
-                { label: 'Ambiente', value: emisForm.emisAmbiente === 'producao' ? 'Produção' : 'Sandbox (Teste)', color: emisForm.emisAmbiente === 'producao' ? '#10B981' : Colors.warning },
-                { label: 'Banco / Provedor', value: emisForm.emisProvedor || 'Não definido' },
-                { label: 'Entidade', value: emisForm.emisEntidadeId || 'Não configurado' },
-                { label: 'API Key', value: emisForm.emisApiKey ? '••••••••' + emisForm.emisApiKey.slice(-4) : 'Não configurada' },
-                { label: 'Prazo Pagamento', value: `${emisForm.emisPrazoPagamento} horas` },
-                { label: 'Notif. SMS', value: emisForm.emisNotificarSMS ? 'Activo' : 'Inactivo' },
-              ].map(row => (
-                <View key={row.label} style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>{row.label}</Text>
-                  <Text style={[styles.infoValue, row.color ? { color: row.color } : {}]}>{row.value}</Text>
-                </View>
-              ))}
-            </View>
-
           </View>
         )}
 
