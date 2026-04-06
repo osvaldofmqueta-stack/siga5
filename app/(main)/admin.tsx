@@ -2831,49 +2831,51 @@ export default function AdminScreen() {
       {/* Modal Novo Utilizador */}
       <Modal visible={showNovoUser} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+          <View style={[styles.modalBox, { maxHeight: '90%' }]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Novo Utilizador</Text>
               <TouchableOpacity onPress={() => setShowNovoUser(false)}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.fieldLabel}>Nome Completo</Text>
-            <TextInput style={styles.input} value={formUser.nome} onChangeText={v => setFormUser(f => ({ ...f, nome: v }))} placeholder="Nome do utilizador" placeholderTextColor={Colors.textMuted} />
-            <Text style={styles.fieldLabel}>Email</Text>
-            <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
-            <Text style={styles.fieldLabel}>Função</Text>
-            <View style={styles.rolesRow}>
-              {(['pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'professor', 'financeiro', 'aluno'] as UserRole[]).map(r => (
-                <TouchableOpacity
-                  key={r}
-                  style={[styles.roleBtn, formUser.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.textMuted) + '33', borderColor: ROLE_COLOR[r] || Colors.textMuted }]}
-                  onPress={() => setFormUser(f => ({ ...f, role: r }))}
-                >
-                  <Text style={[styles.roleBtnText, formUser.role === r && { color: ROLE_COLOR[r] || Colors.textMuted }]}>{ROLE_LABEL[r]}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={styles.fieldLabel}>Senha</Text>
-            <TextInput style={styles.input} value={formUser.senha} onChangeText={v => setFormUser(f => ({ ...f, senha: v }))} placeholder="Senha de acesso" placeholderTextColor={Colors.textMuted} secureTextEntry />
-            {formUser.role === 'professor' && (
-              <>
-                <View style={{ backgroundColor: Colors.info + '12', borderWidth: 1, borderColor: Colors.info + '30', borderRadius: 10, padding: 10, marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 17 }}>
-                    O perfil de professor (disciplinas, turmas, etc.) é criado automaticamente e pode ser completado na secção <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Professores</Text> após o registo.
-                  </Text>
-                </View>
-                <Text style={styles.fieldLabel}>Nº Professor (opcional)</Text>
-                <TextInput style={styles.input} value={formUser.numeroProfessor} onChangeText={v => setFormUser(f => ({ ...f, numeroProfessor: v }))} placeholder="ex: PROF-001 (gerado automaticamente se vazio)" placeholderTextColor={Colors.textMuted} />
-                <Text style={styles.fieldLabel}>Telefone</Text>
-                <TextInput style={styles.input} value={formUser.telefone} onChangeText={v => setFormUser(f => ({ ...f, telefone: v }))} placeholder="9XX XXX XXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
-                <Text style={styles.fieldLabel}>Habilitações Académicas</Text>
-                <TextInput style={styles.input} value={formUser.habilitacoes} onChangeText={v => setFormUser(f => ({ ...f, habilitacoes: v }))} placeholder="ex: Licenciatura em Matemática" placeholderTextColor={Colors.textMuted} />
-              </>
-            )}
-            <TouchableOpacity style={styles.saveBtn} onPress={criarUser}>
-              <Text style={styles.saveBtnText}>Criar Utilizador</Text>
-            </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.fieldLabel}>Nome Completo</Text>
+              <TextInput style={styles.input} value={formUser.nome} onChangeText={v => setFormUser(f => ({ ...f, nome: v }))} placeholder="Nome do utilizador" placeholderTextColor={Colors.textMuted} />
+              <Text style={styles.fieldLabel}>Email</Text>
+              <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
+              <Text style={styles.fieldLabel}>Função</Text>
+              <View style={styles.rolesRow}>
+                {(['pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'professor', 'financeiro', 'aluno'] as UserRole[]).map(r => (
+                  <TouchableOpacity
+                    key={r}
+                    style={[styles.roleBtn, formUser.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.textMuted) + '33', borderColor: ROLE_COLOR[r] || Colors.textMuted }]}
+                    onPress={() => setFormUser(f => ({ ...f, role: r }))}
+                  >
+                    <Text style={[styles.roleBtnText, formUser.role === r && { color: ROLE_COLOR[r] || Colors.textMuted }]}>{ROLE_LABEL[r]}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <Text style={styles.fieldLabel}>Senha</Text>
+              <TextInput style={styles.input} value={formUser.senha} onChangeText={v => setFormUser(f => ({ ...f, senha: v }))} placeholder="Senha de acesso" placeholderTextColor={Colors.textMuted} secureTextEntry />
+              {formUser.role === 'professor' && (
+                <>
+                  <View style={{ backgroundColor: Colors.info + '12', borderWidth: 1, borderColor: Colors.info + '30', borderRadius: 10, padding: 10, marginBottom: 10 }}>
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, lineHeight: 17 }}>
+                      O perfil de professor (disciplinas, turmas, etc.) é criado automaticamente e pode ser completado na secção <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.info }}>Professores</Text> após o registo.
+                    </Text>
+                  </View>
+                  <Text style={styles.fieldLabel}>Nº Professor (opcional)</Text>
+                  <TextInput style={styles.input} value={formUser.numeroProfessor} onChangeText={v => setFormUser(f => ({ ...f, numeroProfessor: v }))} placeholder="ex: PROF-001 (gerado automaticamente se vazio)" placeholderTextColor={Colors.textMuted} />
+                  <Text style={styles.fieldLabel}>Telefone</Text>
+                  <TextInput style={styles.input} value={formUser.telefone} onChangeText={v => setFormUser(f => ({ ...f, telefone: v }))} placeholder="9XX XXX XXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+                  <Text style={styles.fieldLabel}>Habilitações Académicas</Text>
+                  <TextInput style={styles.input} value={formUser.habilitacoes} onChangeText={v => setFormUser(f => ({ ...f, habilitacoes: v }))} placeholder="ex: Licenciatura em Matemática" placeholderTextColor={Colors.textMuted} />
+                </>
+              )}
+              <TouchableOpacity style={[styles.saveBtn, { marginTop: 8, marginBottom: 4 }]} onPress={criarUser}>
+                <Text style={styles.saveBtnText}>Criar Utilizador</Text>
+              </TouchableOpacity>
+            </ScrollView>
           </View>
         </View>
       </Modal>
