@@ -538,6 +538,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] quadro_honra cols:', (migErr as Error).message);
   }
 
+  // ─── CONFIG_GERAL: colunas morada, telefoneEscola, emailEscola ───────────────
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "morada" text`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "telefoneEscola" text`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "emailEscola" text`, []);
+    console.log('[migration] config_geral morada + telefoneEscola + emailEscola ensured.');
+  } catch (migErr) {
+    console.warn('[migration] config_geral escola contacts:', (migErr as Error).message);
+  }
+
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
@@ -3730,7 +3740,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
