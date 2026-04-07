@@ -274,6 +274,9 @@ export default function AdminScreen() {
     finally { setReaResponding(null); }
   }
 
+  const SISTEMA_SECS = ['escola', 'config', 'comunicacoes', 'seguranca'];
+  const [sistemaFullPage, setSistemaFullPage] = useState(false);
+
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
   const [editEscola, setEditEscola] = useState(false);
   const [tempEscola, setTempEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
@@ -698,6 +701,7 @@ export default function AdminScreen() {
       <TopBar title="Super Admin" subtitle="Gestão do Sistema QUETA" />
 
       {/* ── Hero Banner ───────────────────────────────────── */}
+      {!sistemaFullPage && (
       <LinearGradient
         colors={['#1A0A2E', '#0D1F35', '#1A1030']}
         style={styles.heroBanner}
@@ -730,8 +734,33 @@ export default function AdminScreen() {
           </View>
         </View>
       </LinearGradient>
+      )}
+
+      {/* ── Sistema Full-Page compact header ──────────────── */}
+      {sistemaFullPage && (() => {
+        const sec = allSections.find(s => s.key === activeSection);
+        const secColor = SECTION_COLORS[activeSection] || Colors.gold;
+        return (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
+            <TouchableOpacity
+              onPress={() => { setSistemaFullPage(false); setActiveSection(''); }}
+              style={{ padding: 4 }}
+            >
+              <Ionicons name="arrow-back" size={22} color={Colors.gold} />
+            </TouchableOpacity>
+            {sec && <Ionicons name={sec.icon as any} size={16} color={secColor} />}
+            <Text style={{ flex: 1, fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 15 }}>
+              {sec?.label ?? 'Sistema'}
+            </Text>
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textMuted }}>
+              Sistema
+            </Text>
+          </View>
+        );
+      })()}
 
       {/* ── Group Navigation (Level 1) ────────────────────── */}
+      {!sistemaFullPage && (
       <View style={styles.groupNav}>
         {GROUPS.map(g => {
           const isActive = activeGroup === g.key;
@@ -743,7 +772,7 @@ export default function AdminScreen() {
             <TouchableOpacity
               key={g.key}
               style={[styles.groupCard, isActive && { borderColor: g.color + '66', backgroundColor: g.color + '15' }]}
-              onPress={() => { setActiveGroup(g.key); setActiveSection(g.sections[0]); }}
+              onPress={() => { setActiveGroup(g.key); setActiveSection(g.sections[0]); setSistemaFullPage(false); }}
               activeOpacity={0.75}
             >
               <View style={{ position: 'relative', alignSelf: 'center' }}>
@@ -762,6 +791,7 @@ export default function AdminScreen() {
           );
         })}
       </View>
+      )}
 
       {/* ── Sub-section Pills (Level 2) ───────────────────── */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.subNavScroll}>
@@ -774,7 +804,7 @@ export default function AdminScreen() {
               <TouchableOpacity
                 key={sk}
                 style={[styles.subNavBtn, isActive && { backgroundColor: color + '22', borderColor: color + '55' }]}
-                onPress={() => setActiveSection(sk)}
+                onPress={() => { setActiveSection(sk); if (SISTEMA_SECS.includes(sk)) setSistemaFullPage(true); }}
               >
                 <Ionicons name={s.icon as any} size={13} color={isActive ? color : Colors.textMuted} />
                 <Text style={[styles.subNavText, isActive && { color, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>
