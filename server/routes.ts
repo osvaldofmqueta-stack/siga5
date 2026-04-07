@@ -3487,11 +3487,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return apelido + anoInvertido;
   }
 
-  function gerarReferenciaRUPE(): string {
-    const now = new Date();
+  async function gerarReferenciaRUPE(valor = 0, descricao = 'Pagamento Escolar'): Promise<string> {
+    try {
+      const configRows = await query<JsonObject>(
+        `SELECT dados FROM public.config_geral ORDER BY id LIMIT 1`, []
+      );
+      const dados: Record<string, unknown> = configRows[0]
+        ? (configRows[0].dados as Record<string, unknown>)
+        : {};
+      const entidadeId = dados.emisEntidadeId as string | undefined;
+      const apiKey     = dados.emisApiKey     as string | undefined;
+      const apiUrl     = dados.emisApiUrl     as string | undefined;
+      const ambiente   = (dados.emisAmbiente  as string) || 'sandbox';
+      const prazo      = (dados.emisPrazoPagamento as number) || 24;
+
+      if (ambiente === 'producao' && entidadeId && apiKey && apiUrl) {
+        const dataValidade = new Date(Date.now() + prazo * 60 * 60 * 1000);
+        try {
+          const controller = new AbortController();
+          const timeoutId  = setTimeout(() => controller.abort(), 10000);
+          const resp = await fetch(
+            `${apiUrl.endsWith('/') ? apiUrl : apiUrl + '/'}referencias`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+                'X-Entity-ID': entidadeId,
+              },
+              body: JSON.stringify({
+                entidade: entidadeId,
+                valor,
+                descricao,
+                validade: dataValidade.toISOString(),
+              }),
+              signal: controller.signal,
+            }
+          );
+          clearTimeout(timeoutId);
+          if (resp.ok) {
+            const data = await resp.json() as { referencia?: string; codigoReferencia?: string };
+            const ref  = data.referencia || data.codigoReferencia;
+            if (ref) return ref;
+          }
+        } catch { /* API indisponível — usa geração local */ }
+      }
+    } catch { /* config inacessível — usa geração local */ }
+
+    // Geração local (sandbox ou fallback de produção)
+    const now  = new Date();
     const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const seq = String(now.getTime()).slice(-5);
+    const mm   = String(now.getMonth() + 1).padStart(2, '0');
+    const seq  = String(now.getTime()).slice(-5);
     const rand = Math.random().toString(36).toUpperCase().slice(2, 6);
     return `RUPE-${yyyy}-${mm}-${seq}-${rand}`;
   }

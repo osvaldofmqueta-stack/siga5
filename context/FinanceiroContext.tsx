@@ -73,6 +73,8 @@ export interface RUPEGerado {
   dataGeracao: string;
   dataValidade: string;
   status: 'ativo' | 'pago' | 'expirado';
+  fonte?: 'emis_api' | 'sandbox' | 'local';
+  ambiente?: string;
 }
 
 export interface SaldoAluno {
@@ -318,21 +320,35 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   }
 
   async function gerarRUPE(alunoId: string, taxaId: string, valor: number): Promise<RUPEGerado> {
-    const dataGeracao = new Date();
-    const dataValidade = new Date(dataGeracao);
-    dataValidade.setDate(dataValidade.getDate() + 15);
+    // Obter a descrição da rubrica para enviar à API EMIS
+    const taxa = taxas.find(t => t.id === taxaId);
+    const descricao = taxa?.descricao || 'Pagamento Escolar';
 
-    const seq = String(rupes.length + 1).padStart(4, '0');
-    const referencia = `RUPE-${dataGeracao.getFullYear()}-${String(dataGeracao.getMonth() + 1).padStart(2, '0')}-${seq}-${Math.random().toString(36).substr(2, 4).toUpperCase()}`;
+    // Chamar o endpoint que usa a API EMIS oficial (ou sandbox se não configurado)
+    const emis = await api.post<{
+      referencia: string;
+      dataGeracao: string;
+      dataValidade: string;
+      fonte: 'emis_api' | 'sandbox' | 'local';
+      ambiente: string;
+      nota?: string;
+    }>('/api/emis/gerar-referencia', { alunoId, valor, descricao });
 
+    // Gravar o RUPE na base de dados com a referência oficial
     const novo = await api.post<RUPEGerado>('/api/rupes', {
-      alunoId, taxaId, valor, referencia,
-      dataGeracao: dataGeracao.toISOString(),
-      dataValidade: dataValidade.toISOString(),
+      alunoId,
+      taxaId,
+      valor,
+      referencia: emis.referencia,
+      dataGeracao: emis.dataGeracao,
+      dataValidade: emis.dataValidade,
       status: 'ativo',
     });
-    setRupes(prev => [novo, ...prev]);
-    return novo;
+
+    // Devolver com metadata de fonte para a UI poder indicar se é oficial
+    const rupeComFonte: RUPEGerado = { ...novo, fonte: emis.fonte, ambiente: emis.ambiente };
+    setRupes(prev => [rupeComFonte, ...prev]);
+    return rupeComFonte;
   }
 
   function getRUPEsAluno(alunoId: string) {
