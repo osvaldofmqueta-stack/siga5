@@ -653,6 +653,8 @@ function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes:
               keyboardType="numeric"
               value={formUnidades}
               onChangeText={setFormUnidades}
+              returnKeyType="next"
+              onSubmitEditing={() => { }}
             />
 
             <Text style={styles.fieldLabel}>Valor Unitário (Kz) *</Text>
@@ -663,6 +665,8 @@ function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes:
               keyboardType="decimal-pad"
               value={formValorUnit}
               onChangeText={setFormValorUnit}
+              returnKeyType="done"
+              onSubmitEditing={salvarTempo}
             />
 
             {/* Preview */}

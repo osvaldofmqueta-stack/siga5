@@ -827,10 +827,10 @@ export default function RHControleScreen() {
               {formStep === 'pessoal' && (
                 <>
                   <FormRow label="Nome *" error={funcFormErrors.nome}>
-                    <TextInput style={[styles.input, !!funcFormErrors.nome && styles.inputError]} placeholder="Nome" placeholderTextColor={Colors.textMuted} value={funcForm.nome} onChangeText={v => { updateField('nome', v); if (funcFormErrors.nome) setFuncFormErrors(e => ({ ...e, nome: '' })); }} />
+                    <TextInput style={[styles.input, !!funcFormErrors.nome && styles.inputError]} placeholder="Nome" placeholderTextColor={Colors.textMuted} value={funcForm.nome} onChangeText={v => { updateField('nome', v); if (funcFormErrors.nome) setFuncFormErrors(e => ({ ...e, nome: '' })); }} returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Apelido">
-                    <TextInput style={styles.input} placeholder="Apelido" placeholderTextColor={Colors.textMuted} value={funcForm.apelido} onChangeText={v => updateField('apelido', v)} />
+                    <TextInput style={styles.input} placeholder="Apelido" placeholderTextColor={Colors.textMuted} value={funcForm.apelido} onChangeText={v => updateField('apelido', v)} returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Género">
                     <View style={styles.pillRow}>
@@ -848,7 +848,7 @@ export default function RHControleScreen() {
                     labelStyle={styles.fieldLabel}
                   />
                   <FormRow label="Bilhete de Identidade (BI)" error={funcFormErrors.bi}>
-                    <TextInput style={[styles.input, !!funcFormErrors.bi && styles.inputError]} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => { updateField('bi', v); if (funcFormErrors.bi) setFuncFormErrors(e => ({ ...e, bi: '' })); }} autoCapitalize="characters" />
+                    <TextInput style={[styles.input, !!funcFormErrors.bi && styles.inputError]} placeholder="000000000LA000" placeholderTextColor={Colors.textMuted} value={funcForm.bi} onChangeText={v => { updateField('bi', v); if (funcFormErrors.bi) setFuncFormErrors(e => ({ ...e, bi: '' })); }} autoCapitalize="characters" returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="NIF" error={funcFormErrors.nif}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -885,16 +885,16 @@ export default function RHControleScreen() {
                     )}
                   </FormRow>
                   <FormRow label="Telefone">
-                    <TextInput style={styles.input} placeholder="+244 9XX XXX XXX" placeholderTextColor={Colors.textMuted} value={funcForm.telefone} onChangeText={v => updateField('telefone', v)} keyboardType="phone-pad" />
+                    <TextInput style={styles.input} placeholder="+244 9XX XXX XXX" placeholderTextColor={Colors.textMuted} value={funcForm.telefone} onChangeText={v => updateField('telefone', v)} keyboardType="phone-pad" returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Email">
-                    <TextInput style={styles.input} placeholder="email@escola.ao" placeholderTextColor={Colors.textMuted} value={funcForm.email} onChangeText={v => updateField('email', v)} keyboardType="email-address" autoCapitalize="none" />
+                    <TextInput style={styles.input} placeholder="email@escola.ao" placeholderTextColor={Colors.textMuted} value={funcForm.email} onChangeText={v => updateField('email', v)} keyboardType="email-address" autoCapitalize="none" returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Província">
-                    <TextInput style={styles.input} placeholder="Ex: Luanda" placeholderTextColor={Colors.textMuted} value={funcForm.provincia} onChangeText={v => updateField('provincia', v)} />
+                    <TextInput style={styles.input} placeholder="Ex: Luanda" placeholderTextColor={Colors.textMuted} value={funcForm.provincia} onChangeText={v => updateField('provincia', v)} returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Município">
-                    <TextInput style={styles.input} placeholder="Ex: Belas" placeholderTextColor={Colors.textMuted} value={funcForm.municipio} onChangeText={v => updateField('municipio', v)} />
+                    <TextInput style={styles.input} placeholder="Ex: Belas" placeholderTextColor={Colors.textMuted} value={funcForm.municipio} onChangeText={v => updateField('municipio', v)} returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                   <FormRow label="Morada">
                     <TextInput style={[styles.input, { height: 64, textAlignVertical: 'top' }]} placeholder="Endereço completo" placeholderTextColor={Colors.textMuted} value={funcForm.morada} onChangeText={v => updateField('morada', v)} multiline />
@@ -1681,9 +1681,9 @@ export default function RHControleScreen() {
               </View>
 
               <Text style={styles.fieldLabel}>Título *</Text>
-              <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre..." placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} />
+              <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre..." placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} returnKeyType="done" onSubmitEditing={publicarProva} />
               <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Disciplina *</Text>
-              <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} />
+              <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} returnKeyType="done" onSubmitEditing={publicarProva} />
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                 <View style={{ flex: 1 }}>
@@ -1692,7 +1692,7 @@ export default function RHControleScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>Hora</Text>
-                  <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
+                  <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} returnKeyType="done" onSubmitEditing={publicarProva} />
                 </View>
               </View>
 

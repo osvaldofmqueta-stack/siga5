@@ -2716,6 +2716,8 @@ export default function AdminScreen() {
                     value={tempEscola[key]}
                     onChangeText={v => setTempEscola(e => ({ ...e, [key]: v }))}
                     placeholderTextColor={Colors.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={salvarEscola}
                   />
                 </View>
               ))}
@@ -2747,6 +2749,8 @@ export default function AdminScreen() {
                     onChangeText={v => setCursoForm(f => ({ ...f, nome: v }))}
                     placeholder="Ex: Ciências e Tecnologia"
                     placeholderTextColor={Colors.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={salvarCurso}
                   />
                 </View>
                 <View style={styles.inputGroup}>
@@ -2758,6 +2762,8 @@ export default function AdminScreen() {
                     placeholder="Ex: CT, CEJS, HUM, ART..."
                     placeholderTextColor={Colors.textMuted}
                     autoCapitalize="characters"
+                    returnKeyType="done"
+                    onSubmitEditing={salvarCurso}
                   />
                 </View>
                 <View style={styles.inputGroup}>
@@ -2825,6 +2831,8 @@ export default function AdminScreen() {
                       placeholder="Ex: 2400"
                       placeholderTextColor={Colors.textMuted}
                       keyboardType="numeric"
+                      returnKeyType="done"
+                      onSubmitEditing={salvarCurso}
                     />
                   </View>
                   <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -2835,6 +2843,8 @@ export default function AdminScreen() {
                       onChangeText={v => setCursoForm(f => ({ ...f, duracao: v }))}
                       placeholder="Ex: 3 anos"
                       placeholderTextColor={Colors.textMuted}
+                      returnKeyType="done"
+                      onSubmitEditing={salvarCurso}
                     />
                   </View>
                 </View>
@@ -2846,6 +2856,8 @@ export default function AdminScreen() {
                     onChangeText={v => setCursoForm(f => ({ ...f, portaria: v }))}
                     placeholder="Ex: Portaria nº 123/2024"
                     placeholderTextColor={Colors.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={salvarCurso}
                   />
                 </View>
                 <View style={styles.inputGroup}>

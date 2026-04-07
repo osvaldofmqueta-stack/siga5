@@ -1142,32 +1142,32 @@ export default function RhPayrollScreen() {
               <Text style={styles.fieldLabel}>Cargo</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.cargo}
                 onChangeText={v => setProfForm(f => ({ ...f, cargo: v }))}
-                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Professor" />
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Professor" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Categoria</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.categoria}
                 onChangeText={v => setProfForm(f => ({ ...f, categoria: v }))}
-                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Técnico Superior" />
+                placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="Ex: Técnico Superior" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Salário Base (Kz)</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.salarioBase}
                 onChangeText={v => setProfForm(f => ({ ...f, salarioBase: v }))}
-                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Subsídio de Alimentação (Kz)</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.subsidioAlimentacao}
                 onChangeText={v => setProfForm(f => ({ ...f, subsidioAlimentacao: v }))}
-                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Subsídio de Transporte (Kz)</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.subsidioTransporte}
                 onChangeText={v => setProfForm(f => ({ ...f, subsidioTransporte: v }))}
-                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Subsídio de Habitação (Kz)</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted} value={profForm.subsidioHabitacao}
                 onChangeText={v => setProfForm(f => ({ ...f, subsidioHabitacao: v }))}
-                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" />
+                keyboardType="numeric" placeholderTextColor={Colors.textSecondary ?? '#aaa'} placeholder="0.00" returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Data de Contratação</Text>
               <DateInput style={styles.textInput} value={profForm.dataContratacao}
@@ -1193,7 +1193,8 @@ export default function RhPayrollScreen() {
                 onChangeText={v => setProfForm(f => ({ ...f, valorPorTempoLectivo: v }))}
                 keyboardType="numeric"
                 placeholderTextColor={Colors.textSecondary ?? '#aaa'}
-                placeholder="0.00 — usado para colaboradores e desconto de efectivos" />
+                placeholder="0.00 — usado para colaboradores e desconto de efectivos"
+                returnKeyType="done" onSubmitEditing={guardarProf} />
 
               <Text style={styles.fieldLabel}>Tempos Lectivos por Semana</Text>
               <TextInput style={styles.textInput} placeholderTextColor={Colors.textMuted}
@@ -1201,7 +1202,8 @@ export default function RhPayrollScreen() {
                 onChangeText={v => setProfForm(f => ({ ...f, temposSemanais: v }))}
                 keyboardType="numeric"
                 placeholderTextColor={Colors.textSecondary ?? '#aaa'}
-                placeholder="Ex: 8 — número de tempos semanais atribuídos" />
+                placeholder="Ex: 8 — número de tempos semanais atribuídos"
+                returnKeyType="done" onSubmitEditing={guardarProf} />
 
               {/* Pré-visualização para colaboradores sem salário base */}
               {['colaborador', 'contratado', 'prestacao_servicos'].includes(profForm.tipoContrato) &&

@@ -96,6 +96,8 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
                   onChangeText={v => set(f.key as keyof Professor, v)}
                   placeholder={f.placeholder}
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}

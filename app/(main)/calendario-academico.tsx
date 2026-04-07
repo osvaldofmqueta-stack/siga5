@@ -138,6 +138,8 @@ function TrimestreModal({ visible, trimestre, onClose, onSave }: {
                   onChangeText={v => set(f.key as keyof Trimestre, v)}
                   placeholder={f.ph}
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}
@@ -155,6 +157,8 @@ function TrimestreModal({ visible, trimestre, onClose, onSave }: {
                   onChangeText={v => set(f.key as keyof Trimestre, v)}
                   placeholder={f.ph}
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}
@@ -199,6 +203,13 @@ function FeriadoModal({ visible, evento, anoAtivo, onClose, onSave }: {
   }, [evento, visible]);
   const set = (k: keyof Evento, v: any) => setForm(f => ({ ...f, [k]: v }));
 
+  function handleSaveFeriado() {
+    if (!form.titulo || !form.data) {
+      webAlert('Campos obrigatórios', 'Preencha nome e data.'); return;
+    }
+    onSave(form);
+  }
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={mS.overlay}>
@@ -222,16 +233,13 @@ function FeriadoModal({ visible, evento, anoAtivo, onClose, onSave }: {
                   placeholder={f.ph}
                   placeholderTextColor={Colors.textMuted}
                   multiline={f.key === 'descricao'}
+                  returnKeyType={f.key === 'descricao' ? undefined : 'done'}
+                  onSubmitEditing={f.key === 'descricao' ? undefined : handleSaveFeriado}
                 />
               </View>
             ))}
           </ScrollView>
-          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.warning }]} onPress={() => {
-            if (!form.titulo || !form.data) {
-              webAlert('Campos obrigatórios', 'Preencha nome e data.'); return;
-            }
-            onSave(form);
-          }}>
+          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.warning }]} onPress={handleSaveFeriado}>
             <Ionicons name="checkmark" size={18} color="#fff" />
             <Text style={mS.saveBtnText}>Guardar Feriado</Text>
           </TouchableOpacity>
@@ -259,6 +267,13 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
   }, [prova, visible]);
   const set = (k: keyof CalendarioProva, v: any) => setForm(f => ({ ...f, [k]: v }));
 
+  function handleSaveProva() {
+    if (!form.titulo || !form.disciplina || !form.data) {
+      webAlert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
+    }
+    onSave(form);
+  }
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={mS.overlay}>
@@ -284,6 +299,8 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
                   placeholder={f.ph}
                   placeholderTextColor={Colors.textMuted}
                   multiline={f.key === 'descricao'}
+                  returnKeyType={f.key === 'descricao' ? undefined : 'done'}
+                  onSubmitEditing={f.key === 'descricao' ? undefined : handleSaveProva}
                 />
               </View>
             ))}
@@ -305,12 +322,7 @@ function ProvaModal({ visible, prova, onClose, onSave }: {
               </View>
             </View>
           </ScrollView>
-          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.danger }]} onPress={() => {
-            if (!form.titulo || !form.disciplina || !form.data) {
-              webAlert('Campos obrigatórios', 'Preencha título, disciplina e data.'); return;
-            }
-            onSave(form);
-          }}>
+          <TouchableOpacity style={[mS.saveBtn, { backgroundColor: Colors.danger }]} onPress={handleSaveProva}>
             <Ionicons name="checkmark" size={18} color="#fff" />
             <Text style={mS.saveBtnText}>Guardar</Text>
           </TouchableOpacity>

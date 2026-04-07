@@ -444,6 +444,8 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
                 onChangeText={v => set('nome', v)}
                 placeholder="Nome da Turma (ex: 7ª A)"
                 placeholderTextColor={Colors.textMuted}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
               />
             </View>
 

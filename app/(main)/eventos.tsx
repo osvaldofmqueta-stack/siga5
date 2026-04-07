@@ -71,6 +71,8 @@ function EventoFormModal({ visible, onClose, onSave, evento }: any) {
                   placeholderTextColor={Colors.textMuted}
                   multiline={f.key === 'descricao'}
                   numberOfLines={f.key === 'descricao' ? 3 : 1}
+                  returnKeyType={f.key === 'descricao' ? undefined : 'done'}
+                  onSubmitEditing={f.key === 'descricao' ? undefined : handleSave}
                 />
               </View>
             ))}
@@ -90,6 +92,8 @@ function EventoFormModal({ visible, onClose, onSave, evento }: any) {
                   onChangeText={v => set(f.key as keyof Evento, v)}
                   placeholder={f.placeholder}
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}

@@ -587,6 +587,8 @@ function FormModal({
               placeholderTextColor={Colors.textMuted}
               value={form.motivo ?? ''}
               onChangeText={v => set('motivo', v)}
+              returnKeyType="done"
+              onSubmitEditing={handleSave}
             />
 
             {/* Data de requisição */}

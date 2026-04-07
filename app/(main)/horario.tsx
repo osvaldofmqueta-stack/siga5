@@ -711,6 +711,8 @@ export default function HorarioScreen() {
                 placeholderTextColor={Colors.textMuted}
                 value={form.sala}
                 onChangeText={v => setForm(f => ({ ...f, sala: v }))}
+                returnKeyType="done"
+                onSubmitEditing={salvar}
               />
 
               <TouchableOpacity
@@ -757,6 +759,8 @@ export default function HorarioScreen() {
                         placeholder="HH:MM"
                         placeholderTextColor={Colors.textMuted}
                         keyboardType="numbers-and-punctuation"
+                        returnKeyType="done"
+                        onSubmitEditing={salvarPeriodos}
                       />
                     </View>
                     <View style={{ flex: 1 }}>
@@ -768,6 +772,8 @@ export default function HorarioScreen() {
                         placeholder="HH:MM"
                         placeholderTextColor={Colors.textMuted}
                         keyboardType="numbers-and-punctuation"
+                        returnKeyType="done"
+                        onSubmitEditing={salvarPeriodos}
                       />
                     </View>
                   </View>

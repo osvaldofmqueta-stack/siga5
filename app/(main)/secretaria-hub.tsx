@@ -245,6 +245,8 @@ function EmitirDocumentoModal({ visible, onClose, onEmit, alunos }: {
             onChangeText={setAlunoNome}
             placeholder="Nome completo do aluno"
             placeholderTextColor={Colors.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
           />
 
           <Text style={styles.fieldLabel}>N.º de Matrícula</Text>
@@ -254,6 +256,8 @@ function EmitirDocumentoModal({ visible, onClose, onEmit, alunos }: {
             onChangeText={setAlunoNum}
             placeholder="ALN-AAAA-XXXX"
             placeholderTextColor={Colors.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
           />
 
           <Text style={styles.fieldLabel}>Finalidade</Text>
@@ -263,6 +267,8 @@ function EmitirDocumentoModal({ visible, onClose, onEmit, alunos }: {
             onChangeText={setFinalidade}
             placeholder="Ex: Bolsa de estudo, emprego..."
             placeholderTextColor={Colors.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={handleSubmit}
           />
 
           <View style={styles.modalActions}>
@@ -332,11 +338,11 @@ function NovoProcessoModal({ visible, onClose, onSave }: {
 
             <Text style={styles.fieldLabel}>Solicitante *</Text>
             <TextInput style={styles.input} value={solicitante} onChangeText={setSolicitante}
-              placeholder="Nome do aluno ou encarregado" placeholderTextColor={Colors.textMuted} />
+              placeholder="Nome do aluno ou encarregado" placeholderTextColor={Colors.textMuted} returnKeyType="done" onSubmitEditing={handleSubmit} />
 
             <Text style={styles.fieldLabel}>Prazo</Text>
             <TextInput style={styles.input} value={prazo} onChangeText={setPrazo}
-              placeholder="DD/MM/AAAA" placeholderTextColor={Colors.textMuted} />
+              placeholder="DD/MM/AAAA" placeholderTextColor={Colors.textMuted} returnKeyType="done" onSubmitEditing={handleSubmit} />
 
             <Text style={styles.fieldLabel}>Prioridade</Text>
             <View style={styles.prioRow}>

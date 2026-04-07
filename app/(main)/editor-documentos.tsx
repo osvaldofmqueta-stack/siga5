@@ -7400,6 +7400,8 @@ export default function EditorDocumentos() {
             onChangeText={setEditorNome}
             placeholder="Nome do modelo..."
             placeholderTextColor={Colors.textMuted}
+            returnKeyType="done"
+            onSubmitEditing={saveTemplate}
           />
           {Platform.OS === 'web' && (
             <TouchableOpacity

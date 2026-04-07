@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,6 +54,8 @@ function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; o
   }, [visible, sala]);
 
   const set = (k: keyof Sala, v: any) => setForm(f => ({ ...f, [k]: v }));
+  const blocoRef = useRef<any>(null);
+  const capRef = useRef<any>(null);
 
   function handleSave() {
     if (!form.nome?.trim()) {
@@ -87,29 +89,37 @@ function SalaFormModal({ visible, onClose, onSave, sala }: { visible: boolean; o
                 onChangeText={v => set('nome', v)}
                 placeholder="Ex: Sala 101, Lab. Química"
                 placeholderTextColor={Colors.textMuted}
+                returnKeyType="next"
+                onSubmitEditing={() => blocoRef.current?.focus()}
               />
             </View>
 
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Bloco / Edifício</Text>
               <TextInput
+                ref={blocoRef}
                 style={mS.input}
                 value={form.bloco ?? ''}
                 onChangeText={v => set('bloco', v)}
                 placeholder="Ex: Bloco A, Edifício Principal"
                 placeholderTextColor={Colors.textMuted}
+                returnKeyType="next"
+                onSubmitEditing={() => capRef.current?.focus()}
               />
             </View>
 
             <View style={mS.field}>
               <Text style={mS.fieldLabel}>Capacidade (alunos)</Text>
               <TextInput
+                ref={capRef}
                 style={mS.input}
                 value={String(form.capacidade ?? 30)}
                 onChangeText={v => set('capacidade', parseInt(v) || 0)}
                 keyboardType="number-pad"
                 placeholder="30"
                 placeholderTextColor={Colors.textMuted}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
               />
             </View>
 

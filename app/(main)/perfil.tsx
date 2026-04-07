@@ -170,6 +170,8 @@ export default function PerfilScreen() {
   // Password change modal state
   const [showSenhaModal, setShowSenhaModal] = useState(false);
   const [senhaAtual, setSenhaAtual] = useState('');
+  const senhaNovaRef = useRef<any>(null);
+  const senhaConfirmRef = useRef<any>(null);
   const [senhaNova, setSenhaNova] = useState('');
   const [senhaConfirm, setSenhaConfirm] = useState('');
   const [senhaError, setSenhaError] = useState('');
@@ -892,6 +894,8 @@ export default function PerfilScreen() {
               placeholderTextColor={Colors.textMuted}
               keyboardType={editField === 'telefone' ? 'phone-pad' : editField === 'email' ? 'email-address' : 'default'}
               autoCapitalize={editField === 'email' ? 'none' : 'words'}
+              returnKeyType="done"
+              onSubmitEditing={saveEdit}
             />
             {!!saveError && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10 }}>
@@ -933,24 +937,32 @@ export default function PerfilScreen() {
               placeholder="Senha actual"
               placeholderTextColor={Colors.textMuted}
               autoFocus
+              returnKeyType="next"
+              onSubmitEditing={() => senhaNovaRef.current?.focus()}
             />
             <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>Nova senha</Text>
             <TextInput
+              ref={senhaNovaRef}
               style={[styles.editInput, { marginBottom: 10 }]}
               value={senhaNova}
               onChangeText={v => { setSenhaNova(v); setSenhaError(''); }}
               secureTextEntry
               placeholder="Nova senha (mínimo 6 caracteres)"
               placeholderTextColor={Colors.textMuted}
+              returnKeyType="next"
+              onSubmitEditing={() => senhaConfirmRef.current?.focus()}
             />
             <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>Confirmar nova senha</Text>
             <TextInput
+              ref={senhaConfirmRef}
               style={[styles.editInput]}
               value={senhaConfirm}
               onChangeText={v => { setSenhaConfirm(v); setSenhaError(''); }}
               secureTextEntry
               placeholder="Repetir nova senha"
               placeholderTextColor={Colors.textMuted}
+              returnKeyType="done"
+              onSubmitEditing={handleChangeSenha}
             />
             {!!senhaError && (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: 2, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10 }}>

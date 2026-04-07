@@ -86,8 +86,8 @@ function SectionHeader({ title, icon }: { title: string; icon: string }) {
   );
 }
 
-function Field({ label, value, onChange, placeholder, editable = true }: {
-  label: string; value: string; onChange?: (v: string) => void; placeholder?: string; editable?: boolean;
+function Field({ label, value, onChange, placeholder, editable = true, onSubmitEditing }: {
+  label: string; value: string; onChange?: (v: string) => void; placeholder?: string; editable?: boolean; onSubmitEditing?: () => void;
 }) {
   return (
     <View style={styles.field}>
@@ -99,6 +99,8 @@ function Field({ label, value, onChange, placeholder, editable = true }: {
         placeholder={placeholder ?? label}
         placeholderTextColor={Colors.textMuted}
         editable={editable}
+        returnKeyType={onSubmitEditing ? 'done' : undefined}
+        onSubmitEditing={onSubmitEditing}
       />
     </View>
   );
@@ -627,13 +629,13 @@ export default function MEDIntegracaoScreen() {
                 )}
               </View>
               <Field label="Nome Oficial da Escola" value={config.nomeEscola}
-                onChange={v => setConfig(c => ({ ...c, nomeEscola: v }))} />
+                onChange={v => setConfig(c => ({ ...c, nomeEscola: v }))} onSubmitEditing={saveConfig} />
               <Field label="Província" value={config.provinciaEscola}
                 onChange={v => setConfig(c => ({ ...c, provinciaEscola: v }))}
-                placeholder="Ex: Luanda" />
+                placeholder="Ex: Luanda" onSubmitEditing={saveConfig} />
               <Field label="Município" value={config.municipioEscola}
                 onChange={v => setConfig(c => ({ ...c, municipioEscola: v }))}
-                placeholder="Ex: Luanda" />
+                placeholder="Ex: Luanda" onSubmitEditing={saveConfig} />
 
               <OptionPicker label="Tipo de Ensino" options={TIPO_ENSINO_OPTIONS}
                 value={config.tipoEnsino}
@@ -647,13 +649,13 @@ export default function MEDIntegracaoScreen() {
               <SectionHeader title="Direcção" icon="people-outline" />
               <Field label="Director Geral" value={config.directorGeral}
                 onChange={v => setConfig(c => ({ ...c, directorGeral: v }))}
-                placeholder="Nome completo" />
+                placeholder="Nome completo" onSubmitEditing={saveConfig} />
               <Field label="Director Pedagógico" value={config.directorPedagogico}
                 onChange={v => setConfig(c => ({ ...c, directorPedagogico: v }))}
-                placeholder="Nome completo" />
+                placeholder="Nome completo" onSubmitEditing={saveConfig} />
               <Field label="Director Provincial de Educação" value={config.directorProvincialEducacao}
                 onChange={v => setConfig(c => ({ ...c, directorProvincialEducacao: v }))}
-                placeholder="Nome completo" />
+                placeholder="Nome completo" onSubmitEditing={saveConfig} />
             </View>
 
             <TouchableOpacity

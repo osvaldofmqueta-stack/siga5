@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -124,6 +124,7 @@ function DisciplinaFormModal({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerField>(null);
+  const codigoRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
@@ -200,6 +201,8 @@ function DisciplinaFormModal({
                 placeholder="Ex: Matemática"
                 placeholderTextColor={Colors.textMuted}
                 autoFocus
+                returnKeyType="next"
+                onSubmitEditing={() => codigoRef.current?.focus()}
               />
             </View>
 
@@ -207,6 +210,7 @@ function DisciplinaFormModal({
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Código</Text>
               <TextInput
+                ref={codigoRef}
                 style={mStyles.input}
                 value={form.codigo}
                 onChangeText={v => set('codigo', v.toUpperCase())}
@@ -214,6 +218,8 @@ function DisciplinaFormModal({
                 placeholderTextColor={Colors.textMuted}
                 autoCapitalize="characters"
                 maxLength={6}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
               />
             </View>
 

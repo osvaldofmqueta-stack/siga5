@@ -582,15 +582,15 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
             <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do trabalho final" multiline style={{ height: 64, textAlignVertical: 'top' }} />
 
             <MLabel>Autor (Nome do Aluno) *</MLabel>
-            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome completo do autor" />
+            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome completo do autor" returnKeyType="done" onSubmitEditing={save} />
 
             <MLabel>Orientador *</MLabel>
-            <MInput value={form.orientador} onChangeText={upd('orientador')} placeholder="Nome do professor orientador" />
+            <MInput value={form.orientador} onChangeText={upd('orientador')} placeholder="Nome do professor orientador" returnKeyType="done" onSubmitEditing={save} />
 
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
                 <MLabel>Ano de Conclusão *</MLabel>
-                <MInput value={form.anoConclusao} onChangeText={upd('anoConclusao')} placeholder="Ex: 2024" keyboardType="numeric" maxLength={4} />
+                <MInput value={form.anoConclusao} onChangeText={upd('anoConclusao')} placeholder="Ex: 2024" keyboardType="numeric" maxLength={4} returnKeyType="done" onSubmitEditing={save} />
               </View>
             </View>
 

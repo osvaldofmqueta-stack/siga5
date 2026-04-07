@@ -993,7 +993,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               ) : (
                 <>
                   <MLabel>URL da Capa</MLabel>
-                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" />
+                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" returnKeyType="done" onSubmitEditing={save} />
                 </>
               )}
               <MLabel>Sinopse / Descrição</MLabel>

@@ -107,6 +107,8 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
                   onChangeText={v => set(f.key as keyof Aluno, v)}
                   placeholder={f.placeholder}
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}
@@ -170,6 +172,8 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
                   placeholderTextColor={Colors.textMuted}
                   keyboardType={f.key === 'emailEncarregado' ? 'email-address' : 'default'}
                   autoCapitalize={f.key === 'emailEncarregado' ? 'none' : 'words'}
+                  returnKeyType="done"
+                  onSubmitEditing={handleSave}
                 />
               </View>
             ))}
