@@ -2084,18 +2084,83 @@ export default function AdminScreen() {
             {/* Banco / Provedor */}
             <View style={styles.card}>
               <SectionHeader title="Banco / Provedor" icon="business" color="#10B981" />
-              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Banco com que a escola tem contrato para cobrança por referência.</Text>
+              <Text style={[styles.configSectionDesc, { marginBottom: 10 }]}>Banco com que a escola tem contrato para cobrança por referência. Caso o seu banco não esteja na lista, seleccione "Outro" e introduza o nome.</Text>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-                {['BFA', 'BAI', 'BPC', 'BIC', 'ATL', 'EMIS', 'BCI', 'Outro'].map(p => (
-                  <TouchableOpacity
-                    key={p}
-                    style={{ paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: config.emisProvedor === p ? '#10B981' : Colors.surface, backgroundColor: config.emisProvedor === p ? '#10B981' + '20' : Colors.surface }}
-                    onPress={() => updateConfig({ emisProvedor: p, bancoTransferencia: p } as never)}
-                  >
-                    <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 13, color: config.emisProvedor === p ? '#10B981' : Colors.textMuted }}>{p}</Text>
-                  </TouchableOpacity>
-                ))}
+                {[
+                  { code: 'BFA', label: 'BFA' },
+                  { code: 'BAI', label: 'BAI' },
+                  { code: 'BPC', label: 'BPC' },
+                  { code: 'BIC', label: 'BIC' },
+                  { code: 'ATL', label: 'ATL' },
+                  { code: 'EMIS', label: 'EMIS' },
+                  { code: 'BCI', label: 'BCI' },
+                  { code: 'BDA', label: 'BDA' },
+                  { code: 'SOL', label: 'Sol Crédito' },
+                  { code: 'UBA', label: 'UBA' },
+                  { code: 'STD', label: 'Standard Bank' },
+                  { code: 'FNB', label: 'Finibanco' },
+                  { code: 'Outro', label: 'Outro...' },
+                ].map(({ code, label }) => {
+                  const isKnownBank = !['Outro'].includes(config.emisProvedor || '');
+                  const isActive = config.emisProvedor === code || (code === 'Outro' && !isKnownBank && !!config.emisProvedor);
+                  return (
+                    <TouchableOpacity
+                      key={code}
+                      style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5, borderColor: isActive ? '#10B981' : Colors.surface, backgroundColor: isActive ? '#10B981' + '20' : Colors.surface }}
+                      onPress={() => {
+                        if (code === 'Outro') {
+                          updateConfig({ emisProvedor: 'Outro', bancoTransferencia: '' } as never);
+                        } else {
+                          updateConfig({ emisProvedor: code, bancoTransferencia: code } as never);
+                        }
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 12, color: isActive ? '#10B981' : Colors.textMuted }}>{label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
+
+              {/* Campo para banco personalizado quando "Outro" está seleccionado */}
+              {config.emisProvedor === 'Outro' && (
+                <View style={{ backgroundColor: '#10B981' + '0D', borderRadius: 12, borderWidth: 1, borderColor: '#10B981' + '30', padding: 12, marginBottom: 12, gap: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                    <Ionicons name="add-circle-outline" size={15} color="#10B981" />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#10B981' }}>Registar banco personalizado</Text>
+                  </View>
+                  <Text style={styles.configFieldLabel}>Sigla / Código do banco *</Text>
+                  <TextInput
+                    style={[styles.input, { marginTop: 4 }]}
+                    placeholder="Ex: BNI, BCGA, BVB..."
+                    placeholderTextColor={Colors.textMuted}
+                    value={config.emisProvedorCustomCode || ''}
+                    onChangeText={v => updateConfig({ emisProvedorCustomCode: v.toUpperCase() } as never)}
+                    autoCapitalize="characters"
+                    maxLength={10}
+                  />
+                  <Text style={[styles.configFieldLabel, { marginTop: 8 }]}>Nome completo do banco *</Text>
+                  <TextInput
+                    style={[styles.input, { marginTop: 4 }]}
+                    placeholder="Ex: Banco Nacional de Investimento"
+                    placeholderTextColor={Colors.textMuted}
+                    value={config.bancoTransferencia || ''}
+                    onChangeText={v => updateConfig({ bancoTransferencia: v })}
+                  />
+                  {!!(config.emisProvedorCustomCode && config.bancoTransferencia) && (
+                    <TouchableOpacity
+                      style={{ marginTop: 4, backgroundColor: '#10B981', borderRadius: 10, paddingVertical: 10, alignItems: 'center' }}
+                      onPress={() => {
+                        const code = config.emisProvedorCustomCode || 'Outro';
+                        updateConfig({ emisProvedor: code, bancoTransferencia: config.bancoTransferencia } as never);
+                        alertSucesso('Banco registado', `${config.bancoTransferencia} (${code}) foi registado com sucesso.`);
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 13, color: '#fff' }}>Confirmar Banco</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               <Text style={styles.configFieldLabel}>Nome completo do banco (para recibos)</Text>
               <TextInput
                 style={[styles.input, { marginTop: 6 }]}

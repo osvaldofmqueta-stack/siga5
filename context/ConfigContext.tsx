@@ -80,6 +80,7 @@ export interface ConfigGeral {
   emisHabilitado?: boolean;
   emisAmbiente?: 'sandbox' | 'producao';
   emisProvedor?: string;
+  emisProvedorCustomCode?: string;
   emisEntidadeId?: string;
   emisApiKey?: string;
   emisApiUrl?: string;
@@ -209,6 +210,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           emisHabilitado: raw.emisHabilitado !== undefined ? Boolean(raw.emisHabilitado) : false,
           emisAmbiente: ((raw.emisAmbiente as string) === 'producao' ? 'producao' : 'sandbox') as 'sandbox' | 'producao',
           emisProvedor: (raw.emisProvedor as string) || undefined,
+          emisProvedorCustomCode: (raw.emisProvedorCustomCode as string) || undefined,
           emisEntidadeId: (raw.emisEntidadeId as string) || undefined,
           emisApiKey: (raw.emisApiKey as string) || undefined,
           emisApiUrl: (raw.emisApiUrl as string) || undefined,
