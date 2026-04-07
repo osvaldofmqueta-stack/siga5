@@ -275,6 +275,7 @@ export default function AdminScreen() {
   }
 
   const SISTEMA_SECS = ['escola', 'config', 'comunicacoes', 'seguranca'];
+  const FULL_PAGE_SECS = ['cursos', 'disciplinas', 'anos', 'reabertura', 'usuarios', 'acessos', ...SISTEMA_SECS];
   const [sistemaFullPage, setSistemaFullPage] = useState(false);
 
   const [escola, setEscola] = useState<EscolaConfig>(DEFAULT_ESCOLA);
@@ -736,10 +737,11 @@ export default function AdminScreen() {
       </LinearGradient>
       )}
 
-      {/* ── Sistema Full-Page compact header ──────────────── */}
+      {/* ── Full-Page compact header ──────────────────────── */}
       {sistemaFullPage && (() => {
         const sec = allSections.find(s => s.key === activeSection);
         const secColor = SECTION_COLORS[activeSection] || Colors.gold;
+        const parentGroup = GROUPS.find(g => g.sections.includes(activeSection));
         return (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border }}>
             <TouchableOpacity
@@ -750,11 +752,16 @@ export default function AdminScreen() {
             </TouchableOpacity>
             {sec && <Ionicons name={sec.icon as any} size={16} color={secColor} />}
             <Text style={{ flex: 1, fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 15 }}>
-              {sec?.label ?? 'Sistema'}
+              {sec?.label ?? 'Configurações'}
             </Text>
-            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 11, color: Colors.textMuted }}>
-              Sistema
-            </Text>
+            {parentGroup && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: (parentGroup.color + '22'), borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                <Ionicons name={parentGroup.icon} size={11} color={parentGroup.color} />
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 11, color: parentGroup.color }}>
+                  {parentGroup.label}
+                </Text>
+              </View>
+            )}
           </View>
         );
       })()}
@@ -804,7 +811,7 @@ export default function AdminScreen() {
               <TouchableOpacity
                 key={sk}
                 style={[styles.subNavBtn, isActive && { backgroundColor: color + '22', borderColor: color + '55' }]}
-                onPress={() => { setActiveSection(sk); if (SISTEMA_SECS.includes(sk)) setSistemaFullPage(true); }}
+                onPress={() => { setActiveSection(sk); if (FULL_PAGE_SECS.includes(sk)) setSistemaFullPage(true); else setSistemaFullPage(false); }}
               >
                 <Ionicons name={s.icon as any} size={13} color={isActive ? color : Colors.textMuted} />
                 <Text style={[styles.subNavText, isActive && { color, fontFamily: 'Inter_700Bold' }]}>{s.label}</Text>

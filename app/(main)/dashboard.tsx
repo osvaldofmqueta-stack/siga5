@@ -21,6 +21,7 @@ const CHART_W = Math.min(width - 64, 360);
 
 function getGreeting() {
   const h = new Date().getHours();
+  if (h >= 0 && h < 6) return 'Boa madrugada';
   if (h < 12) return 'Bom dia';
   if (h < 18) return 'Boa tarde';
   return 'Boa noite';
