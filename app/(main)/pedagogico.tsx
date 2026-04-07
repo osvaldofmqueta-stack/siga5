@@ -1266,9 +1266,11 @@ export default function PedagogicoScreen() {
   // ── Modal Planificação ────────────────────────────────────────────────────
   function renderPlanModal() {
     return (
-      <Modal visible={showPlanModal} animationType="slide" onRequestClose={() => setShowPlanModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: Colors.background }}
-          contentContainerStyle={{ padding: 20, paddingBottom: bottom + 40 }}>
+      <Modal visible={showPlanModal} animationType="fade" transparent onRequestClose={() => setShowPlanModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalSheet}>
+        <ScrollView style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <Text style={st.modalTitle}>{editPlan ? 'Editar Planificação' : 'Nova Planificação'}</Text>
             <TouchableOpacity onPress={() => setShowPlanModal(false)}>
@@ -1337,6 +1339,8 @@ export default function PedagogicoScreen() {
             <Text style={st.btnPrimaryTxt}>{editPlan ? 'Actualizar' : 'Criar Planificação'}</Text>
           </TouchableOpacity>
         </ScrollView>
+          </View>
+        </View>
       </Modal>
     );
   }
@@ -1344,9 +1348,11 @@ export default function PedagogicoScreen() {
   // ── Modal Conteúdo Programático ───────────────────────────────────────────
   function renderProgModal() {
     return (
-      <Modal visible={showProgModal} animationType="slide" onRequestClose={() => setShowProgModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: Colors.background }}
-          contentContainerStyle={{ padding: 20, paddingBottom: bottom + 40 }}>
+      <Modal visible={showProgModal} animationType="fade" transparent onRequestClose={() => setShowProgModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalSheet}>
+        <ScrollView style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <Text style={st.modalTitle}>{editProg ? 'Editar Conteúdo' : 'Novo Conteúdo'}</Text>
             <TouchableOpacity onPress={() => setShowProgModal(false)}>
@@ -1423,6 +1429,8 @@ export default function PedagogicoScreen() {
             <Text style={st.btnPrimaryTxt}>{editProg ? 'Actualizar' : 'Adicionar Conteúdo'}</Text>
           </TouchableOpacity>
         </ScrollView>
+          </View>
+        </View>
       </Modal>
     );
   }
@@ -1431,9 +1439,11 @@ export default function PedagogicoScreen() {
   function renderOcoModal() {
     const alunosTurma = formOco.turmaId ? alunos.filter(a => a.turmaId === formOco.turmaId && a.ativo) : [];
     return (
-      <Modal visible={showOcoModal} animationType="slide" onRequestClose={() => setShowOcoModal(false)}>
-        <ScrollView style={{ flex: 1, backgroundColor: Colors.background }}
-          contentContainerStyle={{ padding: 20, paddingBottom: bottom + 40 }}>
+      <Modal visible={showOcoModal} animationType="fade" transparent onRequestClose={() => setShowOcoModal(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalSheet}>
+        <ScrollView style={{ flex: 1 }}
+          contentContainerStyle={{ padding: 20, paddingBottom: 20 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <Text style={st.modalTitle}>{editOco ? 'Editar Ocorrência' : 'Nova Ocorrência'}</Text>
             <TouchableOpacity onPress={() => setShowOcoModal(false)}>
@@ -1510,6 +1520,8 @@ export default function PedagogicoScreen() {
             <Text style={st.btnPrimaryTxt}>{editOco ? 'Actualizar' : 'Registar Ocorrência'}</Text>
           </TouchableOpacity>
         </ScrollView>
+          </View>
+        </View>
       </Modal>
     );
   }
@@ -1616,4 +1628,21 @@ const st = StyleSheet.create({
     fontSize: 14, borderWidth: 1, borderColor: Colors.border,
   },
   modalTitle: { fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.text },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalSheet: {
+    backgroundColor: Colors.background,
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 560,
+    maxHeight: '88%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
 });

@@ -175,6 +175,8 @@ export default function FinanceiroScreen() {
   const [saldoValor, setSaldoValor]                 = useState('');
   const [saldoDataCobranca, setSaldoDataCobranca]   = useState('');
   const [saldoDescricao, setSaldoDescricao]         = useState('');
+
+  const [rupeSearchRef, setRupeSearchRef]           = useState('');
   const [saldoObs, setSaldoObs]                     = useState('');
   const [saldoLoading, setSaldoLoading]             = useState(false);
   const [showSaldoMovimentos, setShowSaldoMovimentos] = useState(false);
@@ -882,6 +884,30 @@ export default function FinanceiroScreen() {
     const anoBase = parseInt(anoAtual.split('/')[0]) || new Date().getFullYear();
     const mesAtual = new Date().getMonth() + 1;
 
+    // ── Period revenue stats ─────────────────────────────────────────────────
+    const nowDate = new Date();
+    const todayStr = nowDate.toISOString().split('T')[0];
+    const weekDay = nowDate.getDay(); // 0=Sun
+    const weekStart = new Date(nowDate); weekStart.setDate(nowDate.getDate() - weekDay);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const monthStartStr = `${nowDate.getFullYear()}-${String(nowDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const semInicio = nowDate.getMonth() < 6 ? `${nowDate.getFullYear()}-01-01` : `${nowDate.getFullYear()}-07-01`;
+    const pagsPagos = pagamentos.filter(p => p.status === 'pago');
+    const recHoje      = pagsPagos.filter(p => (p.data || '').slice(0, 10) >= todayStr).reduce((s, p) => s + Number(p.valor), 0);
+    const recSemana    = pagsPagos.filter(p => (p.data || '').slice(0, 10) >= weekStartStr).reduce((s, p) => s + Number(p.valor), 0);
+    const recMes       = pagsPagos.filter(p => (p.data || '').slice(0, 10) >= monthStartStr).reduce((s, p) => s + Number(p.valor), 0);
+    const recSemestre  = pagsPagos.filter(p => (p.data || '').slice(0, 10) >= semInicio).reduce((s, p) => s + Number(p.valor), 0);
+
+    // ── RUPE reference lookup ────────────────────────────────────────────────
+    const rupeRefTrim = rupeSearchRef.trim().toUpperCase();
+    const rupeEncontrado = rupeRefTrim.length >= 4 ? rupes.find(r => r.referencia.toUpperCase().includes(rupeRefTrim)) ?? null : null;
+    const rupeAluno = rupeEncontrado ? alunos.find(a => a.id === rupeEncontrado.alunoId) : null;
+    const RUPE_STATUS: Record<string, { label: string; color: string }> = {
+      ativo:    { label: 'Activo / Pendente', color: Colors.warning },
+      pago:     { label: 'Pago',              color: Colors.success },
+      expirado: { label: 'Expirado',          color: Colors.danger  },
+    };
+
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: bottomInset + 60 }}>
         {!propinaHabilitada && (
@@ -909,6 +935,80 @@ export default function FinanceiroScreen() {
             <Text style={[st.kpiVal, { color: Colors.info, fontSize: 20 }]}>{nTransacoes}</Text>
             <Text style={st.kpiLbl}>Transacções</Text>
           </View>
+        </View>
+
+        {/* ── Entradas por período ── */}
+        <Text style={[st.secLabel, { marginBottom: 8 }]}>ENTRADAS POR PERÍODO</Text>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+          {([
+            { label: 'Hoje',        val: recHoje,     icon: 'sunny-outline' as const },
+            { label: 'Esta Semana', val: recSemana,   icon: 'calendar-outline' as const },
+            { label: 'Este Mês',    val: recMes,      icon: 'calendar-clear-outline' as const },
+            { label: 'Semestre',    val: recSemestre, icon: 'stats-chart-outline' as const },
+          ] as const).map(item => (
+            <View key={item.label} style={{ flex: 1, minWidth: 140, backgroundColor: Colors.backgroundElevated, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: Colors.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <Ionicons name={item.icon} size={14} color={Colors.success} />
+                <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 11, color: Colors.textSecondary }}>{item.label}</Text>
+              </View>
+              <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: item.val > 0 ? Colors.success : Colors.textMuted }}>
+                {formatAOA(item.val)}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* ── Consultar RUPE por referência ── */}
+        <Text style={[st.secLabel, { marginBottom: 8 }]}>CONSULTAR RUPE</Text>
+        <View style={{ backgroundColor: Colors.backgroundElevated, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: Colors.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: rupeEncontrado || (rupeRefTrim.length >= 4 && !rupeEncontrado) ? 12 : 0 }}>
+            <Ionicons name="search" size={16} color={Colors.textMuted} />
+            <TextInput
+              style={{ flex: 1, fontFamily: 'Inter_400Regular', fontSize: 14, color: Colors.text, minHeight: 36 }}
+              placeholder="Pesquisar por referência (ex: RUPE-2025-...)"
+              placeholderTextColor={Colors.textMuted}
+              value={rupeSearchRef}
+              onChangeText={setRupeSearchRef}
+              autoCapitalize="characters"
+            />
+            {rupeSearchRef.length > 0 && (
+              <TouchableOpacity onPress={() => setRupeSearchRef('')}>
+                <Ionicons name="close-circle" size={18} color={Colors.textMuted} />
+              </TouchableOpacity>
+            )}
+          </View>
+          {rupeRefTrim.length >= 4 && !rupeEncontrado && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="alert-circle-outline" size={16} color={Colors.textMuted} />
+              <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: Colors.textMuted }}>Nenhum RUPE encontrado para essa referência.</Text>
+            </View>
+          )}
+          {rupeEncontrado && (() => {
+            const sc = RUPE_STATUS[rupeEncontrado.status] ?? RUPE_STATUS.ativo;
+            const expirado = new Date(rupeEncontrado.dataValidade) < new Date();
+            const statusFinal = expirado && rupeEncontrado.status === 'ativo' ? RUPE_STATUS.expirado : sc;
+            return (
+              <View style={{ borderTopWidth: 1, borderTopColor: Colors.border, paddingTop: 12, gap: 6 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: Colors.text }}>
+                    {rupeAluno ? `${rupeAluno.nome} ${rupeAluno.apelido}` : 'Aluno desconhecido'}
+                  </Text>
+                  <View style={{ backgroundColor: statusFinal.color + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3, borderWidth: 1, borderColor: statusFinal.color + '55' }}>
+                    <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 11, color: statusFinal.color }}>{statusFinal.label}</Text>
+                  </View>
+                </View>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: Colors.textMuted }}>Ref: {rupeEncontrado.referencia}</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: Colors.text }}>{getNomeTaxa(rupeEncontrado.taxaId)}</Text>
+                  <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 14, color: Colors.gold }}>{formatAOA(rupeEncontrado.valor)}</Text>
+                </View>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12, color: expirado ? Colors.danger : Colors.textMuted }}>
+                  Válido até: {new Date(rupeEncontrado.dataValidade).toLocaleDateString('pt-PT')}
+                  {expirado && rupeEncontrado.status === 'ativo' ? '  ⚠ Expirado' : ''}
+                </Text>
+              </View>
+            );
+          })()}
         </View>
 
         <View style={{ marginBottom: 12 }}>
@@ -2447,19 +2547,34 @@ export default function FinanceiroScreen() {
             {rupesAluno.length > 0 && (
               <>
                 <Text style={st.secLabel}>RUPES GERADOS</Text>
-                {rupesAluno.map(r => (
-                  <View key={r.id} style={[st.pagCard, { borderLeftWidth: 2, borderLeftColor: Colors.gold }]}>
-                    <View style={[st.pagIcon, { backgroundColor: Colors.gold + '22' }]}>
-                      <Ionicons name="receipt" size={16} color={Colors.gold} />
+                {rupesAluno.map(r => {
+                  const isExpired = new Date(r.dataValidade) < new Date();
+                  const rupeStatusEfetivo = r.status === 'pago' ? 'pago' : isExpired ? 'expirado' : 'ativo';
+                  const RUPE_SC: Record<string, { label: string; color: string }> = {
+                    ativo:    { label: 'Pendente', color: Colors.warning },
+                    pago:     { label: 'Pago',     color: Colors.success },
+                    expirado: { label: 'Expirado', color: Colors.danger  },
+                  };
+                  const sc = RUPE_SC[rupeStatusEfetivo];
+                  return (
+                  <View key={r.id} style={[st.pagCard, { borderLeftWidth: 2, borderLeftColor: sc.color }]}>
+                    <View style={[st.pagIcon, { backgroundColor: sc.color + '22' }]}>
+                      <Ionicons name="receipt" size={16} color={sc.color} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={st.pagTaxa}>{getNomeTaxa(r.taxaId)}</Text>
                       <Text style={[st.pagRef, { fontSize: 11 }]}>Ref: {r.referencia}</Text>
                       <Text style={st.pagMetaTxt}>Válido até: {new Date(r.dataValidade).toLocaleDateString('pt-PT')}</Text>
                     </View>
-                    <Text style={[st.pagValor, { color: Colors.gold }]}>{formatAOA(r.valor)}</Text>
+                    <View style={{ alignItems: 'flex-end', gap: 6 }}>
+                      <Text style={[st.pagValor, { color: sc.color }]}>{formatAOA(r.valor)}</Text>
+                      <View style={{ backgroundColor: sc.color + '22', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, borderWidth: 1, borderColor: sc.color + '55' }}>
+                        <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 10, color: sc.color }}>{sc.label}</Text>
+                      </View>
+                    </View>
                   </View>
-                ))}
+                  );
+                })}
               </>
             )}
 
