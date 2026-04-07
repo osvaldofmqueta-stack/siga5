@@ -9,6 +9,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   escola: string;
+  telefone?: string;
   avatar?: string;
   biometricEnabled: boolean;
   alunoId?: string;
@@ -44,6 +45,9 @@ export async function getAuthToken(): Promise<string | null> {
 export async function clearAuthToken() {
   await AsyncStorage.removeItem(TOKEN_KEY);
 }
+
+// Fields that are persisted server-side (not device-local)
+const SERVER_FIELDS: (keyof AuthUser)[] = ['nome', 'email', 'telefone', 'escola'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -85,6 +89,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function updateUser(updates: Partial<AuthUser>) {
     if (!user) return;
     const updated = { ...user, ...updates };
+
+    // Determine which fields need to be persisted to the server
+    const serverUpdates: Record<string, unknown> = {};
+    for (const field of SERVER_FIELDS) {
+      if (field in updates) serverUpdates[field] = updates[field];
+    }
+
+    // Call the server API if there are server-side fields to update
+    if (Object.keys(serverUpdates).length > 0) {
+      try {
+        const token = await AsyncStorage.getItem(TOKEN_KEY);
+        const res = await fetch('/api/perfil', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify(serverUpdates),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error((err as any)?.error || 'Erro ao actualizar perfil.');
+        }
+      } catch (apiErr) {
+        console.warn('[AuthContext] updateUser API error:', apiErr);
+        throw apiErr;
+      }
+    }
+
+    // Update local storage and state
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     await AsyncStorage.setItem(LAST_USER_KEY, JSON.stringify(updated));
     setUser(updated);
@@ -92,7 +126,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function setBiometric(enabled: boolean) {
-    await updateUser({ biometricEnabled: enabled });
+    if (!user) return;
+    const updated = { ...user, biometricEnabled: enabled };
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    await AsyncStorage.setItem(LAST_USER_KEY, JSON.stringify(updated));
+    setUser(updated);
+    setLastUser(updated);
   }
 
   async function clearLastUser() {

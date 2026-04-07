@@ -24,7 +24,6 @@ import { useConfig } from '@/context/ConfigContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { alertSucesso } from '@/utils/toast';
-import { webAlert } from '@/utils/webAlert';
 import { api } from '@/lib/api';
 
 interface PapRecord {
@@ -160,10 +159,21 @@ export default function PerfilScreen() {
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [editField, setEditField] = useState<string | null>(null);
+  const [editLabel, setEditLabel] = useState('');
   const [editValue, setEditValue] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [biometricEnabled, setBiometricState] = useState(user?.biometricEnabled || false);
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  // Password change modal state
+  const [showSenhaModal, setShowSenhaModal] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState('');
+  const [senhaNova, setSenhaNova] = useState('');
+  const [senhaConfirm, setSenhaConfirm] = useState('');
+  const [senhaError, setSenhaError] = useState('');
+  const [isSavingSenha, setIsSavingSenha] = useState(false);
 
   // Salary estimation (for all non-aluno, non-encarregado users)
   const [salEst, setSalEst] = useState<Record<string, any> | null>(null);
@@ -237,16 +247,51 @@ export default function PerfilScreen() {
     aluno: Colors.success,
   } as Record<string, string>)[user.role] || Colors.textMuted;
 
-  function startEdit(field: string, currentValue: string) {
+  function startEdit(field: string, currentValue: string, label: string) {
     setEditField(field);
+    setEditLabel(label);
     setEditValue(currentValue || '');
+    setSaveError('');
   }
 
   async function saveEdit() {
     if (!editField) return;
-    await updateUser({ [editField]: editValue });
-    setEditField(null);
-    alertSucesso('Perfil actualizado', 'As suas informações foram actualizadas com sucesso.');
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      await updateUser({ [editField]: editValue } as any);
+      setEditField(null);
+      alertSucesso('Perfil actualizado', 'As suas informações foram actualizadas com sucesso.');
+    } catch (err: any) {
+      setSaveError(err?.message || 'Erro ao guardar. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleChangeSenha() {
+    setSenhaError('');
+    if (!senhaAtual) { setSenhaError('Indique a sua senha actual.'); return; }
+    if (!senhaNova || senhaNova.length < 6) { setSenhaError('A nova senha deve ter pelo menos 6 caracteres.'); return; }
+    if (senhaNova !== senhaConfirm) { setSenhaError('As senhas não coincidem. Verifique e tente novamente.'); return; }
+    setIsSavingSenha(true);
+    try {
+      const token = await import('@react-native-async-storage/async-storage').then(m => m.default.getItem('@siga_token'));
+      const res = await fetch('/api/perfil', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ senhaAtual, senhaNova }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setSenhaError((data as any)?.error || 'Erro ao alterar senha.'); return; }
+      setShowSenhaModal(false);
+      setSenhaAtual(''); setSenhaNova(''); setSenhaConfirm('');
+      alertSucesso('Senha alterada', 'A sua senha foi alterada com sucesso.');
+    } catch {
+      setSenhaError('Erro de rede. Verifique a sua ligação.');
+    } finally {
+      setIsSavingSenha(false);
+    }
   }
 
   async function handleBiometric(val: boolean) {
@@ -757,15 +802,10 @@ export default function PerfilScreen() {
         {/* Dados Pessoais */}
         <View style={styles.card}>
           <SectionHeader title="Dados Pessoais" icon="person" />
-          <InfoRow label="Nome completo" value={user.nome} editable onEdit={() => startEdit('nome', user.nome)} />
-          <InfoRow label="Email" value={user.email} editable onEdit={() => startEdit('email', user.email)} />
-          <InfoRow label="Instituição" value={user.escola} editable onEdit={() => startEdit('escola', user.escola)} />
-          <InfoRow label="Telefone" value="923 000 000" editable onEdit={() => {}} />
-          <InfoRow label="BI / Passaporte" value="006348521LA041" editable onEdit={() => {}} />
-          <InfoRow label="Data de Nascimento" value="01/01/1985" editable onEdit={() => {}} />
-          <InfoRow label="Endereço" value="Rua da Missão, N.º 45, Luanda" editable onEdit={() => {}} />
-          <InfoRow label="Município" value="Luanda" editable onEdit={() => {}} />
-          <InfoRow label="Província" value="Luanda" editable onEdit={() => {}} />
+          <InfoRow label="Nome completo" value={user.nome} editable onEdit={() => startEdit('nome', user.nome, 'Nome completo')} />
+          <InfoRow label="Email institucional" value={user.email} editable onEdit={() => startEdit('email', user.email, 'Email institucional')} />
+          <InfoRow label="Telefone" value={user.telefone || ''} editable onEdit={() => startEdit('telefone', user.telefone || '', 'Telefone')} />
+          <InfoRow label="Instituição" value={user.escola} editable onEdit={() => startEdit('escola', user.escola, 'Instituição')} />
         </View>
 
         {/* Segurança */}
@@ -786,7 +826,7 @@ export default function PerfilScreen() {
               thumbColor={biometricEnabled ? Colors.info : Colors.textMuted}
             />
           </View>
-          <TouchableOpacity style={styles.actionRow} onPress={() => webAlert('Mudar Senha', 'Funcionalidade disponível na próxima versão.')}>
+          <TouchableOpacity style={styles.actionRow} onPress={() => { setSenhaAtual(''); setSenhaNova(''); setSenhaConfirm(''); setSenhaError(''); setShowSenhaModal(true); }}>
             <Ionicons name="key" size={18} color={Colors.gold} />
             <Text style={styles.actionLabel}>Mudar Senha</Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
@@ -843,20 +883,90 @@ export default function PerfilScreen() {
       {editField && (
         <View style={styles.editOverlay}>
           <View style={styles.editBox}>
-            <Text style={styles.editTitle}>Editar Campo</Text>
+            <Text style={styles.editTitle}>{editLabel || 'Editar Campo'}</Text>
             <TextInput
               style={styles.editInput}
               value={editValue}
-              onChangeText={setEditValue}
+              onChangeText={v => { setEditValue(v); setSaveError(''); }}
               autoFocus
               placeholderTextColor={Colors.textMuted}
+              keyboardType={editField === 'telefone' ? 'phone-pad' : editField === 'email' ? 'email-address' : 'default'}
+              autoCapitalize={editField === 'email' ? 'none' : 'words'}
             />
+            {!!saveError && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10 }}>
+                <Ionicons name="alert-circle-outline" size={15} color={Colors.danger} />
+                <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger }}>{saveError}</Text>
+              </View>
+            )}
             <View style={styles.editActions}>
-              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setEditField(null)}>
+              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setEditField(null)} disabled={isSaving}>
                 <Text style={styles.editCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.editSaveBtn} onPress={saveEdit}>
-                <Text style={styles.editSaveText}>Guardar</Text>
+              <TouchableOpacity style={[styles.editSaveBtn, { opacity: isSaving ? 0.6 : 1 }]} onPress={saveEdit} disabled={isSaving}>
+                {isSaving
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.editSaveText}>Guardar</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* Password Change Modal */}
+      {showSenhaModal && (
+        <View style={styles.editOverlay}>
+          <View style={styles.editBox}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: Colors.gold + '22', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="key" size={18} color={Colors.gold} />
+              </View>
+              <Text style={styles.editTitle}>Mudar Senha</Text>
+            </View>
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>Senha actual</Text>
+            <TextInput
+              style={[styles.editInput, { marginBottom: 10 }]}
+              value={senhaAtual}
+              onChangeText={v => { setSenhaAtual(v); setSenhaError(''); }}
+              secureTextEntry
+              placeholder="Senha actual"
+              placeholderTextColor={Colors.textMuted}
+              autoFocus
+            />
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>Nova senha</Text>
+            <TextInput
+              style={[styles.editInput, { marginBottom: 10 }]}
+              value={senhaNova}
+              onChangeText={v => { setSenhaNova(v); setSenhaError(''); }}
+              secureTextEntry
+              placeholder="Nova senha (mínimo 6 caracteres)"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 12 }}>Confirmar nova senha</Text>
+            <TextInput
+              style={[styles.editInput]}
+              value={senhaConfirm}
+              onChangeText={v => { setSenhaConfirm(v); setSenhaError(''); }}
+              secureTextEntry
+              placeholder="Repetir nova senha"
+              placeholderTextColor={Colors.textMuted}
+            />
+            {!!senhaError && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, marginBottom: 2, backgroundColor: Colors.danger + '18', borderRadius: 8, padding: 10 }}>
+                <Ionicons name="alert-circle-outline" size={15} color={Colors.danger} />
+                <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger }}>{senhaError}</Text>
+              </View>
+            )}
+            <View style={[styles.editActions, { marginTop: 14 }]}>
+              <TouchableOpacity style={styles.editCancelBtn} onPress={() => setShowSenhaModal(false)} disabled={isSavingSenha}>
+                <Text style={styles.editCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.editSaveBtn, { opacity: isSavingSenha ? 0.6 : 1 }]} onPress={handleChangeSenha} disabled={isSavingSenha}>
+                {isSavingSenha
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.editSaveText}>Alterar Senha</Text>
+                }
               </TouchableOpacity>
             </View>
           </View>

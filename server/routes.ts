@@ -51,6 +51,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] disciplinas componente:', (migErr as Error).message);
   }
 
+  // Add telefone column to utilizadores (for self-profile update)
+  try {
+    await query(`ALTER TABLE public.utilizadores ADD COLUMN IF NOT EXISTS telefone text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] utilizadores.telefone ensured.');
+  } catch (migErr) {
+    console.warn('[migration] utilizadores.telefone:', (migErr as Error).message);
+  }
+
   // Add utilizadorId column to professores (links academic profile → user account)
   try {
     await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
@@ -648,6 +656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: u.email,
           role: u.role,
           escola: u.escola ?? "",
+          telefone: u.telefone ?? "",
           ...(alunoId ? { alunoId } : {}),
         },
       });
@@ -1976,6 +1985,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     if (!rows[0]) return json(res, 404, { error: "Encarregado não encontrado." });
     json(res, 200, rows[0]);
+  });
+
+  // ─── Self-Profile Update (any authenticated user, no special permission) ────
+  app.put("/api/perfil", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const userId = req.jwtUser!.userId;
+      const b = requireBodyObject(req);
+
+      // Password change flow
+      if (b.senhaNova !== undefined) {
+        // Must provide current password to change
+        if (!b.senhaAtual) return json(res, 400, { error: "Indique a senha actual para alterar a senha." });
+        const rows = await query<JsonObject>(`SELECT senha FROM public.utilizadores WHERE id=$1`, [userId]);
+        if (!rows[0]) return json(res, 404, { error: "Utilizador não encontrado." });
+        const senhaGuardada = String(rows[0].senha ?? '');
+        let senhaValida = false;
+        if (senhaGuardada.startsWith('$2b$') || senhaGuardada.startsWith('$2a$')) {
+          const bcrypt = await import('bcrypt');
+          senhaValida = await bcrypt.compare(String(b.senhaAtual), senhaGuardada);
+        } else {
+          senhaValida = senhaGuardada === String(b.senhaAtual);
+        }
+        if (!senhaValida) return json(res, 401, { error: "Senha actual incorrecta. Tente novamente." });
+        const bcrypt = await import('bcrypt');
+        const senhaHash = await bcrypt.hash(String(b.senhaNova), 10);
+        await query(`UPDATE public.utilizadores SET senha=$1 WHERE id=$2`, [senhaHash, userId]);
+        return json(res, 200, { ok: true, message: "Senha alterada com sucesso." });
+      }
+
+      // Regular profile fields
+      const allowed = ["nome", "email", "telefone"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}" = $${values.length}`);
+      }
+      if (!setParts.length) return json(res, 400, { error: "Nenhum campo para actualizar." });
+      const updated = await query<JsonObject>(
+        `UPDATE public.utilizadores SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING id,nome,email,telefone,role,escola,ativo`,
+        [...values, userId]
+      );
+      if (!updated[0]) return json(res, 404, { error: "Utilizador não encontrado." });
+
+      // Sync email/telefone to linked records (best-effort)
+      try {
+        if (b.email !== undefined || b.telefone !== undefined) {
+          // professor
+          const syncParts: string[] = []; const syncVals: unknown[] = [];
+          if (b.email !== undefined) { syncVals.push(b.email); syncParts.push(`email=$${syncVals.length}`); }
+          if (b.telefone !== undefined) { syncVals.push(b.telefone); syncParts.push(`telefone=$${syncVals.length}`); }
+          if (syncParts.length) {
+            syncVals.push(userId);
+            await query(`UPDATE public.professores SET ${syncParts.join(",")} WHERE "utilizadorId"=$${syncVals.length}`, syncVals);
+            await query(`UPDATE public.funcionarios SET ${syncParts.join(",")} WHERE "utilizadorId"=$${syncVals.length}`, syncVals);
+          }
+        }
+      } catch { /* sync is best-effort */ }
+
+      json(res, 200, updated[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
   app.put("/api/utilizadores/:id", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {

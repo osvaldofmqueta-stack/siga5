@@ -1,6 +1,30 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Sistema de Subscrição por Nível: Prata / Ouro / Rubi)
+## Recent Changes (Latest Session — Correcção de Edição de Perfil para Todos os Perfis)
+
+### `server/routes.ts`
+- **Migration**: adicionada coluna `telefone` (TEXT DEFAULT '') a `utilizadores`
+- **Novo endpoint** `PUT /api/perfil` — permite a qualquer utilizador autenticado actualizar os seus próprios dados:
+  - Campos permitidos: `nome`, `email`, `telefone` (sem necessidade de permissão `rh_hub`)
+  - Mudança de senha: envia `{ senhaAtual, senhaNova }` → valida senha actual (bcrypt), guarda nova senha com hash
+  - Sincroniza `email` e `telefone` também nos registos `professores` e `funcionarios` ligados ao utilizador
+- **Login** (`POST /api/login`): resposta agora inclui campo `telefone` no objecto `user`
+
+### `context/AuthContext.tsx`
+- Interface `AuthUser`: adicionado campo `telefone?: string`
+- `updateUser()` corrigido: agora chama `PUT /api/perfil` para campos servidor (`nome`, `email`, `telefone`, `escola`) antes de actualizar AsyncStorage
+  - Lança excepção se a API falhar (permite tratamento de erro no ecrã)
+- `setBiometric()` separado como local-only (não chama API)
+
+### `app/(main)/perfil.tsx`
+- **Dados Pessoais**: campos Nome, Email, Telefone e Instituição editáveis e persistidos no servidor
+  - Removidos dados fictícios hardcoded (BI, dataNascimento, Endereço, Município, Província)
+  - Campo Telefone usa `user.telefone` real
+- **Modal de edição**: mostra label do campo, mensagem de erro, spinner durante gravação
+- **Modal de mudança de senha**: implementado com 3 campos (senha actual, nova, confirmação), validação e feedback de erro
+- **Botão "Mudar Senha"**: abre modal real em vez de alerta de "próxima versão"
+
+## Recent Changes (Previous Session — Sistema de Subscrição por Nível: Prata / Ouro / Rubi)
 
 ### `context/LicenseContext.tsx` — REESCRITO COMPLETAMENTE
 - Adicionado tipo `TipoNivel = 'prata' | 'ouro' | 'rubi'`
