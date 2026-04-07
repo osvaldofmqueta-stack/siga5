@@ -22,6 +22,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Planificacao {
@@ -1527,6 +1528,10 @@ export default function PedagogicoScreen() {
   }
 
   // ── Root ──────────────────────────────────────────────────────────────────
+  useEnterToSave(savePlan, showPlanModal);
+  useEnterToSave(saveProg, showProgModal);
+  useEnterToSave(saveOco, showOcoModal);
+
   return (
     <View style={{ flex: 1, backgroundColor: Colors.background }}>
       <TopBar title="Área Pedagógica" />

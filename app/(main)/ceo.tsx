@@ -26,6 +26,7 @@ import {
 import { useData } from '@/context/DataContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 const PLANO_PRECO: Record<TipoPlano, string> = {
   avaliacao: 'Grátis',
@@ -606,6 +607,9 @@ export default function CeoScreen() {
       </View>
     );
   }
+
+  useEnterToSave(handleGerar, showGerar);
+  useEnterToSave(handleAddSaldo, showSaldo);
 
   return (
     <View style={styles.container}>

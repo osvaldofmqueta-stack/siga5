@@ -21,6 +21,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor, Material } from '@/context/ProfessorContext';
 import { timeAgo } from '@/context/NotificacoesContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 type TipoMaterial = 'texto' | 'link' | 'resumo' | 'pdf' | 'docx' | 'ppt';
 
@@ -145,6 +146,8 @@ export default function ProfessorMateriaisScreen() {
       Linking.openURL(mat.conteudo).catch(() => webAlert('Ficheiro local', 'O ficheiro está guardado no dispositivo: ' + (mat.nomeArquivo || mat.conteudo)));
     }
   }
+
+  useEnterToSave(salvar, showForm);
 
   return (
     <View style={styles.container}>

@@ -26,6 +26,7 @@ import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 const { width } = Dimensions.get('window');
 
@@ -2634,6 +2635,8 @@ export default function PortalEstudanteScreen() {
   const initials = user?.nome.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || 'AL';
 
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  useEnterToSave(handleSubmitJustificacao, !!showJustModal);
 
   return (
     <View style={styles.container}>

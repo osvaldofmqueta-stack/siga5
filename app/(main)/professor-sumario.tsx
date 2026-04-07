@@ -19,6 +19,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 const PERIODOS = [
   { numero: 1, inicio: '07:00', fim: '07:45' },
@@ -103,6 +104,8 @@ export default function ProfessorSumarioScreen() {
   function statusIcon(status: string) {
     return status === 'aceite' ? 'checkmark-circle' : status === 'rejeitado' ? 'close-circle' : 'time';
   }
+
+  useEnterToSave(submeter, showForm);
 
   return (
     <View style={styles.container}>

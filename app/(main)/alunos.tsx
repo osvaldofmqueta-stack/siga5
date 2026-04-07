@@ -26,6 +26,7 @@ import DatePickerField from '@/components/DatePickerField';
 import ProvinciaMunicipioSelector from '@/components/ProvinciaMunicipioSelector';
 import ExportMenu from '@/components/ExportMenu';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import api from '@/lib/api';
 
 interface Anotacao {
@@ -83,6 +84,8 @@ function AlunoFormModal({ visible, onClose, onSave, aluno, turmas }: any) {
 
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  useEnterToSave(handleSave, visible);
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>

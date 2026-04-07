@@ -20,6 +20,7 @@ import { alertSucesso, alertErro } from '../../utils/toast';
 import { formatAOA } from '../../context/FinanceiroContext';
 import { useFinanceiro } from '../../context/FinanceiroContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Bolsa {
@@ -205,6 +206,8 @@ export default function BolsasScreen() {
       alertErro('Erro ao guardar', (e as Error).message);
     }
   };
+
+  useEnterToSave(guardar, showModal);
 
   const toggleAtivo = async (b: Bolsa) => {
     try {

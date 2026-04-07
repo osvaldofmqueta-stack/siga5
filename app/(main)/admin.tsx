@@ -25,6 +25,7 @@ import { useConfig } from '@/context/ConfigContext';
 import GestaoAcessosPanel from '@/components/GestaoAcessosPanel';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import { useLookup } from '@/hooks/useLookup';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { webAlert } from '@/utils/webAlert';
 import { api } from '@/lib/api';
 
@@ -696,6 +697,14 @@ export default function AdminScreen() {
   ];
 
   const currentSolicitacoes = matriculasTab === 'pendente' ? pendentes : matriculasTab === 'aprovado' ? aprovadas : rejeitadas;
+
+  useEnterToSave(salvarEscola, editEscola);
+  useEnterToSave(salvarCurso, showCursoForm);
+  useEnterToSave(guardarDiscCurso, !!gDiscCurso);
+  useEnterToSave(criarAno, showNovoAno);
+  useEnterToSave(criarUser, showNovoUser);
+  useEnterToSave(confirmarRejeicao, showRejeitar);
+  useEnterToSave(() => reaObsModal ? responderReabertura(reaObsModal.notaId, reaObsModal.pedidoId, reaObsModal.decisao, reaObs) : undefined, !!reaObsModal);
 
   return (
     <View style={styles.container}>

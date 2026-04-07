@@ -22,6 +22,7 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
 import { useLookup } from '@/hooks/useLookup';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 interface Curso { id: string; nome: string; codigo: string; areaFormacao: string; ativo: boolean; }
 interface DisciplinaCatalogo { id: string; nome: string; codigo: string; area: string; componente: string; }
@@ -345,6 +346,7 @@ function DisciplinasSelector({ disciplinas, selected, onChange }: {
 }
 
 function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
+  useEnterToSave(handleSave, visible);
   const { anoSelecionado } = useAnoAcademico();
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
   const { values: niveis } = useLookup('niveis', NIVEIS_FALLBACK);

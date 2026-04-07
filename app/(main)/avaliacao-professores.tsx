@@ -19,6 +19,7 @@ import { api } from '../../lib/api';
 import { Colors } from '../../constants/colors';
 import { alertSucesso, alertErro } from '../../utils/toast';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface Avaliacao {
@@ -325,6 +326,8 @@ function AvaliacaoProfessoresMain() {
       setModalError(`Erro ao guardar: ${msg}`);
     }
   };
+
+  useEnterToSave(guardar, showModal);
 
   const eliminar = (av: Avaliacao) => {
     webAlert('Eliminar Avaliação', `Eliminar avaliação de ${av.nome} ${av.apelido} (${av.periodoLetivo})?`, [

@@ -30,6 +30,7 @@ import { useRouter } from 'expo-router';
 import { alertSucesso, alertErro } from '@/utils/toast';
 import ExportMenu from '@/components/ExportMenu';
 import { useLookup } from '@/hooks/useLookup';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { webAlert } from '@/utils/webAlert';
 import { api } from '@/lib/api';
 import type { IrtEscalao } from '@/context/ConfigContext';
@@ -3519,6 +3520,18 @@ export default function FinanceiroScreen() {
     }
     return base;
   })();
+
+  useEnterToSave(savePlano, showPlanoModal);
+  useEnterToSave(saveConta, showContaModal);
+  useEnterToSave(saveFeriado, showFeriadoModal);
+  useEnterToSave(saveAvulso, showAvulsoModal);
+  useEnterToSave(handleSalvarMulta, showMultaModal);
+  useEnterToSave(handleSolicitarIsencao, showIsencaoModal);
+  useEnterToSave(handleAdicionarSaldo, showSaldoModal);
+  useEnterToSave(handleTransferirPagamento, showTransferModal);
+  useEnterToSave(registarPagamento, showModalPag);
+  useEnterToSave(gravarTaxa, showModalTaxa);
+  useEnterToSave(cancelarERecriar, showCancelarRecriarModal);
 
   return (
     <View style={st.container}>

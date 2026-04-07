@@ -21,6 +21,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import {
   DEPARTAMENTOS,
   CARGOS,
@@ -487,6 +488,10 @@ export default function RHControleScreen() {
   async function publicarToggle(id: string, publicado: boolean) {
     await updateCalendarioProva(id, { publicado });
   }
+
+  useEnterToSave(saveFuncionario, showFuncForm);
+  useEnterToSave(criarAcesso, showAcessoModal);
+  useEnterToSave(publicarProva, showProvaForm);
 
   if (!isRH) {
     return (

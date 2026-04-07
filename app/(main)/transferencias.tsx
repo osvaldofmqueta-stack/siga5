@@ -23,6 +23,7 @@ import { useToast } from '@/context/ToastContext';
 import { api } from '@/lib/api';
 import TopBar from '@/components/TopBar';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -201,6 +202,7 @@ function FormModal({
 }) {
   const [form, setForm] = useState<Partial<Transferencia>>(initial || emptyForm('saida'));
   const [docsOpen, setDocsOpen] = useState(false);
+  useEnterToSave(handleSave, visible);
   const [alunoSearch, setAlunoSearch] = useState('');
   const [filterTurmaId, setFilterTurmaId] = useState<string | null>(null);
   const insets = useSafeAreaInsets();

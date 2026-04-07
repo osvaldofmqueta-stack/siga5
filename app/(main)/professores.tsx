@@ -23,6 +23,7 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import QRCodeModal from '@/components/QRCodeModal';
 import ExportMenu from '@/components/ExportMenu';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
 
@@ -40,6 +41,8 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
 
   const [form, setForm] = useState<Partial<Professor>>(getDefault);
   const [catalogDisc, setCatalogDisc] = useState<DisciplinaCatalog[]>([]);
+
+  useEnterToSave(handleSave, visible);
 
   useEffect(() => {
     if (visible) {

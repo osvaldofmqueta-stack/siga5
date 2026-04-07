@@ -19,6 +19,7 @@ import { useData } from '@/context/DataContext';
 import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 type Tab = 'recebidas' | 'enviadas' | 'nova';
 type MsgTipo = 'turma' | 'privada';
@@ -212,6 +213,8 @@ export default function ProfessorMensagensScreen() {
     : privSubTipo === 'professor'
     ? 'Selecionar professor...'
     : 'Selecionar aluno...';
+
+  useEnterToSave(enviarMensagem, showCompor);
 
   return (
     <View style={styles.container}>

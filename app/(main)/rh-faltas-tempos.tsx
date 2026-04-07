@@ -12,6 +12,7 @@ import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { DEPARTAMENTOS, getDepartamentoByKey, DepartamentoKey } from '@/shared/departamentos';
 import { BarChart, DonutChart, LineChart } from '@/components/Charts';
 
@@ -285,6 +286,8 @@ function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) 
     const totalDesc = inj * configRH.valorPorFalta + meio * configRH.valorMeioDia;
     return { inj, just, meio, totalDesc };
   }, [faltasFiltradas, configRH]);
+
+  useEnterToSave(registarFalta, showForm);
 
   return (
     <View style={{ flex: 1 }}>
@@ -571,6 +574,8 @@ function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes:
 
   const unidadeLabel = tipo === 'professor' ? 'Tempos Lectivos' : 'Dias Trabalhados';
   const taxaLabel    = tipo === 'professor' ? 'por Tempo Lectivo' : 'por Dia Trabalhado';
+
+  useEnterToSave(salvarTempo, showForm);
 
   return (
     <View style={{ flex: 1 }}>

@@ -8,6 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
 import { useAuth, getAuthToken } from '@/context/AuthContext';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 interface TrabalhoFinal {
   id: string;
@@ -567,6 +568,8 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
   };
 
   const color = cursoColor(form.curso);
+
+  useEnterToSave(save, visible);
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>

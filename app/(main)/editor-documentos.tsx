@@ -26,6 +26,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useData } from '@/context/DataContext';
 import { useConfig } from '@/context/ConfigContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -2486,6 +2487,8 @@ export default function EditorDocumentos() {
   const [activeVarGroup, setActiveVarGroup] = useState(0);
   const [isEditorExpanded, setIsEditorExpanded] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEnterToSave(saveTemplate, !!editingTemplate);
 
   // Emit state
   const [emitTemplate, setEmitTemplate] = useState<DocTemplate | null>(null);

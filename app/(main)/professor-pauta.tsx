@@ -25,6 +25,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes } from '@/context/NotificacoesContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 type Trimestre = 1 | 2 | 3;
 
@@ -1041,6 +1042,8 @@ export default function ProfessorPautaScreen() {
       </View>
     );
   }
+
+  useEnterToSave(solicitarReabertura, showSolicitModal);
 
   return (
     <View style={styles.container}>

@@ -24,6 +24,7 @@ import TopBar from '@/components/TopBar';
 import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 
 import { useLookup } from '@/hooks/useLookup';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { webAlert } from '@/utils/webAlert';
 
 const ALL_AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
@@ -157,6 +158,8 @@ function NotaFormModal({
 }) {
   const insets = useSafeAreaInsets();
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  useEnterToSave(() => handleSave(false), visible);
 
   // auto-detected existing nota when selecting aluno+disciplina in new-launch mode
   const [autoNota, setAutoNota] = useState<Nota | null>(null);

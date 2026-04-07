@@ -27,6 +27,7 @@ import { useProfessor } from '@/context/ProfessorContext';
 import { useNotificacoes, timeAgo } from '@/context/NotificacoesContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 type Tab = 'painel' | 'professores' | 'sumarios' | 'solicitacoes' | 'calendario' | 'pautas';
 type SumarioFiltro = 'pendente' | 'aceite' | 'rejeitado' | 'todos';
@@ -246,6 +247,8 @@ export default function RHHubScreen() {
     });
     setShowProvaForm(false); resetProvaForm();
   }
+
+  useEnterToSave(publicarProva, showProvaForm);
 
   function resetProvaForm() {
     setProvaTitulo(''); setProvaDesc(''); setProvaDisciplina('');

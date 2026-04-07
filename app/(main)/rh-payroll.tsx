@@ -19,6 +19,7 @@ import { Colors } from '../../constants/colors';
 import DateInput from '../../components/DateInput';
 import { useToast } from '../../context/ToastContext';
 import { webAlert } from '@/utils/webAlert';
+import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { BarChart, DonutChart } from '@/components/Charts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -565,6 +566,9 @@ export default function RhPayrollScreen() {
     return `${p.nome} ${p.apelido}`.toLowerCase().includes(q) ||
       (p.cargo ?? '').toLowerCase().includes(q);
   });
+
+  useEnterToSave(criarFolha, showNovaFolha);
+  useEnterToSave(guardarProf, showProfModal);
 
   // ─── Render Helpers ─────────────────────────────────────────────────────────
   const renderFolhaRow = (f: FolhaSalarios) => {
