@@ -963,13 +963,13 @@ export default function RHControleScreen() {
                   </View>
 
                   <FormRow label="Secção / Unidade Orgânica">
-                    <TextInput style={styles.input} placeholder="Ex: Secretaria Pedagógica, Arquivo, Tesouraria..." placeholderTextColor={Colors.textMuted} value={funcForm.seccao} onChangeText={v => updateField('seccao', v)} />
+                    <TextInput style={styles.input} placeholder="Ex: Secretaria Pedagógica, Arquivo, Tesouraria..." placeholderTextColor={Colors.textMuted} value={funcForm.seccao} onChangeText={v => updateField('seccao', v)} returnKeyType="next" blurOnSubmit={false} />
                   </FormRow>
                   <FormRow label="Especialidade / Área">
-                    <TextInput style={styles.input} placeholder="Ex: Matemática, Gestão, etc." placeholderTextColor={Colors.textMuted} value={funcForm.especialidade} onChangeText={v => updateField('especialidade', v)} />
+                    <TextInput style={styles.input} placeholder="Ex: Matemática, Gestão, etc." placeholderTextColor={Colors.textMuted} value={funcForm.especialidade} onChangeText={v => updateField('especialidade', v)} returnKeyType="next" blurOnSubmit={false} />
                   </FormRow>
                   <FormRow label="Habilitações Académicas">
-                    <TextInput style={styles.input} placeholder="Ex: Licenciatura em Ciências da Educação" placeholderTextColor={Colors.textMuted} value={funcForm.habilitacoes} onChangeText={v => updateField('habilitacoes', v)} />
+                    <TextInput style={styles.input} placeholder="Ex: Licenciatura em Ciências da Educação" placeholderTextColor={Colors.textMuted} value={funcForm.habilitacoes} onChangeText={v => updateField('habilitacoes', v)} returnKeyType="done" onSubmitEditing={saveFuncionario} />
                   </FormRow>
                 </>
               )}
@@ -1009,7 +1009,7 @@ export default function RHControleScreen() {
                   <>
                     <Text style={styles.sectionNote}>Os valores são em Kwanzas (AOA). Os subsídios são calculados como percentagem do salário base e alimentam automaticamente o processamento salarial (IRT + INSS).</Text>
                     <FormRow label="Salário Base (AOA)">
-                      <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.salarioBase?.toString()} onChangeText={v => updateField('salarioBase', parseFloat(v) || 0)} keyboardType="numeric" />
+                      <TextInput style={styles.input} placeholder="0" placeholderTextColor={Colors.textMuted} value={funcForm.salarioBase?.toString()} onChangeText={v => updateField('salarioBase', parseFloat(v) || 0)} keyboardType="numeric" returnKeyType="done" onSubmitEditing={saveFuncionario} />
                     </FormRow>
 
                     {/* ── Dynamic Subsidies ── */}
@@ -1370,6 +1370,8 @@ export default function RHControleScreen() {
                   onChangeText={setAcessoEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
               </View>
 
@@ -1383,6 +1385,8 @@ export default function RHControleScreen() {
                   value={acessoSenha}
                   onChangeText={setAcessoSenha}
                   secureTextEntry={!showAcessoPassword}
+                  returnKeyType="done"
+                  onSubmitEditing={criarAcesso}
                 />
                 <TouchableOpacity
                   style={styles.inputPasswordToggle}

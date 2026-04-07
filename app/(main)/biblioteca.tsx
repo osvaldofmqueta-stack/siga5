@@ -713,6 +713,8 @@ function SolicitarModal({ visible, livro, user, onClose, onSaved }: {
                 placeholderTextColor="#555"
                 keyboardType="numeric"
                 maxLength={2}
+                returnKeyType="done"
+                onSubmitEditing={save}
               />
             </View>
 
@@ -752,7 +754,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
   const [customCat, setCustomCat] = useState('');
   const [form, setForm] = useState({
     titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '',
-    anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '',
+    anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '', ativo: true,
   });
 
   const PREDEFINED_CATS = ['Geral', 'Matemática', 'Ciências', 'Língua Portuguesa', 'História', 'Geografia',
@@ -770,12 +772,12 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         anoPublicacao: livro.anoPublicacao?.toString() || '',
         quantidadeTotal: livro.quantidadeTotal.toString(),
         localizacao: livro.localizacao, descricao: livro.descricao,
-        capaUrl: livro.capaUrl || '',
+        capaUrl: livro.capaUrl || '', ativo: livro.ativo !== false,
       });
       setCustomCat(isPredefined ? '' : livro.categoria);
       setCapaMode(livro.capaUrl ? 'url' : 'upload');
     } else {
-      setForm({ titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '', anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '' });
+      setForm({ titulo: '', autor: '', isbn: '', categoria: 'Geral', editora: '', anoPublicacao: '', quantidadeTotal: '1', localizacao: '', descricao: '', capaUrl: '', ativo: true });
       setCustomCat('');
       setCapaMode('upload');
     }
@@ -833,7 +835,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
         quantidadeTotal: qty,
         quantidadeDisponivel: livro ? undefined : qty,
         localizacao: form.localizacao.trim(), descricao: form.descricao.trim(),
-        capaUrl: form.capaUrl.trim(),
+        capaUrl: form.capaUrl.trim(), ativo: form.ativo,
       };
       if (livro) {
         await req(`/api/livros/${livro.id}`, { method: 'PUT', body: JSON.stringify(payload) });
@@ -871,21 +873,21 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 <Text style={mStyles.sectionTitle}>IDENTIFICAÇÃO</Text>
               </View>
               <MLabel>Título *</MLabel>
-              <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do livro" />
+              <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Título do livro" returnKeyType="next" blurOnSubmit={false} />
               <MLabel>Autor *</MLabel>
-              <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome do autor" />
+              <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Nome do autor" returnKeyType="next" blurOnSubmit={false} />
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ flex: 1 }}>
                   <MLabel>ISBN</MLabel>
-                  <MInput value={form.isbn} onChangeText={upd('isbn')} placeholder="ISBN" keyboardType="numeric" />
+                  <MInput value={form.isbn} onChangeText={upd('isbn')} placeholder="ISBN" keyboardType="numeric" returnKeyType="next" blurOnSubmit={false} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <MLabel>Ano Publicação</MLabel>
-                  <MInput value={form.anoPublicacao} onChangeText={upd('anoPublicacao')} placeholder="Ex: 2018" keyboardType="numeric" />
+                  <MInput value={form.anoPublicacao} onChangeText={upd('anoPublicacao')} placeholder="Ex: 2018" keyboardType="numeric" returnKeyType="next" blurOnSubmit={false} />
                 </View>
               </View>
               <MLabel>Editora</MLabel>
-              <MInput value={form.editora} onChangeText={upd('editora')} placeholder="Nome da editora" />
+              <MInput value={form.editora} onChangeText={upd('editora')} placeholder="Nome da editora" returnKeyType="next" blurOnSubmit={false} />
             </View>
 
             <View style={mStyles.section}>
@@ -928,6 +930,8 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
                 placeholder="Escreva uma categoria personalizada…"
                 placeholderTextColor="#555"
                 selectionColor="#5E6AD2"
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
             </View>
 
@@ -939,12 +943,26 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <View style={{ width: 90 }}>
                   <MLabel>Exemplares</MLabel>
-                  <MInput value={form.quantidadeTotal} onChangeText={upd('quantidadeTotal')} placeholder="1" keyboardType="numeric" />
+                  <MInput value={form.quantidadeTotal} onChangeText={upd('quantidadeTotal')} placeholder="1" keyboardType="numeric" returnKeyType="next" blurOnSubmit={false} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <MLabel>Prateleira / Localização</MLabel>
-                  <MInput value={form.localizacao} onChangeText={upd('localizacao')} placeholder="Ex: Estante A, Prateleira 3" />
+                  <MInput value={form.localizacao} onChangeText={upd('localizacao')} placeholder="Ex: Estante A, Prateleira 3" returnKeyType="done" onSubmitEditing={save} />
                 </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, paddingVertical: 10, paddingHorizontal: 2, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={form.ativo ? '#66BB6A' : '#555'} />
+                  <Text style={{ color: form.ativo ? '#66BB6A' : '#888', fontSize: 13, fontWeight: '600' }}>
+                    {form.ativo ? 'Livro ativo no catálogo' : 'Livro inativo (oculto)'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setForm(f => ({ ...f, ativo: !f.ativo }))}
+                  style={{ width: 44, height: 24, borderRadius: 12, backgroundColor: form.ativo ? '#66BB6A' : '#333', justifyContent: 'center', paddingHorizontal: 3 }}
+                >
+                  <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#fff', alignSelf: form.ativo ? 'flex-end' : 'flex-start' }} />
+                </TouchableOpacity>
               </View>
             </View>
 
@@ -993,7 +1011,7 @@ function LivroModal({ visible, livro, onClose, onSaved }: {
               ) : (
                 <>
                   <MLabel>URL da Capa</MLabel>
-                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" returnKeyType="done" onSubmitEditing={save} />
+                  <MInput value={form.capaUrl} onChangeText={upd('capaUrl')} placeholder="https://exemplo.com/capa.jpg" returnKeyType="done" blurOnSubmit={false} onSubmitEditing={save} />
                 </>
               )}
               <MLabel>Sinopse / Descrição</MLabel>
@@ -1541,7 +1559,7 @@ function NovoEmprestimoModal({ visible, livros, user, onClose, onSaved }: {
             ) : (
               <>
                 <MLabel>Nome do Leitor *</MLabel>
-                <MInput value={form.nomeLeitor} onChangeText={upd('nomeLeitor')} placeholder="Nome completo" />
+                <MInput value={form.nomeLeitor} onChangeText={upd('nomeLeitor')} placeholder="Nome completo" returnKeyType="done" onSubmitEditing={save} />
               </>
             )}
 
@@ -1775,9 +1793,9 @@ function AddDesejoModal({ visible, user, onClose, onSaved }: {
           </View>
           <View style={{ padding: 20, gap: 4 }}>
             <MLabel>Título do livro *</MLabel>
-            <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Ex: O Príncipe" />
+            <MInput value={form.titulo} onChangeText={upd('titulo')} placeholder="Ex: O Príncipe" returnKeyType="next" blurOnSubmit={false} />
             <MLabel>Autor</MLabel>
-            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Ex: Maquiavel" />
+            <MInput value={form.autor} onChangeText={upd('autor')} placeholder="Ex: Maquiavel" returnKeyType="done" onSubmitEditing={save} />
             <MLabel>Motivo / Justificação</MLabel>
             <MInput
               value={form.motivo}

@@ -3155,7 +3155,7 @@ export default function AdminScreen() {
               </TouchableOpacity>
             </View>
             <Text style={styles.fieldLabel}>Ano</Text>
-            <TextInput style={styles.input} value={formAno.ano} onChangeText={v => setFormAno(f => ({ ...f, ano: v }))} placeholder="2026" placeholderTextColor={Colors.textMuted} keyboardType="numeric" />
+            <TextInput style={styles.input} value={formAno.ano} onChangeText={v => setFormAno(f => ({ ...f, ano: v }))} placeholder="2026" placeholderTextColor={Colors.textMuted} keyboardType="numeric" returnKeyType="done" onSubmitEditing={criarAno} />
             <DatePickerField
               label="Data de Início"
               value={formAno.dataInicio}
@@ -3185,9 +3185,9 @@ export default function AdminScreen() {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <Text style={styles.fieldLabel}>Nome Completo</Text>
-              <TextInput style={styles.input} value={formUser.nome} onChangeText={v => setFormUser(f => ({ ...f, nome: v }))} placeholder="Nome do utilizador" placeholderTextColor={Colors.textMuted} />
+              <TextInput style={styles.input} value={formUser.nome} onChangeText={v => setFormUser(f => ({ ...f, nome: v }))} placeholder="Nome do utilizador" placeholderTextColor={Colors.textMuted} returnKeyType="next" blurOnSubmit={false} />
               <Text style={styles.fieldLabel}>Email</Text>
-              <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} value={formUser.email} onChangeText={v => setFormUser(f => ({ ...f, email: v }))} placeholder="utilizador@escola.ao" placeholderTextColor={Colors.textMuted} keyboardType="email-address" autoCapitalize="none" returnKeyType="next" blurOnSubmit={false} />
               <Text style={styles.fieldLabel}>Função</Text>
               <View style={styles.rolesRow}>
                 {(['pca', 'admin', 'director', 'chefe_secretaria', 'secretaria', 'professor', 'financeiro', 'aluno'] as UserRole[]).map(r => (
@@ -3201,7 +3201,7 @@ export default function AdminScreen() {
                 ))}
               </View>
               <Text style={styles.fieldLabel}>Senha</Text>
-              <TextInput style={styles.input} value={formUser.senha} onChangeText={v => setFormUser(f => ({ ...f, senha: v }))} placeholder="Senha de acesso" placeholderTextColor={Colors.textMuted} secureTextEntry />
+              <TextInput style={styles.input} value={formUser.senha} onChangeText={v => setFormUser(f => ({ ...f, senha: v }))} placeholder="Senha de acesso" placeholderTextColor={Colors.textMuted} secureTextEntry returnKeyType="done" onSubmitEditing={criarUser} />
               {formUser.role === 'professor' && (
                 <>
                   <View style={{ backgroundColor: Colors.info + '12', borderWidth: 1, borderColor: Colors.info + '30', borderRadius: 10, padding: 10, marginBottom: 10 }}>
@@ -3210,11 +3210,11 @@ export default function AdminScreen() {
                     </Text>
                   </View>
                   <Text style={styles.fieldLabel}>Nº Professor (opcional)</Text>
-                  <TextInput style={styles.input} value={formUser.numeroProfessor} onChangeText={v => setFormUser(f => ({ ...f, numeroProfessor: v }))} placeholder="ex: PROF-001 (gerado automaticamente se vazio)" placeholderTextColor={Colors.textMuted} />
+                  <TextInput style={styles.input} value={formUser.numeroProfessor} onChangeText={v => setFormUser(f => ({ ...f, numeroProfessor: v }))} placeholder="ex: PROF-001 (gerado automaticamente se vazio)" placeholderTextColor={Colors.textMuted} returnKeyType="next" blurOnSubmit={false} />
                   <Text style={styles.fieldLabel}>Telefone</Text>
-                  <TextInput style={styles.input} value={formUser.telefone} onChangeText={v => setFormUser(f => ({ ...f, telefone: v }))} placeholder="9XX XXX XXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" />
+                  <TextInput style={styles.input} value={formUser.telefone} onChangeText={v => setFormUser(f => ({ ...f, telefone: v }))} placeholder="9XX XXX XXX" placeholderTextColor={Colors.textMuted} keyboardType="phone-pad" returnKeyType="next" blurOnSubmit={false} />
                   <Text style={styles.fieldLabel}>Habilitações Académicas</Text>
-                  <TextInput style={styles.input} value={formUser.habilitacoes} onChangeText={v => setFormUser(f => ({ ...f, habilitacoes: v }))} placeholder="ex: Licenciatura em Matemática" placeholderTextColor={Colors.textMuted} />
+                  <TextInput style={styles.input} value={formUser.habilitacoes} onChangeText={v => setFormUser(f => ({ ...f, habilitacoes: v }))} placeholder="ex: Licenciatura em Matemática" placeholderTextColor={Colors.textMuted} returnKeyType="done" onSubmitEditing={criarUser} />
                 </>
               )}
               <TouchableOpacity style={[styles.saveBtn, { marginTop: 8, marginBottom: 4 }]} onPress={criarUser}>

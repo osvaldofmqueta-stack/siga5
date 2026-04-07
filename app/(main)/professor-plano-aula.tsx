@@ -182,10 +182,11 @@ function buildPlanoHTML(plano: PlanoAula): string {
 // ─── Field component ──────────────────────────────────────────────────────────
 
 function Field({
-  label, value, onChangeText, multiline = false, placeholder, rows = 1,
+  label, value, onChangeText, multiline = false, placeholder, rows = 1, ...rest
 }: {
   label: string; value: string; onChangeText: (v: string) => void;
   multiline?: boolean; placeholder?: string; rows?: number;
+  [key: string]: any;
 }) {
   return (
     <View style={f.field}>
@@ -197,6 +198,7 @@ function Field({
         multiline={multiline}
         placeholder={placeholder || label}
         placeholderTextColor={Colors.textMuted}
+        {...rest}
       />
     </View>
   );
@@ -670,18 +672,18 @@ export default function ProfessorPlanoAulaScreen() {
 
         <View style={s.formRow2}>
           <View style={{ flex: 1 }}>
-            <Field label="Disciplina" value={form.disciplina} onChangeText={v => setForm(p => ({ ...p, disciplina: v }))} placeholder="Ex: Geografia" />
+            <Field label="Disciplina" value={form.disciplina} onChangeText={v => setForm(p => ({ ...p, disciplina: v }))} placeholder="Ex: Geografia" returnKeyType="next" blurOnSubmit={false} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Unidade" value={form.unidade} onChangeText={v => setForm(p => ({ ...p, unidade: v }))} placeholder="Ex: O Território Angolano" />
+            <Field label="Unidade" value={form.unidade} onChangeText={v => setForm(p => ({ ...p, unidade: v }))} placeholder="Ex: O Território Angolano" returnKeyType="next" blurOnSubmit={false} />
           </View>
         </View>
 
-        <Field label="Sumário" value={form.sumario} onChangeText={v => setForm(p => ({ ...p, sumario: v }))} placeholder="Tema da aula" />
+        <Field label="Sumário" value={form.sumario} onChangeText={v => setForm(p => ({ ...p, sumario: v }))} placeholder="Tema da aula" returnKeyType="next" blurOnSubmit={false} />
 
         <View style={s.formRow2}>
           <View style={{ flex: 1 }}>
-            <Field label="Classe" value={form.classe} onChangeText={v => setForm(p => ({ ...p, classe: v }))} placeholder="Ex: 8ª" />
+            <Field label="Classe" value={form.classe} onChangeText={v => setForm(p => ({ ...p, classe: v }))} placeholder="Ex: 8ª" returnKeyType="next" blurOnSubmit={false} />
           </View>
           <View style={{ flex: 1 }}>
             <View style={f.field}>
@@ -693,13 +695,13 @@ export default function ProfessorPlanoAulaScreen() {
 
         <View style={s.formRow3}>
           <View style={{ flex: 1 }}>
-            <Field label="Período" value={form.periodo} onChangeText={v => setForm(p => ({ ...p, periodo: v }))} placeholder="Ex: 1.º Período" />
+            <Field label="Período" value={form.periodo} onChangeText={v => setForm(p => ({ ...p, periodo: v }))} placeholder="Ex: 1.º Período" returnKeyType="next" blurOnSubmit={false} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Tempo" value={form.tempo} onChangeText={v => setForm(p => ({ ...p, tempo: v }))} placeholder="Ex: 45 min" />
+            <Field label="Tempo" value={form.tempo} onChangeText={v => setForm(p => ({ ...p, tempo: v }))} placeholder="Ex: 45 min" returnKeyType="next" blurOnSubmit={false} />
           </View>
           <View style={{ flex: 1 }}>
-            <Field label="Duração" value={form.duracao} onChangeText={v => setForm(p => ({ ...p, duracao: v }))} placeholder="Ex: 45 min" />
+            <Field label="Duração" value={form.duracao} onChangeText={v => setForm(p => ({ ...p, duracao: v }))} placeholder="Ex: 45 min" returnKeyType="done" onSubmitEditing={() => handleSave(false)} />
           </View>
         </View>
 

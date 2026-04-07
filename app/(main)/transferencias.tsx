@@ -488,6 +488,8 @@ function FormModal({
                   placeholderTextColor={Colors.textMuted}
                   value={form.escolaDestino ?? ''}
                   onChangeText={v => set('escolaDestino', v)}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
               </>
             ) : (
@@ -499,6 +501,8 @@ function FormModal({
                   placeholderTextColor={Colors.textMuted}
                   value={form.escolaOrigem ?? ''}
                   onChangeText={v => set('escolaOrigem', v)}
+                  returnKeyType="next"
+                  blurOnSubmit={false}
                 />
               </>
             )}

@@ -482,6 +482,8 @@ export default function BolsasScreen() {
                 keyboardType="numeric"
                 placeholder="Ex: 75"
                 placeholderTextColor="#aaa"
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
               {valorPropina > 0 && Number(form.percentagem) > 0 && (
                 <View style={styles.calcPreview}>
@@ -502,6 +504,8 @@ export default function BolsasScreen() {
                 onChangeText={v => setForm(f => ({ ...f, descricao: v }))}
                 placeholder="Ex: Aluno carenciado, bom desempenho..."
                 placeholderTextColor="#aaa"
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
 
               {/* Datas */}
@@ -514,6 +518,8 @@ export default function BolsasScreen() {
                     onChangeText={v => setForm(f => ({ ...f, dataInicio: v }))}
                     placeholder="YYYY-MM-DD"
                     placeholderTextColor="#aaa"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -524,6 +530,8 @@ export default function BolsasScreen() {
                     onChangeText={v => setForm(f => ({ ...f, dataFim: v }))}
                     placeholder="Sem prazo"
                     placeholderTextColor="#aaa"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
                   />
                 </View>
               </View>
@@ -536,6 +544,8 @@ export default function BolsasScreen() {
                 onChangeText={v => setForm(f => ({ ...f, aprovadoPor: v }))}
                 placeholder="Nome do responsável"
                 placeholderTextColor="#aaa"
+                returnKeyType="done"
+                onSubmitEditing={guardar}
               />
 
               {/* Observação */}

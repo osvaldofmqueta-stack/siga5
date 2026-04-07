@@ -603,6 +603,8 @@ function AvaliacaoProfessoresMain() {
                     onChangeText={v => setF('periodoLetivo', v)}
                     placeholder="Ex: 2025 ou 2025-1S"
                     placeholderTextColor="#aaa"
+                    returnKeyType="next"
+                    blurOnSubmit={false}
                   />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -613,6 +615,8 @@ function AvaliacaoProfessoresMain() {
                     onChangeText={v => setF('avaliador', v)}
                     placeholder="Nome"
                     placeholderTextColor="#aaa"
+                    returnKeyType="done"
+                    onSubmitEditing={() => guardar()}
                   />
                 </View>
               </View>

@@ -1313,12 +1313,12 @@ export default function PedagogicoScreen() {
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Semana *</Text>
               <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={String(formPlan.semana)}
-                onChangeText={v => setFormPlan(p => ({ ...p, semana: parseInt(v)||1 }))} />
+                onChangeText={v => setFormPlan(p => ({ ...p, semana: parseInt(v)||1 }))} returnKeyType="next" blurOnSubmit={false} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Nº Aulas</Text>
               <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formPlan.numAulas}
-                onChangeText={v => setFormPlan(p => ({ ...p, numAulas: v }))} />
+                onChangeText={v => setFormPlan(p => ({ ...p, numAulas: v }))} returnKeyType="done" onSubmitEditing={savePlan} />
             </View>
           </View>
 
@@ -1393,7 +1393,7 @@ export default function PedagogicoScreen() {
           <Text style={st.lbl}>Título *</Text>
           <TextInput style={[st.input, { marginBottom: 14 }]} value={formProg.titulo}
             onChangeText={v => setFormProg(p => ({ ...p, titulo: v }))}
-            placeholder="Ex: Funções e Gráficos" placeholderTextColor={Colors.textMuted} />
+            placeholder="Ex: Funções e Gráficos" placeholderTextColor={Colors.textMuted} returnKeyType="next" blurOnSubmit={false} />
 
           <Text style={st.lbl}>Descrição</Text>
           <TextInput style={[st.input, { height: 80, textAlignVertical: 'top', marginBottom: 14 }]} placeholderTextColor={Colors.textMuted}
@@ -1405,12 +1405,12 @@ export default function PedagogicoScreen() {
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>% Cumprimento</Text>
               <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formProg.percentagem}
-                onChangeText={v => setFormProg(p => ({ ...p, percentagem: v }))} />
+                onChangeText={v => setFormProg(p => ({ ...p, percentagem: v }))} returnKeyType="next" blurOnSubmit={false} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={st.lbl}>Ordem</Text>
               <TextInput style={st.input} placeholderTextColor={Colors.textMuted} keyboardType="numeric" value={formProg.ordem}
-                onChangeText={v => setFormProg(p => ({ ...p, ordem: v }))} />
+                onChangeText={v => setFormProg(p => ({ ...p, ordem: v }))} returnKeyType="done" onSubmitEditing={saveProg} />
             </View>
           </View>
 

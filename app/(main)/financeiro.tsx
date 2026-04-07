@@ -2946,9 +2946,9 @@ export default function FinanceiroScreen() {
               </View>
               <ScrollView>
                 <Text style={st.inputLabel}>Código *</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: 1.1.1" value={formPlano.codigo} onChangeText={v => setFormPlano(f => ({ ...f, codigo: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: 1.1.1" value={formPlano.codigo} onChangeText={v => setFormPlano(f => ({ ...f, codigo: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Nome *</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome da conta" value={formPlano.nome} onChangeText={v => setFormPlano(f => ({ ...f, nome: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome da conta" value={formPlano.nome} onChangeText={v => setFormPlano(f => ({ ...f, nome: v }))} returnKeyType="done" onSubmitEditing={savePlano} />
                 <Text style={st.inputLabel}>Tipo *</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                   {['receita','despesa','ativo','passivo'].map(t => (
@@ -3092,15 +3092,15 @@ export default function FinanceiroScreen() {
               </View>
               <ScrollView>
                 <Text style={st.inputLabel}>Descrição *</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Pagamento de electricidade" value={formConta.descricao} onChangeText={v => setFormConta(f => ({ ...f, descricao: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Pagamento de electricidade" value={formConta.descricao} onChangeText={v => setFormConta(f => ({ ...f, descricao: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Fornecedor</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome do fornecedor" value={formConta.fornecedor} onChangeText={v => setFormConta(f => ({ ...f, fornecedor: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Nome do fornecedor" value={formConta.fornecedor} onChangeText={v => setFormConta(f => ({ ...f, fornecedor: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Valor (Kz) *</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formConta.valor} onChangeText={v => setFormConta(f => ({ ...f, valor: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formConta.valor} onChangeText={v => setFormConta(f => ({ ...f, valor: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Data de Vencimento *</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formConta.dataVencimento} onChangeText={v => setFormConta(f => ({ ...f, dataVencimento: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formConta.dataVencimento} onChangeText={v => setFormConta(f => ({ ...f, dataVencimento: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Data de Pagamento</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD (deixar em branco se ainda não pago)" value={formConta.dataPagamento} onChangeText={v => setFormConta(f => ({ ...f, dataPagamento: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD (deixar em branco se ainda não pago)" value={formConta.dataPagamento} onChangeText={v => setFormConta(f => ({ ...f, dataPagamento: v }))} returnKeyType="next" blurOnSubmit={false} />
                 <Text style={st.inputLabel}>Estado</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
                   {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }, { k: 'cancelado', l: 'Cancelado' }].map(s => (
@@ -3137,7 +3137,7 @@ export default function FinanceiroScreen() {
                   </>
                 )}
                 <Text style={st.inputLabel}>Referência</Text>
-                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Número de referência" value={formConta.referencia} onChangeText={v => setFormConta(f => ({ ...f, referencia: v }))} />
+                <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Número de referência" value={formConta.referencia} onChangeText={v => setFormConta(f => ({ ...f, referencia: v }))} returnKeyType="done" onSubmitEditing={saveConta} />
                 <Text style={st.inputLabel}>Observação</Text>
                 <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline value={formConta.observacao} onChangeText={v => setFormConta(f => ({ ...f, observacao: v }))} />
                 <TouchableOpacity onPress={saveConta} disabled={savingConta} style={st.saveBtn}>
@@ -3452,9 +3452,9 @@ export default function FinanceiroScreen() {
                 </TouchableOpacity>
               </View>
               <Text style={st.inputLabel}>Nome *</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Independência Nacional" value={formFeriado.nome} onChangeText={v => setFormFeriado(f => ({ ...f, nome: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Ex: Independência Nacional" value={formFeriado.nome} onChangeText={v => setFormFeriado(f => ({ ...f, nome: v }))} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.inputLabel}>Data * (AAAA-MM-DD)</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2026-11-11" value={formFeriado.data} onChangeText={v => setFormFeriado(f => ({ ...f, data: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2026-11-11" value={formFeriado.data} onChangeText={v => setFormFeriado(f => ({ ...f, data: v }))} returnKeyType="done" onSubmitEditing={saveFeriado} />
               <Text style={st.inputLabel}>Tipo</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
                 {[{ k: 'nacional', l: 'Nacional' }, { k: 'municipal', l: 'Municipal' }, { k: 'escolar', l: 'Escolar' }].map(t => (
@@ -3605,11 +3605,11 @@ export default function FinanceiroScreen() {
                 </ScrollView>
               )}
               <Text style={st.inputLabel}>Valor (Kz) *</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formAvulso.valor} onChangeText={v => setFormAvulso(f => ({ ...f, valor: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="0.00" keyboardType="decimal-pad" value={formAvulso.valor} onChangeText={v => setFormAvulso(f => ({ ...f, valor: v }))} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.inputLabel}>Data *</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formAvulso.data} onChangeText={v => setFormAvulso(f => ({ ...f, data: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formAvulso.data} onChangeText={v => setFormAvulso(f => ({ ...f, data: v }))} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.inputLabel}>Ano Lectivo *</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2025/26" value={formAvulso.ano} onChangeText={v => setFormAvulso(f => ({ ...f, ano: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="2025/26" value={formAvulso.ano} onChangeText={v => setFormAvulso(f => ({ ...f, ano: v }))} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.inputLabel}>Mês (opcional)</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -3642,7 +3642,7 @@ export default function FinanceiroScreen() {
                 ))}
               </View>
               <Text style={st.inputLabel}>Referência</Text>
-              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Referência opcional" value={formAvulso.referencia} onChangeText={v => setFormAvulso(f => ({ ...f, referencia: v }))} />
+              <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Referência opcional" value={formAvulso.referencia} onChangeText={v => setFormAvulso(f => ({ ...f, referencia: v }))} returnKeyType="done" onSubmitEditing={saveAvulso} />
               <Text style={st.inputLabel}>Observação</Text>
               <TextInput style={[st.input, { height: 60, textAlignVertical: 'top' }]} placeholderTextColor={Colors.textMuted} multiline value={formAvulso.observacao} onChangeText={v => setFormAvulso(f => ({ ...f, observacao: v }))} />
               <TouchableOpacity onPress={saveAvulso} disabled={savingAvulso} style={st.saveBtn}>
@@ -3669,9 +3669,9 @@ export default function FinanceiroScreen() {
               </Text>
             </View>
             <Text style={st.inputLabel}>Novo Valor (Kz) — opcional</Text>
-            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Deixar em branco = manter original" keyboardType="decimal-pad" value={formRecriar.valor} onChangeText={v => setFormRecriar(f => ({ ...f, valor: v }))} />
+            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="Deixar em branco = manter original" keyboardType="decimal-pad" value={formRecriar.valor} onChangeText={v => setFormRecriar(f => ({ ...f, valor: v }))} returnKeyType="next" blurOnSubmit={false} />
             <Text style={st.inputLabel}>Nova Data — opcional</Text>
-            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formRecriar.data} onChangeText={v => setFormRecriar(f => ({ ...f, data: v }))} />
+            <TextInput style={st.input} placeholderTextColor={Colors.textMuted} placeholder="AAAA-MM-DD" value={formRecriar.data} onChangeText={v => setFormRecriar(f => ({ ...f, data: v }))} returnKeyType="done" onSubmitEditing={cancelarERecriar} />
             <Text style={st.inputLabel}>Estado da Nova Cobrança</Text>
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
               {[{ k: 'pendente', l: 'Pendente' }, { k: 'pago', l: 'Pago' }].map(s => (
@@ -3900,17 +3900,17 @@ export default function FinanceiroScreen() {
               </View>
               <Text style={st.fieldLabel}>Dia do mês em que começa a contar a multa</Text>
               <TextInput style={st.input} placeholder="Ex: 10 (começa no dia 10 do mês seguinte)" placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric" value={multaDiaInicio} onChangeText={setMultaDiaInicio} />
+                keyboardType="numeric" value={multaDiaInicio} onChangeText={setMultaDiaInicio} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.fieldLabel}>Valor fixo por dia de atraso (Kz)</Text>
               <TextInput style={st.input} placeholder="Ex: 500 (0 = usa percentagem)" placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric" value={multaValorDia} onChangeText={setMultaValorDia} />
+                keyboardType="numeric" value={multaValorDia} onChangeText={setMultaValorDia} returnKeyType="next" blurOnSubmit={false} />
               <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 12 }} />
               <Text style={[st.fieldLabel, { color: Colors.textMuted }]}>Alternativa: Percentagem por mês de atraso (%)</Text>
               <TextInput style={st.input} placeholder="Ex: 10 (ignorado se valor/dia > 0)" placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric" value={multaPct} onChangeText={setMultaPct} />
+                keyboardType="numeric" value={multaPct} onChangeText={setMultaPct} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.fieldLabel}>Dias de carência após o dia de início</Text>
               <TextInput style={st.input} placeholder="Ex: 5" placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric" value={multaDias} onChangeText={setMultaDias} />
+                keyboardType="numeric" value={multaDias} onChangeText={setMultaDias} returnKeyType="done" onSubmitEditing={handleSalvarMulta} />
               <Text style={st.fieldLabel}>Estado da multa</Text>
               <View style={st.metodosRow}>
                 <TouchableOpacity style={[st.metodoBtn, multaConfig.ativo && st.metodoBtnActive]} onPress={() => updateMultaConfig({ ativo: true })}>
@@ -4126,10 +4126,10 @@ export default function FinanceiroScreen() {
               </View>
               <Text style={st.fieldLabel}>Descrição *</Text>
               <TextInput style={st.input} placeholder="Ex: Propina Mensal — I Ciclo" placeholderTextColor={Colors.textMuted}
-                value={formTaxa.descricao} onChangeText={v => setFormTaxa(f => ({ ...f, descricao: v }))} />
+                value={formTaxa.descricao} onChangeText={v => setFormTaxa(f => ({ ...f, descricao: v }))} returnKeyType="next" blurOnSubmit={false} />
               <Text style={st.fieldLabel}>Valor (AOA) *</Text>
               <TextInput style={st.input} placeholder="Ex: 5000" placeholderTextColor={Colors.textMuted}
-                keyboardType="numeric" value={formTaxa.valor} onChangeText={v => setFormTaxa(f => ({ ...f, valor: v }))} />
+                keyboardType="numeric" value={formTaxa.valor} onChangeText={v => setFormTaxa(f => ({ ...f, valor: v }))} returnKeyType="done" onSubmitEditing={gravarTaxa} />
               <Text style={st.fieldLabel}>Frequência</Text>
               <View style={st.metodosRow}>
                 {FREQS.map(({ k, l }) => (

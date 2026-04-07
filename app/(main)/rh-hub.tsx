@@ -1081,9 +1081,9 @@ export default function RHHubScreen() {
               </View>
 
               <Text style={styles.fieldLabel}>Título *</Text>
-              <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre" placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} />
+              <TextInput style={styles.input} placeholder="Ex: Teste do 1º Trimestre" placeholderTextColor={Colors.textMuted} value={provaTitulo} onChangeText={setProvaTitulo} returnKeyType="next" blurOnSubmit={false} />
               <Text style={[styles.fieldLabel, { marginTop: 10 }]}>Disciplina *</Text>
-              <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} />
+              <TextInput style={styles.input} placeholder="Ex: Matemática" placeholderTextColor={Colors.textMuted} value={provaDisciplina} onChangeText={setProvaDisciplina} returnKeyType="next" blurOnSubmit={false} />
 
               <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                 <View style={{ flex: 1 }}>
@@ -1092,7 +1092,7 @@ export default function RHHubScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.fieldLabel}>Hora</Text>
-                  <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} />
+                  <TextInput style={styles.input} placeholder="08:00" placeholderTextColor={Colors.textMuted} value={provaHora} onChangeText={setProvaHora} returnKeyType="done" onSubmitEditing={publicarProva} />
                 </View>
               </View>
 

@@ -788,6 +788,8 @@ export default function AlunosScreen() {
                   onChangeText={setMotivoBloqueio}
                   placeholder="Ex: Propinas em atraso, reprovação..."
                   placeholderTextColor={Colors.textMuted}
+                  returnKeyType="done"
+                  onSubmitEditing={handleToggleBloqueio}
                 />
               </>
             )}

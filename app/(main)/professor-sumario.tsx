@@ -266,6 +266,8 @@ export default function ProfessorSumarioScreen() {
                 value={numeroAula}
                 onChangeText={setNumeroAula}
                 keyboardType="numeric"
+                returnKeyType="next"
+                blurOnSubmit={false}
               />
 
               <Text style={styles.fieldLabel}>Conteúdo / Sumário da Aula</Text>
