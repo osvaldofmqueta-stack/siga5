@@ -2,7 +2,7 @@ import React, {
   createContext, useContext, useState, useCallback, useEffect, ReactNode,
 } from 'react';
 import { useAuth } from './AuthContext';
-import { getAuthToken } from './AuthContext';
+import { api } from '@/lib/api';
 
 export interface ChatMsg {
   id: string;
@@ -39,21 +39,6 @@ interface ChatInternoCtx {
 
 const Ctx = createContext<ChatInternoCtx | null>(null);
 
-async function req<T>(path: string, opts?: RequestInit): Promise<T> {
-  const token = await getAuthToken();
-  const res = await fetch(path, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
-    },
-    ...opts,
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(`${res.status}: ${JSON.stringify(data)}`);
-  return data as T;
-}
-
 export function ChatInternoProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [mensagens, setMensagens] = useState<ChatMsg[]>([]);
@@ -63,7 +48,7 @@ export function ChatInternoProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     setIsLoading(true);
     try {
-      const data = await req<ChatMsg[]>('/api/chat-interno');
+      const data = await api.get<ChatMsg[]>('/api/chat-interno');
       setMensagens(data);
     } catch {
       // silently ignore
@@ -119,23 +104,20 @@ export function ChatInternoProvider({ children }: { children: ReactNode }) {
     corpo: string,
   ) => {
     if (!user) return;
-    const nova = await req<ChatMsg>('/api/chat-interno', {
-      method: 'POST',
-      body: JSON.stringify({
-        destinatarioId,
-        destinatarioNome,
-        destinatarioRole,
-        corpo,
-        remetenteNome: user.nome,
-        remetenteRole: user.role,
-      }),
+    const nova = await api.post<ChatMsg>('/api/chat-interno', {
+      destinatarioId,
+      destinatarioNome,
+      destinatarioRole,
+      corpo,
+      remetenteNome: user.nome,
+      remetenteRole: user.role,
     });
     setMensagens(prev => [...prev, nova]);
   }, [user]);
 
   const markRead = useCallback(async (id: string) => {
     try {
-      const updated = await req<ChatMsg>(`/api/chat-interno/${id}/ler`, { method: 'PUT' });
+      const updated = await api.put<ChatMsg>(`/api/chat-interno/${id}/ler`, {});
       setMensagens(prev => prev.map(m => m.id === id ? updated : m));
     } catch {
       // ignore

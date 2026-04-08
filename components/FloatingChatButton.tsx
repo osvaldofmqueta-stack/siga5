@@ -140,6 +140,13 @@ export default function FloatingChatButton() {
     try {
       await sendMensagem(selectedUserId, contact.nome, contact.role, inputText.trim());
       setInputText('');
+    } catch (err: any) {
+      const isAuth = err?.message?.includes('401') || err?.message?.includes('autenticado');
+      if (isAuth) {
+        alert('Sessão expirada. Por favor faça login novamente para enviar mensagens.');
+      } else {
+        alert('Não foi possível enviar a mensagem. Verifique a ligação e tente novamente.');
+      }
     } finally {
       setSending(false);
     }
@@ -211,8 +218,8 @@ export default function FloatingChatButton() {
                     <Ionicons name="refresh-outline" size={18} color={Colors.textMuted} />
                   </TouchableOpacity>
                 )}
-                <TouchableOpacity onPress={() => setShowNewChat(true)} style={styles.headerIconBtn}>
-                  <Ionicons name="create-outline" size={18} color={Colors.primary} />
+                <TouchableOpacity onPress={() => setShowNewChat(true)} style={styles.newChatBtn}>
+                  <Ionicons name="pencil-outline" size={16} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity onPress={closePanel} style={[styles.headerIconBtn, styles.closeIconBtn]}>
                   <Ionicons name="close" size={20} color={Colors.textSecondary} />
@@ -535,7 +542,15 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: Colors.surface,
+    backgroundColor: 'transparent',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  newChatBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
