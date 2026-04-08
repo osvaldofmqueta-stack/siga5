@@ -28,12 +28,36 @@ import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
 import { useEnterToSave } from '@/hooks/useEnterToSave';
 
+// ── Preço base por aluno por nível ──────────────────────────────────────────
+export const PRECO_NIVEL: Record<TipoNivel, number> = {
+  prata: 30,
+  ouro: 50,
+  rubi: 75,
+};
+
+// Multiplicador de desconto por duração (anual = 2 meses grátis ≈ 83%)
+export const DESCONTO_PLANO: Record<TipoPlano, number> = {
+  avaliacao: 0,
+  mensal: 1.0,
+  trimestral: 0.97,   // 3% desconto
+  semestral: 0.92,    // 8% desconto
+  anual: 0.83,        // ~17% desconto (2 meses grátis)
+};
+
+export const DESCONTO_LABEL: Record<TipoPlano, string> = {
+  avaliacao: '',
+  mensal: '',
+  trimestral: '-3%',
+  semestral: '-8%',
+  anual: '2 meses grátis',
+};
+
 const PLANO_PRECO: Record<TipoPlano, string> = {
   avaliacao: 'Grátis',
-  mensal: '× alunos × 50 KZ',
-  trimestral: '× alunos × 50 KZ',
-  semestral: '× alunos × 50 KZ',
-  anual: '× alunos × 50 KZ',
+  mensal: '× alunos × KZ/aluno',
+  trimestral: '× alunos × KZ/aluno  (-3%)',
+  semestral: '× alunos × KZ/aluno  (-8%)',
+  anual: '× alunos × KZ/aluno  (2 meses grátis)',
 };
 
 const PLANO_COLOR: Record<TipoPlano, string> = {
@@ -438,6 +462,11 @@ export default function CeoScreen() {
     }
   }, [showGerar]);
 
+  // Quando o nível muda, actualiza automaticamente o preço por aluno
+  useEffect(() => {
+    setFormPrecoPorAluno(String(PRECO_NIVEL[formNivel]));
+  }, [formNivel]);
+
   const stats = useMemo(() => {
     const total = codigosGerados.length;
     const usados = codigosGerados.filter(c => c.usado).length;
@@ -457,18 +486,24 @@ export default function CeoScreen() {
   }, [codigosGerados, filterUsado]);
 
   const calcPreco = useMemo(() => {
-    const preco = parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT;
+    const precoPorAluno = parseInt(formPrecoPorAluno) || PRECO_NIVEL[formNivel];
     const total = alunosMatriculados;
-    const valorTotal = preco * total;
-    const credito = Math.min(parseInt(formCreditoAplicar) || 0, valorTotal);
-    const valorFinal = Math.max(0, valorTotal - credito);
-    return { preco, total, valorTotal, credito, valorFinal };
-  }, [formPrecoPorAluno, alunosMatriculados, formCreditoAplicar]);
+    const desconto = DESCONTO_PLANO[formPlano];
+    const valorBruto = precoPorAluno * total;
+    // Aplica desconto por duração (ex: anual = 83% do valor mensal × 12)
+    const meses = formPlano === 'mensal' ? 1 : formPlano === 'trimestral' ? 3 : formPlano === 'semestral' ? 6 : 12;
+    const valorSemDesconto = valorBruto * meses;
+    const valorComDesconto = Math.round(valorSemDesconto * desconto);
+    const descontoKz = valorSemDesconto - valorComDesconto;
+    const credito = Math.min(parseInt(formCreditoAplicar) || 0, valorComDesconto);
+    const valorFinal = Math.max(0, valorComDesconto - credito);
+    return { precoPorAluno, total, meses, valorBruto, valorSemDesconto, valorComDesconto, descontoKz, credito, valorFinal };
+  }, [formPrecoPorAluno, formNivel, formPlano, alunosMatriculados, formCreditoAplicar]);
 
   async function handleGerar() {
-    const { preco, total, valorTotal, credito, valorFinal } = calcPreco;
+    const { precoPorAluno, total, credito, valorFinal, valorComDesconto, descontoKz } = calcPreco;
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    const cod = await gerarCodigo(formPlano, formNivel, preco, total, credito, formNotas);
+    const cod = await gerarCodigo(formPlano, formNivel, precoPorAluno, total, credito, formNotas);
     setCodigoGerado(cod);
     setFormNotas('');
     setFormCreditoAplicar('0');
@@ -1122,57 +1157,84 @@ export default function CeoScreen() {
               </View>
             ) : (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Nível */}
+                {/* ── NÍVEL ── */}
                 <Text style={mS.fieldLabel}>Nível de Subscrição</Text>
                 <View style={mS.planosGrid}>
-                  {(['prata', 'ouro', 'rubi'] as TipoNivel[]).map(n => (
-                    <TouchableOpacity
-                      key={n}
-                      style={[mS.planoBtn, formNivel === n && { borderColor: NIVEL_COLOR[n], backgroundColor: NIVEL_COLOR[n] + '18' }]}
-                      onPress={() => setFormNivel(n)}
-                    >
-                      <Text style={{ fontSize: 18 }}>{NIVEL_EMOJI[n]}</Text>
-                      <Text style={[mS.planoBtnLabel, { color: formNivel === n ? NIVEL_COLOR[n] : Colors.text }]}>
-                        {NIVEL_LABEL[n]}
-                      </Text>
-                      <Text style={[mS.planoBtnDias, formNivel === n && { color: NIVEL_COLOR[n] }]}>
-                        {NIVEL_FEATURES[n].length} func.
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(['prata', 'ouro', 'rubi'] as TipoNivel[]).map(n => {
+                    const active = formNivel === n;
+                    const cor = NIVEL_COLOR[n];
+                    return (
+                      <TouchableOpacity
+                        key={n}
+                        style={[mS.nivelBtn, active && { borderColor: cor, backgroundColor: cor + '18' }]}
+                        onPress={() => setFormNivel(n)}
+                      >
+                        <Text style={{ fontSize: 20 }}>{NIVEL_EMOJI[n]}</Text>
+                        <Text style={[mS.planoBtnLabel, { color: active ? cor : Colors.text, marginTop: 4 }]}>
+                          {NIVEL_LABEL[n]}
+                        </Text>
+                        <View style={[mS.precoPill, { backgroundColor: active ? cor + '22' : Colors.surface, borderColor: active ? cor + '55' : Colors.border }]}>
+                          <Text style={[mS.precoKz, { color: active ? cor : Colors.textMuted }]}>
+                            {PRECO_NIVEL[n]} KZ
+                          </Text>
+                          <Text style={[mS.precoSub, { color: active ? cor + 'aa' : Colors.textMuted }]}>/aluno</Text>
+                        </View>
+                        <Text style={[mS.planoBtnDias, active && { color: cor }]}>
+                          {NIVEL_FEATURES[n].length} func.
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
-                {/* Duração */}
+                {/* ── DURAÇÃO ── */}
                 <Text style={mS.fieldLabel}>Duração do Plano</Text>
                 <View style={mS.planosGrid}>
-                  {(['mensal', 'trimestral', 'semestral', 'anual'] as TipoPlano[]).map(p => (
-                    <TouchableOpacity
-                      key={p}
-                      style={[mS.planoBtn, formPlano === p && { borderColor: PLANO_COLOR[p], backgroundColor: PLANO_COLOR[p] + '18' }]}
-                      onPress={() => setFormPlano(p)}
-                    >
-                      <Text style={[mS.planoBtnLabel, formPlano === p && { color: PLANO_COLOR[p] }]}>
-                        {PLANO_LABEL[p]}
-                      </Text>
-                      <Text style={[mS.planoBtnDias, formPlano === p && { color: PLANO_COLOR[p] }]}>
-                        {PLANO_DIAS[p]}d
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                  {(['mensal', 'trimestral', 'semestral', 'anual'] as TipoPlano[]).map(p => {
+                    const active = formPlano === p;
+                    const cor = PLANO_COLOR[p];
+                    const label = DESCONTO_LABEL[p];
+                    return (
+                      <TouchableOpacity
+                        key={p}
+                        style={[mS.planoBtn, active && { borderColor: cor, backgroundColor: cor + '18' }]}
+                        onPress={() => setFormPlano(p)}
+                      >
+                        <Text style={[mS.planoBtnLabel, active && { color: cor }]}>{PLANO_LABEL[p]}</Text>
+                        <Text style={[mS.planoBtnDias, active && { color: cor }]}>{PLANO_DIAS[p]}d</Text>
+                        {label !== '' && (
+                          <View style={[mS.descontoBadge, { backgroundColor: active ? cor + '22' : Colors.success + '14' }]}>
+                            <Text style={[mS.descontoBadgeText, { color: active ? cor : Colors.success }]}>{label}</Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
 
-                {/* Preço por aluno */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
+                {/* ── CONTAGEM DE ALUNOS ── */}
+                <View style={mS.alunosRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={mS.alunosLabel}>Alunos activos na escola</Text>
+                    <Text style={mS.alunosVal}>{alunosMatriculados} alunos</Text>
+                  </View>
+                  <TouchableOpacity onPress={fetchAlunosMatriculados} style={mS.refreshBtn}>
+                    <Ionicons name="refresh-outline" size={14} color={Colors.info} />
+                    <Text style={mS.refreshText}>Actualizar</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* ── PREÇO POR ALUNO (editável) ── */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, marginTop: 8 }}>
                   <Text style={[mS.fieldLabel, { marginBottom: 0, marginTop: 0 }]}>
-                    Preço por Aluno (KZ)
+                    Preço por aluno (KZ)
                   </Text>
                   <TouchableOpacity
-                    onPress={fetchAlunosMatriculados}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.info + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}
+                    onPress={() => setFormPrecoPorAluno(String(PRECO_NIVEL[formNivel]))}
+                    style={{ backgroundColor: NIVEL_COLOR[formNivel] + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}
                   >
-                    <Ionicons name="refresh-outline" size={12} color={Colors.info} />
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>
-                      {alunosMatriculados} alunos matriculados
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: NIVEL_COLOR[formNivel] }}>
+                      Repor {PRECO_NIVEL[formNivel]} KZ ({NIVEL_LABEL[formNivel]})
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1181,31 +1243,22 @@ export default function CeoScreen() {
                   value={formPrecoPorAluno}
                   onChangeText={setFormPrecoPorAluno}
                   keyboardType="number-pad"
-                  placeholder={String(PRECO_POR_ALUNO_DEFAULT)}
+                  placeholder={String(PRECO_NIVEL[formNivel])}
                   placeholderTextColor={Colors.textMuted}
                 />
 
-                {/* Cálculo automático visível */}
-                {alunosMatriculados > 0 && (
-                  <View style={{ backgroundColor: Colors.gold + '12', borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: Colors.gold + '33', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>
-                      {alunosMatriculados} alunos × {parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT} KZ
-                    </Text>
-                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.gold }}>
-                      = {((parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT) * alunosMatriculados).toLocaleString('pt-AO')} KZ
-                    </Text>
-                  </View>
-                )}
-
-                {/* Crédito acumulado */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
-                  <Text style={[mS.fieldLabel, { marginBottom: 0, marginTop: 0 }]}>Crédito a Aplicar (KZ)</Text>
+                {/* ── CRÉDITO ACUMULADO ── */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={[mS.fieldLabel, { marginBottom: 0, marginTop: 0 }]}>Crédito a descontar (KZ)</Text>
                   {(licenca?.saldoCreditoAcumulado ?? 0) > 0 && (
-                    <View style={{ backgroundColor: Colors.success + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                    <TouchableOpacity
+                      onPress={() => setFormCreditoAplicar(String(licenca?.saldoCreditoAcumulado ?? 0))}
+                      style={{ backgroundColor: Colors.success + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}
+                    >
                       <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>
-                        Acumulado: {(licenca?.saldoCreditoAcumulado ?? 0).toLocaleString('pt-AO')} KZ
+                        Usar {(licenca?.saldoCreditoAcumulado ?? 0).toLocaleString('pt-AO')} KZ acumulado
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   )}
                 </View>
                 <TextInput
@@ -1229,41 +1282,78 @@ export default function CeoScreen() {
 
                 <View style={mS.resumo}>
                   <Text style={mS.resumoTitle}>Resumo de Cobrança</Text>
+
+                  {/* Pacote */}
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Nível</Text>
+                    <Text style={mS.resumoLabel}>Pacote</Text>
                     <Text style={[mS.resumoVal, { color: NIVEL_COLOR[formNivel] }]}>
-                      {NIVEL_EMOJI[formNivel]} {NIVEL_LABEL[formNivel]}
+                      {NIVEL_EMOJI[formNivel]} {NIVEL_LABEL[formNivel]} — {PRECO_NIVEL[formNivel]} KZ/aluno
                     </Text>
                   </View>
+
+                  {/* Duração */}
                   <View style={mS.resumoRow}>
                     <Text style={mS.resumoLabel}>Duração</Text>
-                    <Text style={[mS.resumoVal, { color: PLANO_COLOR[formPlano] }]}>
-                      {PLANO_LABEL[formPlano]} — {PLANO_DIAS[formPlano]} dias
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[mS.resumoVal, { color: PLANO_COLOR[formPlano] }]}>
+                        {PLANO_LABEL[formPlano]} ({calcPreco.meses} {calcPreco.meses === 1 ? 'mês' : 'meses'})
+                      </Text>
+                      {DESCONTO_LABEL[formPlano] !== '' && (
+                        <View style={{ backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.success }}>
+                            {DESCONTO_LABEL[formPlano]}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
+
+                  {/* Cálculo base */}
                   <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Alunos × Preço/aluno</Text>
-                    <Text style={mS.resumoVal}>
-                      {calcPreco.total} × {calcPreco.preco} KZ
+                    <Text style={mS.resumoLabel}>
+                      {calcPreco.total} alunos × {calcPreco.precoPorAluno} KZ × {calcPreco.meses}m
                     </Text>
+                    <Text style={mS.resumoVal}>{calcPreco.valorSemDesconto.toLocaleString('pt-AO')} KZ</Text>
                   </View>
-                  <View style={mS.resumoRow}>
-                    <Text style={mS.resumoLabel}>Subtotal</Text>
-                    <Text style={mS.resumoVal}>{calcPreco.valorTotal.toLocaleString('pt-AO')} KZ</Text>
-                  </View>
+
+                  {/* Desconto por duração */}
+                  {calcPreco.descontoKz > 0 && (
+                    <View style={mS.resumoRow}>
+                      <Text style={[mS.resumoLabel, { color: Colors.success }]}>
+                        Desconto {DESCONTO_LABEL[formPlano]}
+                      </Text>
+                      <Text style={[mS.resumoVal, { color: Colors.success }]}>
+                        −{calcPreco.descontoKz.toLocaleString('pt-AO')} KZ
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Valor após desconto de duração */}
+                  {calcPreco.descontoKz > 0 && (
+                    <View style={mS.resumoRow}>
+                      <Text style={mS.resumoLabel}>Valor com desconto</Text>
+                      <Text style={[mS.resumoVal, { color: PLANO_COLOR[formPlano] }]}>
+                        {calcPreco.valorComDesconto.toLocaleString('pt-AO')} KZ
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Crédito acumulado */}
                   {calcPreco.credito > 0 && (
                     <View style={mS.resumoRow}>
-                      <Text style={mS.resumoLabel}>Crédito Aplicado</Text>
+                      <Text style={[mS.resumoLabel, { color: Colors.success }]}>Crédito acumulado</Text>
                       <Text style={[mS.resumoVal, { color: Colors.success }]}>
                         −{calcPreco.credito.toLocaleString('pt-AO')} KZ
                       </Text>
                     </View>
                   )}
-                  <View style={[mS.resumoRow, { borderBottomWidth: 0, paddingTop: 8 }]}>
+
+                  {/* Linha final */}
+                  <View style={[mS.resumoRow, { borderBottomWidth: 0, paddingTop: 10, marginTop: 4, borderTopWidth: 1, borderTopColor: Colors.gold + '33' }]}>
                     <Text style={[mS.resumoLabel, { fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 14 }]}>
                       Total a Cobrar
                     </Text>
-                    <Text style={[mS.resumoVal, { color: Colors.gold, fontSize: 16 }]}>
+                    <Text style={[mS.resumoVal, { color: Colors.gold, fontSize: 17, fontFamily: 'Inter_700Bold' }]}>
                       {calcPreco.valorFinal.toLocaleString('pt-AO')} KZ
                     </Text>
                   </View>
@@ -1403,6 +1493,36 @@ const mS = StyleSheet.create({
   planoBtnLabel: { fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text },
   planoBtnDias: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   planoBtnPreco: { fontSize: 11, fontFamily: 'Inter_600SemiBold', marginTop: 2 },
+
+  nivelBtn: {
+    flex: 1, minWidth: '28%', backgroundColor: Colors.surface, borderRadius: 12,
+    borderWidth: 1.5, borderColor: Colors.border, padding: 10, alignItems: 'center', gap: 4,
+  },
+  precoPill: {
+    flexDirection: 'row', alignItems: 'baseline', gap: 1,
+    borderRadius: 8, borderWidth: 1, paddingHorizontal: 7, paddingVertical: 3, marginTop: 2,
+  },
+  precoKz: { fontSize: 13, fontFamily: 'Inter_700Bold' },
+  precoSub: { fontSize: 9, fontFamily: 'Inter_400Regular' },
+
+  descontoBadge: {
+    borderRadius: 6, paddingHorizontal: 5, paddingVertical: 2, marginTop: 3,
+  },
+  descontoBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold' },
+
+  alunosRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.info + '12', borderRadius: 10, padding: 10, marginBottom: 10,
+    borderWidth: 1, borderColor: Colors.info + '33',
+  },
+  alunosLabel: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  alunosVal: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.info, marginTop: 2 },
+  refreshBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: Colors.info + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  refreshText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.info },
+
   resumo: {
     backgroundColor: Colors.surface, borderRadius: 12, padding: 12, marginBottom: 12,
     borderWidth: 1, borderColor: Colors.border,
