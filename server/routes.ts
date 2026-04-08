@@ -4005,11 +4005,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, config);
   });
 
-  // GET /api/licenca/alunos-matriculados — conta alunos com status matriculado para cálculo de preço
+  // GET /api/licenca/alunos-matriculados — conta alunos activos para cálculo de preço
   app.get("/api/licenca/alunos-matriculados", async (_req: Request, res: Response) => {
     try {
       const rows = await query<{ total: string }>(
-        `SELECT COUNT(*) AS total FROM public.alunos WHERE status = 'matriculado' AND ativo = true`,
+        `SELECT COUNT(*) AS total FROM public.alunos WHERE ativo = true`,
         []
       );
       const total = parseInt(rows[0]?.total || '0', 10);

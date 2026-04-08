@@ -418,12 +418,25 @@ export default function CeoScreen() {
   const [codigoGerado, setCodigoGerado] = useState<CodigoAtivacao | null>(null);
   const [filterUsado, setFilterUsado] = useState<'todos' | 'disponivel' | 'usado'>('todos');
 
-  useEffect(() => {
-    fetch('/api/licenca/alunos-matriculados')
-      .then(r => r.json())
-      .then(d => { if (d.total !== undefined) setAlunosMatriculados(d.total); })
-      .catch(() => {});
+  const fetchAlunosMatriculados = useCallback(async () => {
+    try {
+      const d = await api.get<{ total: number }>('/licenca/alunos-matriculados');
+      if (d?.total !== undefined) setAlunosMatriculados(d.total);
+    } catch { /* silencioso */ }
   }, []);
+
+  useEffect(() => { fetchAlunosMatriculados(); }, [fetchAlunosMatriculados]);
+
+  useEffect(() => {
+    if (!showGerar) return;
+    fetchAlunosMatriculados();
+    const saldoDisponivel = licenca?.saldoCreditoAcumulado || 0;
+    if (saldoDisponivel > 0) {
+      setFormCreditoAplicar(String(saldoDisponivel));
+    } else {
+      setFormCreditoAplicar('0');
+    }
+  }, [showGerar]);
 
   const stats = useMemo(() => {
     const total = codigosGerados.length;
@@ -478,11 +491,11 @@ export default function CeoScreen() {
 
   async function handleAddSaldo() {
     const val = parseInt(formAddSaldo);
-    if (!val || val <= 0) { webAlert('Erro', 'Valor inválido.'); return; }
-    await adicionarSaldo(val);
+    if (!val || val <= 0) { webAlert('Erro', 'Valor inválido. Introduza um valor positivo em KZ.'); return; }
+    await adicionarCreditoAcumulado(val);
     setShowSaldo(false);
     setFormAddSaldo('');
-    webAlert('Sucesso', `${val} créditos adicionados ao saldo.`);
+    webAlert('Crédito Adicionado', `${val.toLocaleString('pt-AO')} KZ de crédito acumulado. Este valor será automaticamente preenchido no campo "Crédito a Aplicar" na próxima geração de código.`);
   }
 
   const sections = [
@@ -891,6 +904,37 @@ export default function CeoScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Crédito Acumulado */}
+            {(licenca?.saldoCreditoAcumulado ?? 0) > 0 && (
+              <View style={[styles.saldoCard, { backgroundColor: Colors.success + '12', borderColor: Colors.success + '44', borderWidth: 1 }]}>
+                <View style={styles.saldoLeft}>
+                  <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+                  <View>
+                    <Text style={[styles.saldoLabel, { color: Colors.success }]}>Crédito Acumulado</Text>
+                    <Text style={styles.saldoEscola}>Será descontado na próxima subscrição</Text>
+                  </View>
+                </View>
+                <View style={styles.saldoRight}>
+                  <Text style={[styles.saldoValor, { color: Colors.success }]}>{licenca?.saldoCreditoAcumulado ?? 0}</Text>
+                  <Text style={styles.saldoUnidade}>KZ</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Botão para adicionar crédito acumulado a uma escola */}
+            <TouchableOpacity
+              style={[styles.planoRow, { backgroundColor: Colors.info + '10', borderColor: Colors.info + '33' }]}
+              onPress={() => setShowSaldo(true)}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="add-circle-outline" size={18} color={Colors.info} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.planoNome, { color: Colors.info }]}>Adicionar Crédito a Escola</Text>
+                <Text style={styles.planoDias}>Escola sem saldo? Atribui crédito a descontar na próxima renovação</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+
             {/* Stats */}
             <View style={styles.statsGrid}>
               <StatCard label="Total Códigos" value={String(stats.total)} icon="key" color={Colors.info} />
@@ -1118,9 +1162,20 @@ export default function CeoScreen() {
                 </View>
 
                 {/* Preço por aluno */}
-                <Text style={mS.fieldLabel}>
-                  Preço por Aluno (KZ) · {alunosMatriculados} alunos matriculados
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
+                  <Text style={[mS.fieldLabel, { marginBottom: 0, marginTop: 0 }]}>
+                    Preço por Aluno (KZ)
+                  </Text>
+                  <TouchableOpacity
+                    onPress={fetchAlunosMatriculados}
+                    style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.info + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}
+                  >
+                    <Ionicons name="refresh-outline" size={12} color={Colors.info} />
+                    <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>
+                      {alunosMatriculados} alunos matriculados
+                    </Text>
+                  </TouchableOpacity>
+                </View>
                 <TextInput
                   style={mS.input}
                   value={formPrecoPorAluno}
@@ -1130,8 +1185,29 @@ export default function CeoScreen() {
                   placeholderTextColor={Colors.textMuted}
                 />
 
+                {/* Cálculo automático visível */}
+                {alunosMatriculados > 0 && (
+                  <View style={{ backgroundColor: Colors.gold + '12', borderRadius: 10, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: Colors.gold + '33', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>
+                      {alunosMatriculados} alunos × {parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT} KZ
+                    </Text>
+                    <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.gold }}>
+                      = {((parseInt(formPrecoPorAluno) || PRECO_POR_ALUNO_DEFAULT) * alunosMatriculados).toLocaleString('pt-AO')} KZ
+                    </Text>
+                  </View>
+                )}
+
                 {/* Crédito acumulado */}
-                <Text style={mS.fieldLabel}>Crédito a Aplicar (KZ)</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginTop: 4 }}>
+                  <Text style={[mS.fieldLabel, { marginBottom: 0, marginTop: 0 }]}>Crédito a Aplicar (KZ)</Text>
+                  {(licenca?.saldoCreditoAcumulado ?? 0) > 0 && (
+                    <View style={{ backgroundColor: Colors.success + '18', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>
+                        Acumulado: {(licenca?.saldoCreditoAcumulado ?? 0).toLocaleString('pt-AO')} KZ
+                      </Text>
+                    </View>
+                  )}
+                </View>
                 <TextInput
                   style={mS.input}
                   value={formCreditoAplicar}
@@ -1203,25 +1279,44 @@ export default function CeoScreen() {
         </View>
       </Modal>
 
-      {/* Modal Adicionar Saldo */}
-      <Modal visible={showSaldo} transparent animationType="slide" onRequestClose={() => setShowSaldo(false)}>
+      {/* Modal Adicionar Crédito Acumulado */}
+      <Modal visible={showSaldo} transparent animationType="slide" onRequestClose={() => { setShowSaldo(false); setFormAddSaldo(''); }}>
         <View style={mS.overlay}>
-          <View style={[mS.sheet, { paddingBottom: (Platform.OS === 'web' ? 34 : insets.bottom) + 16, maxHeight: '50%' }]}>
+          <View style={[mS.sheet, { paddingBottom: (Platform.OS === 'web' ? 34 : insets.bottom) + 16 }]}>
             <View style={mS.header}>
-              <Text style={mS.title}>Adicionar Créditos</Text>
-              <TouchableOpacity onPress={() => setShowSaldo(false)}>
+              <Text style={mS.title}>Crédito para Escola</Text>
+              <TouchableOpacity onPress={() => { setShowSaldo(false); setFormAddSaldo(''); }}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
               </TouchableOpacity>
             </View>
-            <Text style={mS.fieldLabel}>Quantidade de Créditos</Text>
+
+            {/* Explicação do crédito */}
+            <View style={mS.creditoInfoBox}>
+              <Ionicons name="information-circle-outline" size={18} color={Colors.info} />
+              <Text style={mS.creditoInfoText}>
+                Use esta opção quando a escola não tem saldo para pagar a subscrição. O crédito será acumulado e descontado automaticamente na próxima geração de código de activação.
+              </Text>
+            </View>
+
+            {/* Saldo atual acumulado */}
+            {(licenca?.saldoCreditoAcumulado ?? 0) > 0 && (
+              <View style={mS.creditoAtualBox}>
+                <Text style={mS.creditoAtualLabel}>Crédito acumulado actual:</Text>
+                <Text style={mS.creditoAtualVal}>{(licenca?.saldoCreditoAcumulado ?? 0).toLocaleString('pt-AO')} KZ</Text>
+              </View>
+            )}
+
+            <Text style={mS.fieldLabel}>Valor a Adicionar (KZ)</Text>
             <View style={mS.saldoPresets}>
-              {[50, 100, 200, 500].map(v => (
+              {[1000, 2500, 5000, 10000].map(v => (
                 <TouchableOpacity
                   key={v}
                   style={[mS.preset, formAddSaldo === String(v) && mS.presetActive]}
                   onPress={() => setFormAddSaldo(String(v))}
                 >
-                  <Text style={[mS.presetText, formAddSaldo === String(v) && mS.presetTextActive]}>+{v}</Text>
+                  <Text style={[mS.presetText, formAddSaldo === String(v) && mS.presetTextActive]}>
+                    {v.toLocaleString('pt-AO')} KZ
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -1230,12 +1325,20 @@ export default function CeoScreen() {
               value={formAddSaldo}
               onChangeText={setFormAddSaldo}
               keyboardType="number-pad"
-              placeholder="Quantidade personalizada"
+              placeholder="Ex: 3500"
               placeholderTextColor={Colors.textMuted}
             />
+            {formAddSaldo !== '' && parseInt(formAddSaldo) > 0 && (
+              <View style={mS.creditoPreviewBox}>
+                <Text style={mS.creditoPreviewLabel}>Total acumulado após adição:</Text>
+                <Text style={mS.creditoPreviewVal}>
+                  {((licenca?.saldoCreditoAcumulado ?? 0) + (parseInt(formAddSaldo) || 0)).toLocaleString('pt-AO')} KZ
+                </Text>
+              </View>
+            )}
             <TouchableOpacity style={mS.gerarBtn} onPress={handleAddSaldo}>
-              <Ionicons name="wallet" size={20} color="#fff" />
-              <Text style={mS.gerarBtnText}>Adicionar Créditos</Text>
+              <Ionicons name="add-circle" size={20} color="#fff" />
+              <Text style={mS.gerarBtnText}>Adicionar Crédito Acumulado</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1324,11 +1427,31 @@ const mS = StyleSheet.create({
   codigoExp: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 20 },
   novoBtn: { borderWidth: 1, borderColor: Colors.gold, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 10 },
   novoBtnText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
-  saldoPresets: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  preset: { flex: 1, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 10, alignItems: 'center', backgroundColor: Colors.surface },
+  saldoPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 10 },
+  preset: { flex: 1, minWidth: '44%', borderRadius: 10, borderWidth: 1, borderColor: Colors.border, padding: 10, alignItems: 'center', backgroundColor: Colors.surface },
   presetActive: { backgroundColor: Colors.gold + '22', borderColor: Colors.gold },
-  presetText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.textSecondary },
+  presetText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.textSecondary },
   presetTextActive: { color: Colors.gold },
+  creditoInfoBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: Colors.info + '14', borderRadius: 10, padding: 12, marginBottom: 14,
+    borderWidth: 1, borderColor: Colors.info + '33',
+  },
+  creditoInfoText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, flex: 1, lineHeight: 18 },
+  creditoAtualBox: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.success + '14', borderRadius: 10, padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.success + '33',
+  },
+  creditoAtualLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  creditoAtualVal: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.success },
+  creditoPreviewBox: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: Colors.warning + '14', borderRadius: 10, padding: 12, marginBottom: 12,
+    borderWidth: 1, borderColor: Colors.warning + '33',
+  },
+  creditoPreviewLabel: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  creditoPreviewVal: { fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.warning },
 });
 
 const styles = StyleSheet.create({
