@@ -2006,7 +2006,29 @@ export default function AdminScreen() {
               </View>
             </View>
 
-            {/* NOVA SECÇÃO — Pagamentos Online / EMIS */}
+            {/* NOVA SECÇÃO — Pagamentos Online / EMIS (exclusivo CEO) */}
+            {user?.role !== 'ceo' ? (
+              <View style={[styles.card, { borderWidth: 2, borderColor: Colors.textMuted + '30', opacity: 0.7 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 10 }}>
+                  <LinearGradient colors={['#10B981', '#059669']} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="lock-closed" size={24} color="#fff" />
+                  </LinearGradient>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>Pagamentos Online (EMIS / Multicaixa)</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginTop: 2, lineHeight: 18 }}>
+                      Configuração avançada de pagamentos por referência bancária e Multicaixa Express.
+                    </Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 10, backgroundColor: Colors.warning + '15', borderRadius: 10, padding: 12, alignItems: 'flex-start', borderWidth: 1, borderColor: Colors.warning + '40' }}>
+                  <Ionicons name="shield-checkmark" size={18} color={Colors.warning} style={{ marginTop: 1 }} />
+                  <Text style={{ flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 18 }}>
+                    Esta funcionalidade é exclusiva do perfil CEO. Contacte o CEO para configurar os pagamentos online.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+            <>
             <View style={[styles.card, { borderWidth: 2, borderColor: config.emisHabilitado ? '#10B981' + '60' : Colors.textMuted + '30' }]}>
               <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
                 <LinearGradient colors={['#10B981', '#059669']} style={{ width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' }}>
@@ -2377,6 +2399,8 @@ export default function AdminScreen() {
                 </View>
               ))}
             </View>
+            </>
+            )}
 
           </View>
         )}
