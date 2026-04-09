@@ -176,6 +176,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   } catch (migErr) {
     console.warn('[migration] solicitacoes_documentos:', (migErr as Error).message);
   }
+  try {
+    await query(`ALTER TABLE public.solicitacoes_documentos ADD COLUMN IF NOT EXISTS "referenciaPagamento" varchar`, []);
+  } catch (_) {}
 
   // ── reconfirmacoes_matricula: student enrollment re-confirmation ─────────────
   try {
@@ -9101,7 +9104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req) as any;
-      const allowed = ['status', 'resposta'];
+      const allowed = ['status', 'resposta', 'referenciaPagamento'];
       const setParts: string[] = [];
       const values: any[] = [];
       for (const key of allowed) {

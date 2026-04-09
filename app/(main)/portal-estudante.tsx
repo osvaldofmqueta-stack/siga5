@@ -184,6 +184,7 @@ export default function PortalEstudanteScreen() {
   const [justMotivo, setJustMotivo] = useState('');
   const [justSaving, setJustSaving] = useState(false);
   const docsScrollRef = useRef<any>(null);
+  const [solicitacaoParaPagar, setSolicitacaoParaPagar] = useState<any>(null);
 
   const aluno = alunos.find(a =>
     (user?.alunoId && a.id === user.alunoId) ||
@@ -391,6 +392,17 @@ export default function PortalEstudanteScreen() {
     }
   }
 
+  function getRubricaParaTipo(tipo: string) {
+    const mapa: Record<string, string> = {
+      'Declaração de Matrícula': 'decl_matricula',
+      'Certificado de Notas': 'cert_notas',
+      'Certificado de Frequência': 'cert_freq',
+      'Histórico Escolar': 'historico',
+      'Diploma': 'diploma',
+    };
+    return mapa[tipo] || 'outros';
+  }
+
   async function handlePagarDocumento() {
     const rubrica = RUBRICAS.find(r => r.id === pagForm.rubricaId);
     if (!rubrica || !aluno) return;
@@ -408,8 +420,15 @@ export default function PortalEstudanteScreen() {
       referencia: ref,
       observacao: `Pagamento de documento: ${rubrica.nome}`,
     });
+    if (solicitacaoParaPagar) {
+      try {
+        await api.put(`/api/solicitacoes-documentos/${solicitacaoParaPagar.id}`, { status: 'em_processamento', referenciaPagamento: ref });
+        setSolicitacoes(prev => prev.map(s => s.id === solicitacaoParaPagar.id ? { ...s, status: 'em_processamento', referenciaPagamento: ref } : s));
+      } catch (_) {}
+    }
     setShowPagamentoModal(false);
-    webAlert('Referência Gerada', `Método: ${pagForm.metodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(rubrica.valor)}\n\nEfetue o pagamento com esta referência.`);
+    setSolicitacaoParaPagar(null);
+    webAlert('Referência Gerada', `Método: ${pagForm.metodo === 'rupe' ? 'RUPE' : 'Multicaixa Express'}\nReferência: ${ref}\nValor: ${formatAOA(rubrica.valor)}\n\nEfetue o pagamento com esta referência e aguarde a confirmação da secretaria.`);
   }
 
   async function handlePagarPropina() {
@@ -2343,11 +2362,87 @@ export default function PortalEstudanteScreen() {
                 </View>
                 <Text style={styles.solMotivo}>Motivo: {sol.motivo}</Text>
                 {sol.observacao ? <Text style={styles.solObs}>{sol.observacao}</Text> : null}
-                <Text style={styles.solData}>{new Date(sol.createdAt).toLocaleDateString('pt-PT')}</Text>
+                {sol.referenciaPagamento ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                    <Ionicons name="card-outline" size={13} color={Colors.info} />
+                    <Text style={{ fontSize: 11, color: Colors.info, fontFamily: 'Inter_500Medium' }}>Ref. pagamento: {sol.referenciaPagamento}</Text>
+                  </View>
+                ) : null}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text style={styles.solData}>{new Date(sol.createdAt).toLocaleDateString('pt-PT')}</Text>
+                  {sol.status === 'pendente' && (
+                    <TouchableOpacity
+                      style={styles.solPagarBtn}
+                      onPress={() => {
+                        const rubricaId = getRubricaParaTipo(sol.tipo);
+                        setSolicitacaoParaPagar(sol);
+                        setPagForm(f => ({ ...f, rubricaId }));
+                        setShowPagamentoModal(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name="card-outline" size={14} color="#fff" />
+                      <Text style={styles.solPagarBtnText}>Pagar</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
             ))
           )}
         </View>
+
+        <Modal visible={showPagamentoModal} transparent animationType="slide" onRequestClose={() => { setShowPagamentoModal(false); setSolicitacaoParaPagar(null); }}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Pagar Documento</Text>
+                <TouchableOpacity onPress={() => { setShowPagamentoModal(false); setSolicitacaoParaPagar(null); }}>
+                  <Ionicons name="close" size={22} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+              {solicitacaoParaPagar && (() => {
+                const rubrica = RUBRICAS.find(r => r.id === pagForm.rubricaId) || RUBRICAS.find(r => r.id === 'outros')!;
+                return (
+                  <>
+                    <View style={{ backgroundColor: Colors.primary + '18', borderRadius: 10, padding: 12, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: Colors.gold }}>
+                      <Text style={{ fontSize: 12, color: Colors.textMuted, marginBottom: 2 }}>Documento</Text>
+                      <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>{solicitacaoParaPagar.tipo}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, backgroundColor: Colors.backgroundCard, borderRadius: 10, padding: 12 }}>
+                      <Text style={{ fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Valor a pagar</Text>
+                      <Text style={{ fontSize: 18, fontFamily: 'Inter_700Bold', color: Colors.gold }}>{formatAOA(rubrica.valor)}</Text>
+                    </View>
+                    <Text style={styles.formLabel}>Método de Pagamento</Text>
+                    <View style={{ gap: 8, marginBottom: 20 }}>
+                      {[
+                        { id: 'rupe', label: 'RUPE', icon: 'business-outline', desc: 'Referência RUPE para pagamento no banco' },
+                        { id: 'multicaixa', label: 'Multicaixa Express', icon: 'phone-portrait-outline', desc: 'Pagamento por Multicaixa Express' },
+                      ].map(m => (
+                        <TouchableOpacity
+                          key={m.id}
+                          style={[styles.rubricaItem, pagForm.metodo === m.id && styles.rubricaItemActive, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}
+                          onPress={() => setPagForm(f => ({ ...f, metodo: m.id as any }))}
+                          activeOpacity={0.8}
+                        >
+                          <Ionicons name={m.icon as any} size={20} color={pagForm.metodo === m.id ? Colors.gold : Colors.textMuted} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.rubricaText, pagForm.metodo === m.id && { color: Colors.gold }]}>{m.label}</Text>
+                            <Text style={{ fontSize: 11, color: Colors.textMuted, fontFamily: 'Inter_400Regular' }}>{m.desc}</Text>
+                          </View>
+                          {pagForm.metodo === m.id && <Ionicons name="checkmark-circle" size={18} color={Colors.gold} />}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    <TouchableOpacity style={styles.submitBtn} onPress={handlePagarDocumento} activeOpacity={0.85}>
+                      <Ionicons name="card-outline" size={16} color="#fff" />
+                      <Text style={styles.submitBtnText}>Gerar Referência de Pagamento</Text>
+                    </TouchableOpacity>
+                  </>
+                );
+              })()}
+            </View>
+          </View>
+        </Modal>
 
         <Modal visible={showSolicitacaoModal} transparent animationType="slide">
           <View style={styles.modalOverlay}>
@@ -3183,6 +3278,8 @@ const styles = StyleSheet.create({
   solMotivo: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textSecondary, marginBottom: 4 },
   solObs: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 4 },
   solData: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  solPagarBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.gold, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6 },
+  solPagarBtnText: { fontSize: 12, fontFamily: 'Inter_700Bold', color: '#fff' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { backgroundColor: Colors.backgroundCard, borderRadius: 20, padding: 20, maxHeight: '90%', width: '100%', maxWidth: 480 },
@@ -3205,7 +3302,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlignVertical: 'top',
   },
-  submitBtn: { backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
+  submitBtn: { backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8, marginTop: 8 },
   submitBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 
   readonlyBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.info + '18', borderWidth: 1, borderColor: Colors.info + '44', borderRadius: 12, padding: 12, marginBottom: 14 },
