@@ -1,30 +1,16 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 type GuardianEmailTipo = "nota" | "falta" | "propina" | "geral" | "mensagem";
 
-const SMTP_HOST = process.env.SMTP_HOST ?? "";
-const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "587", 10);
-const SMTP_USER = process.env.SMTP_USER ?? "";
-const SMTP_PASS = process.env.SMTP_PASS ?? "";
-const SMTP_FROM = process.env.SMTP_FROM ?? SMTP_USER;
+const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
+const FROM_EMAIL = process.env.EMAIL_FROM ?? "onboarding@resend.dev";
 
 function isEmailConfigured(): boolean {
-  return !!(SMTP_HOST && SMTP_USER && SMTP_PASS);
+  return !!RESEND_API_KEY;
 }
 
-function createTransporter() {
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
+function getResend() {
+  return new Resend(RESEND_API_KEY);
 }
 
 export async function sendPasswordResetEmail(
@@ -34,11 +20,11 @@ export async function sendPasswordResetEmail(
   nomeEscola?: string
 ): Promise<{ success: boolean; message: string }> {
   if (!isEmailConfigured()) {
-    console.warn("[email] SMTP não configurado. Defina SMTP_HOST, SMTP_USER e SMTP_PASS nas variáveis de ambiente.");
+    console.warn("[email] Resend API key não configurada. Defina RESEND_API_KEY nas variáveis de ambiente.");
     return { success: false, message: "Serviço de email não configurado. Contacte o administrador do sistema." };
   }
 
-  const transporter = createTransporter();
+  const resend = getResend();
   const primeiroNome = nomeUtilizador.split(" ")[0] || nomeUtilizador;
   const sistemaLabel = nomeEscola || "SIGA School";
 
@@ -126,17 +112,18 @@ export async function sendPasswordResetEmail(
   `.trim();
 
   try {
-    await transporter.sendMail({
-      from: `"${sistemaLabel}" <${SMTP_FROM}>`,
+    const { error } = await resend.emails.send({
+      from: `${sistemaLabel} <${FROM_EMAIL}>`,
       to: toEmail,
       subject: `Redefinição de Senha — ${sistemaLabel}`,
       html: htmlBody,
       text: `Olá ${primeiroNome},\n\nClique no link abaixo para redefinir a sua senha:\n${resetLink}\n\nEste link expira em 1 hora.\n\nSe não solicitou esta operação, ignore este email.`,
     });
+    if (error) throw error;
     return { success: true, message: "Email enviado com sucesso." };
   } catch (err) {
-    console.error("[email] Erro ao enviar email:", err);
-    return { success: false, message: "Falha ao enviar o email. Verifique as configurações SMTP." };
+    console.error("[email] Erro ao enviar email via Resend:", err);
+    return { success: false, message: "Falha ao enviar o email. Verifique as configurações do Resend." };
   }
 }
 
@@ -150,11 +137,11 @@ export async function sendGuardianNotificationEmail(
   nomeEscola?: string
 ): Promise<{ success: boolean; message: string }> {
   if (!isEmailConfigured()) {
-    console.warn("[email] SMTP não configurado. Alerta de encarregado não enviado.");
+    console.warn("[email] Resend API key não configurada. Alerta de encarregado não enviado.");
     return { success: false, message: "Serviço de email não configurado." };
   }
 
-  const transporter = createTransporter();
+  const resend = getResend();
   const primeiroNome = nomeEncarregado.split(" ")[0] || nomeEncarregado;
   const sistemaLabel = nomeEscola || "SIGA School";
 
@@ -245,16 +232,17 @@ export async function sendGuardianNotificationEmail(
   `.trim();
 
   try {
-    await transporter.sendMail({
-      from: `"${sistemaLabel} — Portal Encarregado" <${SMTP_FROM}>`,
+    const { error } = await resend.emails.send({
+      from: `${sistemaLabel} — Portal Encarregado <${FROM_EMAIL}>`,
       to: toEmail,
       subject: `${titulo} — ${sistemaLabel}`,
       html: htmlBody,
       text: `Olá ${primeiroNome},\n\n${mensagem}\n\nAceda ao Portal do Encarregado para mais detalhes.\n\n— ${sistemaLabel}`,
     });
+    if (error) throw error;
     return { success: true, message: "Email enviado com sucesso." };
   } catch (err) {
-    console.error("[email] Erro ao enviar alerta ao encarregado:", err);
+    console.error("[email] Erro ao enviar alerta ao encarregado via Resend:", err);
     return { success: false, message: "Falha ao enviar email." };
   }
 }
