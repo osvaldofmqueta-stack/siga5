@@ -1010,7 +1010,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `SELECT * FROM public.professores ORDER BY "createdAt" DESC`,
       [],
     );
-    json(res, 200, rows);
+    // Compute turmasIds dynamically from turmas.professoresIds
+    const turmasRows = await query<JsonObject>(
+      `SELECT id, "professoresIds" FROM public.turmas WHERE ativo = true`,
+      [],
+    );
+    const profTurmasMap: Record<string, string[]> = {};
+    for (const turma of turmasRows) {
+      const profIds: string[] = Array.isArray(turma.professoresIds) ? turma.professoresIds as string[] : [];
+      for (const pid of profIds) {
+        if (!profTurmasMap[pid]) profTurmasMap[pid] = [];
+        profTurmasMap[pid].push(turma.id as string);
+      }
+    }
+    const enriched = rows.map(p => ({
+      ...p,
+      turmasIds: profTurmasMap[p.id as string] ?? [],
+    }));
+    json(res, 200, enriched);
   });
 
   app.post("/api/professores", requireAuth, requirePermission("professores"), async (req: Request, res: Response) => {
