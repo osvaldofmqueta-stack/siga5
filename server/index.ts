@@ -19,6 +19,84 @@ declare module "http" {
   }
 }
 
+const DRAG_SCROLL_STYLE = `
+  <style>
+    /* Horizontal scroll areas: show grab cursor and styled scrollbar */
+    div[style*="overflow-x: scroll"],
+    div[style*="overflow-x:scroll"] {
+      cursor: grab;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255,255,255,0.25) transparent;
+    }
+    div[style*="overflow-x: scroll"]:active,
+    div[style*="overflow-x:scroll"]:active {
+      cursor: grabbing;
+    }
+    div[style*="overflow-x: scroll"]::-webkit-scrollbar,
+    div[style*="overflow-x:scroll"]::-webkit-scrollbar {
+      height: 4px;
+    }
+    div[style*="overflow-x: scroll"]::-webkit-scrollbar-track,
+    div[style*="overflow-x:scroll"]::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    div[style*="overflow-x: scroll"]::-webkit-scrollbar-thumb,
+    div[style*="overflow-x:scroll"]::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.25);
+      border-radius: 99px;
+    }
+    div[style*="overflow-x: scroll"]::-webkit-scrollbar-thumb:hover,
+    div[style*="overflow-x:scroll"]::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.45);
+    }
+  </style>`;
+
+const DRAG_SCROLL_SCRIPT = `
+  <script>
+    (function() {
+      function enableDragScroll(el) {
+        if (el._dragEnabled) return;
+        el._dragEnabled = true;
+        var isDown = false, startX = 0, scrollLeft = 0;
+        el.addEventListener('mousedown', function(e) {
+          if (e.button !== 0) return;
+          isDown = true;
+          startX = e.pageX - el.offsetLeft;
+          scrollLeft = el.scrollLeft;
+          el.style.cursor = 'grabbing';
+          e.preventDefault();
+        });
+        el.addEventListener('mouseleave', function() {
+          isDown = false;
+          el.style.cursor = 'grab';
+        });
+        window.addEventListener('mouseup', function() {
+          isDown = false;
+          if (el._dragEnabled) el.style.cursor = 'grab';
+        });
+        el.addEventListener('mousemove', function(e) {
+          if (!isDown) return;
+          e.preventDefault();
+          var x = e.pageX - el.offsetLeft;
+          el.scrollLeft = scrollLeft - (x - startX);
+        });
+      }
+      function scanAndEnable() {
+        document.querySelectorAll('div').forEach(function(el) {
+          var ov = el.style.overflowX;
+          if (ov === 'scroll' || ov === 'auto') {
+            enableDragScroll(el);
+          }
+        });
+      }
+      document.addEventListener('DOMContentLoaded', function() {
+        scanAndEnable();
+        new MutationObserver(scanAndEnable).observe(document.body, { childList: true, subtree: true });
+      });
+      window.addEventListener('load', scanAndEnable);
+    })();
+  </script>`;
+
 const CONSOLE_SUPPRESSOR = `
   <script>
     (function() {
@@ -91,6 +169,14 @@ function injectPwaTags(html: string): string {
 
   if (!html.includes("Inter_400Regular")) {
     result = result.replace("</head>", `${FONT_STYLE}\n</head>`);
+  }
+
+  if (!result.includes('overflow-x: scroll')) {
+    result = result.replace("</head>", `${DRAG_SCROLL_STYLE}\n</head>`);
+  }
+
+  if (!result.includes('_dragEnabled')) {
+    result = result.replace("</body>", `${DRAG_SCROLL_SCRIPT}\n</body>`);
   }
 
   // Always inject icon font CSS for mobile web support
