@@ -1853,6 +1853,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/horarios", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
+
+      // Check: slot already occupied for this turma
+      const slotConflict = await query<JsonObject>(
+        `SELECT id, "disciplina" FROM public.horarios
+         WHERE "turmaId" = $1 AND "diaSemana" = $2 AND "periodo" = $3 AND "anoAcademico" = $4
+         LIMIT 1`,
+        [b.turmaId, b.diaSemana, b.periodo, b.anoAcademico],
+      );
+      if (slotConflict.length > 0) {
+        const existing = slotConflict[0] as { disciplina: string };
+        return json(res, 409, {
+          error: `Este bloco horário já tem "${existing.disciplina}" atribuída a esta turma. Edite a entrada existente.`,
+          code: 'SLOT_CONFLICT',
+        });
+      }
+
+      // Check: professor already assigned to another turma at same day+period
+      if (b.professorId) {
+        const profConflict = await query<JsonObject>(
+          `SELECT h.id, t."nome" as "turmaNome", h."disciplina"
+           FROM public.horarios h
+           LEFT JOIN public.turmas t ON t.id = h."turmaId"
+           WHERE h."professorId" = $1 AND h."diaSemana" = $2 AND h."periodo" = $3 AND h."anoAcademico" = $4
+           LIMIT 1`,
+          [b.professorId, b.diaSemana, b.periodo, b.anoAcademico],
+        );
+        if (profConflict.length > 0) {
+          const ex = profConflict[0] as { turmaNome: string; disciplina: string };
+          return json(res, 409, {
+            error: `Este professor já está atribuído à turma ${ex.turmaNome} (${ex.disciplina}) neste mesmo bloco horário.`,
+            code: 'PROFESSOR_CONFLICT',
+          });
+        }
+      }
+
       const rows = await query<JsonObject>(
         `INSERT INTO public.horarios (
           id, "turmaId", "disciplina", "professorId", "professorNome",

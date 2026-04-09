@@ -239,10 +239,40 @@ export default function HorarioScreen() {
     const periodo = periodos[selectedCell.periodo - 1];
 
     if (modalMode === 'add') {
-      const duplicada = horariosTurma.find(h => h.disciplina === form.disciplina);
-      if (duplicada) {
-        alertErro('Disciplina duplicada', `"${form.disciplina}" já está no horário desta turma (${DIAS_FULL[duplicada.diaSemana - 1]}, período ${duplicada.periodo}).`);
+      // Check: slot already occupied for this turma
+      const slotOcupado = horariosTurma.find(
+        h => h.diaSemana === selectedCell.dia && h.periodo === selectedCell.periodo
+      );
+      if (slotOcupado) {
+        alertErro(
+          'Bloco já ocupado',
+          `Este bloco (${DIAS_FULL[selectedCell.dia - 1]}, ${periodo.inicio}) já tem "${slotOcupado.disciplina}" atribuída a esta turma.\n\nClique na aula existente para a editar ou remover.`
+        );
         return;
+      }
+      // Check: disciplina already in this turma's schedule on another slot
+      const discDuplicada = horariosTurma.find(h => h.disciplina === form.disciplina);
+      if (discDuplicada) {
+        alertErro('Disciplina duplicada', `"${form.disciplina}" já está no horário desta turma (${DIAS_FULL[discDuplicada.diaSemana - 1]}, período ${discDuplicada.periodo}).`);
+        return;
+      }
+      // Check: professor double-booked at same time across all turmas
+      if (form.professorId) {
+        const anoAtual = anoSelecionado?.ano || '2025';
+        const profOcupado = horarios.find(
+          h => h.professorId === form.professorId &&
+               h.diaSemana === selectedCell.dia &&
+               h.periodo === selectedCell.periodo &&
+               h.anoAcademico === anoAtual
+        );
+        if (profOcupado) {
+          const outraTurma = turmas.find(t => t.id === profOcupado.turmaId);
+          alertErro(
+            'Conflito de professor',
+            `${prof?.nome} ${prof?.apelido} já está atribuído/a à turma ${outraTurma?.nome ?? profOcupado.turmaId} (${profOcupado.disciplina}) neste mesmo bloco horário.`
+          );
+          return;
+        }
       }
       const nova: AulaHorario = {
         id: genId(),
@@ -259,6 +289,11 @@ export default function HorarioScreen() {
       };
       try {
         const res = await apiRequest('POST', '/api/horarios', nova);
+        if (!res.ok) {
+          const err = await res.json();
+          alertErro('Conflito no horário', err.error || 'Não foi possível guardar a aula.');
+          return;
+        }
         const created = await res.json();
         setHorarios(prev => [...prev, created]);
         alertSucesso('Aula adicionada', `${form.disciplina} foi adicionada ao horário.`);
