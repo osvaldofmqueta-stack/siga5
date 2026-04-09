@@ -19,50 +19,34 @@ declare module "http" {
   }
 }
 
-const DRAG_SCROLL_STYLE = `
-  <style>
-    /* Horizontal scroll areas: show grab cursor and styled scrollbar */
-    div[style*="overflow-x: scroll"],
-    div[style*="overflow-x:scroll"] {
-      cursor: grab;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255,255,255,0.25) transparent;
-    }
-    div[style*="overflow-x: scroll"]:active,
-    div[style*="overflow-x:scroll"]:active {
-      cursor: grabbing;
-    }
-    div[style*="overflow-x: scroll"]::-webkit-scrollbar,
-    div[style*="overflow-x:scroll"]::-webkit-scrollbar {
-      height: 4px;
-    }
-    div[style*="overflow-x: scroll"]::-webkit-scrollbar-track,
-    div[style*="overflow-x:scroll"]::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    div[style*="overflow-x: scroll"]::-webkit-scrollbar-thumb,
-    div[style*="overflow-x:scroll"]::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.25);
-      border-radius: 99px;
-    }
-    div[style*="overflow-x: scroll"]::-webkit-scrollbar-thumb:hover,
-    div[style*="overflow-x:scroll"]::-webkit-scrollbar-thumb:hover {
-      background: rgba(255,255,255,0.45);
-    }
-  </style>`;
-
 const DRAG_SCROLL_SCRIPT = `
   <script>
     (function() {
+      // Inject scrollbar styles as a runtime stylesheet so pseudo-element rules work
+      // and override React Native Web's scrollbar-hiding classes (using !important)
+      var styleEl = document.createElement('style');
+      styleEl.id = 'rnw-hscroll-styles';
+      styleEl.textContent = [
+        '.rnw-hscroll { cursor: grab !important; scrollbar-width: thin !important; scrollbar-color: rgba(255,255,255,0.28) transparent !important; }',
+        '.rnw-hscroll:active { cursor: grabbing !important; }',
+        '.rnw-hscroll::-webkit-scrollbar { display: block !important; height: 5px !important; }',
+        '.rnw-hscroll::-webkit-scrollbar-track { background: transparent !important; }',
+        '.rnw-hscroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.28) !important; border-radius: 99px !important; }',
+        '.rnw-hscroll::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.5) !important; }'
+      ].join('\\n');
+      document.head.appendChild(styleEl);
+
       function enableDragScroll(el) {
         if (el._dragEnabled) return;
         el._dragEnabled = true;
+        el.classList.add('rnw-hscroll');
         var isDown = false, startX = 0, scrollLeft = 0;
         el.addEventListener('mousedown', function(e) {
           if (e.button !== 0) return;
           isDown = true;
           startX = e.pageX - el.offsetLeft;
           scrollLeft = el.scrollLeft;
+          el.classList.add('rnw-hscroll-grabbing');
           el.style.cursor = 'grabbing';
           e.preventDefault();
         });
@@ -81,14 +65,16 @@ const DRAG_SCROLL_SCRIPT = `
           el.scrollLeft = scrollLeft - (x - startX);
         });
       }
+
       function scanAndEnable() {
         document.querySelectorAll('div').forEach(function(el) {
           var ov = el.style.overflowX;
-          if (ov === 'scroll' || ov === 'auto') {
+          if ((ov === 'scroll' || ov === 'auto') && !el._dragEnabled) {
             enableDragScroll(el);
           }
         });
       }
+
       document.addEventListener('DOMContentLoaded', function() {
         scanAndEnable();
         new MutationObserver(scanAndEnable).observe(document.body, { childList: true, subtree: true });
@@ -169,10 +155,6 @@ function injectPwaTags(html: string): string {
 
   if (!html.includes("Inter_400Regular")) {
     result = result.replace("</head>", `${FONT_STYLE}\n</head>`);
-  }
-
-  if (!result.includes('overflow-x: scroll')) {
-    result = result.replace("</head>", `${DRAG_SCROLL_STYLE}\n</head>`);
   }
 
   if (!result.includes('_dragEnabled')) {
