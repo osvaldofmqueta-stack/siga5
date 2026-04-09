@@ -106,6 +106,7 @@ export default function HorarioScreen() {
   const [editPeriodos, setEditPeriodos] = useState(PERIODOS_DEFAULT);
   // Professor view: 'meu' = consolidated (my classes only), 'turma' = per-class tab view
   const [profView, setProfView] = useState<'meu' | 'turma'>('meu');
+  const [showTurmaDropdown, setShowTurmaDropdown] = useState(false);
 
   // Load periods from database config when config is ready
   useEffect(() => {
@@ -422,38 +423,64 @@ export default function HorarioScreen() {
         </View>
       )}
 
-      {/* Admin/Student: turma tabs (students only have one, so tabs don't appear) */}
+      {/* Admin/Student: turma dropdown */}
       {!isProf && turmasAtivas.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
-          <View style={styles.turmaTabs}>
-            {turmasAtivas.map((t, i) => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
-                onPress={() => setTurmaIdx(i)}
-              >
-                <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        <>
+          <TouchableOpacity style={styles.turmaDropdownBtn} onPress={() => setShowTurmaDropdown(true)} activeOpacity={0.8}>
+            <Ionicons name="school-outline" size={15} color={Colors.gold} />
+            <Text style={styles.turmaDropdownBtnText}>{turmasAtivas[turmaIdx]?.nome ?? '—'}</Text>
+            <Ionicons name="chevron-down" size={15} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Modal visible={showTurmaDropdown} transparent animationType="fade" onRequestClose={() => setShowTurmaDropdown(false)}>
+            <TouchableOpacity style={styles.turmaDropdownOverlay} activeOpacity={1} onPress={() => setShowTurmaDropdown(false)}>
+              <View style={styles.turmaDropdownModal}>
+                <Text style={styles.turmaDropdownTitle}>Seleccionar Turma</Text>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {turmasAtivas.map((t, i) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.turmaDropdownItem, turmaIdx === i && styles.turmaDropdownItemActive]}
+                      onPress={() => { setTurmaIdx(i); setShowTurmaDropdown(false); }}
+                    >
+                      <Text style={[styles.turmaDropdownItemText, turmaIdx === i && styles.turmaDropdownItemTextActive]}>{t.nome}</Text>
+                      {turmaIdx === i && <Ionicons name="checkmark" size={16} color={Colors.accent} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        </>
       )}
 
-      {/* Professor: per-turma tab selector (only in "Por Turma" mode) */}
+      {/* Professor: per-turma dropdown (only in "Por Turma" mode) */}
       {isProf && profView === 'turma' && turmasAtivas.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabsScroll}>
-          <View style={styles.turmaTabs}>
-            {turmasAtivas.map((t, i) => (
-              <TouchableOpacity
-                key={t.id}
-                style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
-                onPress={() => setTurmaIdx(i)}
-              >
-                <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
+        <>
+          <TouchableOpacity style={styles.turmaDropdownBtn} onPress={() => setShowTurmaDropdown(true)} activeOpacity={0.8}>
+            <Ionicons name="school-outline" size={15} color={Colors.gold} />
+            <Text style={styles.turmaDropdownBtnText}>{turmasAtivas[turmaIdx]?.nome ?? '—'}</Text>
+            <Ionicons name="chevron-down" size={15} color={Colors.textSecondary} />
+          </TouchableOpacity>
+          <Modal visible={showTurmaDropdown} transparent animationType="fade" onRequestClose={() => setShowTurmaDropdown(false)}>
+            <TouchableOpacity style={styles.turmaDropdownOverlay} activeOpacity={1} onPress={() => setShowTurmaDropdown(false)}>
+              <View style={styles.turmaDropdownModal}>
+                <Text style={styles.turmaDropdownTitle}>Seleccionar Turma</Text>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                  {turmasAtivas.map((t, i) => (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.turmaDropdownItem, turmaIdx === i && styles.turmaDropdownItemActive]}
+                      onPress={() => { setTurmaIdx(i); setShowTurmaDropdown(false); }}
+                    >
+                      <Text style={[styles.turmaDropdownItemText, turmaIdx === i && styles.turmaDropdownItemTextActive]}>{t.nome}</Text>
+                      {turmaIdx === i && <Ionicons name="checkmark" size={16} color={Colors.accent} />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </TouchableOpacity>
+          </Modal>
+        </>
       )}
 
       {/* Info bar for current turma */}
@@ -886,12 +913,15 @@ export default function HorarioScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  turmaTabsScroll: { maxHeight: 52, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  turmaTabs: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  turmaTab: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface },
-  turmaTabActive: { backgroundColor: Colors.accent },
-  turmaTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  turmaTabTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
+  turmaDropdownBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  turmaDropdownBtnText: { flex: 1, fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  turmaDropdownOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center' },
+  turmaDropdownModal: { backgroundColor: Colors.backgroundCard, borderRadius: 14, width: 280, maxHeight: 420, overflow: 'hidden', paddingBottom: 8 },
+  turmaDropdownTitle: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.textSecondary, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, textTransform: 'uppercase', letterSpacing: 0.5 },
+  turmaDropdownItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  turmaDropdownItemActive: { backgroundColor: Colors.surface },
+  turmaDropdownItemText: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text },
+  turmaDropdownItemTextActive: { fontFamily: 'Inter_700Bold', color: Colors.accent },
   infoBar: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 8, backgroundColor: Colors.backgroundCard },
   infoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   infoText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
