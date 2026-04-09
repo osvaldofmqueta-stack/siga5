@@ -402,13 +402,21 @@ export default function PortalEstudanteScreen() {
     }
   }
 
+  async function registarPagamento(p: Omit<Parameters<typeof addPagamentoSelf>[0], never>) {
+    if (user?.alunoId) {
+      await addPagamentoSelf(p);
+    } else {
+      await addPagamento({ ...p, status: 'pendente' as const });
+    }
+  }
+
   async function handlePagarDocumento() {
     const rubrica = RUBRICAS.find(r => r.id === pagForm.rubricaId);
     if (!rubrica || !aluno) return;
     const ref = pagForm.metodo === 'rupe'
       ? `RUPE-${Math.floor(Math.random() * 900000 + 100000)}`
       : `MCX-${Math.floor(Math.random() * 900000 + 100000)}`;
-    await addPagamentoSelf({
+    await registarPagamento({
       alunoId: aluno.id,
       taxaId: rubrica.id,
       valor: rubrica.valor,
@@ -429,7 +437,7 @@ export default function PortalEstudanteScreen() {
     const ref = propMetodo === 'rupe'
       ? `RUPE-PROP-${Math.floor(Math.random() * 900000 + 100000)}`
       : `MCX-PROP-${Math.floor(Math.random() * 900000 + 100000)}`;
-    await addPagamentoSelf({
+    await registarPagamento({
       alunoId: aluno.id,
       taxaId: taxa.id,
       valor: taxa.valor,
@@ -453,7 +461,7 @@ export default function PortalEstudanteScreen() {
     const obs = comprovanteInput.trim()
       ? `${taxaParaPagar.descricao} | Comprovativo: ${comprovanteInput.trim()}`
       : taxaParaPagar.descricao;
-    await addPagamentoSelf({
+    await registarPagamento({
       alunoId: aluno.id,
       taxaId: taxaParaPagar.id,
       valor: taxaParaPagar.valor,
@@ -676,7 +684,7 @@ export default function PortalEstudanteScreen() {
         multicaixa_express: `Cartão de Estudante Virtual — MULTICAIXA Express (${cartaoPhone})`,
         rupe: 'Cartão de Estudante Virtual — RUPE',
       };
-      await addPagamentoSelf({
+      await registarPagamento({
         alunoId: aluno.id,
         taxaId: CARTAO_TAXA_ID,
         valor: CARTAO_VALOR,
