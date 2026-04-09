@@ -2823,15 +2823,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/pagamentos/self", requireAuth, async (req: Request, res: Response) => {
     try {
       if (!req.jwtUser) return json(res, 401, { error: "Não autenticado." });
+      // Resolve alunoId: prefer utilizadores.alunoId, fallback to alunos.utilizadorId link
       const [userRow] = await query<JsonObject>(
-        `SELECT "alunoId" FROM public.utilizadores WHERE id=$1`,
+        `SELECT u."alunoId", a.id as "alunoIdFallback"
+         FROM public.utilizadores u
+         LEFT JOIN public.alunos a ON a."utilizadorId" = u.id
+         WHERE u.id=$1`,
         [req.jwtUser.userId]
       );
-      if (!userRow || !userRow.alunoId) {
+      const resolvedAlunoId = userRow?.alunoId || userRow?.alunoIdFallback;
+      if (!resolvedAlunoId) {
         return json(res, 403, { error: "Utilizador não está associado a nenhum aluno." });
       }
       const b = requireBodyObject(req);
-      if (String(b.alunoId) !== String(userRow.alunoId)) {
+      if (String(b.alunoId) !== String(resolvedAlunoId)) {
         return json(res, 403, { error: "Não pode registar pagamentos para outro aluno." });
       }
       const rows = await query<JsonObject>(
