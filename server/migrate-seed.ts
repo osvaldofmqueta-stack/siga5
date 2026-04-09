@@ -203,10 +203,10 @@ async function run() {
   // ── 4. SEED — CONTAS DE SISTEMA ──────────────────────────────────────────────
   console.log('\n[seed] A garantir contas de sistema na base de dados...');
   const SYSTEM_ACCOUNTS = [
-    { id: 'usr_ceo',            email: 'ceo@sige.ao',         senha: 'Queta@Admin2025!', nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
-    { id: 'usr_financeiro_001', email: 'financeiro@sige.ao', senha: 'Queta@Fin2025!',  nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
-    { id: 'usr_secretaria_001', email: 'secretaria@sige.ao', senha: 'Queta@Sec2025!',  nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
-    { id: 'usr_rh_001',         email: 'rh@sige.ao',         senha: 'Queta@RH2025!',   nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
+    { id: 'usr_ceo',            email: 'ceo@sige.ao',         senha: 'Queta@Admin2025!', nome: 'Administrador QUETA',         role: 'ceo',        escola: 'Super Escola' },
+    { id: 'usr_financeiro_001', email: 'financeiro@sige.ao', senha: 'Queta@Fin2025!',  nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'Super Escola' },
+    { id: 'usr_secretaria_001', email: 'secretaria@sige.ao', senha: 'Queta@Sec2025!',  nome: 'Secretária Académica',        role: 'secretaria', escola: 'Super Escola' },
+    { id: 'usr_rh_001',         email: 'rh@sige.ao',         senha: 'Queta@RH2025!',   nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'Super Escola' },
   ];
 
   for (const acc of SYSTEM_ACCOUNTS) {
@@ -269,7 +269,7 @@ async function run() {
            "exameAntecipadoHabilitado", "exclusaoDuasReprovacoes", "papHabilitado",
            "estagioComoDisciplina", "notasVisiveis"
          ) VALUES (
-           gen_random_uuid(), 'QUETA, School', '', true, true,
+           gen_random_uuid(), 'Super Escola', '', true, true,
            10, 40, 4,
            0, 20, false, true,
            false, false, false,

@@ -2234,7 +2234,7 @@ thead th{background:#1a2540;color:#fff;padding:7px 8px;font-size:9.5px;text-tran
     <div class="doc-header-text">
       <div class="rep">República de Angola</div>
       <div class="escola-nome">{{NOME_ESCOLA}}</div>
-      <div style="font-size:9px;color:#888;margin-top:2px;">QUETA, School</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Super Escola</div>
     </div>
     <div class="doc-header-title">
       <div class="titulo">Extracto de Propinas</div>

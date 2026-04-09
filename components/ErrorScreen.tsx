@@ -449,7 +449,7 @@ export default function ErrorScreen({
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
             <View style={[styles.footerDot, { backgroundColor: Colors.success }]} />
-            <Text style={styles.footerText}>QUETA, School · Angola</Text>
+            <Text style={styles.footerText}>Super Escola · Angola</Text>
           </View>
           <Text style={styles.footerTime}>
             {new Date().toLocaleTimeString('pt-AO', { hour: '2-digit', minute: '2-digit' })}

@@ -561,10 +561,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     const bcryptLib = await import('bcrypt');
     const SYSTEM_ACCOUNTS = [
-      { id: 'usr_ceo',            email: 'ceo@sige.ao',          senha: 'Queta@Admin2025!', nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
-      { id: 'usr_financeiro_001', email: 'financeiro@sige.ao',   senha: 'Queta@Fin2025!',  nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
-      { id: 'usr_secretaria_001', email: 'secretaria@sige.ao',   senha: 'Queta@Sec2025!',  nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
-      { id: 'usr_rh_001',         email: 'rh@sige.ao',           senha: 'Queta@RH2025!',   nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
+      { id: 'usr_ceo',            email: 'ceo@sige.ao',          senha: 'Queta@Admin2025!', nome: 'Administrador QUETA',         role: 'ceo',        escola: 'Super Escola' },
+      { id: 'usr_financeiro_001', email: 'financeiro@sige.ao',   senha: 'Queta@Fin2025!',  nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'Super Escola' },
+      { id: 'usr_secretaria_001', email: 'secretaria@sige.ao',   senha: 'Queta@Sec2025!',  nome: 'Secretária Académica',        role: 'secretaria', escola: 'Super Escola' },
+      { id: 'usr_rh_001',         email: 'rh@sige.ao',           senha: 'Queta@RH2025!',   nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'Super Escola' },
     ];
     for (const acc of SYSTEM_ACCOUNTS) {
       const hash = await bcryptLib.hash(acc.senha, 10);

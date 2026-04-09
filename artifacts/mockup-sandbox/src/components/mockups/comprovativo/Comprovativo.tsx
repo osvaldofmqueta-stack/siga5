@@ -1,6 +1,6 @@
 import { Printer, CheckCircle, X } from "lucide-react";
 
-const ESCOLA = "QUETA, School";
+const ESCOLA = "Super Escola";
 const MORADA = "Rua da Educação, N.º 10, Luanda";
 const TELEFONE = "+244 923 000 000";
 const EMAIL = "geral@queta.ao";

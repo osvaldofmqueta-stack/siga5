@@ -274,7 +274,7 @@ tbody tr:last-child td{border-bottom:2px solid #1a2540}
     <div class="doc-header-text">
       <div class="rep">República de Angola</div>
       <div class="escola-nome">${escola}</div>
-      <div style="font-size:9px;color:#888;margin-top:2px;">QUETA, School</div>
+      <div style="font-size:9px;color:#888;margin-top:2px;">Super Escola</div>
     </div>
     <div class="doc-header-title">
       <div class="titulo">Extracto de Propinas</div>
