@@ -721,6 +721,8 @@ export default function ProfessorPautaScreen() {
   const pautaStatusColor = isPautaFechada ? Colors.danger : isPendente ? Colors.warning : pautaAtual ? Colors.success : Colors.textMuted;
   const pautaStatusLabel = isPautaFechada ? 'Fechada' : isPendente ? 'Aguarda Reabertura' : pautaAtual ? 'Aberta' : 'Não Lançada';
 
+  useEnterToSave(solicitarReabertura, showSolicitModal);
+
   if (step === 'selecao') {
     return (
       <View style={styles.container}>
@@ -1042,8 +1044,6 @@ export default function ProfessorPautaScreen() {
       </View>
     );
   }
-
-  useEnterToSave(solicitarReabertura, showSolicitModal);
 
   return (
     <View style={styles.container}>

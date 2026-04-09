@@ -1625,6 +1625,44 @@ export default function AdminScreen() {
                 />
               </View>
 
+              <View style={[styles.configFieldRow, { borderBottomWidth: 1, borderBottomColor: Colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Mín. Turmas por Professor</Text>
+                  <Text style={styles.configFieldDesc}>Número mínimo de turmas atribuídas a cada professor</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.minTurmasProfessor ?? 1)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 0) updateConfig({ minTurmasProfessor: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
+              <View style={[styles.configFieldRow, { borderBottomWidth: 1, borderBottomColor: Colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Máx. Turmas por Professor</Text>
+                  <Text style={styles.configFieldDesc}>Número máximo de turmas que um professor pode ter atribuídas</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.maxTurmasProfessor ?? 8)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 1) updateConfig({ maxTurmasProfessor: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
               <View style={styles.configFieldRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas (MAC)</Text>

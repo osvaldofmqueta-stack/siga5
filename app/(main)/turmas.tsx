@@ -345,7 +345,7 @@ function DisciplinasSelector({ disciplinas, selected, onChange }: {
   );
 }
 
-function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }: any) {
+function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas, config, allTurmas }: any) {
   useEnterToSave(handleSave, visible);
   const { anoSelecionado } = useAnoAcademico();
   const anoAtual = anoSelecionado?.ano || new Date().getFullYear().toString();
@@ -552,7 +552,25 @@ function TurmaFormModal({ visible, onClose, onSave, turma, professores, salas }:
                 professores={professores}
                 nivel={nivelAtual}
                 selected={form.professoresIds || []}
-                onChange={(ids) => set('professoresIds', ids)}
+                onChange={(ids: string[]) => {
+                  const maxTurmas = config?.maxTurmasProfessor ?? 8;
+                  const currentIds: string[] = form.professoresIds || [];
+                  const newlyAdded = ids.filter((id: string) => !currentIds.includes(id));
+                  for (const profId of newlyAdded) {
+                    const turmasDoProf = (allTurmas || []).filter((t: any) =>
+                      t.id !== turma?.id && (t.professoresIds || []).includes(profId)
+                    ).length;
+                    if (turmasDoProf >= maxTurmas) {
+                      const prof = professores.find((p: any) => p.id === profId);
+                      webAlert(
+                        'Limite de Turmas Atingido',
+                        `${prof?.nome ?? ''} ${prof?.apelido ?? ''} já tem ${turmasDoProf} turma(s) atribuída(s). O limite máximo configurado é de ${maxTurmas} turma(s) por professor.`
+                      );
+                      return;
+                    }
+                  }
+                  set('professoresIds', ids);
+                }}
               />
             </View>
 
@@ -821,7 +839,7 @@ export default function TurmasScreen() {
       />
 
       {showForm && (
-        <TurmaFormModal visible={showForm} onClose={() => { setShowForm(false); setEditTurma(null); }} onSave={handleSave} turma={editTurma} professores={professores} salas={salas} />
+        <TurmaFormModal visible={showForm} onClose={() => { setShowForm(false); setEditTurma(null); }} onSave={handleSave} turma={editTurma} professores={professores} salas={salas} config={config} allTurmas={turmas} />
       )}
     </View>
   );
