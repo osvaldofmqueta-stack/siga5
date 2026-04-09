@@ -2841,7 +2841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const rows = await query<JsonObject>(
         `INSERT INTO public.pagamentos (id,"alunoId","taxaId","valor","data","mes","trimestre","ano","status","metodoPagamento","referencia","observacao")
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendente',$9,$10,$11) RETURNING *`,
+         VALUES (COALESCE($1::uuid, gen_random_uuid()),$2,$3,$4,$5,$6,$7,$8,'pendente',$9,$10,$11) RETURNING *`,
         [b.id ?? null, b.alunoId, b.taxaId, b.valor, b.data, b.mes ?? null, b.trimestre ?? null, b.ano, b.metodoPagamento, b.referencia ?? null, b.observacao ?? null],
       );
       json(res, 201, rows[0]);

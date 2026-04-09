@@ -1284,8 +1284,10 @@ export default function PortalEstudanteScreen() {
 
     const notasPublicadas = aluno?.publicarNotas ?? true;
     const notasVisiveisGlobal = config.notasVisiveis ?? false;
+    const turmaAluno = aluno ? turmas.find(t => t.id === aluno.turmaId) : null;
+    const isFinalista = turmaAluno?.classe === '13';
 
-    if (!notasVisiveisGlobal) {
+    if (!notasVisiveisGlobal && !isFinalista) {
       return (
         <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
           <View style={[styles.emptyState, { paddingTop: 60 }]}>
