@@ -9395,6 +9395,179 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('[migration] correspondencias ensured.');
   } catch (e) { console.warn('[migration] correspondencias:', (e as Error).message); }
 
+  // horarios table (schedule entries — 1 discipline per slot per turma)
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.horarios (
+        id varchar PRIMARY KEY,
+        "turmaId" varchar NOT NULL,
+        disciplina text NOT NULL,
+        "professorId" varchar,
+        "professorNome" text NOT NULL DEFAULT '—',
+        "diaSemana" integer NOT NULL CHECK ("diaSemana" BETWEEN 1 AND 5),
+        periodo integer NOT NULL CHECK (periodo >= 1),
+        "horaInicio" text NOT NULL DEFAULT '',
+        "horaFim" text NOT NULL DEFAULT '',
+        sala text NOT NULL DEFAULT '',
+        "anoAcademico" text NOT NULL DEFAULT '',
+        "createdAt" timestamptz NOT NULL DEFAULT now()
+      )
+    `, []);
+    // Unique: one slot per turma per academic year
+    await query(`
+      ALTER TABLE public.horarios
+      ADD CONSTRAINT horarios_slot_unique
+      UNIQUE ("turmaId", "diaSemana", "periodo", "anoAcademico")
+    `, []).catch(() => {}); // ignore if already exists
+    console.log('[migration] horarios table ensured with slot uniqueness constraint.');
+  } catch (e) { console.warn('[migration] horarios:', (e as Error).message); }
+
+  // Seed: clean up duplicate horário entries (keep only 1 per slot)
+  try {
+    const dupsDeleted = await query<{ c: string }>(`
+      WITH ranked AS (
+        SELECT id,
+          ROW_NUMBER() OVER (
+            PARTITION BY "turmaId", "diaSemana", "periodo", "anoAcademico"
+            ORDER BY "createdAt" ASC
+          ) AS rn
+        FROM public.horarios
+      )
+      DELETE FROM public.horarios
+      WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
+      RETURNING id
+    `, []);
+    if (dupsDeleted.length > 0) {
+      console.log(`[seed] Removed ${dupsDeleted.length} duplicate horário entries.`);
+    }
+  } catch (e) { console.warn('[seed] horarios dedup:', (e as Error).message); }
+
+  // Seed: generate horários for turmas that have none
+  try {
+    const PERIODOS_SEED = [
+      { numero: 1, inicio: '07:30', fim: '08:15' },
+      { numero: 2, inicio: '08:20', fim: '09:15' },
+      { numero: 3, inicio: '09:15', fim: '10:00' },
+      { numero: 4, inicio: '10:05', fim: '10:50' },
+      { numero: 5, inicio: '10:55', fim: '11:40' },
+      { numero: 6, inicio: '11:45', fim: '12:35' },
+    ];
+
+    // Get active turmas with their ano
+    const turmasSeed = await query<{ id: string; sala: string; anoLetivo: string; cursoId: string | null; nivel: string }>(
+      `SELECT id, sala, "anoLetivo", "cursoId", nivel FROM public.turmas WHERE ativo = true`,
+      []
+    );
+
+    // For each turma, check if it already has a horário
+    for (const turma of turmasSeed) {
+      const existing = await query<{ c: string }>(
+        `SELECT COUNT(*) as c FROM public.horarios WHERE "turmaId" = $1`,
+        [turma.id]
+      );
+      if (parseInt(existing[0]?.c ?? '0') > 0) continue; // already has schedule
+
+      // Get disciplines for this turma
+      let discs: string[] = [];
+      try {
+        // Try turma_disciplinas first (Primário/I Ciclo)
+        const td = await query<{ nome: string }>(
+          `SELECT d.nome FROM public.turma_disciplinas td
+           JOIN public.disciplinas d ON d.id = td."disciplinaId"
+           WHERE td."turmaId" = $1
+           ORDER BY td.ordem`,
+          [turma.id]
+        );
+        if (td.length > 0) {
+          discs = td.map(r => r.nome);
+        } else if (turma.cursoId) {
+          // II Ciclo: use curso_disciplinas
+          const cd = await query<{ nome: string }>(
+            `SELECT d.nome FROM public.curso_disciplinas cd
+             JOIN public.disciplinas d ON d.id = cd."disciplinaId"
+             WHERE cd."cursoId" = $1 AND (cd.removida IS NULL OR cd.removida = false)
+             ORDER BY d.nome`,
+            [turma.cursoId]
+          );
+          discs = cd.map(r => r.nome);
+        }
+      } catch {}
+
+      if (discs.length === 0) continue; // no disciplines = skip
+
+      // Get professors assigned to this turma
+      const profs = await query<{ id: string; nome: string; apelido: string; sala: string }>(
+        `SELECT p.id, p.nome, p.apelido, p.sala
+         FROM public.professores p
+         WHERE p."turmasIds"::text ILIKE $1 AND p.ativo = true
+         LIMIT 10`,
+        [`%${turma.id}%`]
+      ).catch(() => [] as any[]);
+
+      const anoAcademico = turma.anoLetivo || new Date().getFullYear().toString();
+
+      // Track occupied slots for this turma and for professors globally
+      const turmaSlots = new Set<string>(); // "dia-periodo"
+      const profSlots = new Map<string, Set<string>>(); // profId -> Set of "dia-periodo-ano"
+
+      // Load existing professor slots across all turmas for this ano
+      for (const p of profs) {
+        const ps = await query<{ diaSemana: number; periodo: number }>(
+          `SELECT "diaSemana", periodo FROM public.horarios
+           WHERE "professorId" = $1 AND "anoAcademico" = $2`,
+          [p.id, anoAcademico]
+        ).catch(() => [] as any[]);
+        profSlots.set(p.id, new Set(ps.map(r => `${r.diaSemana}-${r.periodo}`)));
+      }
+
+      let discIdx = 0;
+      let profIdx = 0;
+
+      // Assign each discipline to a unique slot
+      outer: for (const disc of discs) {
+        for (let dia = 1; dia <= 5; dia++) {
+          for (const per of PERIODOS_SEED) {
+            const slotKey = `${dia}-${per.numero}`;
+            if (turmaSlots.has(slotKey)) continue;
+
+            // Pick a professor not already busy at this slot
+            let assignedProf = profs[profIdx % Math.max(profs.length, 1)];
+            let profAttempts = 0;
+            while (assignedProf && profSlots.get(assignedProf.id)?.has(slotKey) && profAttempts < profs.length) {
+              profIdx++;
+              profAttempts++;
+              assignedProf = profs[profIdx % Math.max(profs.length, 1)];
+            }
+
+            const profId = assignedProf?.id ?? null;
+            const profNome = assignedProf ? `${assignedProf.nome} ${assignedProf.apelido}` : '—';
+            const sala = turma.sala || (assignedProf?.sala ?? '');
+            const id = `h-${turma.id.substring(0, 8)}-${dia}-${per.numero}-${Date.now()}${discIdx}`;
+
+            try {
+              await query(
+                `INSERT INTO public.horarios (id,"turmaId",disciplina,"professorId","professorNome","diaSemana",periodo,"horaInicio","horaFim",sala,"anoAcademico")
+                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+                 ON CONFLICT ("turmaId","diaSemana","periodo","anoAcademico") DO NOTHING`,
+                [id, turma.id, disc, profId, profNome, dia, per.numero, per.inicio, per.fim, sala, anoAcademico]
+              );
+              turmaSlots.add(slotKey);
+              if (profId) {
+                if (!profSlots.has(profId)) profSlots.set(profId, new Set());
+                profSlots.get(profId)!.add(slotKey);
+              }
+              discIdx++;
+              profIdx++;
+            } catch {}
+            continue outer;
+          }
+        }
+        // No free slot found for this discipline — skip
+      }
+    }
+    console.log('[seed] horarios generated/verified for all turmas.');
+  } catch (e) { console.warn('[seed] horarios generation:', (e as Error).message); }
+
   // ─── PLANO DE CONTAS ROUTES ─────────────────────────────────────────────────
   app.get('/api/plano-contas', requireAuth, async (req, res) => {
     try {
