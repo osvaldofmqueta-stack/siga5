@@ -271,33 +271,18 @@ export default function PortalEstudanteScreen() {
 
   async function loadServerData(alunoId?: string) {
     try {
-      const [horRes, solRes, recRes, regFaltaRes, exclRes] = await Promise.all([
-        fetch('/api/horarios'),
-        alunoId ? fetch(`/api/solicitacoes-documentos?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
-        alunoId ? fetch(`/api/reconfirmacoes-matricula?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
-        alunoId ? fetch(`/api/registos-falta-mensal?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
-        alunoId ? fetch(`/api/exclusoes-falta?alunoId=${encodeURIComponent(alunoId)}`) : Promise.resolve(null),
+      const [horData, solData, recData, regFaltaData, exclData] = await Promise.all([
+        api.get<any[]>('/api/horarios').catch(() => null),
+        alunoId ? api.get<any[]>(`/api/solicitacoes-documentos?alunoId=${encodeURIComponent(alunoId)}`).catch(() => null) : Promise.resolve(null),
+        alunoId ? api.get<any[]>(`/api/reconfirmacoes-matricula?alunoId=${encodeURIComponent(alunoId)}`).catch(() => null) : Promise.resolve(null),
+        alunoId ? api.get<any[]>(`/api/registos-falta-mensal?alunoId=${encodeURIComponent(alunoId)}`).catch(() => null) : Promise.resolve(null),
+        alunoId ? api.get<any[]>(`/api/exclusoes-falta?alunoId=${encodeURIComponent(alunoId)}`).catch(() => null) : Promise.resolve(null),
       ]);
-      if (horRes.ok) {
-        const data = await horRes.json();
-        setHorarios(Array.isArray(data) ? data : []);
-      }
-      if (solRes?.ok) {
-        const data = await solRes.json();
-        setSolicitacoes(Array.isArray(data) ? data : []);
-      }
-      if (recRes?.ok) {
-        const data = await recRes.json();
-        setReconfirmacoes(Array.isArray(data) ? data : []);
-      }
-      if (regFaltaRes?.ok) {
-        const data = await regFaltaRes.json();
-        setRegistosFalta(Array.isArray(data) ? data : []);
-      }
-      if (exclRes?.ok) {
-        const data = await exclRes.json();
-        setExclusoesFalta(Array.isArray(data) ? data : []);
-      }
+      if (Array.isArray(horData)) setHorarios(horData);
+      if (Array.isArray(solData)) setSolicitacoes(solData);
+      if (Array.isArray(recData)) setReconfirmacoes(recData);
+      if (Array.isArray(regFaltaData)) setRegistosFalta(regFaltaData);
+      if (Array.isArray(exclData)) setExclusoesFalta(exclData);
     } catch (e) {}
   }
 
@@ -387,15 +372,8 @@ export default function PortalEstudanteScreen() {
         observacao: solForm.observacao,
         status: 'pendente',
       };
-      const res = await fetch('/api/solicitacoes-documentos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        const nova = await res.json();
-        setSolicitacoes(prev => [nova, ...prev]);
-      }
+      const nova = await api.post<any>('/api/solicitacoes-documentos', body);
+      setSolicitacoes(prev => [nova, ...prev]);
       setShowSolicitacaoModal(false);
       setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
       setTimeout(() => docsScrollRef.current?.scrollToEnd({ animated: true }), 300);
