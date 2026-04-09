@@ -52,8 +52,8 @@ type TabKey = typeof TABS[number]['key'];
 
 const TIPOS_DOC = [
   'Declaração de Matrícula',
-  'Certidão de Notas',
-  'Certidão de Frequência',
+  'Certificado de Notas',
+  'Certificado de Frequência',
   'Declaração de Conclusão de Curso',
   'Histórico Escolar',
   'Diploma',
@@ -62,8 +62,8 @@ const TIPOS_DOC = [
 
 const RUBRICAS = [
   { id: 'decl_matricula', nome: 'Declaração de Matrícula', valor: 500 },
-  { id: 'cert_notas', nome: 'Certidão de Notas', valor: 1000 },
-  { id: 'cert_freq', nome: 'Certidão de Frequência', valor: 750 },
+  { id: 'cert_notas', nome: 'Certificado de Notas', valor: 1000 },
+  { id: 'cert_freq', nome: 'Certificado de Frequência', valor: 750 },
   { id: 'historico', nome: 'Histórico Escolar', valor: 2000 },
   { id: 'diploma', nome: 'Diploma', valor: 3000 },
   { id: 'outros', nome: 'Outros Documentos', valor: 500 },
