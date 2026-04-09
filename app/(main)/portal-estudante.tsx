@@ -26,6 +26,7 @@ import { useConfig } from '@/context/ConfigContext';
 import TopBar from '@/components/TopBar';
 import ContinuidadeStatusModal from '@/components/ContinuidadeStatusModal';
 import { webAlert } from '@/utils/webAlert';
+import { api } from '@/lib/api';
 import { useEnterToSave } from '@/hooks/useEnterToSave';
 
 const { width } = Dimensions.get('window');
