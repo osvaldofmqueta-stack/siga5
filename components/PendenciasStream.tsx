@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated,
-  ScrollView, Image, Platform,
+  ScrollView, Image, Platform, Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
@@ -30,6 +30,11 @@ interface Pendencia {
 const VISIBLE_ROLES = ['admin', 'ceo', 'pca', 'director', 'secretaria', 'chefe_secretaria', 'financeiro', 'pedagogico'];
 const REFRESH_INTERVAL = 30000;
 const ROTATE_INTERVAL = 10000;
+const CARD_WIDTH_DESKTOP = 290;
+const CARD_WIDTH_MOBILE = 260;
+const SIDE_PAUSE_LEFT = 2500;
+const SIDE_PAUSE_RIGHT = 3500;
+const SIDE_SLIDE_DURATION = 900;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getSeveridadeColor(s: Pendencia['severidade']) {
@@ -343,6 +348,9 @@ export default function PendenciasStream() {
   const slideAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const rotateTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sideAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const leftOffset = isDesktop ? 16 : 12;
+  const slideXAnim = useRef(new Animated.Value(leftOffset)).current;
 
   const shouldRender = !!(user && VISIBLE_ROLES.includes(user.role));
 
@@ -415,6 +423,56 @@ export default function PendenciasStream() {
     }).start();
   }, [expanded, shouldRender]);
 
+  // Side-to-side sliding animation (only when collapsed and has items)
+  useEffect(() => {
+    if (!shouldRender) return;
+
+    if (sideAnimRef.current) {
+      sideAnimRef.current.stop();
+      sideAnimRef.current = null;
+    }
+
+    if (expanded || total === 0) {
+      // Snap back to left side when expanded or no items
+      Animated.spring(slideXAnim, {
+        toValue: leftOffset,
+        useNativeDriver: false,
+        tension: 60,
+        friction: 12,
+      }).start();
+      return;
+    }
+
+    const screenW = Dimensions.get('window').width;
+    const cardW = isDesktop ? CARD_WIDTH_DESKTOP : CARD_WIDTH_MOBILE;
+    const rightX = Math.max(screenW - cardW - leftOffset, leftOffset);
+
+    const anim = Animated.loop(
+      Animated.sequence([
+        Animated.delay(SIDE_PAUSE_LEFT),
+        Animated.timing(slideXAnim, {
+          toValue: rightX,
+          duration: SIDE_SLIDE_DURATION,
+          useNativeDriver: false,
+        }),
+        Animated.delay(SIDE_PAUSE_RIGHT),
+        Animated.timing(slideXAnim, {
+          toValue: leftOffset,
+          duration: SIDE_SLIDE_DURATION,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+
+    sideAnimRef.current = anim;
+    anim.start();
+
+    return () => {
+      anim.stop();
+      sideAnimRef.current = null;
+    };
+  }, [expanded, total, shouldRender, isDesktop, leftOffset]);
+
   const handleDismiss = useCallback((id: string) => {
     setDismissed(prev => new Set([...prev, id]));
   }, []);
@@ -428,7 +486,7 @@ export default function PendenciasStream() {
   const currentCard = visible[currentIndex % Math.max(total, 1)];
 
   return (
-    <View style={[styles.container, isDesktop ? styles.containerDesktop : styles.containerMobile]}>
+    <Animated.View style={[styles.container, isDesktop ? styles.containerDesktop : styles.containerMobile, { left: slideXAnim }]}>
       {/* Expanded panel */}
       <Animated.View style={[styles.panel, { width: panelWidth, opacity: panelOpacity }]}>
         {expanded && (
@@ -476,7 +534,10 @@ export default function PendenciasStream() {
           total={total}
           currentIndex={currentIndex}
           pulseAnim={pulseAnim}
-          onExpand={() => setExpanded(true)}
+          onExpand={() => {
+            slideXAnim.setValue(leftOffset);
+            setExpanded(true);
+          }}
         />
       )}
 
@@ -490,7 +551,7 @@ export default function PendenciasStream() {
           <Ionicons name="chevron-forward" size={18} color="#fff" />
         </TouchableOpacity>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -504,12 +565,10 @@ const styles = StyleSheet.create({
   } as any,
   containerDesktop: {
     bottom: 90,
-    left: 16,
     flexDirection: 'row-reverse',
   } as any,
   containerMobile: {
     bottom: 80,
-    left: 12,
     flexDirection: 'row-reverse',
   } as any,
 
