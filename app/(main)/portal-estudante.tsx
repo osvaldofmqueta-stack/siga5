@@ -1974,7 +1974,7 @@ export default function PortalEstudanteScreen() {
                 <View style={styles.pagBottom}>
                   <Text style={[styles.pagValor, { color: Colors.gold }]}>{formatAOA(pag.valor)}</Text>
                   {pag.referencia ? (
-                    <View style={styles.pagRefBox}>
+                    <View style={styles.pagRefRow}>
                       <Ionicons name="barcode-outline" size={12} color={Colors.textMuted} />
                       <Text style={styles.pagRef}>{pag.referencia}</Text>
                     </View>
@@ -3154,13 +3154,27 @@ const styles = StyleSheet.create({
 
   payBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.accent, borderRadius: 12, padding: 13, marginTop: 14 },
   payBtnText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+  payBtnSmall: { backgroundColor: Colors.accent, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center' },
+  payBtnSmallText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: '#fff' },
+
+  taxaCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  taxaLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
+  taxaIconBox: { width: 40, height: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  taxaInfo: { flex: 1 },
+  taxaTitulo: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, marginBottom: 2 },
+  taxaMeta: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  taxaRight: { alignItems: 'flex-end', gap: 6 },
+  taxaValor: { fontSize: 14, fontFamily: 'Inter_700Bold' },
 
   pagCard: { backgroundColor: Colors.backgroundCard, borderRadius: 12, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: Colors.border },
   pagTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
+  pagBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8, flexWrap: 'wrap', gap: 6 },
   pagDesc: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.text, flex: 1 },
   pagValor: { fontSize: 18, fontFamily: 'Inter_700Bold', marginBottom: 6 },
   pagMeta: { flexDirection: 'row', justifyContent: 'space-between' },
   pagMetaText: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  pagRef: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  pagRefRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
 
   metodoRow: { flexDirection: 'row', gap: 8, marginBottom: 14 },
   metodoBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.backgroundCard, alignItems: 'center', borderWidth: 1, borderColor: Colors.border },
