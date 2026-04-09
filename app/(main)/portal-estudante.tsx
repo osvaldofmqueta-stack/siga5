@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -183,6 +183,7 @@ export default function PortalEstudanteScreen() {
   const [showJustModal, setShowJustModal] = useState<{ disciplina: string; registoId?: string } | null>(null);
   const [justMotivo, setJustMotivo] = useState('');
   const [justSaving, setJustSaving] = useState(false);
+  const docsScrollRef = useRef<any>(null);
 
   const aluno = alunos.find(a =>
     (user?.alunoId && a.id === user.alunoId) ||
@@ -397,7 +398,8 @@ export default function PortalEstudanteScreen() {
       }
       setShowSolicitacaoModal(false);
       setSolForm({ tipo: TIPOS_DOC[0], motivo: '', observacao: '' });
-      webAlert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na lista abaixo.');
+      setTimeout(() => docsScrollRef.current?.scrollToEnd({ animated: true }), 300);
+      webAlert('Solicitação enviada', 'A sua solicitação de documento foi enviada com sucesso. Acompanhe o estado na secção "Minhas Solicitações" abaixo.');
     } catch (e) {
       webAlert('Erro', 'Não foi possível enviar a solicitação. Tente novamente.');
     }
@@ -709,6 +711,31 @@ export default function PortalEstudanteScreen() {
     const disciplinas = [...new Set(notasAluno.map(n => n.disciplina))];
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+        <View style={[styles.sectionNavWrapper, { marginHorizontal: -16, marginTop: -16, marginBottom: 16 }]}>
+          <View style={styles.sectionNavGrid}>
+            {TABS.filter(t => t.key !== 'painel').map(tab => {
+              const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
+              return (
+                <TouchableOpacity
+                  key={tab.key}
+                  style={styles.sectionNavItem}
+                  onPress={() => setActiveTab(tab.key)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.sectionNavIconWrap}>
+                    <Ionicons name={tab.icon as any} size={20} color={Colors.textSecondary} />
+                    {hasBadge && (
+                      <View style={styles.sectionNavBadge}>
+                        <Text style={styles.sectionNavBadgeText}>{unreadMsgs}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.sectionNavLabel} numberOfLines={1}>{tab.label}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
         <SectionTitle title="Resumo Académico" icon="stats-chart" />
         <View style={styles.statsRow}>
           <StatCard value={mediaGeral} label="Média Geral" color={Colors.gold} />
@@ -1614,7 +1641,7 @@ export default function PortalEstudanteScreen() {
   }
 
   function renderHorario() {
-    const aulasDia = horariosAluno.filter(h => h.diaSemana === diaHorario);
+    const aulasDia = horariosAluno.filter(h => h.diaSemana === diaHorario + 1);
     return (
       <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.diasScroll}>
@@ -2254,7 +2281,7 @@ export default function PortalEstudanteScreen() {
   function renderDocumentos() {
     const tiposJaEmitidos = [...new Set(documentosEmitidos.map(d => d.tipo))];
     return (
-      <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={docsScrollRef} contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
         <SectionTitle title="Pedir Declaração / Documento" icon="document-text" />
         <TouchableOpacity style={styles.payBtn} onPress={() => setShowSolicitacaoModal(true)}>
           <Ionicons name="add-circle" size={18} color="#fff" />
@@ -2680,34 +2707,8 @@ export default function PortalEstudanteScreen() {
         </View>
       </View>
 
-      {/* Section Navigator — grelha completa só no Painel, barra compacta nas restantes */}
-      {activeTab === 'painel' ? (
-        <View style={styles.sectionNavWrapper}>
-          <View style={styles.sectionNavGrid}>
-            {TABS.filter(t => t.key !== 'painel').map(tab => {
-              const hasBadge = tab.key === 'mensagens' && unreadMsgs > 0;
-              return (
-                <TouchableOpacity
-                  key={tab.key}
-                  style={styles.sectionNavItem}
-                  onPress={() => setActiveTab(tab.key)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.sectionNavIconWrap}>
-                    <Ionicons name={tab.icon as any} size={20} color={Colors.textSecondary} />
-                    {hasBadge && (
-                      <View style={styles.sectionNavBadge}>
-                        <Text style={styles.sectionNavBadgeText}>{unreadMsgs}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.sectionNavLabel} numberOfLines={1}>{tab.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      ) : (
+      {/* Section Navigator — barra compacta só nas secções (não no Painel) */}
+      {activeTab !== 'painel' && (
         <View style={styles.sectionBarCompact}>
           <TouchableOpacity
             style={styles.sectionBarBack}
