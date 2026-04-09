@@ -143,13 +143,16 @@ function mapProcessoFromApi(r: any): Processo {
   };
 }
 
-const CORRESPONDENCIAS: Correspondencia[] = [
-  { id: 'c1', assunto: 'Convocatória — Reunião Conselho Pedagógico', destinatario: 'Corpo Docente', tipo: 'saida', data: '20/03/2025', urgente: true },
-  { id: 'c2', assunto: 'Ofício n.º 142/DLEAE/2025 — Calendário de exames', destinatario: 'Direcção', tipo: 'entrada', data: '19/03/2025', urgente: true },
-  { id: 'c3', assunto: 'Circular — Entrega de processos individuais', destinatario: 'Professores Directores de Turma', tipo: 'saida', data: '18/03/2025', urgente: false },
-  { id: 'c4', assunto: 'Pedido de informação — DILEQ Luanda', destinatario: 'Secretaria', tipo: 'entrada', data: '17/03/2025', urgente: false },
-  { id: 'c5', assunto: 'Aviso — Entrega de boletins de avaliação', destinatario: 'Encarregados de Educação', tipo: 'saida', data: '15/03/2025', urgente: false },
-];
+function mapCorrespondenciaFromApi(r: any): Correspondencia {
+  return {
+    id: r.id,
+    assunto: r.assunto ?? '',
+    destinatario: r.destinatario ?? '',
+    tipo: r.tipo as 'entrada' | 'saida',
+    data: r.data ?? new Date().toLocaleDateString('pt-PT'),
+    urgente: Boolean(r.urgente),
+  };
+}
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 function SectionHeader({ title, icon, count, onAction, actionLabel }: {
@@ -459,6 +462,13 @@ export default function SecretariaHubScreen() {
   const [loadingDocumentos, setLoadingDocumentos] = useState(false);
   const [processos, setProcessos] = useState<Processo[]>([]);
   const [loadingProcessos, setLoadingProcessos] = useState(false);
+  const [correspondencias, setCorrespondencias] = useState<Correspondencia[]>([]);
+  const [loadingCorrespondencias, setLoadingCorrespondencias] = useState(false);
+  const [showNovaCorresp, setShowNovaCorresp] = useState(false);
+  const [novaCorrespAssunto, setNovaCorrespAssunto] = useState('');
+  const [novaCorrespDestinatario, setNovaCorrespDestinatario] = useState('');
+  const [novaCorrespTipo, setNovaCorrespTipo] = useState<'entrada' | 'saida'>('saida');
+  const [novaCorrespUrgente, setNovaCorrespUrgente] = useState(false);
   const [showEmitirModal, setShowEmitirModal] = useState(false);
   const [showEmissaoRapida, setShowEmissaoRapida] = useState(false);
   const [showMapaAproveitamento, setShowMapaAproveitamento] = useState(false);
@@ -520,10 +530,74 @@ export default function SecretariaHubScreen() {
     }
   }, []);
 
+  const fetchCorrespondencias = useCallback(async () => {
+    setLoadingCorrespondencias(true);
+    try {
+      const token = await getAuthToken();
+      const res = await fetch('/api/correspondencias', {
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCorrespondencias((data as any[]).map(mapCorrespondenciaFromApi));
+      }
+    } catch (_) {
+    } finally {
+      setLoadingCorrespondencias(false);
+    }
+  }, []);
+
+  async function handleNovaCorrespondencia() {
+    if (!novaCorrespAssunto.trim()) return;
+    try {
+      const token = await getAuthToken();
+      const hoje = new Date().toLocaleDateString('pt-PT');
+      const res = await fetch('/api/correspondencias', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({
+          assunto: novaCorrespAssunto.trim(),
+          destinatario: novaCorrespDestinatario.trim(),
+          tipo: novaCorrespTipo,
+          data: hoje,
+          urgente: novaCorrespUrgente,
+        }),
+      });
+      if (res.ok) {
+        const nova = mapCorrespondenciaFromApi(await res.json());
+        setCorrespondencias(prev => [nova, ...prev]);
+        setShowNovaCorresp(false);
+        setNovaCorrespAssunto('');
+        setNovaCorrespDestinatario('');
+        setNovaCorrespTipo('saida');
+        setNovaCorrespUrgente(false);
+        alertSucesso('Registo criado', 'Correspondência registada com sucesso.');
+      } else {
+        alertErro('Erro', 'Não foi possível registar a correspondência.');
+      }
+    } catch (_) {
+      alertErro('Erro', 'Falha de ligação ao servidor.');
+    }
+  }
+
+  async function handleDeleteCorrespondencia(id: string) {
+    try {
+      const token = await getAuthToken();
+      const res = await fetch(`/api/correspondencias/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token ?? ''}` },
+      });
+      if (res.ok) {
+        setCorrespondencias(prev => prev.filter(c => c.id !== id));
+      }
+    } catch (_) {}
+  }
+
   useEffect(() => {
     fetchDocumentos();
     fetchProcessos();
-  }, [fetchDocumentos, fetchProcessos]);
+    fetchCorrespondencias();
+  }, [fetchDocumentos, fetchProcessos, fetchCorrespondencias]);
 
   async function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     try {
@@ -1418,8 +1492,20 @@ export default function SecretariaHubScreen() {
         {/* ── CORRESPONDÊNCIA ──────────────────────────────── */}
         {activeTab === 'correspondencia' && (
           <View style={styles.card}>
-            <SectionHeader title="Correspondência / Ofícios" icon="mail" count={CORRESPONDENCIAS.length} />
-            {CORRESPONDENCIAS.map(c => (
+            <SectionHeader
+              title="Correspondência / Ofícios"
+              icon="mail"
+              count={correspondencias.length}
+              onAction={() => setShowNovaCorresp(true)}
+              actionLabel="Novo"
+            />
+            {loadingCorrespondencias ? (
+              <ActivityIndicator color={Colors.gold} style={{ marginVertical: 24 }} />
+            ) : correspondencias.length === 0 ? (
+              <Text style={{ color: Colors.textSecondary, textAlign: 'center', marginVertical: 24, fontFamily: 'Inter_400Regular' }}>
+                Nenhuma correspondência registada.
+              </Text>
+            ) : correspondencias.map(c => (
               <View key={c.id} style={styles.corrRow}>
                 <View style={[styles.corrBadge, { backgroundColor: c.tipo === 'entrada' ? Colors.info + '22' : Colors.success + '22' }]}>
                   <Ionicons name={c.tipo === 'entrada' ? 'arrow-down' : 'arrow-up'} size={13} color={c.tipo === 'entrada' ? Colors.info : Colors.success} />
@@ -1427,17 +1513,78 @@ export default function SecretariaHubScreen() {
                     {c.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                   </Text>
                 </View>
-                <View style={styles.corrInfo}>
+                <View style={[styles.corrInfo, { flex: 1 }]}>
                   <View style={styles.corrTopRow}>
-                    <Text style={styles.corrAssunto} numberOfLines={1}>{c.assunto}</Text>
+                    <Text style={[styles.corrAssunto, { flex: 1 }]} numberOfLines={1}>{c.assunto}</Text>
                     {c.urgente && <View style={styles.urgenteTag}><Text style={styles.urgenteText}>Urgente</Text></View>}
                   </View>
                   <Text style={styles.corrMeta}>{c.destinatario} · {c.data}</Text>
                 </View>
+                <TouchableOpacity onPress={() => handleDeleteCorrespondencia(c.id)} style={{ padding: 6 }}>
+                  <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+                </TouchableOpacity>
               </View>
             ))}
           </View>
         )}
+
+        {/* ── MODAL NOVA CORRESPONDÊNCIA ────────────────────── */}
+        <Modal visible={showNovaCorresp} animationType="slide" transparent onRequestClose={() => setShowNovaCorresp(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: Colors.backgroundCard, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, padding: 20, paddingBottom: 34 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <Text style={{ fontSize: 17, fontFamily: 'Inter_700Bold', color: Colors.text }}>Nova Correspondência</Text>
+                <TouchableOpacity onPress={() => setShowNovaCorresp(false)}>
+                  <Ionicons name="close" size={22} color={Colors.textSecondary} />
+                </TouchableOpacity>
+              </View>
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Assunto *</Text>
+              <TextInput
+                style={{ backgroundColor: Colors.backgroundInput, borderRadius: 10, padding: 12, color: Colors.text, borderWidth: 1, borderColor: Colors.border, marginBottom: 10, fontFamily: 'Inter_400Regular' }}
+                placeholder="Ex: Convocatória — Reunião Pedagógica"
+                placeholderTextColor={Colors.textSecondary}
+                value={novaCorrespAssunto}
+                onChangeText={setNovaCorrespAssunto}
+              />
+              <Text style={{ color: Colors.textSecondary, fontSize: 12, fontFamily: 'Inter_400Regular', marginBottom: 4 }}>Destinatário / Remetente</Text>
+              <TextInput
+                style={{ backgroundColor: Colors.backgroundInput, borderRadius: 10, padding: 12, color: Colors.text, borderWidth: 1, borderColor: Colors.border, marginBottom: 10, fontFamily: 'Inter_400Regular' }}
+                placeholder="Ex: Corpo Docente"
+                placeholderTextColor={Colors.textSecondary}
+                value={novaCorrespDestinatario}
+                onChangeText={setNovaCorrespDestinatario}
+              />
+              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                {(['saida', 'entrada'] as const).map(t => (
+                  <TouchableOpacity
+                    key={t}
+                    onPress={() => setNovaCorrespTipo(t)}
+                    style={{ flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', backgroundColor: novaCorrespTipo === t ? Colors.gold : Colors.backgroundInput, borderWidth: 1, borderColor: novaCorrespTipo === t ? Colors.gold : Colors.border }}
+                  >
+                    <Text style={{ color: novaCorrespTipo === t ? '#000' : Colors.textSecondary, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}>
+                      {t === 'saida' ? '↑ Saída' : '↓ Entrada'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TouchableOpacity
+                onPress={() => setNovaCorrespUrgente(v => !v)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 }}
+              >
+                <View style={{ width: 20, height: 20, borderRadius: 5, borderWidth: 1.5, borderColor: novaCorrespUrgente ? Colors.danger : Colors.border, backgroundColor: novaCorrespUrgente ? Colors.danger : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                  {novaCorrespUrgente && <Ionicons name="checkmark" size={13} color="#fff" />}
+                </View>
+                <Text style={{ color: Colors.text, fontFamily: 'Inter_400Regular', fontSize: 13 }}>Marcar como urgente</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleNovaCorrespondencia}
+                style={{ backgroundColor: Colors.gold, borderRadius: 12, padding: 14, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#000', fontFamily: 'Inter_700Bold', fontSize: 15 }}>Registar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
       </ScrollView>
 

@@ -559,20 +559,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── SEED CONTAS SISTEMA ─────────────────────────────────────────────────────
   // Garante que as contas de sistema existem na base de dados (sem hardcode no código)
   try {
+    const bcryptLib = await import('bcrypt');
     const SYSTEM_ACCOUNTS = [
-      { id: 'usr_ceo',            email: 'root@root.com',       senha: 'admin8891*1',     nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
-      { id: 'usr_financeiro_001', email: 'financeiro@sige.ao', senha: 'Financeiro@2025', nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
-      { id: 'usr_secretaria_001', email: 'secretaria@sige.ao', senha: 'Secretaria@2025', nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
-      { id: 'usr_rh_001',         email: 'rh@sige.ao',         senha: 'RH@2025',         nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
+      { id: 'usr_ceo',            email: 'ceo@sige.ao',          senha: 'Queta@Admin2025!', nome: 'Administrador QUETA',         role: 'ceo',        escola: 'QUETA, School' },
+      { id: 'usr_financeiro_001', email: 'financeiro@sige.ao',   senha: 'Queta@Fin2025!',  nome: 'Gestor Financeiro',           role: 'financeiro', escola: 'QUETA, School' },
+      { id: 'usr_secretaria_001', email: 'secretaria@sige.ao',   senha: 'Queta@Sec2025!',  nome: 'Secretária Académica',        role: 'secretaria', escola: 'QUETA, School' },
+      { id: 'usr_rh_001',         email: 'rh@sige.ao',           senha: 'Queta@RH2025!',   nome: 'Gestor de Recursos Humanos',  role: 'rh',         escola: 'QUETA, School' },
     ];
     for (const acc of SYSTEM_ACCOUNTS) {
-      // ON CONFLICT (email) DO NOTHING: preserva conta existente personalizada,
-      // insere apenas se o email ainda não existir na base de dados
+      const hash = await bcryptLib.hash(acc.senha, 10);
       await query(
         `INSERT INTO public.utilizadores (id, nome, email, senha, role, escola, ativo)
          VALUES ($1, $2, $3, $4, $5, $6, true)
-         ON CONFLICT (email) DO NOTHING`,
-        [acc.id, acc.nome, acc.email, acc.senha, acc.role, acc.escola]
+         ON CONFLICT (email) DO UPDATE SET senha=EXCLUDED.senha, nome=EXCLUDED.nome`,
+        [acc.id, acc.nome, acc.email, hash, acc.role, acc.escola]
       );
     }
     console.log('[seed] Contas de sistema garantidas na base de dados.');
@@ -8176,6 +8176,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
+  // ─── CORRESPONDÊNCIAS ─────────────────────────────────────────────────────
+  app.get("/api/correspondencias", requireAuth, async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.correspondencias ORDER BY "createdAt" DESC`
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/correspondencias", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const user = (req as any).user;
+      const hoje = new Date().toLocaleDateString('pt-PT');
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.correspondencias
+          (assunto, destinatario, tipo, data, urgente, observacao, "registadoPor")
+         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+        [
+          String(b.assunto ?? ''),
+          String(b.destinatario ?? ''),
+          String(b.tipo ?? 'saida'),
+          String(b.data ?? hoje),
+          Boolean(b.urgente ?? false),
+          b.observacao ? String(b.observacao) : null,
+          user?.nome || 'Secretaria'
+        ]
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/correspondencias/:id", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
+    try {
+      await query(`DELETE FROM public.correspondencias WHERE id=$1`, [req.params.id]);
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
   // -----------------------
   // CONFIGURAÇÃO RH (taxas e valores de pagamento/desconto)
   // -----------------------
@@ -9286,6 +9326,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     );
     console.log('[migration] curso_disciplinas.removida + unique constraint ensured.');
   } catch (e) { console.warn('[migration] curso_disciplinas.removida:', (e as Error).message); }
+
+  // correspondencias table
+  try {
+    await query(`CREATE TABLE IF NOT EXISTS public.correspondencias (
+      id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+      assunto text NOT NULL,
+      destinatario text NOT NULL DEFAULT '',
+      tipo text NOT NULL DEFAULT 'saida',
+      data text NOT NULL,
+      urgente boolean NOT NULL DEFAULT false,
+      observacao text,
+      "registadoPor" text NOT NULL DEFAULT 'Secretaria',
+      "createdAt" timestamptz NOT NULL DEFAULT now()
+    )`, []);
+    console.log('[migration] correspondencias ensured.');
+  } catch (e) { console.warn('[migration] correspondencias:', (e as Error).message); }
 
   // ─── PLANO DE CONTAS ROUTES ─────────────────────────────────────────────────
   app.get('/api/plano-contas', requireAuth, async (req, res) => {
