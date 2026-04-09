@@ -210,7 +210,7 @@ async function batchInsert(client, table, cols, rows, chunkSize = 100) {
       return `(${row.map((_, i) => `$${start + i + 1}`).join(",")})`;
     });
     await client.query(
-      `INSERT INTO public.${table} (${cols.join(",")}) VALUES ${valParts.join(",")} ON CONFLICT DO NOTHING`,
+      `INSERT INTO public.${table} (${cols.map(c => `"${c}"`).join(",")}) VALUES ${valParts.join(",")} ON CONFLICT DO NOTHING`,
       params
     );
   }
@@ -235,7 +235,7 @@ async function main() {
     console.log("→ Livros...");
     const livroRows = LIVROS.map(l => [
       l.id, l.titulo, l.autor, l.isbn, l.categoria, l.editora,
-      l.ano, l.qtd, l.qtdDisp, l.loc, l.descricao, true, null
+      l.ano, l.qtd, l.qtdDisp, l.loc, l.descricao, true, ""
     ]);
     await batchInsert(client, "livros",
       ["id","titulo","autor","isbn","categoria","editora","anoPublicacao","quantidadeTotal","quantidadeDisponivel","localizacao","descricao","ativo","capaUrl"],
@@ -276,7 +276,7 @@ async function main() {
            ("alunoId","nomeAluno","turmaId","turmaNome",sala,curso,"dataPresenca","horaEntrada","registadoPor")
          VALUES ($1,$2,$3,$4,$5,$6,$7::date,$8,$9)
          ON CONFLICT DO NOTHING`,
-        [p.alunoId || null, p.nomeAluno, p.turmaId || null, p.turmaNome || null,
+        [p.alunoId || ("ext-" + p.nomeAluno.toLowerCase().replace(/\s+/g,"-").slice(0,30)), p.nomeAluno, p.turmaId || null, p.turmaNome || null,
          p.sala || null, p.curso || null, p.data, p.hora, p.regPor]
       );
     }
