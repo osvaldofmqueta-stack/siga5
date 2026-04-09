@@ -179,6 +179,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   try {
     await query(`ALTER TABLE public.solicitacoes_documentos ADD COLUMN IF NOT EXISTS "referenciaPagamento" varchar`, []);
   } catch (_) {}
+  // ── Seed taxas for document fees ─────────────────────────────────────────────
+  try {
+    const docTaxas = [
+      { id: 'decl_matricula', descricao: 'Declaração de Matrícula', valor: 500 },
+      { id: 'cert_notas',     descricao: 'Certificado de Notas',    valor: 1000 },
+      { id: 'cert_freq',      descricao: 'Certificado de Frequência', valor: 750 },
+      { id: 'historico',      descricao: 'Histórico Escolar',       valor: 2000 },
+      { id: 'diploma',        descricao: 'Diploma',                 valor: 3000 },
+      { id: 'outros',         descricao: 'Outros Documentos',       valor: 500  },
+    ];
+    for (const t of docTaxas) {
+      await query(
+        `INSERT INTO public.taxas (id,tipo,descricao,valor,frequencia,nivel,"anoAcademico",ativo)
+         VALUES ($1,'documento',$2,$3,'avulso','Todos',NULL,true)
+         ON CONFLICT (id) DO NOTHING`,
+        [t.id, t.descricao, t.valor]
+      );
+    }
+  } catch (_) {}
 
   // ── reconfirmacoes_matricula: student enrollment re-confirmation ─────────────
   try {
