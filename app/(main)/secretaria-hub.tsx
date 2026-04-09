@@ -377,6 +377,7 @@ function NovoProcessoModal({ visible, onClose, onSave }: {
 
 // ─── CREDENTIALS MODAL ──────────────────────────────────────────────────────
 function CredenciaisModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+  const { config } = useConfig();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
