@@ -34,6 +34,7 @@ export default function ProfessorTurmasScreen() {
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const [turmaIdx, setTurmaIdx] = useState(0);
+  const [showTurmaDropdown, setShowTurmaDropdown] = useState(false);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState<'alunos' | 'presencas' | 'colegas'>('alunos');
   const [disciplinaPresenca, setDisciplinaPresenca] = useState('');
@@ -143,24 +144,51 @@ export default function ProfessorTurmasScreen() {
         </View>
       ) : (
         <>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.turmaTabs}>
-            <View style={styles.turmaTabsInner}>
-              {minhasTurmas.map((t, i) => (
-                <TouchableOpacity
-                  key={t.id}
-                  style={[styles.turmaTab, turmaIdx === i && styles.turmaTabActive]}
-                  onPress={() => setTurmaIdx(i)}
-                >
-                  <Text style={[styles.turmaTabText, turmaIdx === i && styles.turmaTabTextActive]}>{t.nome}</Text>
-                  <View style={[styles.turmaTabBadge, turmaIdx === i && styles.turmaTabBadgeActive]}>
-                    <Text style={[styles.turmaTabBadgeText, turmaIdx === i && styles.turmaTabBadgeTextActive]}>
-                      {alunos.filter(a => a.turmaId === t.id && a.ativo).length}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
+          <View style={styles.turmaSelectorWrapper}>
+            <TouchableOpacity
+              style={styles.turmaSelectorBtn}
+              onPress={() => setShowTurmaDropdown(v => !v)}
+              activeOpacity={0.85}
+            >
+              <View style={styles.turmaSelectorLeft}>
+                <MaterialIcons name="class" size={16} color={Colors.gold} />
+                <Text style={styles.turmaSelectorNome}>{turmaAtual?.nome ?? '—'}</Text>
+                <View style={styles.turmaSelectorBadge}>
+                  <Text style={styles.turmaSelectorBadgeText}>
+                    {alunos.filter(a => a.turmaId === turmaAtual?.id && a.ativo).length} alunos
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.turmaSelectorRight}>
+                <Text style={styles.turmaSelectorCount}>{turmaIdx + 1}/{minhasTurmas.length}</Text>
+                <Ionicons name={showTurmaDropdown ? 'chevron-up' : 'chevron-down'} size={16} color={Colors.textMuted} />
+              </View>
+            </TouchableOpacity>
+            {showTurmaDropdown && (
+              <View style={styles.turmaDropdown}>
+                {minhasTurmas.map((t, i) => {
+                  const numAlunos = alunos.filter(a => a.turmaId === t.id && a.ativo).length;
+                  const isActive = turmaIdx === i;
+                  return (
+                    <TouchableOpacity
+                      key={t.id}
+                      style={[styles.turmaDropdownItem, isActive && styles.turmaDropdownItemActive]}
+                      onPress={() => { setTurmaIdx(i); setShowTurmaDropdown(false); }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.turmaDropdownDot, { backgroundColor: isActive ? Colors.gold : Colors.border }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.turmaDropdownNome, isActive && styles.turmaDropdownNomeActive]}>{t.nome}</Text>
+                        <Text style={styles.turmaDropdownSub}>{t.nivel} · {t.turno}</Text>
+                      </View>
+                      <Text style={[styles.turmaDropdownAlunos, isActive && { color: Colors.gold }]}>{numAlunos} al.</Text>
+                      {isActive && <Ionicons name="checkmark" size={15} color={Colors.gold} style={{ marginLeft: 6 }} />}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
           {turmaAtual && (
             <View style={styles.infoBar}>
@@ -404,16 +432,22 @@ export default function ProfessorTurmasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  turmaTabs: { maxHeight: 54, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  turmaTabsInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
-  turmaTab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface },
-  turmaTabActive: { backgroundColor: Colors.accent },
-  turmaTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  turmaTabTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
-  turmaTabBadge: { backgroundColor: Colors.border, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 1 },
-  turmaTabBadgeActive: { backgroundColor: 'rgba(255,255,255,0.25)' },
-  turmaTabBadgeText: { fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted },
-  turmaTabBadgeTextActive: { color: '#fff' },
+  turmaSelectorWrapper: { backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border, zIndex: 10 },
+  turmaSelectorBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
+  turmaSelectorLeft: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  turmaSelectorNome: { fontSize: 15, fontFamily: 'Inter_600SemiBold', color: Colors.text },
+  turmaSelectorBadge: { backgroundColor: Colors.gold + '22', borderRadius: 10, paddingHorizontal: 8, paddingVertical: 2 },
+  turmaSelectorBadgeText: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  turmaSelectorRight: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  turmaSelectorCount: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
+  turmaDropdown: { backgroundColor: Colors.backgroundCard, borderTopWidth: 1, borderTopColor: Colors.border, paddingVertical: 4 },
+  turmaDropdownItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border + '55' },
+  turmaDropdownItemActive: { backgroundColor: Colors.gold + '11' },
+  turmaDropdownDot: { width: 8, height: 8, borderRadius: 4 },
+  turmaDropdownNome: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
+  turmaDropdownNomeActive: { color: Colors.text, fontFamily: 'Inter_600SemiBold' },
+  turmaDropdownSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 1 },
+  turmaDropdownAlunos: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
   infoBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: Colors.backgroundCard },
   infoBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   infoText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
