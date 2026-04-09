@@ -490,6 +490,16 @@ async function main() {
 
     // ── 9. ALUNOS EM MASSA (~1000) ────────────────────────────────────────────
     console.log("→ Alunos em massa (a remover duplicados BULK anteriores)...");
+    // First remove dependent records to avoid FK violations
+    await client.query(
+      `DELETE FROM public.pagamentos WHERE "alunoId" IN (SELECT id FROM public.alunos WHERE "numeroMatricula" LIKE 'BULK-%')`
+    );
+    await client.query(
+      `DELETE FROM public.notas WHERE "alunoId" IN (SELECT id FROM public.alunos WHERE "numeroMatricula" LIKE 'BULK-%')`
+    );
+    await client.query(
+      `DELETE FROM public.presencas WHERE "alunoId" IN (SELECT id FROM public.alunos WHERE "numeroMatricula" LIKE 'BULK-%')`
+    );
     await client.query(
       `DELETE FROM public.alunos WHERE "numeroMatricula" LIKE 'BULK-%'`
     );
@@ -497,26 +507,35 @@ async function main() {
     const dist = buildDistribuicao();
     let bulkCount = 0;
     let globalIdx = 0;
+    const allBulkAlunos = [];
     for (const { turmaId, cursoId, classe, qtd } of dist) {
-      const batch = [];
       for (let j = 0; j < qtd; j++) {
         const a = genAluno(globalIdx++, turmaId, cursoId, classe, null);
-        batch.push(a);
+        allBulkAlunos.push(a);
         bulkCount++;
       }
-      // Batch insert
-      for (const a of batch) {
-        await client.query(
-          `INSERT INTO public.alunos
-             ("numeroMatricula", nome, apelido, "dataNascimento", genero,
-              provincia, municipio, "turmaId", "cursoId",
-              "nomeEncarregado", "telefoneEncarregado", ativo, bloqueado)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,true,false)`,
-          [a.numeroMatricula, a.nome, a.apelido, a.dataNascimento, a.genero,
-           a.provincia, a.municipio, a.turmaId, a.cursoId || null,
-           a.nomeEncarregado, a.telefoneEncarregado]
-        );
-      }
+    }
+    // Batch insert all alunos in chunks of 50
+    const CHUNK = 50;
+    for (let start = 0; start < allBulkAlunos.length; start += CHUNK) {
+      const chunk = allBulkAlunos.slice(start, start + CHUNK);
+      const params = [];
+      const valParts = chunk.map((a) => {
+        const base = params.length;
+        params.push(a.numeroMatricula, a.nome, a.apelido, a.dataNascimento, a.genero,
+                    a.provincia, a.municipio, a.turmaId, a.cursoId || null,
+                    a.nomeEncarregado, a.telefoneEncarregado);
+        return `($${base+1},$${base+2},$${base+3},$${base+4},$${base+5},$${base+6},$${base+7},$${base+8},$${base+9},$${base+10},$${base+11},true,false)`;
+      });
+      await client.query(
+        `INSERT INTO public.alunos
+           ("numeroMatricula", nome, apelido, "dataNascimento", genero,
+            provincia, municipio, "turmaId", "cursoId",
+            "nomeEncarregado", "telefoneEncarregado", ativo, bloqueado)
+         VALUES ${valParts.join(",")}
+         ON CONFLICT DO NOTHING`,
+        params
+      );
     }
     console.log(`   ✓ ${bulkCount} alunos em massa inseridos`);
 
