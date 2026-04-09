@@ -159,7 +159,8 @@ export function formatAOA(valor: number): string {
 }
 
 export function FinanceiroProvider({ children }: { children: ReactNode }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const isAluno = user?.role === 'aluno';
   const [taxas, setTaxas] = useState<Taxa[]>([]);
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [multaConfig, setMultaConfig] = useState<MultaConfig>(DEFAULT_MULTA_CONFIG);
@@ -179,28 +180,46 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
 
   async function loadData() {
     try {
-      const [t, p, msg, r, alunos, cfg, s, mv, isen] = await Promise.all([
-        api.get<Taxa[]>('/api/taxas'),
-        api.get<Pagamento[]>('/api/pagamentos'),
-        api.get<MensagemFinanceira[]>('/api/mensagens-financeiras'),
-        api.get<RUPEGerado[]>('/api/rupes'),
-        api.get<Array<{ id: string; bloqueado: boolean }>>('/api/alunos'),
-        api.get<Record<string, unknown>>('/api/config'),
-        api.get<SaldoAluno[]>('/api/saldo-alunos').catch(() => [] as SaldoAluno[]),
-        api.get<MovimentoSaldo[]>('/api/movimentos-saldo').catch(() => [] as MovimentoSaldo[]),
-        api.get<IsencaoMulta[]>('/api/multa-isencoes').catch(() => [] as IsencaoMulta[]),
-      ]);
-      setTaxas(t);
-      setPagamentos(p);
-      setMensagens(msg);
-      setRupes(r);
-      setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
-      setAcessoLiberado(alunos.filter(a => (a as any).permitirAcessoComPendencia).map(a => a.id));
-      setSaldos(s);
-      setMovimentosSaldo(mv);
-      setIsencoes(isen);
-      if (cfg.multaConfig) {
-        setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
+      if (isAluno) {
+        // Estudantes usam endpoints dedicados que não requerem permissão financeira
+        const [t, p, msg, r, cfg] = await Promise.all([
+          api.get<Taxa[]>('/api/taxas/self'),
+          api.get<Pagamento[]>('/api/pagamentos/self'),
+          api.get<MensagemFinanceira[]>('/api/mensagens-financeiras').catch(() => [] as MensagemFinanceira[]),
+          api.get<RUPEGerado[]>('/api/rupes/self'),
+          api.get<Record<string, unknown>>('/api/config'),
+        ]);
+        setTaxas(t);
+        setPagamentos(p);
+        setMensagens(msg);
+        setRupes(r);
+        if (cfg.multaConfig) {
+          setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
+        }
+      } else {
+        const [t, p, msg, r, alunos, cfg, s, mv, isen] = await Promise.all([
+          api.get<Taxa[]>('/api/taxas'),
+          api.get<Pagamento[]>('/api/pagamentos'),
+          api.get<MensagemFinanceira[]>('/api/mensagens-financeiras'),
+          api.get<RUPEGerado[]>('/api/rupes'),
+          api.get<Array<{ id: string; bloqueado: boolean }>>('/api/alunos'),
+          api.get<Record<string, unknown>>('/api/config'),
+          api.get<SaldoAluno[]>('/api/saldo-alunos').catch(() => [] as SaldoAluno[]),
+          api.get<MovimentoSaldo[]>('/api/movimentos-saldo').catch(() => [] as MovimentoSaldo[]),
+          api.get<IsencaoMulta[]>('/api/multa-isencoes').catch(() => [] as IsencaoMulta[]),
+        ]);
+        setTaxas(t);
+        setPagamentos(p);
+        setMensagens(msg);
+        setRupes(r);
+        setBloqueados(alunos.filter(a => a.bloqueado).map(a => a.id));
+        setAcessoLiberado(alunos.filter(a => (a as any).permitirAcessoComPendencia).map(a => a.id));
+        setSaldos(s);
+        setMovimentosSaldo(mv);
+        setIsencoes(isen);
+        if (cfg.multaConfig) {
+          setMultaConfig({ ...DEFAULT_MULTA_CONFIG, ...(cfg.multaConfig as Partial<MultaConfig>) });
+        }
       }
     } catch (e) {
       console.error('FinanceiroContext load error', e);

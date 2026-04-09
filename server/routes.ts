@@ -2775,6 +2775,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // TAXAS
   // -----------------------
+  // Endpoint acessível a estudantes — devolve todas as taxas activas (sem dados financeiros sensíveis)
+  app.get("/api/taxas/self", requireAuth, async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT * FROM public.taxas WHERE "ativo" = true ORDER BY "createdAt" DESC`, []);
+    json(res, 200, rows);
+  });
+
   app.get("/api/taxas", requireAuth, requirePermission("financeiro"), async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.taxas ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
@@ -2818,6 +2824,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // PAGAMENTOS
   // -----------------------
+
+  // Rota para estudantes consultarem os seus próprios pagamentos
+  app.get("/api/pagamentos/self", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.jwtUser) return json(res, 401, { error: "Não autenticado." });
+      const [userRow] = await query<JsonObject>(
+        `SELECT u."alunoId", a.id as "alunoIdFallback"
+         FROM public.utilizadores u
+         LEFT JOIN public.alunos a ON a."utilizadorId" = u.id
+         WHERE u.id=$1`,
+        [req.jwtUser.userId]
+      );
+      const resolvedAlunoId = userRow?.alunoId || userRow?.alunoIdFallback;
+      if (!resolvedAlunoId) return json(res, 200, []);
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.pagamentos WHERE "alunoId"=$1 ORDER BY "createdAt" DESC`,
+        [resolvedAlunoId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  // Rota para estudantes consultarem os seus próprios RUPEs
+  app.get("/api/rupes/self", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.jwtUser) return json(res, 401, { error: "Não autenticado." });
+      const [userRow] = await query<JsonObject>(
+        `SELECT u."alunoId", a.id as "alunoIdFallback"
+         FROM public.utilizadores u
+         LEFT JOIN public.alunos a ON a."utilizadorId" = u.id
+         WHERE u.id=$1`,
+        [req.jwtUser.userId]
+      );
+      const resolvedAlunoId = userRow?.alunoId || userRow?.alunoIdFallback;
+      if (!resolvedAlunoId) return json(res, 200, []);
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.rupes WHERE "alunoId"=$1 ORDER BY "createdAt" DESC`,
+        [resolvedAlunoId]
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
 
   // Rota pública para estudantes registarem o seu próprio pedido de pagamento (status sempre 'pendente')
   app.post("/api/pagamentos/self", requireAuth, async (req: Request, res: Response) => {
