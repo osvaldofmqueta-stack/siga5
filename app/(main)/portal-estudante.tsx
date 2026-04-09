@@ -403,7 +403,7 @@ export default function PortalEstudanteScreen() {
   }
 
   async function registarPagamento(p: Omit<Parameters<typeof addPagamentoSelf>[0], never>) {
-    if (user?.alunoId) {
+    if (user?.role === 'aluno' || user?.alunoId) {
       await addPagamentoSelf(p);
     } else {
       await addPagamento({ ...p, status: 'pendente' as const });
