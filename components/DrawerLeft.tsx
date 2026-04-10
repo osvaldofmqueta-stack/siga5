@@ -158,7 +158,8 @@ export default function DrawerLeft() {
       title: 'Área Pedagógica',
       items: [
         { label: 'Minhas Turmas', route: '/(main)/professor-turmas', icon: <MaterialIcons name="class" size={20} color="inherit" />, permKey: 'professor_turmas' },
-        { label: 'Pautas & Notas', route: '/(main)/professor-pauta', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'professor_pauta' },
+        { label: 'Notas & Lançamentos', route: '/(main)/notas', icon: <Ionicons name="document-text" size={20} color="inherit" />, permKey: 'notas' },
+        { label: 'Gestão de Pautas', route: '/(main)/professor-pauta', icon: <MaterialCommunityIcons name="file-lock-outline" size={20} color="inherit" />, permKey: 'professor_pauta' },
         { label: 'Horário', route: '/(main)/horario', icon: <Ionicons name="time" size={20} color="inherit" />, permKey: 'horario' },
         { label: 'Sumário / Presenças', route: '/(main)/professor-sumario', icon: <MaterialCommunityIcons name="clipboard-check" size={20} color="inherit" />, permKey: 'professor_sumario' },
         { label: 'Área Pedagógica', route: '/(main)/pedagogico', icon: <MaterialCommunityIcons name="clipboard-list" size={20} color="inherit" />, permKey: 'pedagogico' },

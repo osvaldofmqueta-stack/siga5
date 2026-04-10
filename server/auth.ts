@@ -106,7 +106,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "extrato_propinas","biblioteca","quadro_honra","trabalhos_finais",
                      "notificacoes","chat_interno","eventos","calendario_academico"],
   // professor: actividade lectiva própria — lança notas, sumários e materiais das suas turmas
-  professor:        ["professor_hub","professor_turmas","professor_pauta","professor_sumario",
+  professor:        ["notas","pautas","professor_hub","professor_turmas","professor_pauta","professor_sumario",
                      "professor_mensagens","professor_materiais","horario","plano_aula",
                      "trabalhos_finais","biblioteca","quadro_honra","notificacoes",
                      "chat_interno","eventos"],

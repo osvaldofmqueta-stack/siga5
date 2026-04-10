@@ -323,7 +323,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
   professor: [
     'professor_hub', 'notificacoes', 'chat_interno', 'eventos',
     // Actividade lectiva (core do professor)
-    'professor_turmas', 'professor_pauta', 'horario',
+    'notas', 'professor_turmas', 'professor_pauta', 'horario',
     'professor_sumario', 'professor_mensagens', 'professor_materiais',
     // Funções de docente
     'diario_classe', 'director_turma', 'relatorio_faltas',
