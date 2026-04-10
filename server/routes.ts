@@ -3207,7 +3207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   app.get("/api/chat-interno", requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.jwtUser?.userId;
       if (!userId) return json(res, 401, { error: "Não autenticado." });
       const rows = await query<JsonObject>(
         `SELECT * FROM public.chat_mensagens
@@ -3221,7 +3221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/chat-interno", requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.jwtUser?.userId;
       if (!userId) return json(res, 401, { error: "Não autenticado." });
       const b = requireBodyObject(req);
       if (!b.destinatarioId || !b.corpo || String(b.corpo).trim() === "") {
@@ -3248,7 +3248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/chat-interno/:id/ler", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const userId = (req as any).user?.id;
+      const userId = req.jwtUser?.userId;
       if (!userId) return json(res, 401, { error: "Não autenticado." });
       const rows = await query<JsonObject>(
         `UPDATE public.chat_mensagens SET lida=true
@@ -3262,7 +3262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/chat-interno/unread-count", requireAuth, async (req: Request, res: Response) => {
     try {
-      const userId = (req as any).user?.id;
+      const userId = req.jwtUser?.userId;
       if (!userId) return json(res, 401, { error: "Não autenticado." });
       const rows = await query<JsonObject>(
         `SELECT COUNT(*) as count FROM public.chat_mensagens
