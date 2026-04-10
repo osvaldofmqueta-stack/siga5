@@ -267,13 +267,13 @@ export function FinanceiroProvider({ children }: { children: ReactNode }) {
   function getTotalRecebido(anoAcademico?: string) {
     return pagamentos
       .filter(p => p.status === 'pago' && (!anoAcademico || p.ano === anoAcademico))
-      .reduce((s, p) => s + p.valor, 0);
+      .reduce((s, p) => s + (parseFloat(p.valor as any) || 0), 0);
   }
 
   function getTotalPendente(anoAcademico?: string) {
     return pagamentos
       .filter(p => p.status === 'pendente' && (!anoAcademico || p.ano === anoAcademico))
-      .reduce((s, p) => s + p.valor, 0);
+      .reduce((s, p) => s + (parseFloat(p.valor as any) || 0), 0);
   }
 
   function getPagamentosAluno(alunoId: string) {

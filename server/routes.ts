@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import type { Request, Response } from "express";
 import { createServer, type Server } from "node:http";
-import { query } from "./db";
+import { query, pool } from "./db";
 import multer from "multer";
 import * as path from "path";
 import * as fs from "fs";
@@ -2970,55 +2970,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Transferir pagamento → outro serviço ou → saldo
   app.post("/api/pagamentos/:id/transferir", requireAuth, requirePermission("financeiro"), async (req: Request, res: Response) => {
+    const client = await pool.connect();
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
       const destino = (b as any).destino as string; // 'saldo' | taxaId
       const criadoPor = (b as any).criadoPor || req.jwtUser?.email || 'Sistema';
 
-      const [pag] = await query<JsonObject>(`SELECT * FROM public.pagamentos WHERE id=$1`, [id]);
-      if (!pag) return json(res, 404, { error: 'Pagamento não encontrado.' });
+      await client.query('BEGIN');
 
-      const alunoId = (pag as any).alunoId;
-      const valor = (pag as any).valor as number;
+      const pagRes = await client.query(`SELECT * FROM public.pagamentos WHERE id=$1`, [id]);
+      const pag = pagRes.rows[0];
+      if (!pag) {
+        await client.query('ROLLBACK');
+        return json(res, 404, { error: 'Pagamento não encontrado.' });
+      }
+
+      const alunoId = pag.alunoId;
+      const valor = parseFloat(pag.valor) || 0;
 
       if (destino === 'saldo') {
-        // Cancelar o pagamento original e adicionar ao saldo
-        await query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para saldo' WHERE id=$1`, [id]);
+        await client.query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para saldo' WHERE id=$1`, [id]);
 
-        // Upsert saldo
-        const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+        const saldoRes = await client.query(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+        const existente = saldoRes.rows[0];
         if (existente) {
-          const novoSaldo = ((existente as any).saldo as number) + valor;
-          await query(`UPDATE public.saldo_alunos SET saldo=$1, "updatedAt"=NOW() WHERE "alunoId"=$2`, [novoSaldo, alunoId]);
+          const novoSaldo = parseFloat(existente.saldo) + valor;
+          await client.query(`UPDATE public.saldo_alunos SET saldo=$1, "updatedAt"=NOW() WHERE "alunoId"=$2`, [novoSaldo, alunoId]);
         } else {
-          await query(`INSERT INTO public.saldo_alunos ("alunoId", saldo) VALUES ($1, $2)`, [alunoId, valor]);
+          await client.query(`INSERT INTO public.saldo_alunos ("alunoId", saldo) VALUES ($1, $2)`, [alunoId, valor]);
         }
 
-        // Registar movimento
-        await query(
+        await client.query(
           `INSERT INTO public.movimentos_saldo ("alunoId", tipo, valor, descricao, "pagamentoId", "criadoPor") VALUES ($1,$2,$3,$4,$5,$6)`,
-          [alunoId, 'credito', valor, `Pagamento transferido para saldo`, id, criadoPor]
+          [alunoId, 'credito', valor, 'Pagamento transferido para saldo', id, criadoPor]
         );
 
-        const [saldoAtualizado] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
+        await client.query('COMMIT');
+        const saldoAtualizado = (await client.query(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId])).rows[0];
         return json(res, 200, { pagamento: pag, saldo: saldoAtualizado });
       } else {
-        // Transferir para outra taxa
-        const [taxa] = await query<JsonObject>(`SELECT * FROM public.taxas WHERE id=$1`, [destino]);
-        if (!taxa) return json(res, 404, { error: 'Rubrica de destino não encontrada.' });
+        const taxaRes = await client.query(`SELECT * FROM public.taxas WHERE id=$1`, [destino]);
+        const taxa = taxaRes.rows[0];
+        if (!taxa) {
+          await client.query('ROLLBACK');
+          return json(res, 404, { error: 'Rubrica de destino não encontrada.' });
+        }
 
-        await query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para outra rubrica' WHERE id=$1`, [id]);
+        await client.query(`UPDATE public.pagamentos SET status='cancelado', observacao='Transferido para outra rubrica' WHERE id=$1`, [id]);
 
-        const [novoPag] = await query<JsonObject>(
+        const novoPagRes = await client.query(
           `INSERT INTO public.pagamentos ("alunoId","taxaId",valor,data,ano,status,"metodoPagamento",referencia,observacao)
            VALUES ($1,$2,$3,$4,$5,'pendente',$6,'Transferência','Transferido de outro serviço') RETURNING *`,
-          [alunoId, destino, valor, new Date().toISOString().slice(0, 10), (pag as any).ano, (pag as any).metodoPagamento]
+          [alunoId, destino, valor, new Date().toISOString().slice(0, 10), pag.ano, pag.metodoPagamento]
         );
-        return json(res, 200, { pagamento: pag, novoPagamento: novoPag });
+
+        await client.query('COMMIT');
+        return json(res, 200, { pagamento: pag, novoPagamento: novoPagRes.rows[0] });
       }
     } catch (e) {
+      await client.query('ROLLBACK');
       json(res, 500, { error: (e as Error).message });
+    } finally {
+      client.release();
     }
   });
 
@@ -3050,7 +3064,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
       let saldoAtualizado: JsonObject;
       if (existente) {
-        const novoSaldo = ((existente as any).saldo as number) + valor;
+        const novoSaldo = parseFloat((existente as any).saldo) + valor;
         const [r] = await query<JsonObject>(
           `UPDATE public.saldo_alunos SET saldo=$1,"dataProximaCobranca"=$2,observacoes=$3,"updatedAt"=NOW() WHERE "alunoId"=$4 RETURNING *`,
           [novoSaldo, dataProximaCobranca, observacoes, alunoId]
@@ -3086,11 +3100,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (valor <= 0) return json(res, 400, { error: 'Valor deve ser positivo.' });
 
       const [existente] = await query<JsonObject>(`SELECT * FROM public.saldo_alunos WHERE "alunoId"=$1`, [alunoId]);
-      if (!existente || ((existente as any).saldo as number) < valor) {
+      if (!existente || parseFloat((existente as any).saldo) < valor) {
         return json(res, 400, { error: 'Saldo insuficiente.' });
       }
 
-      const novoSaldo = ((existente as any).saldo as number) - valor;
+      const novoSaldo = parseFloat((existente as any).saldo) - valor;
       const [r] = await query<JsonObject>(
         `UPDATE public.saldo_alunos SET saldo=$1,"updatedAt"=NOW() WHERE "alunoId"=$2 RETURNING *`,
         [novoSaldo, alunoId]
@@ -3154,12 +3168,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // MENSAGENS FINANCEIRAS
   // -----------------------
-  app.get("/api/mensagens-financeiras", async (_req: Request, res: Response) => {
+  app.get("/api/mensagens-financeiras", requireAuth, async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.mensagens_financeiras ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
   });
 
-  app.post("/api/mensagens-financeiras", async (req: Request, res: Response) => {
+  app.post("/api/mensagens-financeiras", requireAuth, async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -3171,7 +3185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/mensagens-financeiras/:id", async (req: Request, res: Response) => {
+  app.put("/api/mensagens-financeiras/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -10060,7 +10074,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Propinas / pagamentos
       const propRows = await query<JsonObject>(
-        `SELECT * FROM public.propinas WHERE "alunoId" = $1 ORDER BY "anoLetivo" DESC, mes DESC LIMIT 60`,
+        `SELECT p.*, tx.descricao as "taxaDescricao", tx.tipo as "taxaTipo"
+         FROM public.pagamentos p
+         LEFT JOIN public.taxas tx ON tx.id = p."taxaId"
+         WHERE p."alunoId" = $1
+         ORDER BY p.ano DESC, p.mes DESC, p."createdAt" DESC LIMIT 60`,
         [alunoId]
       ).catch(() => []);
 
