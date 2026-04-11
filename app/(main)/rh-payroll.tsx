@@ -114,6 +114,13 @@ function Card({ children, style }: { children: React.ReactNode; style?: object }
   return <View style={[styles.card, style]}>{children}</View>;
 }
 
+const VINCULO_META: Record<string, { label: string; color: string }> = {
+  efectivo:           { label: 'Efectivo',              color: '#4CAF50' },
+  colaborador:        { label: 'Colaborador',            color: '#2196F3' },
+  contratado:         { label: 'Contratado',             color: '#FF9800' },
+  prestacao_servicos: { label: 'Prest. Serviços',        color: '#9C27B0' },
+};
+
 // ─── Simulador Salarial ───────────────────────────────────────────────────────
 function SimuladorSalarial({ profs, inssEmpPerc = 3, inssPatrPerc = 8, irtTabela }: {
   profs: ProfessorSalario[];
@@ -193,6 +200,15 @@ function SimuladorSalarial({ profs, inssEmpPerc = 3, inssPatrPerc = 8, irtTabela
               <View style={simStyles.empAmounts}>
                 <Text style={simStyles.empBruto}>{fmt(r.bruto)}</Text>
                 <Text style={[simStyles.empLiquido, { color: '#66BB6A' }]}>{fmt(r.liquido)}</Text>
+                {(() => {
+                  const tc = p.tipoContrato ?? 'efectivo';
+                  const vm = VINCULO_META[tc] ?? VINCULO_META.efectivo;
+                  return (
+                    <View style={{ backgroundColor: vm.color + '22', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2, marginTop: 3, borderWidth: 1, borderColor: vm.color + '55', alignSelf: 'flex-end' }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: vm.color, letterSpacing: 0.3 }}>{vm.label.toUpperCase()}</Text>
+                    </View>
+                  );
+                })()}
               </View>
               <Ionicons
                 name={isOpen ? 'chevron-up' : 'chevron-down'}
