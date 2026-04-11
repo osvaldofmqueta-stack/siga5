@@ -177,9 +177,16 @@ export default function PerfilScreen() {
   const [senhaError, setSenhaError] = useState('');
   const [isSavingSenha, setIsSavingSenha] = useState(false);
 
-  // Irregularidades de alunos (CEO/PCA)
+  // Irregularidades de alunos (gestão financeira e pedagógica)
   const [irregularidades, setIrregularidades] = useState<any[]>([]);
   const [irregLoading, setIrregLoading] = useState(false);
+
+  // Roles que podem ver irregularidades
+  const IREG_ROLES = ['admin', 'ceo', 'pca', 'director', 'secretaria', 'chefe_secretaria', 'financeiro', 'pedagogico'];
+  // Roles que só vêem área financeira
+  const IREG_FIN_ONLY = ['financeiro'];
+  // Roles que só vêem área pedagógica
+  const IREG_PED_ONLY = ['pedagogico'];
 
   // Salary estimation (for all non-aluno, non-encarregado users)
   const [salEst, setSalEst] = useState<Record<string, any> | null>(null);
@@ -187,7 +194,7 @@ export default function PerfilScreen() {
 
   useEffect(() => {
     if (!user) return;
-    if (user.role !== 'ceo' && user.role !== 'pca') return;
+    if (!IREG_ROLES.includes(user.role)) return;
     setIrregLoading(true);
     api.get('/api/pendencias-alunos')
       .then((data: any) => setIrregularidades(Array.isArray(data) ? data : []))
@@ -389,99 +396,116 @@ export default function PerfilScreen() {
             <InfoRow label="Instituição" value={user.escola} />
           </View>
 
-          {/* Irregularidades de alunos — visível para CEO e PCA */}
-          <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.danger }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-              <MaterialCommunityIcons name="alert-decagram" size={18} color={Colors.warning} />
-              <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 }}>
-                Irregularidades de Alunos
-              </Text>
-              {irregLoading ? (
-                <ActivityIndicator size="small" color={Colors.gold} />
-              ) : (
-                <View style={{ backgroundColor: irregularidades.length > 0 ? Colors.danger + '22' : Colors.success + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
-                  <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: irregularidades.length > 0 ? Colors.danger : Colors.success }}>
-                    {irregularidades.length} activas
+          {/* Irregularidades de alunos — visível para todos os perfis de gestão */}
+          {IREG_ROLES.includes(user.role) && (() => {
+            // Filtrar conforme a área do perfil
+            const visibleIrreg = IREG_FIN_ONLY.includes(user.role)
+              ? irregularidades.filter(p => p.area === 'Financeiro' || p.area === 'Secretaria')
+              : IREG_PED_ONLY.includes(user.role)
+                ? irregularidades.filter(p => p.area === 'Pedagógico')
+                : irregularidades;
+
+            const tituloArea = IREG_FIN_ONLY.includes(user.role)
+              ? 'Irregularidades Financeiras'
+              : IREG_PED_ONLY.includes(user.role)
+                ? 'Irregularidades Pedagógicas'
+                : 'Irregularidades de Alunos';
+
+            const urgente = visibleIrreg.filter(p => p.severidade === 'urgente').length;
+            const aviso = visibleIrreg.filter(p => p.severidade === 'aviso').length;
+            const info = visibleIrreg.filter(p => p.severidade === 'info').length;
+
+            const tipoLabel: Record<string, string> = {
+              propina: 'Propina', bloqueio: 'Bloqueio', rupe: 'RUPE',
+              aviso_financeiro: 'Aviso Financeiro', nota_negativa: 'Nota Negativa', faltas_excessivas: 'Faltas Excessivas',
+            };
+
+            return (
+              <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.danger }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <MaterialCommunityIcons name="alert-decagram" size={18} color={Colors.warning} />
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, flex: 1 }}>
+                    {tituloArea}
                   </Text>
-                </View>
-              )}
-            </View>
-
-            {/* Contadores por tipo de severidade */}
-            {!irregLoading && irregularidades.length > 0 && (() => {
-              const urgente = irregularidades.filter(p => p.severidade === 'urgente').length;
-              const aviso = irregularidades.filter(p => p.severidade === 'aviso').length;
-              const info = irregularidades.filter(p => p.severidade === 'info').length;
-              return (
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-                  {urgente > 0 && (
-                    <View style={{ flex: 1, backgroundColor: Colors.danger + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger + '44' }}>
-                      <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{urgente}</Text>
-                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.danger, marginTop: 2 }}>Urgente</Text>
-                    </View>
-                  )}
-                  {aviso > 0 && (
-                    <View style={{ flex: 1, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.warning + '44' }}>
-                      <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.warning }}>{aviso}</Text>
-                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.warning, marginTop: 2 }}>Aviso</Text>
-                    </View>
-                  )}
-                  {info > 0 && (
-                    <View style={{ flex: 1, backgroundColor: Colors.info + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.info + '44' }}>
-                      <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.info }}>{info}</Text>
-                      <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.info, marginTop: 2 }}>Info</Text>
+                  {irregLoading ? (
+                    <ActivityIndicator size="small" color={Colors.gold} />
+                  ) : (
+                    <View style={{ backgroundColor: visibleIrreg.length > 0 ? Colors.danger + '22' : Colors.success + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: visibleIrreg.length > 0 ? Colors.danger : Colors.success }}>
+                        {visibleIrreg.length} activas
+                      </Text>
                     </View>
                   )}
                 </View>
-              );
-            })()}
 
-            {/* Lista das pendências (máx. 5) */}
-            {!irregLoading && irregularidades.length === 0 && (
-              <View style={{ alignItems: 'center', paddingVertical: 16, gap: 8 }}>
-                <Ionicons name="checkmark-circle-outline" size={28} color={Colors.success} />
-                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Sem irregularidades activas</Text>
+                {/* Contadores por severidade */}
+                {!irregLoading && visibleIrreg.length > 0 && (
+                  <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+                    {urgente > 0 && (
+                      <View style={{ flex: 1, backgroundColor: Colors.danger + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.danger + '44' }}>
+                        <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{urgente}</Text>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.danger, marginTop: 2 }}>Urgente</Text>
+                      </View>
+                    )}
+                    {aviso > 0 && (
+                      <View style={{ flex: 1, backgroundColor: Colors.warning + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.warning + '44' }}>
+                        <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.warning }}>{aviso}</Text>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.warning, marginTop: 2 }}>Aviso</Text>
+                      </View>
+                    )}
+                    {info > 0 && (
+                      <View style={{ flex: 1, backgroundColor: Colors.info + '18', borderRadius: 10, padding: 10, alignItems: 'center', borderWidth: 1, borderColor: Colors.info + '44' }}>
+                        <Text style={{ fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.info }}>{info}</Text>
+                        <Text style={{ fontSize: 10, fontFamily: 'Inter_500Medium', color: Colors.info, marginTop: 2 }}>Info</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Lista das pendências (máx. 5) */}
+                {!irregLoading && visibleIrreg.length === 0 && (
+                  <View style={{ alignItems: 'center', paddingVertical: 16, gap: 8 }}>
+                    <Ionicons name="checkmark-circle-outline" size={28} color={Colors.success} />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Sem irregularidades activas</Text>
+                  </View>
+                )}
+
+                {!irregLoading && visibleIrreg.slice(0, 5).map((p: any, idx: number) => {
+                  const sevColor = p.severidade === 'urgente' ? Colors.danger : p.severidade === 'aviso' ? Colors.warning : Colors.info;
+                  return (
+                    <View key={p.id ?? idx} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: Colors.border }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sevColor, marginTop: 5 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }} numberOfLines={1}>
+                          {p.nome} {p.apelido}
+                        </Text>
+                        <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }} numberOfLines={1}>
+                          {tipoLabel[p.tipoPendencia] ?? p.tipoPendencia} · {p.descricao}
+                        </Text>
+                      </View>
+                      <View style={{ backgroundColor: sevColor + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: sevColor }}>{p.area}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+
+                {!irregLoading && visibleIrreg.length > 5 && (
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 8, backgroundColor: Colors.primaryDark, borderRadius: 10 }}
+                    onPress={() => router.push('/(main)/visao-geral' as any)}
+                    activeOpacity={0.75}
+                  >
+                    <MaterialCommunityIcons name="alert-decagram" size={13} color={Colors.warning} />
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>
+                      Ver todas as {visibleIrreg.length} irregularidades
+                    </Text>
+                    <Ionicons name="chevron-forward" size={13} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
               </View>
-            )}
-
-            {!irregLoading && irregularidades.slice(0, 5).map((p: any, idx: number) => {
-              const sevColor = p.severidade === 'urgente' ? Colors.danger : p.severidade === 'aviso' ? Colors.warning : Colors.info;
-              const tipoLabel: Record<string, string> = {
-                propina: 'Propina', bloqueio: 'Bloqueio', rupe: 'RUPE',
-                aviso_financeiro: 'Aviso Financeiro', nota_negativa: 'Nota Negativa', faltas_excessivas: 'Faltas Excessivas',
-              };
-              return (
-                <View key={p.id ?? idx} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 8, borderTopWidth: idx === 0 ? 0 : 1, borderTopColor: Colors.border }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: sevColor, marginTop: 5 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }} numberOfLines={1}>
-                      {p.nome} {p.apelido}
-                    </Text>
-                    <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }} numberOfLines={1}>
-                      {tipoLabel[p.tipoPendencia] ?? p.tipoPendencia} · {p.descricao}
-                    </Text>
-                  </View>
-                  <View style={{ backgroundColor: sevColor + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                    <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: sevColor }}>{p.area}</Text>
-                  </View>
-                </View>
-              );
-            })}
-
-            {!irregLoading && irregularidades.length > 5 && (
-              <TouchableOpacity
-                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 8, backgroundColor: Colors.primaryDark, borderRadius: 10 }}
-                onPress={() => router.push('/(main)/visao-geral' as any)}
-                activeOpacity={0.75}
-              >
-                <MaterialCommunityIcons name="alert-decagram" size={13} color={Colors.warning} />
-                <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>
-                  Ver todas as {irregularidades.length} irregularidades
-                </Text>
-                <Ionicons name="chevron-forward" size={13} color={Colors.textMuted} />
-              </TouchableOpacity>
-            )}
-          </View>
+            );
+          })()}
 
           {user.role === 'pca' && (
             <View style={perfilStyles.escolaCard}>
