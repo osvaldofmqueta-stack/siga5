@@ -8799,39 +8799,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Esperado para o mês completo (baseado em dias úteis reais do mês)
       const temposEsperados = Math.round(temposPorDiaUtil * totalDiasUteisNoMes * 10) / 10;
 
+      const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
+
+      // Tempos esperados até ao dia de hoje (dias corridos, excl. fim-de-semana)
+      const temposEsperadosCorridos = Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10;
+
       let salBaseEfectivo  = salBase;
       let descontoTempos   = 0;
-      // Se há registo real na tabela tempos_lectivos, usa esse valor; caso contrário infere pelos dias úteis
-      let temposTrabalhados = temposRegistados !== null
-        ? temposRegistados
-        : Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
       let salColaborador   = 0;
       const temposComDadosReais = temposRegistados !== null;
 
-      const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
+      // Tempos trabalhados base: dados reais (tabela tempos_lectivos) ou estimativa pelos dias úteis passados menos faltas
+      let temposTrabalhados = temposRegistados !== null
+        ? temposRegistados
+        : Math.max(0, temposEsperadosCorridos - faltasMes);
 
       if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
         if (!temposComDadosReais) {
-          // Sem dados reais: inferir pelos dias úteis passados
-          temposTrabalhados = Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
+          temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
         }
-        const temposNaoDados = Math.max(0, temposEsperados - temposTrabalhados);
-        descontoTempos = Math.round(temposNaoDados * descontoPorTempoNaoDado * 100) / 100;
+        // Para efectivos: o desconto é APENAS pelas faltas reais registadas
+        // (não pelos dias que ainda faltam no mês — o salário base é mensal)
+        descontoTempos = Math.round(faltasMes * descontoPorTempoNaoDado * 100) / 100;
         salBaseEfectivo = Math.max(0, salBase - descontoTempos);
       } else if (isColaborador && valorTempoLectivo > 0) {
         if (!temposComDadosReais) {
-          // Progressão: tempos ganhos até hoje com base nos dias úteis passados, menos faltas
-          temposTrabalhados = Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
+          // Colaborador: recebe pelos tempos efectivamente trabalhados até hoje
+          temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
         }
         salColaborador = Math.round(valorTempoLectivo * temposTrabalhados * 100) / 100;
-        salBaseEfectivo = salColaborador;
+        // Se tiver também salário base (contrato misto), soma ambos
+        salBaseEfectivo = salColaborador + (salBase > 0 ? salBase : 0);
       }
 
+      // Descontos fiscais
       const descontoFaltas = Math.round(faltasMes * valorPorFalta * 100) / 100;
       const subs            = subAlim + subTrans + subHab;
+      // Bruto = base efectiva + subsídios
       const salBruto        = Math.round((salBaseEfectivo + subs) * 100) / 100;
+      // INSS e IRT aplicados sobre a base efectiva (sem subsídios, conforme lei angolana)
       const inssEmpregado   = Math.round(salBaseEfectivo * inssEmpRate * 100) / 100;
       const irt             = Math.round(calcularIRT(salBaseEfectivo, irtTabelaRaw as any) * 100) / 100;
+      // Líquido = Bruto - INSS - IRT - desconto faltas (só efectivos; colaboradores já têm faltas reflectidas nos tempos)
       const salLiquido      = Math.round((salBruto - inssEmpregado - irt - (isColaborador ? 0 : descontoFaltas)) * 100) / 100;
 
       json(res, 200, {
