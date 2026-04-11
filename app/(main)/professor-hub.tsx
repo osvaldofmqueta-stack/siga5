@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -59,6 +59,9 @@ interface ReciboEstimado {
   temposSemanais?: number;
   temposEsperados?: number;
   temposTrabalhados?: number;
+  diasUteisCorridos?: number;
+  totalDiasUteisNoMes?: number;
+  isCurrentMonth?: boolean;
   faltasMes?: number;
   salarioBase?: number;
   valorPorTempoLectivo?: number;
@@ -152,11 +155,17 @@ function EstimativaSalarialCard() {
       {(data.temposSemanais ?? 0) > 0 && (
         <View style={sal.temposBox}>
           <View style={sal.temposRow}>
-            <Text style={sal.temposLabel}>Tempos esperados</Text>
-            <Text style={sal.temposVal}>{data.temposEsperados} ({data.temposSemanais}/sem × {data.semanasPorMes} sem)</Text>
+            <Text style={sal.temposLabel}>Tempos esperados (mês completo)</Text>
+            <Text style={sal.temposVal}>{data.temposEsperados} ({data.temposSemanais}/sem)</Text>
           </View>
+          {isColaborador && data.isCurrentMonth && (
+            <View style={sal.temposRow}>
+              <Text style={sal.temposLabel}>Dias úteis decorridos</Text>
+              <Text style={sal.temposVal}>{data.diasUteisCorridos} / {data.totalDiasUteisNoMes} dias úteis</Text>
+            </View>
+          )}
           <View style={sal.temposRow}>
-            <Text style={sal.temposLabel}>Tempos trabalhados</Text>
+            <Text style={sal.temposLabel}>{isColaborador && data.isCurrentMonth ? 'Tempos ganhos até hoje' : 'Tempos trabalhados'}</Text>
             <Text style={[sal.temposVal, { color: temFalta ? Colors.warning : Colors.success }]}>
               {data.temposTrabalhados}
             </Text>
@@ -345,9 +354,13 @@ export default function ProfessorHubScreen() {
         {/* Welcome Banner */}
         <View style={styles.banner}>
           <View style={styles.bannerAvatar}>
-            <Text style={styles.bannerAvatarText}>
-              {user?.nome?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'P'}
-            </Text>
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={{ width: 52, height: 52, borderRadius: 26 }} />
+            ) : (
+              <Text style={styles.bannerAvatarText}>
+                {user?.nome?.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase() || 'P'}
+              </Text>
+            )}
           </View>
           <View style={styles.bannerInfo}>
             <Text style={styles.bannerGreet}>Bem-vindo,</Text>

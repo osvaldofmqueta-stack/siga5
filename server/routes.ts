@@ -8768,12 +8768,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subHab               = Number(pessoa.subsidioHabitacao ?? 0);
       const valorTempoLectivo    = Number(pessoa.valorPorTempoLectivo ?? 0);
       const temposSemanais       = Number(pessoa.temposSemanais ?? 0);
-      const temposEsperados      = temposSemanais * semanasPorMes;
+
+      // Helper: contar dias úteis (seg-sex) num intervalo de datas (inclusive)
+      function contarDiasUteis(inicio: Date, fim: Date): number {
+        let count = 0;
+        const cur = new Date(inicio);
+        cur.setHours(0, 0, 0, 0);
+        const end = new Date(fim);
+        end.setHours(0, 0, 0, 0);
+        while (cur <= end) {
+          const dow = cur.getDay();
+          if (dow !== 0 && dow !== 6) count++;
+          cur.setDate(cur.getDate() + 1);
+        }
+        return count;
+      }
+
+      const hoje       = new Date();
+      const isCurrentMonth = (mes === hoje.getMonth() + 1 && ano === hoje.getFullYear());
+      const inicioMes  = new Date(ano, mes - 1, 1);
+      const fimMes     = new Date(ano, mes, 0); // último dia do mês
+      const totalDiasUteisNoMes = contarDiasUteis(inicioMes, fimMes);
+      // Para o mês actual: dias úteis até hoje; para meses passados: todos os dias úteis do mês
+      const diasUteisCorridos = isCurrentMonth
+        ? contarDiasUteis(inicioMes, hoje)
+        : totalDiasUteisNoMes;
+
+      // Tempos por dia útil = temposSemanais / 5
+      const temposPorDiaUtil = temposSemanais > 0 ? temposSemanais / 5 : 0;
+      // Esperado para o mês completo (baseado em dias úteis reais do mês)
+      const temposEsperados = Math.round(temposPorDiaUtil * totalDiasUteisNoMes * 10) / 10;
 
       let salBaseEfectivo  = salBase;
       let descontoTempos   = 0;
-      // Se há registo real na tabela tempos_lectivos, usa esse valor; caso contrário infere pelos cálculos
-      let temposTrabalhados = temposRegistados !== null ? temposRegistados : temposEsperados;
+      // Se há registo real na tabela tempos_lectivos, usa esse valor; caso contrário infere pelos dias úteis
+      let temposTrabalhados = temposRegistados !== null
+        ? temposRegistados
+        : Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
       let salColaborador   = 0;
       const temposComDadosReais = temposRegistados !== null;
 
@@ -8781,15 +8812,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
         if (!temposComDadosReais) {
-          // Sem dados reais: inferir pelos sumários/faltas
-          temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+          // Sem dados reais: inferir pelos dias úteis passados
+          temposTrabalhados = Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
         }
         const temposNaoDados = Math.max(0, temposEsperados - temposTrabalhados);
         descontoTempos = Math.round(temposNaoDados * descontoPorTempoNaoDado * 100) / 100;
         salBaseEfectivo = Math.max(0, salBase - descontoTempos);
-      } else if (isColaborador && valorTempoLectivo > 0 && salBase === 0) {
+      } else if (isColaborador && valorTempoLectivo > 0) {
         if (!temposComDadosReais) {
-          temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
+          // Progressão: tempos ganhos até hoje com base nos dias úteis passados, menos faltas
+          temposTrabalhados = Math.max(0, Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10 - faltasMes);
         }
         salColaborador = Math.round(valorTempoLectivo * temposTrabalhados * 100) / 100;
         salBaseEfectivo = salColaborador;
@@ -8812,6 +8844,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         temposEsperados,
         temposTrabalhados,
         temposComDadosReais,
+        diasUteisCorridos,
+        totalDiasUteisNoMes,
+        isCurrentMonth,
         faltasMes,
         // Valores
         salarioBase:       salBase,
