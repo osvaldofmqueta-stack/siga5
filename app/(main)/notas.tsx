@@ -1438,11 +1438,13 @@ const styles = StyleSheet.create({
   trimestreTab: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 4,
     position: 'relative',
   },
-  trimestreTabActive: {},
+  trimestreTabActive: {
+    backgroundColor: Colors.gold + '10',
+  },
   trimestreTabText: {
     fontSize: 13,
     fontFamily: 'Inter_600SemiBold',
@@ -1469,12 +1471,16 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
 
-  filterScroll: { maxHeight: 44 },
-  filterContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, flexDirection: 'row', alignItems: 'center' },
-  chip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
-  chipActive: { backgroundColor: Colors.gold + '20', borderColor: Colors.gold },
+  filterScroll: {
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  filterContent: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexDirection: 'row', alignItems: 'center' },
+  chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  chipActive: { backgroundColor: Colors.gold + '25', borderColor: Colors.gold },
   chipText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
-  chipTextActive: { color: Colors.goldLight, fontFamily: 'Inter_600SemiBold' },
+  chipTextActive: { color: Colors.goldLight, fontFamily: 'Inter_700Bold' },
 
   summaryRow: {
     flexDirection: 'row', alignItems: 'center',
