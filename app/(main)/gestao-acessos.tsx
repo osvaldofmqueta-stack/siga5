@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Switch, ActivityIndicator, TextInput, Platform,
+  Switch, ActivityIndicator, TextInput, Platform, Modal, Clipboard,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ const TIPO_CONTRATO = [
 ];
 
 const PROFESSOR_ROLES = ['professor', 'diretor_turma'];
+const ROLES_RESET_SENHA = ['ceo', 'pca', 'admin', 'director', 'subdiretor_administrativo', 'chefe_secretaria'];
 
 const ROLE_LABEL: Record<string, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador do Sistema',
@@ -98,6 +99,13 @@ export default function GestaoAcessosScreen() {
   const [professorRecordId, setProfessorRecordId] = useState<string | null>(null);
   const [selectedVinculo, setSelectedVinculo] = useState<string>('efectivo');
 
+  // ── Reset de senha ──
+  const [resetModalVisible, setResetModalVisible] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetResult, setResetResult] = useState<{ tempPassword: string; userNome: string; userEmail: string } | null>(null);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+
   // ── Perfis tab state ──
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [editedRolePerms, setEditedRolePerms] = useState<Record<string, boolean>>({});
@@ -108,6 +116,7 @@ export default function GestaoAcessosScreen() {
   const [expandedRoleCats, setExpandedRoleCats] = useState<Set<string>>(new Set(FEATURE_CATEGORIES.map(c => c.categoria)));
 
   const canManage = user?.role === 'ceo' || user?.role === 'pca' || hasPermission('gestao_acessos');
+  const canResetSenha = user?.role ? ROLES_RESET_SENHA.includes(user.role) : false;
 
   // ── Utilizadores tab logic ──
   const filteredUsers = users.filter(u =>
@@ -290,6 +299,41 @@ export default function GestaoAcessosScreen() {
     } finally {
       setSavingRole(false);
     }
+  }
+
+  async function handleResetPassword() {
+    if (!selectedUserId) return;
+    setResetLoading(true);
+    setResetError(null);
+    setResetResult(null);
+    try {
+      const token = await AsyncStorage.getItem('@siga_token');
+      const res = await fetch('/api/admin/reset-user-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ userId: selectedUserId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setResetError(data.error || 'Erro ao redefinir senha.');
+      } else {
+        setResetResult({ tempPassword: data.tempPassword, userNome: data.userNome, userEmail: data.userEmail });
+      }
+    } catch {
+      setResetError('Erro de ligação. Tente novamente.');
+    } finally {
+      setResetLoading(false);
+    }
+  }
+
+  function handleCopyPassword() {
+    if (!resetResult) return;
+    Clipboard.setString(resetResult.tempPassword);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
   }
 
   function enableAll() {
@@ -488,6 +532,15 @@ export default function GestaoAcessosScreen() {
                       <MaterialCommunityIcons name="restore" size={14} color={Colors.info} />
                       <Text style={[styles.qBtnText, { color: Colors.info }]}>Repor Padrão</Text>
                     </TouchableOpacity>
+                    {canResetSenha && (
+                      <TouchableOpacity
+                        style={[styles.qBtn, { borderColor: Colors.warning + '55', backgroundColor: Colors.warning + '10' }]}
+                        onPress={() => { setResetResult(null); setResetError(null); setResetModalVisible(true); }}
+                      >
+                        <Ionicons name="key" size={14} color={Colors.warning} />
+                        <Text style={[styles.qBtnText, { color: Colors.warning }]}>Reset Senha</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
 
                   {/* Pesquisa de permissões */}
@@ -857,6 +910,111 @@ export default function GestaoAcessosScreen() {
           </>
         )}
       </View>
+
+      {/* ── Modal Reset de Senha ── */}
+      <Modal
+        visible={resetModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setResetModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.resetModal}>
+            {/* Header */}
+            <View style={styles.resetModalHeader}>
+              <View style={styles.resetModalIconBox}>
+                <Ionicons name="key" size={22} color={Colors.warning} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.resetModalTitle}>Redefinir Senha</Text>
+                {selectedUser && (
+                  <Text style={styles.resetModalSubtitle} numberOfLines={1}>{selectedUser.nome}</Text>
+                )}
+              </View>
+              <TouchableOpacity onPress={() => setResetModalVisible(false)}>
+                <Ionicons name="close" size={22} color={Colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {!resetResult ? (
+              <>
+                {/* Aviso antes de confirmar */}
+                <View style={styles.resetWarningBox}>
+                  <Ionicons name="warning" size={16} color={Colors.warning} />
+                  <Text style={styles.resetWarningText}>
+                    Isto vai gerar uma senha temporária e invalidar imediatamente a senha actual deste utilizador.
+                    Comunique a nova senha ao utilizador pessoalmente ou por canal seguro.
+                  </Text>
+                </View>
+
+                {resetError && (
+                  <View style={styles.resetErrorBox}>
+                    <Ionicons name="alert-circle" size={14} color={Colors.danger} />
+                    <Text style={styles.resetErrorText}>{resetError}</Text>
+                  </View>
+                )}
+
+                <View style={styles.resetModalActions}>
+                  <TouchableOpacity
+                    style={styles.resetCancelBtn}
+                    onPress={() => setResetModalVisible(false)}
+                  >
+                    <Text style={styles.resetCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.resetConfirmBtn, resetLoading && { opacity: 0.6 }]}
+                    onPress={handleResetPassword}
+                    disabled={resetLoading}
+                  >
+                    {resetLoading
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Ionicons name="key" size={16} color="#fff" />
+                    }
+                    <Text style={styles.resetConfirmText}>
+                      {resetLoading ? 'A redefinir...' : 'Confirmar Reset'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <>
+                {/* Resultado — senha temporária */}
+                <View style={styles.resetSuccessBox}>
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+                  <Text style={styles.resetSuccessText}>
+                    Senha redefinida com sucesso para <Text style={{ fontFamily: 'Inter_700Bold' }}>{resetResult.userNome}</Text>
+                  </Text>
+                </View>
+
+                <Text style={styles.resetTempLabel}>Senha Temporária</Text>
+                <View style={styles.resetTempBox}>
+                  <Text style={styles.resetTempPassword} selectable>{resetResult.tempPassword}</Text>
+                  <TouchableOpacity style={styles.copyBtn} onPress={handleCopyPassword}>
+                    <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={copied ? Colors.success : Colors.gold} />
+                    <Text style={[styles.copyBtnText, copied && { color: Colors.success }]}>
+                      {copied ? 'Copiado!' : 'Copiar'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.resetNoteBox}>
+                  <Ionicons name="information-circle" size={14} color={Colors.info} />
+                  <Text style={styles.resetNoteText}>
+                    Comunique esta senha ao utilizador. Recomende que a altere no perfil após o primeiro acesso.
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.resetDoneBtn}
+                  onPress={() => { setResetModalVisible(false); setResetResult(null); }}
+                >
+                  <Text style={styles.resetDoneText}>Fechar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -1016,4 +1174,32 @@ const styles = StyleSheet.create({
   vinculoTag: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   vinculoTagText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
   vinculoHint: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, lineHeight: 14 },
+
+  // Reset Senha Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  resetModal: { backgroundColor: Colors.backgroundCard, borderRadius: 18, padding: 22, width: '100%', maxWidth: 420, borderWidth: 1, borderColor: Colors.border },
+  resetModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 18 },
+  resetModalIconBox: { width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.warning + '20', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.warning + '40' },
+  resetModalTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text },
+  resetModalSubtitle: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 2 },
+  resetWarningBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: Colors.warning + '15', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.warning + '40', marginBottom: 16 },
+  resetWarningText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.warning, lineHeight: 18 },
+  resetErrorBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.danger + '15', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.danger + '40', marginBottom: 12 },
+  resetErrorText: { flex: 1, fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger },
+  resetModalActions: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  resetCancelBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  resetCancelText: { fontSize: 14, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
+  resetConfirmBtn: { flex: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: Colors.warning },
+  resetConfirmText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
+  resetSuccessBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.success + '15', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: Colors.success + '40', marginBottom: 16 },
+  resetSuccessText: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.success, lineHeight: 18 },
+  resetTempLabel: { fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  resetTempBox: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: Colors.surface, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: Colors.border, marginBottom: 12 },
+  resetTempPassword: { flex: 1, fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 1.5 },
+  copyBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.gold + '20', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: Colors.gold + '40' },
+  copyBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  resetNoteBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: Colors.info + '15', borderRadius: 8, padding: 10, borderWidth: 1, borderColor: Colors.info + '30', marginBottom: 16 },
+  resetNoteText: { flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 16 },
+  resetDoneBtn: { alignItems: 'center', paddingVertical: 13, borderRadius: 10, backgroundColor: Colors.accent },
+  resetDoneText: { fontSize: 14, fontFamily: 'Inter_700Bold', color: '#fff' },
 });

@@ -5463,6 +5463,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ─── RESET DE SENHA ADMINISTRATIVO ──────────────────────────────────────────
+  app.post("/api/admin/reset-user-password", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const ROLES_PERMITIDAS = ['ceo', 'pca', 'admin', 'director', 'subdiretor_administrativo', 'chefe_secretaria'];
+      const callerRole = req.jwtUser?.role || '';
+      if (!ROLES_PERMITIDAS.includes(callerRole)) {
+        return json(res, 403, { error: 'Sem permissão. Apenas CEO, PCA, Administrador, Directores e Chefe de Secretaria podem redefinir senhas.' });
+      }
+
+      const b = requireBodyObject(req);
+      const userId = String(b.userId ?? '').trim();
+      if (!userId) return json(res, 400, { error: 'userId é obrigatório.' });
+
+      // Não permite redefinir a própria senha por esta via
+      if (req.jwtUser?.userId === userId) {
+        return json(res, 400, { error: 'Não pode redefinir a sua própria senha por esta via.' });
+      }
+
+      // Buscar o utilizador alvo
+      const userRows = await query<JsonObject>(
+        `SELECT id, nome, email, role FROM public.utilizadores WHERE id=$1 AND ativo=true LIMIT 1`,
+        [userId]
+      );
+      if (!userRows[0]) return json(res, 404, { error: 'Utilizador não encontrado.' });
+
+      const targetUser = userRows[0];
+      const targetRole = String(targetUser.role ?? '');
+
+      // Hierarquia: não pode redefinir senha de alguém com cargo igual ou superior
+      const HIERARQUIA = ['ceo', 'pca', 'admin', 'director', 'subdiretor_administrativo', 'chefe_secretaria'];
+      const callerIdx = HIERARQUIA.indexOf(callerRole);
+      const targetIdx = HIERARQUIA.indexOf(targetRole);
+      if (targetIdx !== -1 && callerIdx !== -1 && targetIdx <= callerIdx && callerRole !== 'ceo' && callerRole !== 'pca') {
+        return json(res, 403, { error: 'Não pode redefinir a senha de um utilizador com cargo igual ou superior ao seu.' });
+      }
+
+      // Gerar senha temporária segura: Escola + @ + 4 letras maiúsculas + 4 dígitos
+      const letras = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+      const digitos = '23456789';
+      let tempPart = '';
+      for (let i = 0; i < 4; i++) tempPart += letras[Math.floor(Math.random() * letras.length)];
+      for (let i = 0; i < 4; i++) tempPart += digitos[Math.floor(Math.random() * digitos.length)];
+      const tempPassword = `Escola@${tempPart}`;
+
+      const bcryptLib = await import('bcrypt');
+      const hash = await bcryptLib.hash(tempPassword, 10);
+
+      await query(
+        `UPDATE public.utilizadores SET senha=$1, "updatedAt"=NOW() WHERE id=$2`,
+        [hash, userId]
+      );
+
+      // Registar auditoria
+      logAudit({
+        userId: String(req.jwtUser?.userId),
+        userEmail: String(req.jwtUser?.email),
+        userRole: callerRole,
+        acao: 'reset_senha_admin',
+        modulo: 'Gestão de Acessos',
+        descricao: `Senha redefinida para o utilizador: ${String(targetUser.email)} (${String(targetUser.nome)})`,
+      }).catch(() => {});
+
+      return json(res, 200, {
+        ok: true,
+        tempPassword,
+        userNome: String(targetUser.nome),
+        userEmail: String(targetUser.email),
+      });
+    } catch (e) {
+      console.error('[admin-reset-password]', e);
+      return json(res, 500, { error: 'Erro interno. Tente novamente.' });
+    }
+  });
+
   // ─── PLANOS DE AULA ──────────────────────────────────────────────────────────
 
   app.get("/api/planos-aula", async (_req: Request, res: Response) => {
