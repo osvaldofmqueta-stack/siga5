@@ -884,12 +884,52 @@ export default function PerfilScreen() {
           </View>
         )}
 
-        {/* Breakdown */}
+        {/* Breakdown — varies by contract type */}
         <View style={{ gap: 4 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Salário Base</Text>
-            <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>{fmt(salEst.salarioBase || salEst.salColaborador || 0)}</Text>
-          </View>
+
+          {isColaborador && salEst.valorPorTempoLectivo > 0 ? (
+            /* ── Colaborador / Contratado / Prestação de Serviços: paid by tempos ── */
+            <>
+              {/* Box showing the per-tempo calculation */}
+              <View style={{ backgroundColor: Colors.primaryDark, borderRadius: 10, padding: 10, marginBottom: 4, gap: 4 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+                  Remuneração por Tempos
+                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Valor por tempo</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{fmt(salEst.valorPorTempoLectivo)}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Tempos trabalhados</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>× {salEst.temposTrabalhados}</Text>
+                </View>
+                <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 2 }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text }}>Remuneração tempos</Text>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: vinculo.color }}>{fmt(salEst.salColaborador || (salEst.valorPorTempoLectivo * salEst.temposTrabalhados))}</Text>
+                </View>
+              </View>
+              {/* Fixed base salary if mixed contract */}
+              {salEst.salarioBase > 0 && (
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>+ Salário Base Fixo</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>{fmt(salEst.salarioBase)}</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            /* ── Efectivo: fixed monthly salary ── */
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Salário Base</Text>
+                <View style={{ backgroundColor: Colors.success + '18', borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 }}>
+                  <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.success }}>Mensal fixo</Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.text }}>{fmt(salEst.salarioBase)}</Text>
+            </View>
+          )}
+
           {salEst.subsidioAlimentacao > 0 && (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Subsídio Alimentação</Text>
