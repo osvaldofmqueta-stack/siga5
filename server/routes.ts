@@ -2106,7 +2106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Regular profile fields
-      const allowed = ["nome", "email", "telefone"] as const;
+      const allowed = ["nome", "email", "telefone", "avatar"] as const;
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
         const v = b[key]; if (v === undefined) continue;
@@ -2114,7 +2114,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!setParts.length) return json(res, 400, { error: "Nenhum campo para actualizar." });
       const updated = await query<JsonObject>(
-        `UPDATE public.utilizadores SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING id,nome,email,telefone,role,escola,ativo`,
+        `UPDATE public.utilizadores SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING id,nome,email,telefone,role,escola,ativo,avatar`,
         [...values, userId]
       );
       if (!updated[0]) return json(res, 404, { error: "Utilizador não encontrado." });

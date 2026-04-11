@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions,
-  Platform, ScrollView, Switch,
+  Platform, ScrollView, Switch, Image,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -151,9 +151,16 @@ export default function DrawerRight() {
               end={{ x: 1, y: 1 }}
             >
               <View style={styles.ceoAvatarGlow}>
-                <View style={styles.ceoAvatar}>
-                  <Text style={styles.ceoAvatarText}>{initials}</Text>
-                </View>
+                {user?.avatar ? (
+                  <Image
+                    source={{ uri: user.avatar }}
+                    style={styles.ceoAvatar}
+                  />
+                ) : (
+                  <View style={styles.ceoAvatar}>
+                    <Text style={styles.ceoAvatarText}>{initials}</Text>
+                  </View>
+                )}
                 <View style={styles.crownBadge}>
                   <MaterialCommunityIcons name="crown" size={12} color="#FFD700" />
                 </View>
@@ -171,9 +178,16 @@ export default function DrawerRight() {
             </LinearGradient>
           ) : (
             <View style={styles.avatarSection}>
-              <View style={[styles.avatar, { borderColor: roleColor }]}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
+              {user?.avatar ? (
+                <Image
+                  source={{ uri: user.avatar }}
+                  style={[styles.avatar, { borderColor: roleColor }]}
+                />
+              ) : (
+                <View style={[styles.avatar, { borderColor: roleColor }]}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
               <Text style={styles.userName}>{user?.nome}</Text>
               <Text style={styles.userEmail}>{user?.email}</Text>
               <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>

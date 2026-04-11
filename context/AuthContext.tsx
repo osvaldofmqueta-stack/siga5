@@ -47,7 +47,7 @@ export async function clearAuthToken() {
 }
 
 // Fields that are persisted server-side (not device-local)
-const SERVER_FIELDS: (keyof AuthUser)[] = ['nome', 'email', 'telefone', 'escola'];
+const SERVER_FIELDS: (keyof AuthUser)[] = ['nome', 'email', 'telefone', 'escola', 'avatar'];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
