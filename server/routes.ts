@@ -1656,7 +1656,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Responder a pedido de reabertura (privilegiado: admin, director, pca, ceo, chefe_secretaria)
   app.put("/api/notas/:id/responder-reabertura", requireAuth, async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user as { role: string };
+      const user = req.jwtUser;
       const PRIV = ['ceo','pca','admin','director','chefe_secretaria'];
       if (!user || !PRIV.includes(user.role)) return json(res, 403, { error: 'Sem permissão.' });
 
@@ -8445,7 +8445,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/processos-secretaria", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const rows = await query<JsonObject>(
         `INSERT INTO public.processos_secretaria
           ("tipo","descricao","solicitante","prazo","status","prioridade","criadoPor")
@@ -8499,7 +8499,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/correspondencias", requireAuth, requirePermission("secretaria_hub"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const hoje = new Date().toLocaleDateString('pt-PT');
       const rows = await query<JsonObject>(
         `INSERT INTO public.correspondencias
@@ -9020,7 +9020,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ─── PENDÊNCIAS DE ALUNOS (Real-time student issues stream) ─────────────────
   app.get("/api/pendencias-alunos", requireAuth, async (req: Request, res: Response) => {
-    const user = (req as any).user;
+    const user = req.jwtUser;
     const allowedRoles = ['admin', 'ceo', 'pca', 'director', 'secretaria', 'chefe_secretaria', 'financeiro', 'pedagogico'];
     if (!allowedRoles.includes(user?.role)) {
       return json(res, 403, { error: 'Acesso negado' });
@@ -9400,7 +9400,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const b = requireBodyObject(req) as any;
       if (!b.alunoId || !b.texto?.trim()) return json(res, 400, { error: 'alunoId e texto obrigatórios' });
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const rows = await query<JsonObject>(
         `INSERT INTO public.anotacoes_matricula ("alunoId",texto,"criadoPor") VALUES ($1,$2,$3) RETURNING *`,
         [b.alunoId, b.texto.trim(), user?.nome ?? 'Secretaria']
@@ -9456,7 +9456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
       if (!anoLetivoDestino) return json(res, 400, { error: 'anoLetivoDestino obrigatório' });
       const { v4: uuidv4 } = await import('uuid');
-      const user = (req as any).user;
+      const user = req.jwtUser;
 
       // Fetch target students
       let alunosQuery = `SELECT a.*, u.email FROM public.alunos a LEFT JOIN public.utilizadores u ON u.id=a."utilizadorId" WHERE a.ativo=true`;
@@ -9968,7 +9968,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/contas-pagar', requireAuth, requirePermission('financeiro'), async (req, res) => {
     try {
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const b = requireBodyObject(req);
       const id = uuidv4();
       await query(
@@ -10205,7 +10205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ─── COBRANÇA AVULSA (vinculada à matrícula de um aluno) ────────────────────
   app.post('/api/pagamentos/avulso', requireAuth, requirePermission('financeiro'), async (req, res) => {
     try {
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const b = requireBodyObject(req);
       const { alunoId, taxaId, valor, data, mes, trimestre, ano, metodoPagamento, referencia, observacao, status } = b;
       if (!alunoId || !taxaId || !valor || !data || !ano) {
@@ -10238,7 +10238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/pagamentos/:id/cancelar-recriar', requireAuth, requirePermission('financeiro'), async (req, res) => {
     try {
       const { id } = req.params;
-      const user = (req as any).user;
+      const user = req.jwtUser;
       const b = requireBodyObject(req);
 
       // Buscar pagamento original
