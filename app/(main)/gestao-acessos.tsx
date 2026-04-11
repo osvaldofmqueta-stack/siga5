@@ -81,6 +81,7 @@ export default function GestaoAcessosScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [search, setSearch] = useState('');
+  const [searchPerms, setSearchPerms] = useState('');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(FEATURE_CATEGORIES.map(c => c.categoria)));
 
   // ── Perfis tab state ──
@@ -88,6 +89,8 @@ export default function GestaoAcessosScreen() {
   const [editedRolePerms, setEditedRolePerms] = useState<Record<string, boolean>>({});
   const [savingRole, setSavingRole] = useState(false);
   const [savedRole, setSavedRole] = useState(false);
+  const [searchRole, setSearchRole] = useState('');
+  const [searchRolePerms, setSearchRolePerms] = useState('');
   const [expandedRoleCats, setExpandedRoleCats] = useState<Set<string>>(new Set(FEATURE_CATEGORIES.map(c => c.categoria)));
 
   const canManage = user?.role === 'ceo' || user?.role === 'pca' || hasPermission('gestao_acessos');
@@ -99,6 +102,27 @@ export default function GestaoAcessosScreen() {
       ROLE_LABEL[u.role]?.toLowerCase().includes(search.toLowerCase()))
   );
   const selectedUser = users.find(u => u.id === selectedUserId);
+
+  // ── Filtro de perfis de cargo ──
+  const filteredRoles = MANAGEABLE_ROLES.filter(role =>
+    ROLE_LABEL[role]?.toLowerCase().includes(searchRole.toLowerCase())
+  );
+
+  // ── Filtragem de categorias de permissões ──
+  function filterCategories(q: string) {
+    if (!q.trim()) return FEATURE_CATEGORIES;
+    const lq = q.toLowerCase();
+    return FEATURE_CATEGORIES
+      .map(cat => ({
+        ...cat,
+        features: cat.features.filter(f =>
+          f.label.toLowerCase().includes(lq) || f.desc.toLowerCase().includes(lq)
+        ),
+      }))
+      .filter(cat => cat.features.length > 0);
+  }
+  const visibleCats = filterCategories(searchPerms);
+  const visibleRoleCats = filterCategories(searchRolePerms);
 
   useEffect(() => {
     if (!selectedUserId || !selectedUser) return;
@@ -399,11 +423,34 @@ export default function GestaoAcessosScreen() {
                     </TouchableOpacity>
                   </View>
 
+                  {/* Pesquisa de permissões */}
+                  <View style={styles.permSearchBox}>
+                    <Ionicons name="search" size={15} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.permSearchInput}
+                      placeholder="Pesquisar permissão..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={searchPerms}
+                      onChangeText={setSearchPerms}
+                    />
+                    {searchPerms.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearchPerms('')}>
+                        <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                   <ScrollView style={styles.catScroll} showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: bottomInset + 80 }}
                   >
-                    {FEATURE_CATEGORIES.map(cat => {
-                      const isExpanded = expandedCats.has(cat.categoria);
+                    {visibleCats.length === 0 && (
+                      <View style={styles.noSearchResult}>
+                        <Ionicons name="search" size={32} color={Colors.border} />
+                        <Text style={styles.noSearchResultText}>Nenhuma permissão encontrada para "{searchPerms}"</Text>
+                      </View>
+                    )}
+                    {visibleCats.map(cat => {
+                      const isExpanded = searchPerms.trim() ? true : expandedCats.has(cat.categoria);
                       const activeInCat = countActive(cat, editedPerms);
                       return (
                         <View key={cat.categoria} style={styles.catCard}>
@@ -487,8 +534,28 @@ export default function GestaoAcessosScreen() {
                 Alterações aqui afectam automaticamente todos os utilizadores do cargo.
               </Text>
 
+              {/* Pesquisa de cargos */}
+              <View style={styles.searchBox}>
+                <Ionicons name="search" size={16} color={Colors.textMuted} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Pesquisar cargo..."
+                  placeholderTextColor={Colors.textMuted}
+                  value={searchRole}
+                  onChangeText={setSearchRole}
+                />
+                {searchRole.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchRole('')}>
+                    <Ionicons name="close-circle" size={16} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                )}
+              </View>
+
               <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
-                {MANAGEABLE_ROLES.map(role => {
+                {filteredRoles.length === 0 && (
+                  <Text style={styles.emptyMsg}>Nenhum cargo encontrado</Text>
+                )}
+                {filteredRoles.map(role => {
                   const isSelected = role === selectedRole;
                   const roleColor = ROLE_COLOR[role] || Colors.textMuted;
                   const icon = ROLE_ICON[role] || 'person';
@@ -583,11 +650,34 @@ export default function GestaoAcessosScreen() {
                     </TouchableOpacity>
                   </View>
 
+                  {/* Pesquisa de permissões do perfil */}
+                  <View style={styles.permSearchBox}>
+                    <Ionicons name="search" size={15} color={Colors.textMuted} />
+                    <TextInput
+                      style={styles.permSearchInput}
+                      placeholder="Pesquisar permissão..."
+                      placeholderTextColor={Colors.textMuted}
+                      value={searchRolePerms}
+                      onChangeText={setSearchRolePerms}
+                    />
+                    {searchRolePerms.length > 0 && (
+                      <TouchableOpacity onPress={() => setSearchRolePerms('')}>
+                        <Ionicons name="close-circle" size={15} color={Colors.textMuted} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                   <ScrollView style={styles.catScroll} showsVerticalScrollIndicator={false}
                     contentContainerStyle={{ paddingBottom: bottomInset + 80 }}
                   >
-                    {FEATURE_CATEGORIES.map(cat => {
-                      const isExpanded = expandedRoleCats.has(cat.categoria);
+                    {visibleRoleCats.length === 0 && (
+                      <View style={styles.noSearchResult}>
+                        <Ionicons name="search" size={32} color={Colors.border} />
+                        <Text style={styles.noSearchResultText}>Nenhuma permissão encontrada para "{searchRolePerms}"</Text>
+                      </View>
+                    )}
+                    {visibleRoleCats.map(cat => {
+                      const isExpanded = searchRolePerms.trim() ? true : expandedRoleCats.has(cat.categoria);
                       const activeInCat = countActive(cat, editedRolePerms);
                       return (
                         <View key={cat.categoria} style={styles.catCard}>
@@ -772,6 +862,25 @@ const styles = StyleSheet.create({
   quickActions: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.backgroundCard },
   qBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
   qBtnText: { fontSize: 11, fontFamily: 'Inter_600SemiBold' },
+
+  // Permission search bar (inside right panel)
+  permSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 2,
+    backgroundColor: Colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  permSearchInput: { flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.text, padding: 0 },
+  noSearchResult: { alignItems: 'center', gap: 10, paddingVertical: 40 },
+  noSearchResultText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', maxWidth: 260 },
 
   // Categories
   catScroll: { flex: 1, paddingTop: 8 },
