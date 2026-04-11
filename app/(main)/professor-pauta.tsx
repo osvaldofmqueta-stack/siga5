@@ -41,6 +41,26 @@ interface NotaForm {
   aval8: string;
   pp1: string;
   ppt: string;
+  // 3º Trimestre — Classes de Transição (10ª/11ª)
+  pg1: string;
+  pg2: string;
+  // 3º Trimestre — 12ª Classe
+  ex1: string;
+  ex2: string;
+  // Prova de Recuperação (opcional)
+  provaRecuperacao: string;
+}
+
+// Determina se a classe é de 12ª (usa Exame no 3º Trimestre)
+function is12aClasse(classe?: string): boolean {
+  if (!classe) return false;
+  return classe.includes('12');
+}
+
+// Determina se a classe é de transição (10ª ou 11ª — usa Prova Global no 3º Trimestre)
+function isClasseTransicao(classe?: string): boolean {
+  if (!classe) return false;
+  return classe.includes('10') || classe.includes('11');
 }
 
 interface PapForm {
@@ -60,12 +80,33 @@ function calcMac(avais: number[]): number {
   return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
 }
 
-function calcMt1(mac: number, pp1: number): number {
-  return Math.round((mac * 0.3 + pp1 * 0.7) * 10) / 10;
+// Nota Trimestral = MAC * percMac% + PP * percPp%
+function calcNT(mac: number, pp: number, percMac: number, percPp: number): number {
+  return Math.round((mac * (percMac / 100) + pp * (percPp / 100)) * 10) / 10;
 }
 
-function calcNF(mt1: number, ppt: number): number {
-  return Math.round((mt1 * 0.6 + ppt * 0.4) * 10) / 10;
+// Nota Final para T1 e T2: NT * percNt% + PT * percPt%
+function calcNF_T1T2(nt: number, pt: number, percNt: number, percPt: number): number {
+  return Math.round((nt * (percNt / 100) + pt * (percPt / 100)) * 10) / 10;
+}
+
+// Nota Final para T3 — Classes de Transição (10ª/11ª): NT * (100-2*percPg)% + PG1 * percPg% + PG2 * percPg%
+function calcNF_T3Transicao(nt: number, pg1: number, pg2: number, percPg: number): number {
+  const pPg = percPg / 100;
+  const pNt = Math.max(0, 1 - 2 * pPg);
+  return Math.round((nt * pNt + pg1 * pPg + pg2 * pPg) * 10) / 10;
+}
+
+// Nota Final para T3 — 12ª Classe: NT * (100-2*percExame)% + EX1 * percExame% + EX2 * percExame%
+function calcNF_T3Exame(nt: number, ex1: number, ex2: number, percExame: number): number {
+  const pEx = percExame / 100;
+  const pNt = Math.max(0, 1 - 2 * pEx);
+  return Math.round((nt * pNt + ex1 * pEx + ex2 * pEx) * 10) / 10;
+}
+
+// Compat: legado calcMt1 (mantido para mini-pauta)
+function calcMt1(mac: number, pp1: number): number {
+  return Math.round((mac * 0.3 + pp1 * 0.7) * 10) / 10;
 }
 
 function parseNum(s: string): number {
@@ -149,6 +190,9 @@ export default function ProfessorPautaScreen() {
   // PAP derived values
   const is13Classe = turmaAtual?.classe === '13ª Classe' || turmaAtual?.classe === '13';
   const isPapMode = is13Classe && config.papHabilitado;
+  const classeAtual = turmaAtual?.classe;
+  const useProvGlobal = trimestre === 3 && isClasseTransicao(classeAtual);
+  const useExame = trimestre === 3 && is12aClasse(classeAtual);
   const papDiscContribuintes: string[] = config.papDisciplinasContribuintes || [];
   const showEstagioField = !config.estagioComoDisciplina;
 
@@ -324,6 +368,11 @@ export default function ProfessorPautaScreen() {
         });
         if (nota.pp1 !== null && nota.pp1 !== undefined && nota.pp1 > 0) locked.add('pp1');
         if (nota.ppt !== null && nota.ppt !== undefined && nota.ppt > 0) locked.add('ppt');
+        if ((nota as any).pg1 > 0) locked.add('pg1');
+        if ((nota as any).pg2 > 0) locked.add('pg2');
+        if ((nota as any).ex1 > 0) locked.add('ex1');
+        if ((nota as any).ex2 > 0) locked.add('ex2');
+        if ((nota as any).provaRecuperacao > 0) locked.add('provaRecuperacao');
         newSavedFields[aluno.id] = locked;
       }
 
@@ -339,6 +388,11 @@ export default function ProfessorPautaScreen() {
         aval8: nota ? String(nota.aval8 ?? '') : '',
         pp1: nota ? String(nota.pp1) : '',
         ppt: nota ? String(nota.ppt) : '',
+        pg1: nota ? String((nota as any).pg1 ?? '') : '',
+        pg2: nota ? String((nota as any).pg2 ?? '') : '',
+        ex1: nota ? String((nota as any).ex1 ?? '') : '',
+        ex2: nota ? String((nota as any).ex2 ?? '') : '',
+        provaRecuperacao: nota ? String((nota as any).provaRecuperacao ?? '') : '',
       };
     });
 
@@ -368,33 +422,69 @@ export default function ProfessorPautaScreen() {
 
       const numAvais = config.numAvaliacoes ?? 4;
       const activeAvalKeys = ALL_AVAL_KEYS.slice(0, numAvais);
+      const pMac = config.percMac ?? 30;
+      const pPp = config.percPp ?? 70;
+      const pNt = config.percNt ?? 60;
+      const pPt = config.percPt ?? 40;
+      const pPg = config.percPg ?? 40;
+      const pEx = config.percExame ?? 40;
 
       for (const form of notasForms) {
         const alunoSaved = savedFields[form.alunoId] || new Set<string>();
+        const notaExistente = notasExistentes.find(n => n.alunoId === form.alunoId);
+
         const avalValues = activeAvalKeys.map(k => {
           if (alunoSaved.has(k)) {
-            const notaExist = notasExistentes.find(n => n.alunoId === form.alunoId);
-            return notaExist ? (notaExist[k as keyof typeof notaExist] as number ?? 0) : parseNum(form[k]);
+            return notaExistente ? (notaExistente[k as keyof typeof notaExistente] as number ?? 0) : parseNum(form[k]);
           }
           return parseNum(form[k]);
         });
         const pp = alunoSaved.has('pp1')
-          ? (notasExistentes.find(n => n.alunoId === form.alunoId)?.pp1 ?? parseNum(form.pp1))
+          ? (notaExistente?.pp1 ?? parseNum(form.pp1))
           : parseNum(form.pp1);
-        const ppt = alunoSaved.has('ppt')
-          ? (notasExistentes.find(n => n.alunoId === form.alunoId)?.ppt ?? parseNum(form.ppt))
-          : parseNum(form.ppt);
-        const mac = calcMac(avalValues);
-        const mt1 = calcMt1(mac, pp);
-        const nf = calcNF(mt1, ppt);
 
-        const notaExistente = notasExistentes.find(n => n.alunoId === form.alunoId);
+        const getField = (field: string, formVal: string) => {
+          if (alunoSaved.has(field)) return (notaExistente as any)?.[field] ?? parseNum(formVal);
+          return parseNum(formVal);
+        };
+
+        const mac = calcMac(avalValues);
+        const nt = calcNT(mac, pp, pMac, pPp);
+
+        let nf = 0;
+        let ppt = 0;
+        let pg1Val = 0, pg2Val = 0, ex1Val = 0, ex2Val = 0;
+
+        if (useProvGlobal) {
+          // 3º Trimestre — 10ª/11ª Classe: PP + PG1 + PG2
+          pg1Val = getField('pg1', form.pg1);
+          pg2Val = getField('pg2', form.pg2);
+          nf = calcNF_T3Transicao(nt, pg1Val, pg2Val, pPg);
+          ppt = 0;
+        } else if (useExame) {
+          // 3º Trimestre — 12ª Classe: PP + EX1 + EX2
+          ex1Val = getField('ex1', form.ex1);
+          ex2Val = getField('ex2', form.ex2);
+          nf = calcNF_T3Exame(nt, ex1Val, ex2Val, pEx);
+          ppt = 0;
+        } else {
+          // T1 e T2 (todas as classes) ou T3 sem classe especial: PP + PT
+          ppt = getField('ppt', form.ppt);
+          nf = calcNF_T1T2(nt, ppt, pNt, pPt);
+        }
+
+        const provaRec = getField('provaRecuperacao', form.provaRecuperacao);
+        const mt1 = nt;
+
         const notaData: Record<string, unknown> = {
           alunoId: form.alunoId,
           turmaId,
           disciplina,
           trimestre,
           pp1: pp, ppt, mac1: mac, mt1, nf, mac,
+          pg1: pg1Val, pg2: pg2Val,
+          ex1: ex1Val, ex2: ex2Val,
+          provaRecuperacao: provaRec,
           anoLetivo: anoSelecionado?.ano || '2025',
           professorId: lancadorId,
           data: new Date().toISOString().split('T')[0],
@@ -1104,6 +1194,18 @@ export default function ProfessorPautaScreen() {
         </View>
       )}
 
+      {/* Banner especial para T3 Classe de Transição ou 12ª Classe */}
+      {(useProvGlobal || useExame) && (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: useExame ? Colors.danger + '18' : Colors.info + '15', borderBottomWidth: 1, borderBottomColor: useExame ? Colors.danger + '33' : Colors.info + '33' }}>
+          <Ionicons name={useExame ? 'school-outline' : 'ribbon-outline'} size={15} color={useExame ? Colors.danger : Colors.info} />
+          <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_500Medium', color: useExame ? Colors.danger : Colors.info, lineHeight: 15 }}>
+            {useExame
+              ? `3º Trimestre · 12ª Classe — Exame (EX1 + EX2 substituem PT). NT=${config.percExame ?? 40}% cada exame.`
+              : `3º Trimestre · Classe de Transição — Prova Global (PG1 + PG2 substituem PT). ${config.percPg ?? 40}% cada PG.`}
+          </Text>
+        </View>
+      )}
+
       {/* Grade Fields Legend */}
       {(() => {
         const nAval = config.numAvaliacoes ?? 4;
@@ -1115,7 +1217,22 @@ export default function ProfessorPautaScreen() {
               <Text key={i} style={styles.legendaCol}>A{i + 1}</Text>
             ))}
             <Text style={styles.legendaCol}>PP</Text>
-            <Text style={styles.legendaCol}>PT</Text>
+            {useProvGlobal ? (
+              <>
+                <Text style={[styles.legendaCol, { color: Colors.info }]}>PG1</Text>
+                <Text style={[styles.legendaCol, { color: Colors.info }]}>PG2</Text>
+              </>
+            ) : useExame ? (
+              <>
+                <Text style={[styles.legendaCol, { color: Colors.danger }]}>EX1</Text>
+                <Text style={[styles.legendaCol, { color: Colors.danger }]}>EX2</Text>
+              </>
+            ) : (
+              <Text style={styles.legendaCol}>PT</Text>
+            )}
+            {config.provaRecuperacaoHabilitada && (
+              <Text style={[styles.legendaCol, { color: Colors.warning }]}>REC</Text>
+            )}
             <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
           </View>
         );
@@ -1132,14 +1249,26 @@ export default function ProfessorPautaScreen() {
           const activeKeys = ALL_AVAL_KEYS.slice(0, nAval);
           const avalValues = activeKeys.map(k => parseNum(form[k]));
           const pp = parseNum(form.pp1);
-          const ppt = parseNum(form.ppt);
           const mac = calcMac(avalValues);
-          const mt1 = calcMt1(mac, pp);
-          const nf = calcNF(mt1, ppt);
+          const nt = calcNT(mac, pp, config.percMac ?? 30, config.percPp ?? 70);
+          let nf = 0;
+          if (useProvGlobal) {
+            nf = calcNF_T3Transicao(nt, parseNum(form.pg1), parseNum(form.pg2), config.percPg ?? 40);
+          } else if (useExame) {
+            nf = calcNF_T3Exame(nt, parseNum(form.ex1), parseNum(form.ex2), config.percExame ?? 40);
+          } else {
+            nf = calcNF_T1T2(nt, parseNum(form.ppt), config.percNt ?? 60, config.percPt ?? 40);
+          }
           const nfColor = nf >= 10 ? Colors.success : nf > 0 ? Colors.danger : Colors.textMuted;
           const isEditing = editingAlunoId === aluno.id;
-          const editFields = [...activeKeys, 'pp1' as const, 'ppt' as const] as Array<keyof NotaForm>;
-          const displayValues = [...activeKeys.map(k => form[k]), form.pp1, form.ppt];
+          const extraFields: Array<keyof NotaForm> = useProvGlobal
+            ? ['pg1', 'pg2']
+            : useExame
+              ? ['ex1', 'ex2']
+              : ['ppt'];
+          const recFields: Array<keyof NotaForm> = config.provaRecuperacaoHabilitada ? ['provaRecuperacao'] : [];
+          const editFields = [...activeKeys, 'pp1' as const, ...extraFields, ...recFields] as Array<keyof NotaForm>;
+          const displayValues = [...activeKeys.map(k => form[k]), form.pp1, ...extraFields.map(k => form[k]), ...recFields.map(k => form[k])];
           const alunoSavedFields = savedFields[aluno.id] || new Set<string>();
           const hasAnySavedField = alunoSavedFields.size > 0;
 
@@ -1161,7 +1290,7 @@ export default function ProfessorPautaScreen() {
                   {aluno.nome} {aluno.apelido}
                 </Text>
                 {isEditing && (
-                  <Text style={styles.rowMac}>MAC={mac > 0 ? mac.toFixed(1) : '—'} · MT1={mt1 > 0 ? mt1.toFixed(1) : '—'}</Text>
+                  <Text style={styles.rowMac}>MAC={mac > 0 ? mac.toFixed(1) : '—'} · NT={nt > 0 ? nt.toFixed(1) : '—'}</Text>
                 )}
                 {hasAnySavedField && !isEditing && (
                   <View style={styles.lancadoBadgeRow}>

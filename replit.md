@@ -1,6 +1,42 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Correcção de Edição de Perfil para Todos os Perfis)
+## Recent Changes (Latest Session — Sistema de Avaliação Angola: T1/T2/T3 com PG e Exames)
+
+### `shared/schema.ts`
+- **`notas`**: adicionadas colunas `pg1`, `pg2` (Provas Globais), `ex1`, `ex2` (Exames), `provaRecuperacao` (todos INTEGER DEFAULT 0)
+- **`configGeral`**: adicionadas colunas `percMac` (30%), `percPp` (70%), `percNt` (60%), `percPt` (40%), `percPg` (40%), `percExame` (40%), `provaRecuperacaoHabilitada` (boolean false)
+
+### `server/routes.ts`
+- **Migration automática** ao arrancar: `ALTER TABLE notas ADD COLUMN IF NOT EXISTS` para `pg1/pg2/ex1/ex2/provaRecuperacao`
+- **Migration automática**: `ALTER TABLE config_geral ADD COLUMN IF NOT EXISTS` para todos os campos de percentagens e `provaRecuperacaoHabilitada`
+- **POST `/api/notas`**: inclui `pg1`, `pg2`, `ex1`, `ex2`, `provaRecuperacao` no INSERT; validação ≤ 20
+- **PUT `/api/notas/:id`**: allowed fields actualizado para incluir todos os novos campos
+- **PUT `/api/config`**: allowed fields actualizado para incluir `percMac`, `percPp`, `percNt`, `percPt`, `percPg`, `percExame`, `provaRecuperacaoHabilitada`
+
+### `context/ConfigContext.tsx`
+- Interface `ConfigGeral`: adicionados 7 novos campos (`percMac`, `percPp`, `percNt`, `percPt`, `percPg`, `percExame`, `provaRecuperacaoHabilitada`)
+- `DEFAULT_CONFIG`: valores padrão para todos os novos campos
+- Parser raw→parsed: lê e converte todos os novos campos da API
+
+### `app/(main)/professor-pauta.tsx`
+- **`NotaForm`**: adicionados `pg1`, `pg2`, `ex1`, `ex2`, `provaRecuperacao`
+- **Funções auxiliares**: `is12aClasse()`, `isClasseTransicao()`, `calcNT()`, `calcNF_T1T2()`, `calcNF_T3Transicao()`, `calcNF_T3Exame()` com percentagens configuráveis
+- **`useProvGlobal`** / **`useExame`**: flags derivadas de `trimestre === 3` + classe detectada automaticamente
+- **`iniciarPauta`**: carrega `pg1/pg2/ex1/ex2/provaRecuperacao` de notas existentes; locked fields expandidos
+- **`guardarNotas`**: calcula NT/NF com a fórmula correcta por trimestre/classe; guarda todos os novos campos
+- **Legend bar**: colunas dinâmicas — PT | PG1+PG2 | EX1+EX2 | REC (conforme trimestre e classe)
+- **Banner informativo**: mostra aviso azul (PG) ou vermelho (Exame) quando T3 especial é detectado
+- **FlatList renderItem**: `editFields` e `displayValues` dinâmicos com os campos correctos; NF calculada em tempo real com fórmula correcta; display de NT em vez de MT1
+
+### `app/(main)/admin.tsx`
+- **Nova secção "Sistema de Avaliação"**: card com campos editáveis para todas as percentagens
+  - NT = MAC% + PP% (com complemento automático)
+  - NF T1/T2 = NT% + PT% (com complemento automático)
+  - NF T3 10ª/11ª: % de cada PG (máx. 50%, NT calculado automaticamente)
+  - NF T3 12ª: % de cada Exame (máx. 50%, NT calculado automaticamente)
+  - Toggle "Prova de Recuperação": habilita/desabilita coluna REC nas pautas
+
+## Recent Changes (Previous Session — Correcção de Edição de Perfil para Todos os Perfis)
 
 ### `server/routes.ts`
 - **Migration**: adicionada coluna `telefone` (TEXT DEFAULT '') a `utilizadores`

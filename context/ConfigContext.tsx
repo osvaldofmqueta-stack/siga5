@@ -88,6 +88,14 @@ export interface ConfigGeral {
   emisApiUrl?: string;
   emisPrazoPagamento?: number;
   emisNotificarSMS?: boolean;
+  // ─── Sistema de Avaliação — Percentagens das Provas ───────────────────────
+  percMac: number;        // % do MAC na Nota Trimestral (default 30)
+  percPp: number;         // % da PP na Nota Trimestral (default 70)
+  percNt: number;         // % da NT na NF para T1/T2 (default 60)
+  percPt: number;         // % da PT na NF para T1/T2 (default 40)
+  percPg: number;         // % de cada Prova Global na NF para T3 10ª/11ª (default 40)
+  percExame: number;      // % de cada Exame na NF para T3 12ª Classe (default 40)
+  provaRecuperacaoHabilitada: boolean;
 }
 
 const DEFAULT_FLASH: FlashScreenConfig = {
@@ -138,6 +146,13 @@ const DEFAULT_CONFIG: ConfigGeral = {
   exclusaoDuasReprovacoes: false,
   notasVisiveis: false,
   avaliacaoPeriodoAtivo: false,
+  percMac: 30,
+  percPp: 70,
+  percNt: 60,
+  percPt: 40,
+  percPg: 40,
+  percExame: 40,
+  provaRecuperacaoHabilitada: false,
 };
 
 interface ConfigContextValue {
@@ -222,6 +237,13 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           emisApiUrl: (raw.emisApiUrl as string) || undefined,
           emisPrazoPagamento: (raw.emisPrazoPagamento as number) ?? 24,
           emisNotificarSMS: raw.emisNotificarSMS !== undefined ? Boolean(raw.emisNotificarSMS) : true,
+          percMac: (raw.percMac as number) ?? DEFAULT_CONFIG.percMac,
+          percPp: (raw.percPp as number) ?? DEFAULT_CONFIG.percPp,
+          percNt: (raw.percNt as number) ?? DEFAULT_CONFIG.percNt,
+          percPt: (raw.percPt as number) ?? DEFAULT_CONFIG.percPt,
+          percPg: (raw.percPg as number) ?? DEFAULT_CONFIG.percPg,
+          percExame: (raw.percExame as number) ?? DEFAULT_CONFIG.percExame,
+          provaRecuperacaoHabilitada: raw.provaRecuperacaoHabilitada !== undefined ? Boolean(raw.provaRecuperacaoHabilitada) : DEFAULT_CONFIG.provaRecuperacaoHabilitada,
         };
         setConfig(parsed);
       })

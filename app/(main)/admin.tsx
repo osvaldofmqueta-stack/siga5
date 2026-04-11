@@ -1766,6 +1766,173 @@ export default function AdminScreen() {
               </View>
             </View>
 
+            {/* Sistema de Avaliação — Percentagens das Provas */}
+            <View style={styles.card}>
+              <SectionHeader title="Sistema de Avaliação" icon="ribbon" color={Colors.info} />
+              <Text style={styles.configSectionDesc}>
+                Configura as percentagens usadas no cálculo das notas trimestrais e finais. Estas regras aplicam-se a todas as turmas e professores.
+              </Text>
+
+              {/* NT = MAC + PP */}
+              <View style={styles.configFieldCol}>
+                <Text style={[styles.configFieldLabel, { marginBottom: 4 }]}>Nota Trimestral (NT = MAC + PP)</Text>
+                <Text style={[styles.configSectionDesc, { marginBottom: 8 }]}>
+                  NT = MAC × {config.percMac ?? 30}% + PP × {config.percPp ?? 70}%
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>MAC (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4 }]}
+                      value={String(config.percMac ?? 30)}
+                      onChangeText={v => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0 && n <= 100) updateConfig({ percMac: n, percPp: 100 - n });
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      selectTextOnFocus
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>PP (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4, backgroundColor: Colors.border + '44' }]}
+                      value={String(config.percPp ?? 70)}
+                      editable={false}
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* NF T1/T2 = NT + PT */}
+              <View style={[styles.configFieldCol, { marginTop: 12 }]}>
+                <Text style={[styles.configFieldLabel, { marginBottom: 4 }]}>NF Trimestres 1 e 2 (NF = NT + PT)</Text>
+                <Text style={[styles.configSectionDesc, { marginBottom: 8 }]}>
+                  NF = NT × {config.percNt ?? 60}% + PT × {config.percPt ?? 40}%
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>NT (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4 }]}
+                      value={String(config.percNt ?? 60)}
+                      onChangeText={v => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0 && n <= 100) updateConfig({ percNt: n, percPt: 100 - n });
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      selectTextOnFocus
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>PT (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4, backgroundColor: Colors.border + '44' }]}
+                      value={String(config.percPt ?? 40)}
+                      editable={false}
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* NF T3 — Prova Global (10ª/11ª) */}
+              <View style={[styles.configFieldCol, { marginTop: 12 }]}>
+                <Text style={[styles.configFieldLabel, { marginBottom: 4 }]}>NF 3º Trimestre — 10ª/11ª Classe (Prova Global)</Text>
+                <Text style={[styles.configSectionDesc, { marginBottom: 8 }]}>
+                  NF = NT × {Math.max(0, 100 - 2 * (config.percPg ?? 40))}% + PG1 × {config.percPg ?? 40}% + PG2 × {config.percPg ?? 40}%
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>PG1 e PG2 (% cada)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4 }]}
+                      value={String(config.percPg ?? 40)}
+                      onChangeText={v => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0 && n <= 50) updateConfig({ percPg: n });
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      selectTextOnFocus
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>NT (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4, backgroundColor: Colors.border + '44' }]}
+                      value={String(Math.max(0, 100 - 2 * (config.percPg ?? 40)))}
+                      editable={false}
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* NF T3 — Exame (12ª) */}
+              <View style={[styles.configFieldCol, { marginTop: 12 }]}>
+                <Text style={[styles.configFieldLabel, { marginBottom: 4 }]}>NF 3º Trimestre — 12ª Classe (Exame Nacional)</Text>
+                <Text style={[styles.configSectionDesc, { marginBottom: 8 }]}>
+                  NF = NT × {Math.max(0, 100 - 2 * (config.percExame ?? 40))}% + EX1 × {config.percExame ?? 40}% + EX2 × {config.percExame ?? 40}%
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>EX1 e EX2 (% cada)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4 }]}
+                      value={String(config.percExame ?? 40)}
+                      onChangeText={v => {
+                        const n = parseInt(v);
+                        if (!isNaN(n) && n >= 0 && n <= 50) updateConfig({ percExame: n });
+                      }}
+                      keyboardType="number-pad"
+                      maxLength={2}
+                      selectTextOnFocus
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.configFieldLabel, { fontSize: 11, color: Colors.textMuted }]}>NT (%)</Text>
+                    <TextInput
+                      style={[styles.input, { marginTop: 4, backgroundColor: Colors.border + '44' }]}
+                      value={String(Math.max(0, 100 - 2 * (config.percExame ?? 40)))}
+                      editable={false}
+                      placeholderTextColor={Colors.textMuted}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {/* Prova de Recuperação */}
+              <View style={[styles.configToggleRow, { marginTop: 16 }]}>
+                <View style={styles.configToggleLeft}>
+                  <View style={[styles.configToggleIcon, { backgroundColor: config.provaRecuperacaoHabilitada ? Colors.warning + '22' : Colors.border }]}>
+                    <Ionicons name="reload-circle-outline" size={18} color={config.provaRecuperacaoHabilitada ? Colors.warning : Colors.textMuted} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.configToggleLabel}>Prova de Recuperação</Text>
+                    <Text style={styles.configToggleDesc}>
+                      {config.provaRecuperacaoHabilitada
+                        ? 'Habilitada — professores podem lançar a nota de recuperação'
+                        : 'Desabilitada — sem coluna de recuperação nas pautas'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={!!config.provaRecuperacaoHabilitada}
+                  onValueChange={v => updateConfig({ provaRecuperacaoHabilitada: v })}
+                  thumbColor={config.provaRecuperacaoHabilitada ? Colors.warning : Colors.textMuted}
+                  trackColor={{ false: Colors.border, true: Colors.warning + '55' }}
+                />
+              </View>
+            </View>
+
             {/* Funcionamento */}
             <View style={styles.card}>
               <SectionHeader title="Funcionamento" icon="time" />

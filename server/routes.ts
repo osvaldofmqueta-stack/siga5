@@ -1431,17 +1431,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (Number(b.pp1 ?? 0) > 20 || Number(b.ppt ?? 0) > 20) {
         return json(res, 400, { error: 'PP e PT não podem ser superiores a 20. Escala: 0–20.' });
       }
+      for (const k of ['pg1','pg2','ex1','ex2','provaRecuperacao'] as const) {
+        if (Number(b[k] ?? 0) > 20) {
+          return json(res, 400, { error: `${k} não pode ser superior a 20. Escala: 0–20.` });
+        }
+      }
       const rows = await query<JsonObject>(
         `INSERT INTO public.notas (
           id, "alunoId", "turmaId", "disciplina", "trimestre",
           "aval1","aval2","aval3","aval4","aval5","aval6","aval7","aval8",
           "mac1","pp1","ppt","mt1","nf","mac",
+          "pg1","pg2","ex1","ex2","provaRecuperacao",
           "anoLetivo","professorId","data","lancamentos"
         ) VALUES (
           $1,$2,$3,$4,$5,
           $6,$7,$8,$9,$10,$11,$12,$13,
           $14,$15,$16,$17,$18,$19,
-          $20,$21,$22,$23::jsonb
+          $20,$21,$22,$23,$24,
+          $25,$26,$27,$28::jsonb
         ) RETURNING *`,
         [
           b.id,
@@ -1463,6 +1470,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           b.mt1,
           b.nf,
           b.mac,
+          b.pg1 ?? 0,
+          b.pg2 ?? 0,
+          b.ex1 ?? 0,
+          b.ex2 ?? 0,
+          b.provaRecuperacao ?? 0,
           b.anoLetivo,
           b.professorId,
           b.data,
@@ -1508,6 +1520,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "mt1",
         "nf",
         "mac",
+        "pg1",
+        "pg2",
+        "ex1",
+        "ex2",
+        "provaRecuperacao",
         "anoLetivo",
         "professorId",
         "data",
@@ -4214,7 +4231,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/config", async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"] as const;
+      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito","percMac","percPp","percNt","percPt","percPg","percExame","provaRecuperacaoHabilitada"] as const;
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
@@ -9510,6 +9527,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `, []).catch(() => {}); // ignore if already exists
     console.log('[migration] horarios table ensured with slot uniqueness constraint.');
   } catch (e) { console.warn('[migration] horarios:', (e as Error).message); }
+
+  // ── Migration: Sistema de Avaliação — Provas Globais, Exames, Recuperação ──
+  try {
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "pg1" integer NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "pg2" integer NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "ex1" integer NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "ex2" integer NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "provaRecuperacao" integer NOT NULL DEFAULT 0`, []);
+    console.log('[migration] notas: pg1, pg2, ex1, ex2, provaRecuperacao ensured.');
+  } catch (e) { console.warn('[migration] notas avaliacao cols:', (e as Error).message); }
+
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "provaRecuperacaoHabilitada" boolean NOT NULL DEFAULT false`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percMac" real NOT NULL DEFAULT 30`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percPp" real NOT NULL DEFAULT 70`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percNt" real NOT NULL DEFAULT 60`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percPt" real NOT NULL DEFAULT 40`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percPg" real NOT NULL DEFAULT 40`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "percExame" real NOT NULL DEFAULT 40`, []);
+    console.log('[migration] config_geral: percentagens avaliacao + provaRecuperacao ensured.');
+  } catch (e) { console.warn('[migration] config_geral avaliacao cols:', (e as Error).message); }
 
   // Seed: clean up duplicate horário entries (keep only 1 per slot)
   try {

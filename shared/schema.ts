@@ -415,6 +415,14 @@ export const notas = pgTable("notas", {
   mt1: integer("mt1").notNull().default(0),
   nf: integer("nf").notNull().default(0),
   mac: integer("mac").notNull().default(0),
+  // 3º Trimestre — Classes de Transição (10ª/11ª Classe): Prova Global
+  pg1: integer("pg1").notNull().default(0), // Prova Global do 1º Trimestre
+  pg2: integer("pg2").notNull().default(0), // Prova Global do 2º Trimestre
+  // 3º Trimestre — 12ª Classe: Exame
+  ex1: integer("ex1").notNull().default(0), // Exame do 1º Trimestre
+  ex2: integer("ex2").notNull().default(0), // Exame do 2º Trimestre
+  // Prova de Recuperação (opcional, se habilitada nas configurações)
+  provaRecuperacao: integer("provaRecuperacao").notNull().default(0),
 
   anoLetivo: text("anoLetivo").notNull(),
   professorId: varchar("professorId")
@@ -984,6 +992,20 @@ export const configGeral = pgTable("config_geral", {
   estagioComoDisciplina: boolean("estagioComoDisciplina").notNull().default(false),
   // Nomes das disciplinas curriculares que contribuem para a nota PAP (além de estágio e defesa)
   papDisciplinasContribuintes: jsonb("papDisciplinasContribuintes").notNull().default(sql`'[]'::jsonb`),
+
+  // ─── Percentagens das Provas (Sistema de Avaliação) ───────────────────────────
+  // MAC na Nota Trimestral: percMac + percPp = 100
+  percMac: real("percMac").notNull().default(30),       // % do MAC na Nota Trimestral
+  percPp: real("percPp").notNull().default(70),         // % da PP na Nota Trimestral
+  // Pesos da Nota Final por trimestre (T1/T2): percNt + percPt = 100
+  percNt: real("percNt").notNull().default(60),         // % da Nota Trimestral na NF (T1/T2)
+  percPt: real("percPt").notNull().default(40),         // % da PT na NF (T1/T2)
+  // 3º Trimestre — Classes de Transição (10ª/11ª): percPg*2 + percNt3 = 100
+  percPg: real("percPg").notNull().default(40),         // % de cada Prova Global (T3, 10ª/11ª)
+  // 3º Trimestre — 12ª Classe: percExame*2 + percNt3Exam = 100
+  percExame: real("percExame").notNull().default(40),   // % de cada Exame (T3, 12ª Classe)
+  // Prova de Recuperação
+  provaRecuperacaoHabilitada: boolean("provaRecuperacaoHabilitada").notNull().default(false),
 });
 
 // -----------------------
