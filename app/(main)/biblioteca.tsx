@@ -263,7 +263,8 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   onRefresh: () => void;
 }) {
   const { showToast } = useToast();
-  const { width } = useWindowDimensions();
+  const { width: winWidth } = useWindowDimensions();
+  const [containerWidth, setContainerWidth] = useState(winWidth);
   const [search, setSearch] = useState('');
   const [catFiltro, setCatFiltro] = useState('Todas');
   const [showModal, setShowModal] = useState(false);
@@ -274,11 +275,12 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
 
   const cats = ['Todas', ...Array.from(new Set(livros.map(l => l.categoria))).sort()];
 
-  // Compact bookshelf grid: more columns, smaller cards
-  const numCols = width >= 1100 ? 7 : width >= 800 ? 6 : width >= 600 ? 5 : width >= 420 ? 4 : 3;
+  // Use measured container width for accurate column/card sizing
+  const usableWidth = containerWidth || winWidth;
+  const numCols = usableWidth >= 1100 ? 7 : usableWidth >= 800 ? 6 : usableWidth >= 600 ? 5 : usableWidth >= 420 ? 4 : 3;
   const padding = 12;
   const gap = 8;
-  const cardWidth = Math.floor((width - 200 - padding * 2 - gap * (numCols - 1)) / numCols);
+  const cardWidth = Math.floor((usableWidth - padding * 2 - gap * (numCols - 1)) / numCols);
 
   const filtered = livros.filter(l => {
     const q = search.toLowerCase();
@@ -288,7 +290,7 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
   });
 
   return (
-    <View style={styles.flex}>
+    <View style={styles.flex} onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       {/* Search + Add */}
       <View style={styles.searchRow}>
         <View style={styles.searchBox}>

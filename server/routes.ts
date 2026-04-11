@@ -9078,6 +9078,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mensagensNaoLidas,
         notasNegativas,
         faltasExcessivas,
+        livrosAtrasados,
       ] = await Promise.all([
         // 1. Propinas em atraso
         query(`
@@ -9165,6 +9166,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
           HAVING COUNT(p.id) >= 10
           ORDER BY a.id, total_faltas DESC
+          LIMIT 20
+        `, []),
+        // 7. Livros de biblioteca em atraso
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            COUNT(e.id) as total_atrasos,
+            MAX(CURRENT_DATE - e."dataPrevistaDevolucao"::date) as max_dias,
+            MIN(e."dataPrevistaDevolucao") as mais_antiga
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN emprestimos e ON e."alunoId" = a.id
+            AND e.status IN ('atrasado', 'emprestado')
+            AND e."dataPrevistaDevolucao"::date < CURRENT_DATE
+          WHERE a.ativo = true AND a.falecido = false
+          GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+          ORDER BY a.id, mais_antiga ASC
           LIMIT 20
         `, []),
       ]);
@@ -9260,6 +9280,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           descricao: `${count} falta${count > 1 ? 's' : ''} injustificada${count > 1 ? 's' : ''} registada${count > 1 ? 's' : ''}`,
           severidade: count >= 25 ? 'urgente' : count >= 15 ? 'aviso' : 'info',
           area: 'Pedagógico', createdAt: new Date().toISOString(),
+        });
+      }
+
+      const livrosAtrasadosIds = new Set<string>();
+      for (const row of livrosAtrasados.rows) {
+        if (livrosAtrasadosIds.has(row.alunoId)) continue;
+        livrosAtrasadosIds.add(row.alunoId);
+        const total = parseInt(row.total_atrasos);
+        const maxDias = parseInt(row.max_dias) || 1;
+        pendencias.push({
+          id: `livros-atraso-${row.alunoId}`,
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'livro_em_atraso',
+          descricao: total === 1
+            ? `1 livro da biblioteca em atraso (${maxDias} dia${maxDias > 1 ? 's' : ''} sem devolver)`
+            : `${total} livros da biblioteca em atraso (máx. ${maxDias} dia${maxDias > 1 ? 's' : ''} sem devolver)`,
+          severidade: maxDias >= 15 ? 'urgente' : maxDias >= 7 ? 'aviso' : 'info',
+          area: 'Biblioteca', createdAt: row.mais_antiga,
         });
       }
 

@@ -20,7 +20,7 @@ interface Pendencia {
   foto: string | null;
   turma: string;
   curso: string;
-  tipoPendencia: 'propina' | 'bloqueio' | 'rupe' | 'aviso_financeiro' | 'nota_negativa' | 'faltas_excessivas';
+  tipoPendencia: 'propina' | 'bloqueio' | 'rupe' | 'aviso_financeiro' | 'nota_negativa' | 'faltas_excessivas' | 'livro_em_atraso';
   descricao: string;
   severidade: 'urgente' | 'aviso' | 'info';
   area: string;
@@ -51,6 +51,7 @@ function getTipoIcon(tipo: Pendencia['tipoPendencia']): { lib: 'ion' | 'mci'; na
     case 'aviso_financeiro': return { lib: 'ion', name: 'warning' };
     case 'nota_negativa': return { lib: 'mci', name: 'close-circle' };
     case 'faltas_excessivas': return { lib: 'mci', name: 'calendar-remove' };
+    case 'livro_em_atraso': return { lib: 'ion', name: 'book' };
     default: return { lib: 'ion', name: 'alert-circle' };
   }
 }
@@ -63,6 +64,7 @@ function getTipoLabel(tipo: Pendencia['tipoPendencia']) {
     case 'aviso_financeiro': return 'Aviso';
     case 'nota_negativa': return 'Nota Negativa';
     case 'faltas_excessivas': return 'Faltas Excessivas';
+    case 'livro_em_atraso': return 'Livro em Atraso';
     default: return 'Pendência';
   }
 }
@@ -180,6 +182,7 @@ function StudentCard({ p, onDismiss }: { p: Pendencia; onDismiss: () => void }) 
           onPress={() => {
             if (p.tipoPendencia === 'nota_negativa') router.push('/(main)/notas' as any);
             else if (p.tipoPendencia === 'faltas_excessivas') router.push('/(main)/presencas' as any);
+            else if (p.tipoPendencia === 'livro_em_atraso') router.push('/(main)/biblioteca' as any);
             else router.push('/(main)/pagamentos-hub' as any);
           }}
           activeOpacity={0.75}
@@ -294,6 +297,7 @@ function TriggerCard({
                 onPress={() => {
                   if (p.tipoPendencia === 'nota_negativa') router.push('/(main)/notas' as any);
                   else if (p.tipoPendencia === 'faltas_excessivas') router.push('/(main)/presencas' as any);
+                  else if (p.tipoPendencia === 'livro_em_atraso') router.push('/(main)/biblioteca' as any);
                   else router.push('/(main)/pagamentos-hub' as any);
                 }}
                 activeOpacity={0.75}

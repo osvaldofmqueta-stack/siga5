@@ -403,23 +403,13 @@ export default function HorarioScreen() {
         rightAction={!isProf && !isAluno ? { icon: 'settings-outline', onPress: () => { setEditPeriodos(periodos); setShowPeriodosModal(true); } } : undefined}
       />
 
-      {/* Professor: toggle between "Meu Horário" and "Por Turma" */}
+      {/* Professor: always in "Meu Horário" mode — locked view */}
       {isProf && (
         <View style={styles.profViewToggle}>
-          <TouchableOpacity
-            style={[styles.profViewBtn, profView === 'meu' && styles.profViewBtnActive]}
-            onPress={() => setProfView('meu')}
-          >
-            <Ionicons name="person-circle-outline" size={14} color={profView === 'meu' ? Colors.gold : Colors.textMuted} />
-            <Text style={[styles.profViewBtnText, profView === 'meu' && styles.profViewBtnTextActive]}>Meu Horário</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.profViewBtn, profView === 'turma' && styles.profViewBtnActive]}
-            onPress={() => setProfView('turma')}
-          >
-            <Ionicons name="people-outline" size={14} color={profView === 'turma' ? Colors.gold : Colors.textMuted} />
-            <Text style={[styles.profViewBtnText, profView === 'turma' && styles.profViewBtnTextActive]}>Por Turma</Text>
-          </TouchableOpacity>
+          <View style={[styles.profViewBtn, styles.profViewBtnActive]}>
+            <Ionicons name="person-circle-outline" size={14} color={Colors.gold} />
+            <Text style={[styles.profViewBtnText, styles.profViewBtnTextActive]}>Meu Horário</Text>
+          </View>
         </View>
       )}
 

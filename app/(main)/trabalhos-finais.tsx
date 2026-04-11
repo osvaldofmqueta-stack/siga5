@@ -139,14 +139,14 @@ export default function TrabalhosFinals() {
   const topVisitados = [...trabalhos].sort((a, b) => (b.visitas || 0) - (a.visitas || 0)).slice(0, 3).filter(t => (t.visitas || 0) > 0);
 
   const { width: screenWidth } = useWindowDimensions();
-  const sidebarWidth = Platform.OS === 'web' && screenWidth > 768 ? 240 : 0;
-  const availableWidth = screenWidth - sidebarWidth;
+  const [containerWidth, setContainerWidth] = useState(screenWidth);
+  const usableWidth = containerWidth || screenWidth;
   const CARD_MIN = 150;
-  const numCols = Math.max(2, Math.min(7, Math.floor((availableWidth - 32) / (CARD_MIN + 10))));
-  const cardWidth = Math.floor((availableWidth - 32 - (numCols - 1) * 10) / numCols);
+  const numCols = Math.max(2, Math.min(7, Math.floor((usableWidth - 32) / (CARD_MIN + 10))));
+  const cardWidth = Math.floor((usableWidth - 32 - (numCols - 1) * 10) / numCols);
 
   return (
-    <View style={styles.root}>
+    <View style={styles.root} onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}>
       <TopBar
         title="Repositório de Trabalhos Finais"
         subtitle="13ª Classe — Ensino Técnico Profissional"
