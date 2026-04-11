@@ -59,6 +59,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] utilizadores.telefone:', (migErr as Error).message);
   }
 
+  // Add avatar column to utilizadores (for profile photo)
+  try {
+    await query(`ALTER TABLE public.utilizadores ADD COLUMN IF NOT EXISTS avatar text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] utilizadores.avatar ensured.');
+  } catch (migErr) {
+    console.warn('[migration] utilizadores.avatar:', (migErr as Error).message);
+  }
+
   // Add utilizadorId column to professores (links academic profile → user account)
   try {
     await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
