@@ -387,9 +387,13 @@ interface UserPermRecord {
 interface PermissoesContextValue {
   hasPermission: (key: PermKey) => boolean;
   allUserPermissions: UserPermRecord[];
+  rolePermissions: Record<string, Record<string, boolean>>;
   getUserPermissions: (userId: string, role: string) => Record<PermKey, boolean>;
   saveUserPermissions: (userId: string, permissoes: Record<string, boolean>) => Promise<void>;
   resetUserPermissions: (userId: string) => Promise<void>;
+  getRolePermissions: (role: string) => Record<PermKey, boolean>;
+  saveRolePermissions: (role: string, permissoes: Record<string, boolean>) => Promise<void>;
+  resetRolePermissions: (role: string) => Promise<void>;
   isLoading: boolean;
   reload: () => void;
 }
@@ -400,6 +404,7 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [myPermissoes, setMyPermissoes] = useState<Record<string, boolean>>({});
   const [allUserPermissions, setAllUserPermissions] = useState<UserPermRecord[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<Record<string, Record<string, boolean>>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [tick, setTick] = useState(0);
 
@@ -415,9 +420,10 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const isSuperUser = user.role === 'ceo' || user.role === 'pca' || user.role === 'chefe_secretaria';
-      const [myRes, allRes] = await Promise.all([
+      const [myRes, allRes, roleRes] = await Promise.all([
         fetch(`/api/user-permissions/${user.id}`),
         isSuperUser ? fetch('/api/user-permissions') : Promise.resolve(null),
+        fetch('/api/role-permissions'),
       ]);
       const myData = await myRes.json();
       setMyPermissoes(myData.permissoes || {});
@@ -427,6 +433,10 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
           ? allData.map((r: any) => ({ userId: r.user_id || r.userId, permissoes: r.permissoes || {} }))
           : []
         );
+      }
+      if (roleRes.ok) {
+        const roleData = await roleRes.json();
+        setRolePermissions(typeof roleData === 'object' && roleData ? roleData : {});
       }
     } catch {
       // ignore
@@ -445,17 +455,42 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     if (Object.keys(myPermissoes).length > 0) {
       if (key in myPermissoes) return myPermissoes[key] === true;
     }
-    // Fallback: role default
+    // Check role-level permissions from DB (editable by admins)
+    const dbRolePerms = rolePermissions[user.role];
+    if (dbRolePerms && Object.keys(dbRolePerms).length > 0) {
+      if (key in dbRolePerms) return dbRolePerms[key] === true;
+    }
+    // Fallback: hardcoded role default
     return (ROLE_DEFAULTS[user.role] || []).includes(key as PermKey);
   }
 
   function getUserPermissions(userId: string, role: string): Record<PermKey, boolean> {
     const stored = allUserPermissions.find(p => p.userId === userId);
+    const dbRolePerms = rolePermissions[role] || {};
     const defaults = ROLE_DEFAULTS[role] || [];
     const result: Record<string, boolean> = {};
     ALL_KEYS.forEach(key => {
       if (stored && Object.keys(stored.permissoes).length > 0 && key in stored.permissoes) {
+        // Individual user override takes precedence
         result[key] = stored.permissoes[key] === true;
+      } else if (Object.keys(dbRolePerms).length > 0 && key in dbRolePerms) {
+        // Role profile DB setting
+        result[key] = dbRolePerms[key] === true;
+      } else {
+        // Hardcoded default
+        result[key] = defaults.includes(key);
+      }
+    });
+    return result as Record<PermKey, boolean>;
+  }
+
+  function getRolePermissions(role: string): Record<PermKey, boolean> {
+    const dbRolePerms = rolePermissions[role] || {};
+    const defaults = ROLE_DEFAULTS[role] || [];
+    const result: Record<string, boolean> = {};
+    ALL_KEYS.forEach(key => {
+      if (Object.keys(dbRolePerms).length > 0 && key in dbRolePerms) {
+        result[key] = dbRolePerms[key] === true;
       } else {
         result[key] = defaults.includes(key);
       }
@@ -477,13 +512,31 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     reload();
   }
 
+  async function saveRolePermissions(role: string, permissoes: Record<string, boolean>) {
+    await fetch(`/api/role-permissions/${role}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissoes }),
+    });
+    reload();
+  }
+
+  async function resetRolePermissions(role: string) {
+    await fetch(`/api/role-permissions/${role}`, { method: 'DELETE' });
+    reload();
+  }
+
   return (
     <PermissoesContext.Provider value={{
       hasPermission,
       allUserPermissions,
+      rolePermissions,
       getUserPermissions,
       saveUserPermissions,
       resetUserPermissions,
+      getRolePermissions,
+      saveRolePermissions,
+      resetRolePermissions,
       isLoading,
       reload,
     }}>

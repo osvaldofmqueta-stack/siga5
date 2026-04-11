@@ -4154,6 +4154,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
+  // PERFIS DE CARGO (role-level permissions)
+  // -----------------------
+
+  app.get("/api/role-permissions", requireAuth, async (_req: Request, res: Response) => {
+    const rows = await query<JsonObject>(`SELECT role, permissoes FROM public.role_permissions`, []);
+    const result: Record<string, Record<string, boolean>> = {};
+    for (const row of rows) {
+      result[row.role as string] = (row.permissoes as Record<string, boolean>) || {};
+    }
+    json(res, 200, result);
+  });
+
+  app.put("/api/role-permissions/:role", requireAuth, requirePermission("gestao_acessos"), async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const permissoes = b.permissoes ?? {};
+      await query(
+        `INSERT INTO public.role_permissions (role, permissoes, atualizado_em)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (role)
+         DO UPDATE SET permissoes=$2::jsonb, atualizado_em=NOW()`,
+        [req.params.role, jsonbParam(permissoes)],
+      );
+      json(res, 200, { ok: true });
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.delete("/api/role-permissions/:role", requireAuth, requirePermission("gestao_acessos"), async (req: Request, res: Response) => {
+    await query(`DELETE FROM public.role_permissions WHERE role=$1`, [req.params.role]);
+    json(res, 200, { ok: true });
+  });
+
+  // -----------------------
   // CONFIGURAÇÕES
   // -----------------------
 
@@ -9648,6 +9681,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     console.log('[seed] horarios generated/verified for all turmas.');
   } catch (e) { console.warn('[seed] horarios generation:', (e as Error).message); }
+
+  // ── Migration: Perfis de Cargo (role_permissions) ────────────────────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.role_permissions (
+        role TEXT PRIMARY KEY,
+        permissoes JSONB NOT NULL DEFAULT '{}',
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `, []);
+    console.log('[migration] role_permissions table ensured.');
+  } catch (e) { console.warn('[migration] role_permissions:', (e as Error).message); }
 
   // ─── PLANO DE CONTAS ROUTES ─────────────────────────────────────────────────
   app.get('/api/plano-contas', requireAuth, async (req, res) => {
