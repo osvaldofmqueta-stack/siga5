@@ -845,6 +845,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [...values, id],
       );
       if (!rows[0]) return json(res, 404, { error: "Not found." });
+
+      // Sync foto → utilizadores.avatar for linked user
+      if (b.foto !== undefined) {
+        try {
+          await query(`UPDATE public.utilizadores SET avatar=$1 WHERE id=(SELECT "utilizadorId" FROM public.alunos WHERE id=$2)`, [b.foto, id]);
+        } catch { /* best-effort */ }
+      }
+
       json(res, 200, rows[0]);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
@@ -1110,6 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "tipoContrato",
         "valorPorTempoLectivo",
         "temposSemanais",
+        "foto",
       ] as const;
 
       const jsonbKeys = new Set(["disciplinas", "turmasIds"]);
@@ -1137,6 +1146,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [...values, id],
       );
       if (!rows[0]) return json(res, 404, { error: "Not found." });
+
+      // Sync foto → utilizadores.avatar for linked user
+      if (b.foto !== undefined) {
+        try {
+          await query(`UPDATE public.utilizadores SET avatar=$1 WHERE id=(SELECT "utilizadorId" FROM public.professores WHERE id=$2)`, [b.foto, id]);
+        } catch { /* best-effort */ }
+      }
+
       json(res, 200, rows[0]);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
@@ -2119,7 +2136,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       if (!updated[0]) return json(res, 404, { error: "Utilizador não encontrado." });
 
-      // Sync email/telefone to linked records (best-effort)
+      // Sync email/telefone/avatar to linked records (best-effort)
       try {
         if (b.email !== undefined || b.telefone !== undefined) {
           // professor
@@ -2131,6 +2148,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await query(`UPDATE public.professores SET ${syncParts.join(",")} WHERE "utilizadorId"=$${syncVals.length}`, syncVals);
             await query(`UPDATE public.funcionarios SET ${syncParts.join(",")} WHERE "utilizadorId"=$${syncVals.length}`, syncVals);
           }
+        }
+        // Sync avatar → professores.foto and alunos.foto
+        if (b.avatar !== undefined) {
+          await query(`UPDATE public.professores SET foto=$1 WHERE "utilizadorId"=$2`, [b.avatar, userId]);
+          await query(`UPDATE public.alunos SET foto=$1 WHERE "utilizadorId"=$2`, [b.avatar, userId]);
         }
       } catch { /* sync is best-effort */ }
 
