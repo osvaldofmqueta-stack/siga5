@@ -603,7 +603,7 @@ export default function AlunosScreen() {
         </TouchableOpacity>
       )}
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={styles.filterContent}>
+      <View style={[styles.filterScroll, { flexDirection: 'row', flexWrap: 'wrap', maxHeight: undefined, height: undefined }]}>
         <TouchableOpacity style={[styles.filterChip, !filterTurma && styles.filterChipActive]} onPress={() => setFilterTurma('')}>
           <Text style={[styles.filterChipText, !filterTurma && styles.filterChipTextActive]}>Todas</Text>
         </TouchableOpacity>
@@ -617,7 +617,7 @@ export default function AlunosScreen() {
             <Text style={[styles.filterChipText, filterTurma === 'sem-turma' && { color: '#000' }]}>Sem Turma ({alunosSemTurma.length})</Text>
           </TouchableOpacity>
         )}
-      </ScrollView>
+      </View>
 
       <FlatList
         data={filtered}

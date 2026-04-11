@@ -377,7 +377,7 @@ export default function ExclusoesFaltasScreen() {
 
       {/* Filter Bar */}
       <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
           {/* Turma filter */}
           <TouchableOpacity
             style={[styles.filterChip, !filtroTurma && styles.filterChipActive]}
@@ -394,7 +394,7 @@ export default function ExclusoesFaltasScreen() {
               <Text style={styles.filterChipText}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       {loading && !refreshing ? (
@@ -619,7 +619,7 @@ function LevantamentoMensalTab({ registos, turmas, alunos, configs, mes, ano, tr
       {/* Filters */}
       <View style={styles.monthFilter}>
         <Text style={styles.filterLabel}>Mês:</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4 }}>
           {MESES.map((m, i) => (
             <TouchableOpacity
               key={i}
@@ -629,7 +629,7 @@ function LevantamentoMensalTab({ registos, turmas, alunos, configs, mes, ano, tr
               <Text style={[styles.filterChipSmText, mes === i + 1 && { color: Colors.gold }]}>{m}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
 
       <View style={styles.monthFilter}>
@@ -1026,14 +1026,14 @@ function ConfigModal({ turmas, anoLetivo, userName, userId, onClose, onSaved }: 
         </View>
 
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => { setTurmaId(t.id); setDisciplina(''); }}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         <Text style={styles.label}>Disciplina *</Text>
         <DisciplinaSelector turmaId={turmaId} value={disciplina} onChange={setDisciplina} allowAll={true} />
@@ -1140,14 +1140,14 @@ function RegistoMensalModal({ turmas, alunos, configs, mes, ano, trimestre, user
     >
       <ScrollView showsVerticalScrollIndicator={false}>
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {turmaId && (
           <>
@@ -1296,14 +1296,14 @@ function ExclusaoModal({ turmas, alunos, anoLetivo, mes, ano, trimestre, userNam
         </View>
 
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {turmaId && (
           <>
@@ -1414,14 +1414,14 @@ function ProvaJustificadaModal({ turmas, alunos, anoLetivo, trimestre, userName,
         </View>
 
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => { setTurmaId(t.id); setAlunoId(''); setDisciplina(''); }}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {turmaId && (
           <>
@@ -1663,14 +1663,14 @@ function AnulacaoModal({ turmas, alunos, anoLetivo, userName, userId, onClose, o
         </View>
 
         <Text style={styles.label}>Turma *</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
           {turmas.map(t => (
             <TouchableOpacity key={t.id} style={[styles.optChip, turmaId === t.id && styles.optChipActive]}
               onPress={() => setTurmaId(t.id)}>
               <Text style={[styles.optChipText, turmaId === t.id && { color: Colors.gold }]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
 
         {turmaId && (
           <>

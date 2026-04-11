@@ -621,19 +621,14 @@ export default function PedagogicoScreen() {
     return (
       <View style={{ marginBottom: 8 }}>
         <Text style={st.filterLabel}>{label}</Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ maxHeight: 40 }}
-          contentContainerStyle={{ gap: 6, paddingVertical: 2, alignItems: 'center' }}
-        >
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingVertical: 2 }}>
           {options.map(o => (
             <TouchableOpacity key={String(o.value)} onPress={() => onChange(o.value)}
               style={[st.chip, value === o.value && st.chipActive]}>
               <Text style={[st.chipText, value === o.value && st.chipTextActive]}>{o.label}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       </View>
     );
   }
@@ -1280,24 +1275,24 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Turma *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {turmasVisiveis.map(t => (
               <TouchableOpacity key={t.id} onPress={() => setFormPlan(p => ({ ...p, turmaId: t.id }))}
                 style={[st.chip, formPlan.turmaId === t.id && st.chipActive]}>
                 <Text style={[st.chipText, formPlan.turmaId === t.id && st.chipTextActive]}>{t.nome}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
 
           <Text style={st.lbl}>Disciplina *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {disciplinasVisiveis.map(d => (
               <TouchableOpacity key={d} onPress={() => setFormPlan(p => ({ ...p, disciplina: d }))}
                 style={[st.chip, formPlan.disciplina === d && st.chipActive]}>
                 <Text style={[st.chipText, formPlan.disciplina === d && st.chipTextActive]}>{d}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
 
           <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
             <View style={{ flex: 1 }}>
@@ -1362,24 +1357,24 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Disciplina *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {disciplinasVisiveis.map(d => (
               <TouchableOpacity key={d} onPress={() => setFormProg(p => ({ ...p, disciplina: d }))}
                 style={[st.chip, formProg.disciplina === d && st.chipActive]}>
                 <Text style={[st.chipText, formProg.disciplina === d && st.chipTextActive]}>{d}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
 
           <Text style={st.lbl}>Classe *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {classes.map(c => (
               <TouchableOpacity key={c} onPress={() => setFormProg(p => ({ ...p, classe: c }))}
                 style={[st.chip, formProg.classe === c && st.chipActive]}>
                 <Text style={[st.chipText, formProg.classe === c && st.chipTextActive]}>{c}ª</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
 
           <Text style={st.lbl}>Trimestre *</Text>
           <View style={{ flexDirection: 'row', gap: 6, marginBottom: 14 }}>
@@ -1453,26 +1448,26 @@ export default function PedagogicoScreen() {
           </View>
 
           <Text style={st.lbl}>Turma *</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
             {turmasVisiveis.map(t => (
               <TouchableOpacity key={t.id} onPress={() => setFormOco(p => ({ ...p, turmaId: t.id, alunoId: '' }))}
                 style={[st.chip, formOco.turmaId === t.id && st.chipActive]}>
                 <Text style={[st.chipText, formOco.turmaId === t.id && st.chipTextActive]}>{t.nome}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
 
           {formOco.turmaId !== '' && (
             <>
               <Text style={st.lbl}>Aluno *</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ maxHeight: 40, marginBottom: 14 }} contentContainerStyle={{ gap: 6, alignItems: 'center' }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
                 {alunosTurma.map(a => (
                   <TouchableOpacity key={a.id} onPress={() => setFormOco(p => ({ ...p, alunoId: a.id }))}
                     style={[st.chip, formOco.alunoId === a.id && st.chipActive]}>
                     <Text style={[st.chipText, formOco.alunoId === a.id && st.chipTextActive]}>{a.nome} {a.apelido}</Text>
                   </TouchableOpacity>
                 ))}
-              </ScrollView>
+              </View>
             </>
           )}
 

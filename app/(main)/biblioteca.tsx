@@ -1925,7 +1925,7 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
 
         {/* Month + Year selector */}
         <View style={sStyles.monthPicker}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
             {MESES.map((m, i) => (
               <TouchableOpacity
                 key={i}
@@ -1935,7 +1935,7 @@ function StatsTab({ livros, emprestimos, totalLivros, totalDisp, totalEmprestado
                 <Text style={[sStyles.monthBtnText, mesSel === i + 1 && { color: '#fff' }]}>{m}</Text>
               </TouchableOpacity>
             ))}
-          </ScrollView>
+          </View>
           <View style={sStyles.yearRow}>
             {anos.map(a => (
               <TouchableOpacity

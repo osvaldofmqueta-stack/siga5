@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export type UserRole = 'ceo' | 'pca' | 'admin' | 'director' | 'chefe_secretaria' | 'secretaria' | 'professor' | 'aluno' | 'financeiro' | 'encarregado' | 'rh';
+export type UserRole = 'ceo' | 'pca' | 'admin' | 'director' | 'chefe_secretaria' | 'secretaria' | 'professor' | 'diretor_turma' | 'subdiretor_administrativo' | 'aluno' | 'financeiro' | 'encarregado' | 'rh' | 'pedagogico';
 
 export interface AuthUser {
   id: string;

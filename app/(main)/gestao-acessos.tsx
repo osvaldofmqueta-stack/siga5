@@ -17,16 +17,25 @@ import {
 import TopBar from '@/components/TopBar';
 
 const ROLE_LABEL: Record<string, string> = {
-  ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
-  chefe_secretaria: 'Chefe de Secretaria',
-  secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno', financeiro: 'Financeiro',
-  encarregado: 'Encarregado', rh: 'Recursos Humanos',
+  ceo: 'CEO', pca: 'PCA', admin: 'Administrador do Sistema',
+  director: 'Subdiretor(a) Pedagógico',
+  subdiretor_administrativo: 'Subdiretor(a) Administrativo',
+  chefe_secretaria: 'Secretaria Académica',
+  secretaria: 'Secretaria', professor: 'Professor',
+  diretor_turma: 'Professor — Diretor de Turma',
+  aluno: 'Aluno', financeiro: 'Gestor Financeiro',
+  encarregado: 'Encarregado de Educação', rh: 'Gestor de Recursos Humanos',
+  pedagogico: 'Diretor Académico',
 };
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#8B5CF6', pca: '#F59E0B', admin: '#3B82F6', director: Colors.accent,
+  subdiretor_administrativo: '#7C3AED',
   chefe_secretaria: '#E11D48',
-  secretaria: Colors.gold, professor: Colors.info, aluno: Colors.success, financeiro: '#10B981',
+  secretaria: Colors.gold, professor: Colors.info,
+  diretor_turma: '#0EA5E9',
+  aluno: Colors.success, financeiro: '#10B981',
   encarregado: '#F97316', rh: '#06B6D4',
+  pedagogico: '#D97706',
 };
 
 function initials(nome: string) {

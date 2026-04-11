@@ -331,6 +331,43 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'biblioteca', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
   ],
 
+  // ── Diretor de Turma: professor com funções de direcção de turma ──
+  // Tem tudo do professor normal, mais acesso específico às ferramentas
+  // de diretor de turma (faltas, ocorrências, comunicação com encarregados).
+  diretor_turma: [
+    'professor_hub', 'notificacoes', 'chat_interno', 'eventos',
+    // Actividade lectiva
+    'notas', 'professor_turmas', 'professor_pauta', 'horario',
+    'professor_sumario', 'professor_mensagens', 'professor_materiais',
+    // Funções de diretor de turma (diferencial em relação ao professor normal)
+    'diario_classe', 'director_turma', 'relatorio_faltas', 'exclusoes_faltas',
+    // Recursos
+    'biblioteca', 'quadro_honra', 'trabalhos_finais', 'plano_aula',
+  ],
+
+  // ── Subdiretor Administrativo: gestão administrativa e financeira ──
+  // Supervisiona todas as áreas operacionais: secretaria, financeiro, RH e infra-estrutura.
+  // Não tem acesso a funcionalidades pedagógicas avançadas nem ao dashboard executivo.
+  subdiretor_administrativo: [
+    'dashboard', 'eventos', 'notificacoes', 'chat_interno',
+    'calendario_academico', 'controlo_supervisao', 'auditoria',
+    // Académico (supervisão administrativa)
+    'alunos', 'professores', 'turmas', 'salas',
+    'historico', 'admissao', 'transferencias', 'gestao_academica',
+    // Financeiro (supervisão e operação)
+    'financeiro', 'boletim_propina', 'extrato_propinas', 'bolsas',
+    'financeiro_relatorios', 'pagamentos_hub',
+    // RH (supervisão e operação)
+    'rh_hub', 'rh_controle', 'rh_payroll', 'funcionarios',
+    // Secretaria (supervisão)
+    'secretaria_hub', 'editor_documentos', 'boletim_matricula',
+    'documentos_hub', 'gerar_documento', 'processos_secretaria',
+    // Biblioteca e recursos
+    'biblioteca', 'relatorios',
+    // Integrações
+    'med_integracao',
+  ] as PermKey[],
+
   // ── Aluno: portal do estudante ────────────────────────────────────
   aluno: [
     'portal_estudante', 'notificacoes', 'horario', 'historico',

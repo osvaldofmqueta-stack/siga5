@@ -180,7 +180,7 @@ export default function TrabalhosFinals() {
       </View>
 
       {anos.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll} contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}>
+        <View style={[styles.filterScroll, { flexDirection: 'row', flexWrap: 'wrap', gap: 8, maxHeight: undefined, height: undefined }]}>
           <TouchableOpacity
             style={[styles.anoChip, !anoFiltro && styles.anoChipActive]}
             onPress={() => setAnoFiltro('')}
@@ -196,7 +196,7 @@ export default function TrabalhosFinals() {
               <Text style={[styles.anoChipText, anoFiltro === a && { color: '#fff' }]}>{a}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       )}
 
       <View style={styles.countRow}>
@@ -598,7 +598,7 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
             </View>
 
             <MLabel>Curso Técnico Profissional *</MLabel>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
               {CURSOS.filter(c => c !== 'Todos').map(c => (
                 <TouchableOpacity
                   key={c}
@@ -608,7 +608,7 @@ function TrabalhoModal({ visible, item, onClose, onSaved }: {
                   <Text style={[mStyles.chipText, form.curso === c && { color: '#fff' }]}>{c}</Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
 
             <MLabel>Imagem da Capa</MLabel>
             <TouchableOpacity style={mStyles.imagePickerBtn} onPress={handlePickImage} disabled={uploading}>
