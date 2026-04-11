@@ -57,6 +57,7 @@ export const utilizadores = pgTable("utilizadores", {
   departamento: text("departamento"), // DepartamentoKey
   cargo: text("cargo"),               // CargoInfo.id
   criadoEm: timestamp("criadoEm", { withTimezone: true }).notNull().defaultNow(),
+  avatar: text("avatar"),
 });
 
 // -----------------------
