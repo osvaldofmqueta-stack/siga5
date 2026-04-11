@@ -640,6 +640,24 @@ export default function PerfilScreen() {
                 <InfoRow label="Habilitações" value={prof.habilitacoes} />
                 <InfoRow label="Disciplinas" value={(Array.isArray(prof.disciplinas) ? prof.disciplinas : []).join(', ')} />
                 <InfoRow label="Turmas" value={minhasTurmas.map(t => t.nome).join(', ')} />
+                {/* Vínculo Contratual */}
+                {(() => {
+                  const VINCULO_MAP: Record<string, { label: string; color: string }> = {
+                    efectivo:            { label: 'Efectivo',             color: Colors.success },
+                    colaborador:         { label: 'Colaborador',          color: Colors.info },
+                    contratado:          { label: 'Contratado',           color: '#FF9F0A' },
+                    prestacao_servicos:  { label: 'Prestação de Serviços', color: '#AF52DE' },
+                  };
+                  const v = VINCULO_MAP[prof.tipoContrato as string] ?? { label: prof.tipoContrato || '—', color: Colors.textMuted };
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4 }}>
+                      <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Vínculo Contratual</Text>
+                      <View style={{ backgroundColor: v.color + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                        <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: v.color }}>{v.label}</Text>
+                      </View>
+                    </View>
+                  );
+                })()}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, borderTopWidth: 1, borderTopColor: Colors.border, marginTop: 4 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textSecondary }}>Notas no Portal do Estudante</Text>
@@ -815,15 +833,31 @@ export default function PerfilScreen() {
     const mesNome = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'][Number(salEst.mes) - 1] ?? salEst.mes;
     const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(salEst.tipoContrato);
 
+    const VINCULO_MAP: Record<string, { label: string; color: string }> = {
+      efectivo:           { label: 'Efectivo',              color: Colors.success },
+      colaborador:        { label: 'Colaborador',           color: Colors.info },
+      contratado:         { label: 'Contratado',            color: '#FF9F0A' },
+      prestacao_servicos: { label: 'Prestação de Serviços', color: '#AF52DE' },
+    };
+    const vinculo = VINCULO_MAP[salEst.tipoContrato] ?? { label: salEst.tipoContrato || 'Efectivo', color: Colors.success };
+
     return (
       <View style={[styles.card, { borderLeftWidth: 3, borderLeftColor: Colors.gold }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <Ionicons name="wallet-outline" size={18} color={Colors.gold} />
             <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text }}>Estimativa Salarial</Text>
           </View>
           <View style={{ backgroundColor: Colors.gold + '22', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 }}>
             <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.gold }}>{mesNome} {salEst.ano}</Text>
+          </View>
+        </View>
+        {/* Vínculo contratual badge */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+          <Ionicons name="document-text-outline" size={13} color={vinculo.color} />
+          <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Vínculo:</Text>
+          <View style={{ backgroundColor: vinculo.color + '22', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_700Bold', color: vinculo.color }}>{vinculo.label}</Text>
           </View>
         </View>
 
