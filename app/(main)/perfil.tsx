@@ -973,6 +973,24 @@ export default function PerfilScreen() {
             <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success }}>{fmt(salEst.salarioLiquido)}</Text>
           </View>
         </View>
+        {/* Legenda: taxa por tempo + desconto por falta */}
+        <View style={{ marginTop: 10, padding: 10, backgroundColor: Colors.primaryDark, borderRadius: 10, gap: 4 }}>
+          <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+            Referência de Taxas
+          </Text>
+          {salEst.valorPorTempoLectivo > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Ganho por tempo lectivo</Text>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>{fmt(salEst.valorPorTempoLectivo)}</Text>
+            </View>
+          )}
+          {salEst.valorPorFaltaAplicado > 0 && (
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Desconto por falta</Text>
+              <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: Colors.danger }}>-{fmt(salEst.valorPorFaltaAplicado)}</Text>
+            </View>
+          )}
+        </View>
         <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, textAlign: 'right' }}>
           * Estimativa baseada nos dados actuais. Sujeito a revisão pelo departamento de RH.
         </Text>

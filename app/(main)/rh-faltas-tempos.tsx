@@ -69,6 +69,9 @@ interface TempoLectivo {
 
 interface ConfigRH {
   valorPorFalta: number;
+  valorFaltaEfectivo: number;
+  valorFaltaColaborador: number;
+  valorFaltaAdministrativo: number;
   valorMeioDia: number;
   taxaTempoLectivo: number;
   taxaAdminPorDia: number;
@@ -196,7 +199,7 @@ function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) 
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorFaltaEfectivo: 0, valorFaltaColaborador: 0, valorFaltaAdministrativo: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
   const [showForm, setShowForm] = useState(false);
   const [deptFiltro, setDeptFiltro] = useState<string>('todos');
   const [search, setSearch] = useState('');
@@ -219,7 +222,7 @@ function FaltasTab({ mes, ano, user }: { mes: number; ano: number; user: any }) 
       ]);
       setFaltas(Array.isArray(f) ? f : []);
       setFuncionarios(Array.isArray(funcs) ? funcs : []);
-      setConfigRH(cfg ?? { valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
+      setConfigRH(cfg ?? { valorPorFalta: 0, valorFaltaEfectivo: 0, valorFaltaColaborador: 0, valorFaltaAdministrativo: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
     } catch { /* ignore */ }
     finally { setLoading(false); setRefreshing(false); }
   }, [mes, ano]);
@@ -473,7 +476,7 @@ function FaltaCard({ falta, configRH, onDelete }: { falta: FaltaFuncionario; con
 function TemposTab({ tipo, mes, ano, user }: { tipo: 'professor' | 'admin'; mes: number; ano: number; user: any }) {
   const [tempos, setTempos] = useState<TempoLectivo[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
-  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+  const [configRH, setConfigRH] = useState<ConfigRH>({ valorPorFalta: 0, valorFaltaEfectivo: 0, valorFaltaColaborador: 0, valorFaltaAdministrativo: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -781,7 +784,7 @@ function TempoCard({ func, tempo, tipo, configRH, onEdit, onDelete }: {
 
 // ── Configuração Tab ───────────────────────────────────────────────────────────
 function ConfiguracaoTab() {
-  const [config, setConfig] = useState<ConfigRH>({ valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
+  const [config, setConfig] = useState<ConfigRH>({ valorPorFalta: 0, valorFaltaEfectivo: 0, valorFaltaColaborador: 0, valorFaltaAdministrativo: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, descontoPorTempoNaoDado: 0, semanasPorMes: 4, observacoes: '' });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -816,12 +819,28 @@ function ConfiguracaoTab() {
         </Text>
 
         <ConfigField
-          label="Desconto por Falta Injustificada (Kz)"
-          value={String(config.valorPorFalta)}
-          onChangeText={v => setConfig(p => ({ ...p, valorPorFalta: parseFloat(v) || 0 }))}
+          label="Desconto por Falta — Professor Efectivo (Kz)"
+          value={String(config.valorFaltaEfectivo)}
+          onChangeText={v => setConfig(p => ({ ...p, valorFaltaEfectivo: parseFloat(v) || 0 }))}
           placeholder="Ex: 3500"
           icon="close-circle"
           iconColor={Colors.danger}
+        />
+        <ConfigField
+          label="Desconto por Falta — Colaborador / Contratado (Kz)"
+          value={String(config.valorFaltaColaborador)}
+          onChangeText={v => setConfig(p => ({ ...p, valorFaltaColaborador: parseFloat(v) || 0 }))}
+          placeholder="Ex: 2500"
+          icon="close-circle"
+          iconColor="#FF9F0A"
+        />
+        <ConfigField
+          label="Desconto por Falta — Pessoal Administrativo (Kz)"
+          value={String(config.valorFaltaAdministrativo)}
+          onChangeText={v => setConfig(p => ({ ...p, valorFaltaAdministrativo: parseFloat(v) || 0 }))}
+          placeholder="Ex: 3000"
+          icon="close-circle"
+          iconColor="#AB47BC"
         />
         <ConfigField
           label="Desconto por Meio Dia (Kz)"
