@@ -82,6 +82,12 @@ async function run() {
               ADD COLUMN IF NOT EXISTS aval8 real NOT NULL DEFAULT 0`,
     },
     {
+      name: 'notas — camposAbertos + pedidosReabertura',
+      sql: `ALTER TABLE public.notas
+              ADD COLUMN IF NOT EXISTS "camposAbertos" jsonb NOT NULL DEFAULT '[]'::jsonb,
+              ADD COLUMN IF NOT EXISTS "pedidosReabertura" jsonb NOT NULL DEFAULT '[]'::jsonb`,
+    },
+    {
       name: 'turmas — faltasBloqueadas',
       sql: `ALTER TABLE public.turmas ADD COLUMN IF NOT EXISTS "faltasBloqueadas" boolean NOT NULL DEFAULT false`,
     },

@@ -216,7 +216,7 @@ export default function ProfessoresScreen() {
   const { professores, turmas, updateProfessor, deleteProfessor } = useData();
   const { user } = useAuth();
   const { config } = useConfig();
-  const { can } = usePermissoes();
+  const { hasPermission: can } = usePermissoes();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');

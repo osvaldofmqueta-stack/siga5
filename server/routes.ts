@@ -157,6 +157,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] notas.lancado:', (migErr as Error).message);
   }
 
+  // Add camposAbertos + pedidosReabertura to notas (field-level reopening workflow)
+  try {
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "camposAbertos" jsonb NOT NULL DEFAULT '[]'::jsonb`, []);
+    await query(`ALTER TABLE public.notas ADD COLUMN IF NOT EXISTS "pedidosReabertura" jsonb NOT NULL DEFAULT '[]'::jsonb`, []);
+    console.log('[migration] notas.camposAbertos + pedidosReabertura ensured.');
+  } catch (migErr) {
+    console.warn('[migration] notas.camposAbertos + pedidosReabertura:', (migErr as Error).message);
+  }
+
   // Add faltasBloqueadas column to turmas (director de turma can block attendance entry)
   try {
     await query(`ALTER TABLE public.turmas ADD COLUMN IF NOT EXISTS "faltasBloqueadas" boolean NOT NULL DEFAULT false`, []);
