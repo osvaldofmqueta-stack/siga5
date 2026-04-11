@@ -253,34 +253,38 @@ export default function GestaoAcessosScreen() {
       {/* ── Tab Switcher ── */}
       <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'utilizadores' && styles.tabBtnActive]}
+          style={[styles.tabCard, activeTab === 'utilizadores' && styles.tabCardActive]}
           onPress={() => setActiveTab('utilizadores')}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name="people"
-            size={16}
-            color={activeTab === 'utilizadores' ? Colors.gold : Colors.textMuted}
-          />
-          <Text style={[styles.tabBtnText, activeTab === 'utilizadores' && styles.tabBtnTextActive]}>
-            Utilizadores
-          </Text>
+          <View style={[styles.tabCardIconBox, { backgroundColor: activeTab === 'utilizadores' ? Colors.gold + '25' : Colors.surface }]}>
+            <Ionicons name="people" size={22} color={activeTab === 'utilizadores' ? Colors.gold : Colors.textMuted} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.tabCardTitle, activeTab === 'utilizadores' && { color: Colors.gold }]}>
+              Utilizadores
+            </Text>
+            <Text style={styles.tabCardDesc}>Permissões individuais por utilizador</Text>
+          </View>
+          {activeTab === 'utilizadores' && <Ionicons name="checkmark-circle" size={18} color={Colors.gold} />}
         </TouchableOpacity>
+
         <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'perfis' && styles.tabBtnActive]}
+          style={[styles.tabCard, activeTab === 'perfis' && styles.tabCardActive]}
           onPress={() => setActiveTab('perfis')}
           activeOpacity={0.8}
         >
-          <Ionicons
-            name="shield-half"
-            size={16}
-            color={activeTab === 'perfis' ? Colors.gold : Colors.textMuted}
-          />
-          <Text style={[styles.tabBtnText, activeTab === 'perfis' && styles.tabBtnTextActive]}>
-            Perfis de Cargo
-          </Text>
+          <View style={[styles.tabCardIconBox, { backgroundColor: activeTab === 'perfis' ? Colors.accent + '25' : Colors.surface }]}>
+            <Ionicons name="shield-half" size={22} color={activeTab === 'perfis' ? Colors.accent : Colors.textMuted} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.tabCardTitle, activeTab === 'perfis' && { color: Colors.accent }]}>
+              Perfis de Cargo
+            </Text>
+            <Text style={styles.tabCardDesc}>Professor · Aluno · Secretaria · e mais…</Text>
+          </View>
           <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>Novo</Text>
+            <Text style={styles.tabBadgeText}>NOVO</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -673,27 +677,36 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
     paddingHorizontal: 12,
-    paddingTop: 8,
-    gap: 4,
+    paddingVertical: 10,
+    gap: 10,
   },
-  tabBtn: {
+  tabCard: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 10,
+    backgroundColor: Colors.surface,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 8,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    paddingVertical: 11,
+    borderWidth: 1.5,
+    borderColor: Colors.border,
   },
-  tabBtnActive: {
-    borderBottomColor: Colors.gold,
-    backgroundColor: Colors.gold + '12',
+  tabCardActive: {
+    borderColor: Colors.gold,
+    backgroundColor: Colors.gold + '0D',
   },
-  tabBtnText: { fontSize: 13, fontFamily: 'Inter_600SemiBold', color: Colors.textMuted },
-  tabBtnTextActive: { color: Colors.gold },
-  tabBadge: { backgroundColor: Colors.accent, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1 },
-  tabBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff' },
+  tabCardIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabCardTitle: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 2 },
+  tabCardDesc: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  tabBadge: { backgroundColor: Colors.accent, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  tabBadgeText: { fontSize: 9, fontFamily: 'Inter_700Bold', color: '#fff', letterSpacing: 0.5 },
 
   body: { flex: 1, flexDirection: 'row' },
 
