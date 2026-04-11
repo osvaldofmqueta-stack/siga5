@@ -139,22 +139,28 @@ export default function ControloSupervisaoScreen() {
   const [notas, setNotas] = useState<any[]>([]);
   const [presencas, setPresencas] = useState<any[]>([]);
   const [sumarios, setSumarios] = useState<any[]>([]);
+  const [reaberturaNotas, setReaberturaNotas] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   async function loadApiData() {
     try {
-      const [pag, nt, pres, sum] = await Promise.all([
+      const [pag, nt, pres, sum, reab] = await Promise.all([
         api.get<any[]>('/api/pagamentos').catch(() => []),
         api.get<any[]>('/api/notas').catch(() => []),
         api.get<any[]>('/api/presencas').catch(() => []),
         api.get<any[]>('/api/sumarios').catch(() => []),
+        api.get<any[]>('/api/notas/reabertura-pendentes').catch(() => []),
       ]);
       setPagamentos(pag);
       setNotas(nt);
       setPresencas(pres);
       setSumarios(sum);
+      const pendentesReab = reab.flatMap((n: any) =>
+        (n.pedidosReabertura || []).filter((p: any) => p.status === 'pendente')
+      );
+      setReaberturaNotas(pendentesReab);
     } catch {
       // ignore
     }
@@ -210,7 +216,7 @@ export default function ControloSupervisaoScreen() {
     { key: 'visao', label: 'Visão Geral', icon: 'grid' },
     { key: 'utilizadores', label: 'Utilizadores', icon: 'people', badge: users.length },
     { key: 'secretaria', label: 'Secretaria', icon: 'briefcase' },
-    { key: 'academico', label: 'Académico', icon: 'school' },
+    { key: 'academico', label: 'Académico', icon: 'school', badge: reaberturaNotas.length || undefined },
     { key: 'financeiro', label: 'Financeiro', icon: 'cash', badge: stats.pagamentosHoje || undefined },
   ];
 
@@ -431,6 +437,18 @@ export default function ControloSupervisaoScreen() {
                   <ActivityRow icon={item.icon} color={item.color} title={item.title} sub={item.sub} />
                 </TouchableOpacity>
               ))}
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/(main)/admin', params: { section: 'reabertura', group: 'academico' } } as any)}
+                activeOpacity={0.8}
+              >
+                <ActivityRow
+                  icon="lock-open"
+                  color={Colors.warning}
+                  title="Reabertura de Notas"
+                  sub={reaberturaNotas.length > 0 ? `${reaberturaNotas.length} pedido(s) pendente(s)` : 'Sem pedidos pendentes'}
+                  badge={reaberturaNotas.length > 0 ? `${reaberturaNotas.length}` : undefined}
+                />
+              </TouchableOpacity>
             </SectionCard>
 
             {professores.length > 0 && (
