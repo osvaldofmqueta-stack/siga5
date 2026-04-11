@@ -8776,269 +8776,196 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return json(res, 403, { error: 'Acesso negado' });
     }
     try {
+      // ── Todas as queries em paralelo para minimizar latência ───────────────
+      const [
+        propinasPendentes,
+        bloqueados,
+        rupesActivos,
+        mensagensNaoLidas,
+        notasNegativas,
+        faltasExcessivas,
+      ] = await Promise.all([
+        // 1. Propinas em atraso
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            COUNT(p.id) as total_pendentes, MIN(p."createdAt") as mais_antiga
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN pagamentos p ON p."alunoId" = a.id AND p.status = 'pendente'
+          WHERE a.ativo = true AND a.falecido = false
+          GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+          ORDER BY a.id, mais_antiga ASC
+          LIMIT 30
+        `, []),
+        // 2. Alunos bloqueados
+        query(`
+          SELECT a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso, a."createdAt"
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          WHERE a.bloqueado = true AND a.ativo = true AND a.falecido = false
+          ORDER BY a."createdAt" DESC
+          LIMIT 15
+        `, []),
+        // 3. RUPEs activos
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            COUNT(r.id) as total_rupes, MAX(r."dataValidade") as validade
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN rupes r ON r."alunoId" = a.id AND r.status = 'ativo'
+          WHERE a.ativo = true AND a.falecido = false
+          GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+          ORDER BY a.id, validade ASC
+          LIMIT 15
+        `, []),
+        // 4. Mensagens financeiras não lidas
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            mf.tipo, mf.texto, mf."createdAt"
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN mensagens_financeiras mf ON mf."alunoId" = a.id AND mf.lida = false AND mf.tipo IN ('aviso', 'bloqueio')
+          WHERE a.ativo = true AND a.falecido = false
+          ORDER BY a.id, mf."createdAt" DESC
+          LIMIT 15
+        `, []),
+        // 5. Notas negativas
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            COUNT(n.id) as total_negativas, MIN(n.nf) as nota_minima, n."anoLetivo"
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN notas n ON n."alunoId" = a.id AND (
+            (n.nf > 0 AND n.nf < 10) OR (n.mt1 > 0 AND n.mt1 < 10)
+          )
+          WHERE a.ativo = true AND a.falecido = false
+          GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome, n."anoLetivo"
+          ORDER BY a.id, total_negativas DESC
+          LIMIT 20
+        `, []),
+        // 6. Faltas excessivas
+        query(`
+          SELECT DISTINCT ON (a.id)
+            a.id as "alunoId", a.nome, a.apelido, a."numeroMatricula", a.foto,
+            COALESCE(t.nome, 'Sem turma') as turma, COALESCE(c.nome, '') as curso,
+            COUNT(p.id) as total_faltas
+          FROM alunos a
+          LEFT JOIN turmas t ON t.id = a."turmaId"
+          LEFT JOIN cursos c ON c.id = a."cursoId"
+          INNER JOIN presencas p ON p."alunoId" = a.id AND p.status = 'F'
+          WHERE a.ativo = true AND a.falecido = false
+          GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
+          HAVING COUNT(p.id) >= 10
+          ORDER BY a.id, total_faltas DESC
+          LIMIT 20
+        `, []),
+      ]);
+
       const pendencias: Array<{
-        id: string;
-        alunoId: string;
-        nome: string;
-        apelido: string;
-        numeroMatricula: string;
-        foto: string | null;
-        turma: string;
-        curso: string;
-        tipoPendencia: string;
-        descricao: string;
-        severidade: 'urgente' | 'aviso' | 'info';
-        area: string;
-        createdAt: string;
+        id: string; alunoId: string; nome: string; apelido: string;
+        numeroMatricula: string; foto: string | null; turma: string; curso: string;
+        tipoPendencia: string; descricao: string;
+        severidade: 'urgente' | 'aviso' | 'info'; area: string; createdAt: string;
       }> = [];
 
-      // 1. Propinas em atraso (pagamentos pendentes)
-      const propinasPendentes = await query(`
-        SELECT DISTINCT ON (a.id)
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          COUNT(p.id) as total_pendentes,
-          MIN(p."createdAt") as mais_antiga
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        INNER JOIN pagamentos p ON p."alunoId" = a.id AND p.status = 'pendente'
-        WHERE a.ativo = true AND a.falecido = false
-        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
-        ORDER BY a.id, mais_antiga ASC
-        LIMIT 30
-      `, []);
+      const now = Date.now();
 
       for (const row of propinasPendentes.rows) {
         const count = parseInt(row.total_pendentes);
         pendencias.push({
-          id: `propina-${row.alunoId}-${Date.now()}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'propina',
+          id: `propina-${row.alunoId}-${now}`,
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'propina',
           descricao: count === 1 ? '1 propina pendente por regularizar' : `${count} propinas pendentes por regularizar`,
           severidade: count >= 3 ? 'urgente' : count >= 2 ? 'aviso' : 'info',
-          area: 'Financeiro',
-          createdAt: row.mais_antiga,
+          area: 'Financeiro', createdAt: row.mais_antiga,
         });
       }
-
-      // 2. Alunos bloqueados
-      const bloqueados = await query(`
-        SELECT
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          a."createdAt"
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        WHERE a.bloqueado = true AND a.ativo = true AND a.falecido = false
-        ORDER BY a."createdAt" DESC
-        LIMIT 15
-      `, []);
 
       for (const row of bloqueados.rows) {
         pendencias.push({
           id: `bloqueado-${row.alunoId}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'bloqueio',
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'bloqueio',
           descricao: 'Acesso bloqueado — situação por regularizar',
-          severidade: 'urgente',
-          area: 'Secretaria',
-          createdAt: row.createdAt,
+          severidade: 'urgente', area: 'Secretaria', createdAt: row.createdAt,
         });
       }
-
-      // 3. RUPEs activos (referências bancárias por pagar)
-      const rupesActivos = await query(`
-        SELECT DISTINCT ON (a.id)
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          COUNT(r.id) as total_rupes,
-          MAX(r."dataValidade") as validade
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        INNER JOIN rupes r ON r."alunoId" = a.id AND r.status = 'ativo'
-        WHERE a.ativo = true AND a.falecido = false
-        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
-        ORDER BY a.id, validade ASC
-        LIMIT 15
-      `, []);
 
       for (const row of rupesActivos.rows) {
         const count = parseInt(row.total_rupes);
         pendencias.push({
           id: `rupe-${row.alunoId}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'rupe',
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'rupe',
           descricao: `${count} referência${count > 1 ? 's' : ''} bancária${count > 1 ? 's' : ''} activa${count > 1 ? 's' : ''} por liquidar`,
-          severidade: 'aviso',
-          area: 'Financeiro',
-          createdAt: new Date().toISOString(),
+          severidade: 'aviso', area: 'Financeiro', createdAt: new Date().toISOString(),
         });
       }
 
-      // 4. Mensagens financeiras não lidas (avisos/bloqueios)
-      const mensagensNaoLidas = await query(`
-        SELECT DISTINCT ON (a.id)
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          mf.tipo,
-          mf.texto,
-          mf."createdAt"
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        INNER JOIN mensagens_financeiras mf ON mf."alunoId" = a.id AND mf.lida = false AND mf.tipo IN ('aviso', 'bloqueio')
-        WHERE a.ativo = true AND a.falecido = false
-        ORDER BY a.id, mf."createdAt" DESC
-        LIMIT 15
-      `, []);
-
+      const bloqueadosIds = new Set(bloqueados.rows.map((r: any) => r.alunoId));
       for (const row of mensagensNaoLidas.rows) {
-        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'bloqueio')) continue;
+        if (bloqueadosIds.has(row.alunoId)) continue;
         pendencias.push({
-          id: `msg-${row.alunoId}-${Date.now()}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'aviso_financeiro',
+          id: `msg-${row.alunoId}-${now}`,
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'aviso_financeiro',
           descricao: row.texto.length > 80 ? row.texto.slice(0, 80) + '…' : row.texto,
           severidade: row.tipo === 'bloqueio' ? 'urgente' : 'aviso',
-          area: 'Financeiro',
-          createdAt: row.createdAt,
+          area: 'Financeiro', createdAt: row.createdAt,
         });
       }
 
-      // 5. Notas negativas (nf < 10 ou mt1 < 10, com pelo menos 1 nota lançada)
-      const notasNegativas = await query(`
-        SELECT DISTINCT ON (a.id)
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          COUNT(n.id) as total_negativas,
-          MIN(n.nf) as nota_minima,
-          n."anoLetivo"
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        INNER JOIN notas n ON n."alunoId" = a.id AND (
-          (n.nf > 0 AND n.nf < 10) OR (n.mt1 > 0 AND n.mt1 < 10)
-        )
-        WHERE a.ativo = true AND a.falecido = false
-        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome, n."anoLetivo"
-        ORDER BY a.id, total_negativas DESC
-        LIMIT 20
-      `, []);
-
+      const notaNegativaIds = new Set<string>();
       for (const row of notasNegativas.rows) {
-        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'nota_negativa')) continue;
+        if (notaNegativaIds.has(row.alunoId)) continue;
+        notaNegativaIds.add(row.alunoId);
         const count = parseInt(row.total_negativas);
         const minNota = parseInt(row.nota_minima) || 0;
         pendencias.push({
           id: `nota-${row.alunoId}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'nota_negativa',
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'nota_negativa',
           descricao: count === 1
             ? `Nota negativa em ${count} disciplina (mín. ${minNota} valores)`
             : `Notas negativas em ${count} disciplinas (mín. ${minNota} valores)`,
           severidade: minNota < 5 ? 'urgente' : minNota < 8 ? 'aviso' : 'info',
-          area: 'Pedagógico',
-          createdAt: new Date().toISOString(),
+          area: 'Pedagógico', createdAt: new Date().toISOString(),
         });
       }
 
-      // 6. Faltas excessivas (≥ 10 faltas injustificadas 'F')
-      const faltasExcessivas = await query(`
-        SELECT DISTINCT ON (a.id)
-          a.id as "alunoId",
-          a.nome,
-          a.apelido,
-          a."numeroMatricula",
-          a.foto,
-          COALESCE(t.nome, 'Sem turma') as turma,
-          COALESCE(c.nome, '') as curso,
-          COUNT(p.id) as total_faltas
-        FROM alunos a
-        LEFT JOIN turmas t ON t.id = a."turmaId"
-        LEFT JOIN cursos c ON c.id = a."cursoId"
-        INNER JOIN presencas p ON p."alunoId" = a.id AND p.status = 'F'
-        WHERE a.ativo = true AND a.falecido = false
-        GROUP BY a.id, a.nome, a.apelido, a."numeroMatricula", a.foto, t.nome, c.nome
-        HAVING COUNT(p.id) >= 10
-        ORDER BY a.id, total_faltas DESC
-        LIMIT 20
-      `, []);
-
+      const faltasIds = new Set<string>();
       for (const row of faltasExcessivas.rows) {
-        if (pendencias.some(p => p.alunoId === row.alunoId && p.tipoPendencia === 'faltas_excessivas')) continue;
+        if (faltasIds.has(row.alunoId)) continue;
+        faltasIds.add(row.alunoId);
         const count = parseInt(row.total_faltas);
         pendencias.push({
           id: `faltas-${row.alunoId}`,
-          alunoId: row.alunoId,
-          nome: row.nome,
-          apelido: row.apelido,
-          numeroMatricula: row.numeroMatricula,
-          foto: row.foto,
-          turma: row.turma,
-          curso: row.curso,
-          tipoPendencia: 'faltas_excessivas',
+          alunoId: row.alunoId, nome: row.nome, apelido: row.apelido,
+          numeroMatricula: row.numeroMatricula, foto: row.foto,
+          turma: row.turma, curso: row.curso, tipoPendencia: 'faltas_excessivas',
           descricao: `${count} falta${count > 1 ? 's' : ''} injustificada${count > 1 ? 's' : ''} registada${count > 1 ? 's' : ''}`,
           severidade: count >= 25 ? 'urgente' : count >= 15 ? 'aviso' : 'info',
-          area: 'Pedagógico',
-          createdAt: new Date().toISOString(),
+          area: 'Pedagógico', createdAt: new Date().toISOString(),
         });
       }
 
