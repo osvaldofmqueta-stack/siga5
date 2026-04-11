@@ -38,6 +38,7 @@ export interface Professor {
   ativo: boolean;
   createdAt: string;
   nivelEnsino: string;
+  tipoContrato?: string;
 }
 
 export interface Turma {

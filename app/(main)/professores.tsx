@@ -24,12 +24,20 @@ import QRCodeModal from '@/components/QRCodeModal';
 import ExportMenu from '@/components/ExportMenu';
 import { webAlert } from '@/utils/webAlert';
 import { useEnterToSave } from '@/hooks/useEnterToSave';
+import { usePermissoes } from '@/context/PermissoesContext';
 
 interface DisciplinaCatalog { id: string; nome: string; codigo: string; area: string; }
 
 const NIVEIS_ENSINO = ['Primário', 'I Ciclo', 'II Ciclo'];
 
-function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
+const TIPO_CONTRATO = [
+  { id: 'efectivo',           label: 'Efectivo',             color: '#4CAF50' },
+  { id: 'colaborador',        label: 'Colaborador',          color: '#2196F3' },
+  { id: 'contratado',         label: 'Contratado',           color: '#FF9800' },
+  { id: 'prestacao_servicos', label: 'Prestação de Serviços', color: '#9C27B0' },
+];
+
+function ProfessorFormModal({ visible, onClose, onSave, professor, canAlterarTipoContrato }: any) {
   const getDefault = () => professor ? {
     ...professor,
     nivelEnsino: professor.nivelEnsino || 'I Ciclo',
@@ -127,6 +135,30 @@ function ProfessorFormModal({ visible, onClose, onSave, professor }: any) {
               </Text>
             </View>
 
+            {canAlterarTipoContrato && (
+              <View style={mStyles.field}>
+                <Text style={mStyles.fieldLabel}>Tipo de Vínculo Contratual</Text>
+                <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', marginTop: 4 }}>
+                  {TIPO_CONTRATO.map(t => {
+                    const isActive = ((form as any).tipoContrato || 'efectivo') === t.id;
+                    return (
+                      <TouchableOpacity
+                        key={t.id}
+                        style={[mStyles.tag, isActive && { backgroundColor: `${t.color}22`, borderWidth: 1, borderColor: t.color + '80' }]}
+                        onPress={() => set('tipoContrato' as keyof Professor, t.id)}
+                      >
+                        {isActive && <Ionicons name="checkmark-circle" size={13} color={t.color} />}
+                        <Text style={[mStyles.tagText, isActive && { color: t.color, fontFamily: 'Inter_600SemiBold' }]}>{t.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 6, lineHeight: 14 }}>
+                  Altera a natureza do vínculo. Afecta o cálculo salarial do professor.
+                </Text>
+              </View>
+            )}
+
             <View style={mStyles.field}>
               <Text style={mStyles.fieldLabel}>Disciplinas que lecciona</Text>
               {catalogDisc.length === 0 ? (
@@ -167,6 +199,7 @@ export default function ProfessoresScreen() {
   const { professores, turmas, updateProfessor, deleteProfessor } = useData();
   const { user } = useAuth();
   const { config } = useConfig();
+  const { can } = usePermissoes();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
@@ -177,6 +210,7 @@ export default function ProfessoresScreen() {
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   const canManage = ['admin', 'ceo', 'pca', 'director', 'chefe_secretaria'].includes(user?.role ?? '');
+  const canAlterarTipoContrato = can('alterar_tipo_contrato');
 
   const filtered = useMemo(() => {
     return professores.filter(p => {
@@ -233,7 +267,18 @@ export default function ProfessoresScreen() {
           <FontAwesome5 name="chalkboard-teacher" size={20} color={Colors.gold} />
         </View>
         <View style={styles.info}>
-          <Text style={styles.nome}>{item.nome} {item.apelido}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.nome}>{item.nome} {item.apelido}</Text>
+            {(item as any).tipoContrato && (item as any).tipoContrato !== 'efectivo' && (() => {
+              const tc = TIPO_CONTRATO.find(t => t.id === (item as any).tipoContrato);
+              if (!tc) return null;
+              return (
+                <View style={{ backgroundColor: `${tc.color}22`, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: `${tc.color}50` }}>
+                  <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: tc.color }}>{tc.label}</Text>
+                </View>
+              );
+            })()}
+          </View>
           <Text style={styles.meta}>{item.numeroProfessor} · {numTurmas} turma{numTurmas !== 1 ? 's' : ''}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.disciplinasRow}>
@@ -323,7 +368,7 @@ export default function ProfessoresScreen() {
       />
 
       {showForm && (
-        <ProfessorFormModal visible={showForm} onClose={() => { setShowForm(false); setEditProf(null); }} onSave={handleSave} professor={editProf} />
+        <ProfessorFormModal visible={showForm} onClose={() => { setShowForm(false); setEditProf(null); }} onSave={handleSave} professor={editProf} canAlterarTipoContrato={canAlterarTipoContrato} />
       )}
 
       {qrData && (

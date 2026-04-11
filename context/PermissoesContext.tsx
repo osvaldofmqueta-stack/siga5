@@ -19,7 +19,8 @@ export type PermKey =
   | 'extrato_propinas' | 'quadro_honra' | 'rh_payroll' | 'trabalhos_finais'
   | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios'
   | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento'
-  | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios';
+  | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios'
+  | 'alterar_tipo_contrato';
 
 export interface FeatureDef {
   key: PermKey;
@@ -172,6 +173,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     icon: 'people-outline',
     features: [
       { key: 'rh_payroll', label: 'Processamento de Salários', desc: 'Cálculo e emissão de folhas de vencimentos e processamento salarial', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'alterar_tipo_contrato', label: 'Alterar Tipo de Vínculo', desc: 'Permite alterar individualmente o tipo de vínculo de professores e funcionários (Efectivo ↔ Colaborador ↔ Contratado ↔ Prestação de Serviços)', roles: ['rh', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -255,6 +257,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'financeiro_relatorios', 'extrato_propinas', 'bolsas',
     // RH (administrador supervisiona pessoal e processa vencimentos)
     'rh_hub', 'rh_controle', 'rh_payroll', 'funcionarios',
+    // Alterar vínculos contratuais de professores e funcionários
+    'alterar_tipo_contrato',
     // Integrações e novas funcionalidades
     'med_integracao',
   ],
@@ -298,7 +302,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Acesso ao registo do pessoal docente (necessário para contratos e avaliações)
     'professores', 'horario', 'calendario_academico',
     // Novas funcionalidades de RH
-    'funcionarios',
+    'funcionarios', 'alterar_tipo_contrato',
   ],
 
   // ── Pedagógico: qualidade académica e currículo ──────────────────
