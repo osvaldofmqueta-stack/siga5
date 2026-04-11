@@ -165,8 +165,11 @@ export default function GestaoAcessosScreen() {
         });
         if (!res.ok) return;
         const data = await res.json();
-        const prof = (Array.isArray(data) ? data : data.professores ?? [])
-          .find((p: any) => p.utilizadorId === selectedUserId || p.utilizadorId === String(selectedUserId));
+        const list: any[] = Array.isArray(data) ? data : data.professores ?? [];
+        const prof = list.find((p: any) =>
+          (p.utilizadorId && (p.utilizadorId === selectedUserId || p.utilizadorId === String(selectedUserId))) ||
+          (selectedUser?.email && p.email && p.email.toLowerCase() === selectedUser.email.toLowerCase())
+        );
         if (prof) {
           setProfessorRecordId(prof.id);
           setSelectedVinculo(prof.tipoContrato ?? 'efectivo');
