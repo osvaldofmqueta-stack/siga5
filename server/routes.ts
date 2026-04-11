@@ -4299,7 +4299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const isCeoUser = req.jwtUser?.role === 'ceo';
       // Campos de licença/subscrição: apenas o CEO pode alterar
       const LICENCA_FIELDS = new Set(["licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"]);
-      const allAllowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito","percMac","percPp","percNt","percPt","percPg","percExame","provaRecuperacaoHabilitada"] as const;
+      const allAllowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito","percMac","percPp","percNt","percPt","percPg","percExame","provaRecuperacaoHabilitada","maxDisciplinasPorProfessor","minTurmasProfessor","maxTurmasProfessor"] as const;
       const allowed = isCeoUser ? allAllowed : allAllowed.filter(k => !LICENCA_FIELDS.has(k));
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
@@ -8835,6 +8835,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         faltasMes = Number((fRows[0] as any)?.cnt ?? 0);
       }
 
+      // Contar sumários efectivamente lecionados no mês (aprovados + pendentes) — base real para colaboradores
+      let sumLecionadosMes = 0;
+      if (profRow) {
+        const sumLecRows = await query<JsonObject>(
+          `SELECT COUNT(*) AS cnt FROM public.sumarios
+           WHERE "professorId"=$1 AND status IN ('aprovado','pendente')
+           AND EXTRACT(MONTH FROM data::date)=$2 AND EXTRACT(YEAR FROM data::date)=$3`,
+          [pessoaId, mes, ano]
+        );
+        sumLecionadosMes = Number((sumLecRows[0] as any)?.cnt ?? 0);
+      }
+
+      // Contar slots semanais do horário atribuído ao professor (fallback para temposSemanais)
+      let horarioTemposSemanais = 0;
+      if (profRow && Number(pessoa.temposSemanais ?? 0) === 0) {
+        const anoAcad = `${ano - 1}-${ano}`;
+        const horRows = await query<JsonObject>(
+          `SELECT COUNT(*) AS cnt FROM public.horarios WHERE "professorId"=$1 AND "anoAcademico"=$2`,
+          [pessoaId, anoAcad]
+        );
+        horarioTemposSemanais = Number((horRows[0] as any)?.cnt ?? 0);
+      }
+
       // 5. Calcular salário estimado
       const tipoContrato         = String(pessoa.tipoContrato ?? 'efectivo');
       const salBase              = Number(pessoa.salarioBase ?? 0);
@@ -8842,7 +8865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subTrans             = Number(pessoa.subsidioTransporte ?? 0);
       const subHab               = Number(pessoa.subsidioHabitacao ?? 0);
       const valorTempoLectivo    = Number(pessoa.valorPorTempoLectivo ?? 0);
-      const temposSemanais       = Number(pessoa.temposSemanais ?? 0);
+      // Usar temposSemanais do perfil; se for 0 usar contagem do horário real
+      const temposSemanais       = Number(pessoa.temposSemanais ?? 0) || horarioTemposSemanais;
 
       // Helper: contar dias úteis (seg-sex) num intervalo de datas (inclusive)
       function contarDiasUteis(inicio: Date, fim: Date): number {
@@ -8899,8 +8923,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         salBaseEfectivo = Math.max(0, salBase - descontoTempos);
       } else if (isColaborador && valorTempoLectivo > 0) {
         if (!temposComDadosReais) {
-          // Colaborador: recebe pelos tempos efectivamente trabalhados até hoje
-          temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
+          // Prioridade: usar sumários aprovados/pendentes do mês (tempos realmente lecionados)
+          // Fallback: dias úteis corridos × tempos/dia − faltas
+          if (sumLecionadosMes > 0) {
+            temposTrabalhados = sumLecionadosMes;
+          } else {
+            temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
+          }
         }
         salColaborador = Math.round(valorTempoLectivo * temposTrabalhados * 100) / 100;
         // Se tiver também salário base (contrato misto), soma ambos
@@ -9667,6 +9696,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "prazosLancamento" jsonb`, []);
     console.log('[migration] config_geral: prazosLancamento ensured.');
   } catch (e) { console.warn('[migration] config_geral prazosLancamento:', (e as Error).message); }
+
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "maxDisciplinasPorProfessor" integer NOT NULL DEFAULT 5`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "minTurmasProfessor" integer NOT NULL DEFAULT 1`, []);
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "maxTurmasProfessor" integer NOT NULL DEFAULT 8`, []);
+    console.log('[migration] config_geral: maxDisciplinasPorProfessor + turmas limits ensured.');
+  } catch (e) { console.warn('[migration] config_geral disciplinas/turmas limits:', (e as Error).message); }
 
   try {
     await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "dataFimContrato" text`, []);

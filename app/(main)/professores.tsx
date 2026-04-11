@@ -38,6 +38,9 @@ const TIPO_CONTRATO = [
 ];
 
 function ProfessorFormModal({ visible, onClose, onSave, professor, canAlterarTipoContrato }: any) {
+  const { config } = useConfig();
+  const maxDisc = config.maxDisciplinasPorProfessor ?? 5;
+
   const getDefault = () => professor ? {
     ...professor,
     nivelEnsino: professor.nivelEnsino || 'I Ciclo',
@@ -68,6 +71,10 @@ function ProfessorFormModal({ visible, onClose, onSave, professor, canAlterarTip
     if (cur.includes(nome)) {
       set('disciplinas', cur.filter(x => x !== nome));
     } else {
+      if (cur.length >= maxDisc) {
+        webAlert('Limite atingido', `Este professor já tem ${maxDisc} disciplina(s) atribuída(s), que é o máximo definido nas configurações.`);
+        return;
+      }
       set('disciplinas', [...cur, nome]);
     }
   }
@@ -160,7 +167,17 @@ function ProfessorFormModal({ visible, onClose, onSave, professor, canAlterarTip
             )}
 
             <View style={mStyles.field}>
-              <Text style={mStyles.fieldLabel}>Disciplinas que lecciona</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+                <Text style={mStyles.fieldLabel}>Disciplinas que lecciona</Text>
+                <View style={{
+                  backgroundColor: (form.disciplinas || []).length >= maxDisc ? Colors.danger + '22' : Colors.success + '22',
+                  borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+                }}>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_600SemiBold', color: (form.disciplinas || []).length >= maxDisc ? Colors.danger : Colors.success }}>
+                    {(form.disciplinas || []).length}/{maxDisc}
+                  </Text>
+                </View>
+              </View>
               {catalogDisc.length === 0 ? (
                 <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 4 }}>
                   Nenhuma disciplina no catálogo. Adicione disciplinas em Administração primeiro.

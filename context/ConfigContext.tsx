@@ -35,6 +35,7 @@ export interface ConfigGeral {
   maxAlunosTurma: number;
   minTurmasProfessor: number;
   maxTurmasProfessor: number;
+  maxDisciplinasPorProfessor: number;
   numAvaliacoes: number;
   macMin: number;
   macMax: number;
@@ -129,6 +130,7 @@ const DEFAULT_CONFIG: ConfigGeral = {
   maxAlunosTurma: 35,
   minTurmasProfessor: 1,
   maxTurmasProfessor: 8,
+  maxDisciplinasPorProfessor: 5,
   numAvaliacoes: 4,
   macMin: 1,
   macMax: 5,
@@ -188,6 +190,7 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
           maxAlunosTurma: (raw.maxAlunosTurma as number) ?? DEFAULT_CONFIG.maxAlunosTurma,
           minTurmasProfessor: (raw.minTurmasProfessor as number) ?? DEFAULT_CONFIG.minTurmasProfessor,
           maxTurmasProfessor: (raw.maxTurmasProfessor as number) ?? DEFAULT_CONFIG.maxTurmasProfessor,
+          maxDisciplinasPorProfessor: (raw.maxDisciplinasPorProfessor as number) ?? DEFAULT_CONFIG.maxDisciplinasPorProfessor,
           numAvaliacoes: (raw.numAvaliacoes as number) ?? DEFAULT_CONFIG.numAvaliacoes,
           macMin: (raw.macMin as number) ?? DEFAULT_CONFIG.macMin,
           macMax: (raw.macMax as number) ?? DEFAULT_CONFIG.macMax,

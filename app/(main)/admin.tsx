@@ -1663,6 +1663,25 @@ export default function AdminScreen() {
                 />
               </View>
 
+              <View style={[styles.configFieldRow, { borderBottomWidth: 1, borderBottomColor: Colors.border }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.configFieldLabel}>Máx. Disciplinas por Professor</Text>
+                  <Text style={styles.configFieldDesc}>Limite de disciplinas que um professor pode ter atribuídas</Text>
+                </View>
+                <TextInput
+                  style={styles.configNumInput}
+                  value={String(config.maxDisciplinasPorProfessor ?? 5)}
+                  onChangeText={v => {
+                    const n = parseInt(v);
+                    if (!isNaN(n) && n >= 1) updateConfig({ maxDisciplinasPorProfessor: n });
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={2}
+                  selectTextOnFocus
+                  placeholderTextColor={Colors.textMuted}
+                />
+              </View>
+
               <View style={styles.configFieldRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.configFieldLabel}>Nº de Avaliações Contínuas (MAC)</Text>

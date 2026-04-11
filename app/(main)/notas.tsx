@@ -1166,12 +1166,7 @@ export default function NotasScreen() {
 
       {/* Filtro por Turma */}
       {turmasDoProf.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filterScroll}
-          contentContainerStyle={styles.filterContent}
-        >
+        <View style={styles.filterWrap}>
           <TouchableOpacity
             style={[styles.chip, !filterTurma && styles.chipActive]}
             onPress={() => setFilterTurma('')}
@@ -1187,7 +1182,7 @@ export default function NotasScreen() {
               <Text style={[styles.chipText, filterTurma === t.id && styles.chipTextActive]}>{t.nome}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
       )}
 
       {/* Resumo */}
@@ -1472,6 +1467,16 @@ const styles = StyleSheet.create({
   },
 
   filterScroll: {
+    backgroundColor: Colors.primaryDark,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  filterWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     backgroundColor: Colors.primaryDark,
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,

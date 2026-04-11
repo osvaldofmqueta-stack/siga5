@@ -762,6 +762,7 @@ const shelfStyles = StyleSheet.create({
   },
   booksRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-end',
     gap: 10,
     paddingHorizontal: 0,
