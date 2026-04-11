@@ -9588,6 +9588,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.log('[migration] config_geral: percentagens avaliacao + provaRecuperacao ensured.');
   } catch (e) { console.warn('[migration] config_geral avaliacao cols:', (e as Error).message); }
 
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "prazosLancamento" jsonb`, []);
+    console.log('[migration] config_geral: prazosLancamento ensured.');
+  } catch (e) { console.warn('[migration] config_geral prazosLancamento:', (e as Error).message); }
+
+  try {
+    await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "dataFimContrato" text`, []);
+    console.log('[migration] professores: dataFimContrato ensured.');
+  } catch (e) { console.warn('[migration] professores dataFimContrato:', (e as Error).message); }
+
   // Seed: clean up duplicate horário entries (keep only 1 per slot)
   try {
     const dupsDeleted = await query<{ c: string }>(`
