@@ -8522,21 +8522,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   app.get("/api/configuracao-rh", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.configuracao_rh WHERE id=1`);
-    json(res, 200, rows[0] ?? { id: 1, valorPorFalta: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
+    json(res, 200, rows[0] ?? { id: 1, valorPorFalta: 0, valorFaltaEfectivo: 0, valorFaltaColaborador: 0, valorFaltaAdministrativo: 0, valorMeioDia: 0, taxaTempoLectivo: 0, taxaAdminPorDia: 0, observacoes: '' });
   });
 
   app.put("/api/configuracao-rh", requireAuth, requirePermission("rh_hub"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
-        `INSERT INTO public.configuracao_rh (id, "valorPorFalta", "valorMeioDia", "taxaTempoLectivo", "taxaAdminPorDia", "descontoPorTempoNaoDado", "semanasPorMes", observacoes, "atualizadoEm")
-         VALUES (1,$1,$2,$3,$4,$5,$6,$7,NOW())
+        `INSERT INTO public.configuracao_rh (id, "valorPorFalta", "valorFaltaEfectivo", "valorFaltaColaborador", "valorFaltaAdministrativo", "valorMeioDia", "taxaTempoLectivo", "taxaAdminPorDia", "descontoPorTempoNaoDado", "semanasPorMes", observacoes, "atualizadoEm")
+         VALUES (1,$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())
          ON CONFLICT (id) DO UPDATE SET
-           "valorPorFalta"=$1, "valorMeioDia"=$2, "taxaTempoLectivo"=$3, "taxaAdminPorDia"=$4,
-           "descontoPorTempoNaoDado"=$5, "semanasPorMes"=$6, observacoes=$7, "atualizadoEm"=NOW()
+           "valorPorFalta"=$1, "valorFaltaEfectivo"=$2, "valorFaltaColaborador"=$3, "valorFaltaAdministrativo"=$4,
+           "valorMeioDia"=$5, "taxaTempoLectivo"=$6, "taxaAdminPorDia"=$7,
+           "descontoPorTempoNaoDado"=$8, "semanasPorMes"=$9, observacoes=$10, "atualizadoEm"=NOW()
          RETURNING *`,
         [
-          b.valorPorFalta ?? 0, b.valorMeioDia ?? 0, b.taxaTempoLectivo ?? 0, b.taxaAdminPorDia ?? 0,
+          b.valorPorFalta ?? 0,
+          b.valorFaltaEfectivo ?? 0, b.valorFaltaColaborador ?? 0, b.valorFaltaAdministrativo ?? 0,
+          b.valorMeioDia ?? 0, b.taxaTempoLectivo ?? 0, b.taxaAdminPorDia ?? 0,
           b.descontoPorTempoNaoDado ?? 0, b.semanasPorMes ?? 4, b.observacoes ?? ''
         ]
       );
@@ -8775,7 +8778,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rh = rhRows[0] as any ?? {};
       const descontoPorTempoNaoDado = Number(rh.descontoPorTempoNaoDado ?? 0);
       const semanasPorMes           = Number(rh.semanasPorMes ?? 4);
-      const valorPorFalta           = Number(rh.valorPorFalta ?? 0);
+      // Valor por falta por tipo de contrato (fallback para o valor genérico)
+      const valorPorFaltaGenerico   = Number(rh.valorPorFalta ?? 0);
+      const valorFaltaEfectivo      = Number(rh.valorFaltaEfectivo ?? valorPorFaltaGenerico);
+      const valorFaltaColaborador   = Number(rh.valorFaltaColaborador ?? valorPorFaltaGenerico);
+      const valorFaltaAdministrativo = Number(rh.valorFaltaAdministrativo ?? valorPorFaltaGenerico);
 
       // 4. Faltas + Tempos trabalhados do mês
       const pessoaId = profRow ? profRow.id : funcRow.id;
@@ -8901,6 +8908,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const temposPorDiaUtil = temposSemanais > 0 ? temposSemanais / 5 : 0;
 
       const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
+      // Seleccionar o valor de desconto por falta correcto para este tipo de contrato
+      const valorPorFalta = isColaborador
+        ? valorFaltaColaborador
+        : tipoContrato === 'efectivo'
+          ? valorFaltaEfectivo
+          : valorFaltaAdministrativo;
 
       // Estimativa de semanas decorridas no mês actual (para colaboradores sem dados reais)
       const semanasDecorridas = isCurrentMonth
@@ -8988,6 +9001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Meta
         semanasPorMes,
         inssEmpPerc:       Number(cfg.inssEmpPerc ?? 3),
+        valorPorFaltaAplicado: valorPorFalta,
         semPerfil:         false,
       });
     } catch (e) {
@@ -9714,6 +9728,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "maxTurmasProfessor" integer NOT NULL DEFAULT 8`, []);
     console.log('[migration] config_geral: maxDisciplinasPorProfessor + turmas limits ensured.');
   } catch (e) { console.warn('[migration] config_geral disciplinas/turmas limits:', (e as Error).message); }
+
+  try {
+    await query(`ALTER TABLE public.configuracao_rh ADD COLUMN IF NOT EXISTS "valorFaltaEfectivo" real NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.configuracao_rh ADD COLUMN IF NOT EXISTS "valorFaltaColaborador" real NOT NULL DEFAULT 0`, []);
+    await query(`ALTER TABLE public.configuracao_rh ADD COLUMN IF NOT EXISTS "valorFaltaAdministrativo" real NOT NULL DEFAULT 0`, []);
+    console.log('[migration] configuracao_rh: valorFalta por tipo ensured.');
+  } catch (e) { console.warn('[migration] configuracao_rh valorFalta por tipo:', (e as Error).message); }
 
   try {
     await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "dataFimContrato" text`, []);
