@@ -8893,41 +8893,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? contarDiasUteis(inicioMes, hoje)
         : totalDiasUteisNoMes;
 
-      // Tempos por dia útil = temposSemanais / 5
+      // Fórmula base para colaboradores: temposSemanais × 4 semanas = tempos esperados no mês
+      const SEMANAS_MES = 4;
+      const temposEsperados = Math.round(temposSemanais * SEMANAS_MES * 10) / 10;
+
+      // Para efectivos: continuar com base em dias úteis (para cálculo de faltas por dia)
       const temposPorDiaUtil = temposSemanais > 0 ? temposSemanais / 5 : 0;
-      // Esperado para o mês completo (baseado em dias úteis reais do mês)
-      const temposEsperados = Math.round(temposPorDiaUtil * totalDiasUteisNoMes * 10) / 10;
 
       const isColaborador = ['colaborador', 'contratado', 'prestacao_servicos'].includes(tipoContrato);
 
-      // Tempos esperados até ao dia de hoje (dias corridos, excl. fim-de-semana)
-      const temposEsperadosCorridos = Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10;
+      // Estimativa de semanas decorridas no mês actual (para colaboradores sem dados reais)
+      const semanasDecorridas = isCurrentMonth
+        ? Math.round((diasUteisCorridos / (totalDiasUteisNoMes || 1)) * SEMANAS_MES * 10) / 10
+        : SEMANAS_MES;
+      const temposEsperadosCorridos = Math.round(temposSemanais * semanasDecorridas * 10) / 10;
 
       let salBaseEfectivo  = salBase;
       let descontoTempos   = 0;
       let salColaborador   = 0;
       const temposComDadosReais = temposRegistados !== null;
 
-      // Tempos trabalhados base: dados reais (tabela tempos_lectivos) ou estimativa pelos dias úteis passados menos faltas
+      // Tempos trabalhados base: dados reais (tabela tempos_lectivos) ou estimativa
       let temposTrabalhados = temposRegistados !== null
         ? temposRegistados
         : Math.max(0, temposEsperadosCorridos - faltasMes);
 
       if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {
         if (!temposComDadosReais) {
-          temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
+          // Efectivos: desconto proporcional aos dias úteis corridos
+          const temposEsperadosUteisHoje = Math.round(temposPorDiaUtil * diasUteisCorridos * 10) / 10;
+          temposTrabalhados = Math.max(0, temposEsperadosUteisHoje - faltasMes);
         }
         // Para efectivos: o desconto é APENAS pelas faltas reais registadas
-        // (não pelos dias que ainda faltam no mês — o salário base é mensal)
+        // (o salário base é mensal — não se desconta pelos dias que faltam no mês)
         descontoTempos = Math.round(faltasMes * descontoPorTempoNaoDado * 100) / 100;
         salBaseEfectivo = Math.max(0, salBase - descontoTempos);
       } else if (isColaborador && valorTempoLectivo > 0) {
         if (!temposComDadosReais) {
-          // Prioridade: usar sumários aprovados/pendentes do mês (tempos realmente lecionados)
-          // Fallback: dias úteis corridos × tempos/dia − faltas
+          // Colaboradores: prioridade aos sumários aprovados/pendentes (tempos realmente lecionados)
+          // Para mês corrente → usa contagem real de sumários; para meses passados → temposSemanais × 4 − faltas
           if (sumLecionadosMes > 0) {
             temposTrabalhados = sumLecionadosMes;
+          } else if (!isCurrentMonth) {
+            // Mês fechado sem registos: mês completo (temposSemanais × 4) − faltas
+            temposTrabalhados = Math.max(0, temposEsperados - faltasMes);
           } else {
+            // Mês actual sem sumários: estimar por semanas decorridas − faltas
             temposTrabalhados = Math.max(0, temposEsperadosCorridos - faltasMes);
           }
         }
