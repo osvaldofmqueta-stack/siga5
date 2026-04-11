@@ -1666,7 +1666,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!pedidoId || !decisao) return json(res, 400, { error: 'pedidoId e decisao são obrigatórios.' });
 
       const existing = await query<JsonObject>(
-        `SELECT "pedidosReabertura","camposAbertos","lancamentos" FROM public.notas WHERE id=$1`, [id]
+        `SELECT "pedidosReabertura","camposAbertos","lancamentos","turmaId","disciplina","trimestre" FROM public.notas WHERE id=$1`, [id]
       );
       if (!existing[0]) return json(res, 404, { error: 'Nota não encontrada.' });
 
@@ -1693,6 +1693,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `UPDATE public.notas SET "pedidosReabertura"=$1::jsonb,"camposAbertos"=$2::jsonb,"lancamentos"=$3::jsonb WHERE id=$4 RETURNING *`,
         [jsonbParam(pedidos), jsonbParam(camposAbertos), jsonbParam(lancamentos), id],
       );
+
+      // Notificar o professor quando a reabertura for aprovada
+      if (decisao === 'aprovada' && pedido.professorId) {
+        try {
+          const profRows = await query<JsonObject>(
+            `SELECT "utilizadorId" FROM public.professores WHERE id=$1 LIMIT 1`,
+            [pedido.professorId]
+          );
+          const utilizadorId = profRows[0]?.utilizadorId as string | undefined;
+          if (utilizadorId) {
+            const disciplina = existing[0].disciplina as string ?? '';
+            const trimestre = existing[0].trimestre as string ?? '';
+            const turmaId = existing[0].turmaId as string ?? '';
+            const turmaRows = await query<JsonObject>(
+              `SELECT nome FROM public.turmas WHERE id=$1 LIMIT 1`, [turmaId]
+            );
+            const turmaNome = (turmaRows[0]?.nome as string) ?? 'Turma';
+            const campoLabel: Record<string, string> = {
+              aval1: 'Avaliação 1', aval2: 'Avaliação 2', aval3: 'Avaliação 3',
+              pp1: 'PP1', pp2: 'PP2', pp3: 'PP3',
+              mt1: 'MAC', mac: 'MAC', pp: 'PP', pt: 'PT',
+              pg1: 'PG1', pg2: 'PG2', ex1: 'Exame 1', ex2: 'Exame 2',
+              provaRecuperacao: 'Prova de Recuperação',
+            };
+            const nomeCampo = campoLabel[pedido.campo] ?? pedido.campo;
+            const hoje = new Date().toISOString().slice(0, 10);
+            await query(
+              `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
+               VALUES ($1,$2,$3,$4,$5,false,$6)`,
+              [
+                utilizadorId,
+                'Reabertura de Pauta Aprovada',
+                `A reabertura do campo "${nomeCampo}" da pauta de ${disciplina} (${turmaNome} · ${trimestre}º Trim.) foi aprovada. Aceda à pauta para actualizar o lançamento.`,
+                'reabertura_aprovada',
+                hoje,
+                '/(main)/professor-pauta',
+              ]
+            );
+          }
+        } catch (notifErr) {
+          console.error('[reabertura] Falha ao criar notificação para professor:', notifErr);
+        }
+      }
+
       json(res, 200, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });

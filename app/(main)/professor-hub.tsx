@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Image,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, ActivityIndicator, Image, Modal,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -273,11 +273,23 @@ export default function ProfessorHubScreen() {
   const { user } = useAuth();
   const { professores, turmas, alunos, notas, presencas } = useData();
   const { sumarios, pautas, mensagens, solicitacoes, calendarioProvas } = useProfessor();
-  const { notificacoes, unreadCount } = useNotificacoes();
+  const { notificacoes, unreadCount, marcarLida } = useNotificacoes();
   const { anoSelecionado } = useAnoAcademico();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
+
+  const [showReaberturaModal, setShowReaberturaModal] = useState(false);
+  const reaberturaNotifs = useMemo(
+    () => notificacoes.filter(n => n.tipo === 'reabertura_aprovada' && !n.lida),
+    [notificacoes]
+  );
+
+  useEffect(() => {
+    if (reaberturaNotifs.length > 0) {
+      setShowReaberturaModal(true);
+    }
+  }, [reaberturaNotifs.length]);
 
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
 
@@ -346,8 +358,57 @@ export default function ProfessorHubScreen() {
     prova_oral: Colors.success,
   };
 
+  async function handleIrParaPauta() {
+    for (const n of reaberturaNotifs) {
+      await marcarLida(n.id);
+    }
+    setShowReaberturaModal(false);
+    router.push('/(main)/professor-pauta' as any);
+  }
+
+  async function handleDismissReabertura() {
+    for (const n of reaberturaNotifs) {
+      await marcarLida(n.id);
+    }
+    setShowReaberturaModal(false);
+  }
+
   return (
     <View style={styles.container}>
+      {/* Modal de notificação de reabertura aprovada */}
+      <Modal visible={showReaberturaModal} transparent animationType="fade" onRequestClose={() => setShowReaberturaModal(false)}>
+        <View style={rab.overlay}>
+          <View style={rab.card}>
+            <View style={rab.iconRow}>
+              <View style={rab.iconCircle}>
+                <Ionicons name="lock-open" size={28} color={Colors.gold} />
+              </View>
+            </View>
+            <Text style={rab.title}>Reabertura Aprovada</Text>
+            <Text style={rab.subtitle}>
+              {reaberturaNotifs.length === 1
+                ? 'Tem um campo de pauta reaberto aguardando o seu lançamento.'
+                : `Tem ${reaberturaNotifs.length} campos de pauta reabertos aguardando o seu lançamento.`}
+            </Text>
+            <ScrollView style={{ maxHeight: 180, width: '100%' }} showsVerticalScrollIndicator={false}>
+              {reaberturaNotifs.map(n => (
+                <View key={n.id} style={rab.notifRow}>
+                  <Ionicons name="ellipse" size={7} color={Colors.gold} style={{ marginTop: 5 }} />
+                  <Text style={rab.notifText}>{n.mensagem}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={rab.btnPrimary} onPress={handleIrParaPauta} activeOpacity={0.8}>
+              <Ionicons name="document-text" size={18} color="#fff" />
+              <Text style={rab.btnPrimaryText}>Ir para a Pauta</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={rab.btnSecondary} onPress={handleDismissReabertura} activeOpacity={0.7}>
+              <Text style={rab.btnSecondaryText}>Mais tarde</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <TopBar title="Meu Painel" subtitle={prof ? `Prof. ${prof.nome} ${prof.apelido}` : 'Professor'} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: bottomInset + 24 }}>
 
@@ -619,4 +680,51 @@ const sal = StyleSheet.create({
     fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted,
     marginHorizontal: 16, marginBottom: 14, fontStyle: 'italic',
   },
+});
+
+const rab = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  card: {
+    backgroundColor: Colors.surface, borderRadius: 20, padding: 24,
+    width: '100%', maxWidth: 420, alignItems: 'center',
+    borderWidth: 1, borderColor: Colors.gold + '44',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35, shadowRadius: 20, elevation: 10,
+  },
+  iconRow: { marginBottom: 12 },
+  iconCircle: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: Colors.gold + '22', borderWidth: 2, borderColor: Colors.gold + '55',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  title: {
+    fontSize: 20, fontFamily: 'Inter_700Bold', color: Colors.text,
+    textAlign: 'center', marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textSecondary,
+    textAlign: 'center', marginBottom: 16, lineHeight: 20,
+  },
+  notifRow: {
+    flexDirection: 'row', gap: 8, alignItems: 'flex-start',
+    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: Colors.border,
+    width: '100%',
+  },
+  notifText: {
+    flex: 1, fontSize: 13, fontFamily: 'Inter_400Regular',
+    color: Colors.text, lineHeight: 18,
+  },
+  btnPrimary: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: Colors.gold, borderRadius: 12, paddingVertical: 13,
+    width: '100%', marginTop: 18,
+  },
+  btnPrimaryText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+  btnSecondary: {
+    paddingVertical: 10, alignItems: 'center', width: '100%', marginTop: 6,
+  },
+  btnSecondaryText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
 });
