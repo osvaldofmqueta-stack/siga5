@@ -726,28 +726,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // -----------------------
-  // FILE UPLOAD
+  // FILE UPLOAD (base64 → Neon DB, no local filesystem)
   // -----------------------
-  const uploadDir = path.resolve(process.cwd(), "public/uploads");
-  if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-  }
-
-  const diskStorage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
-      const ext = path.extname(file.originalname) || ".jpg";
-      cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
-    },
-  });
-
-  const upload = multer({ storage: diskStorage, limits: { fileSize: 5 * 1024 * 1024 } });
+  const memStorage = multer.memoryStorage();
+  const upload = multer({ storage: memStorage, limits: { fileSize: 5 * 1024 * 1024 } });
 
   app.post("/api/upload", upload.single("file"), (req: Request, res: Response) => {
     if (!req.file) {
       return json(res, 400, { error: "Nenhum ficheiro enviado." });
     }
-    json(res, 200, { url: `/uploads/${req.file.filename}` });
+    const mime = req.file.mimetype || "image/jpeg";
+    const b64 = req.file.buffer.toString("base64");
+    const dataUrl = `data:${mime};base64,${b64}`;
+    json(res, 200, { url: dataUrl });
   });
 
   // -----------------------
