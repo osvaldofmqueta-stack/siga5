@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
+import { useAuth } from '@/context/AuthContext';
 import {
   TipoNivel, NIVEL_LABEL, NIVEL_COLOR, NIVEL_EMOJI, NIVEL_DESC, NIVEL_FEATURES,
   useLicense,
@@ -84,6 +85,7 @@ function featuresSoDesteNivel(nivel: TipoNivel): string[] {
 export default function GestaoPlanosScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
   const { licenca } = useLicense();
   const [tabAtiva, setTabAtiva] = useState<TipoNivel>('rubi');
   const [expandido, setExpandido] = useState<Record<TipoNivel, boolean>>({
@@ -92,6 +94,29 @@ export default function GestaoPlanosScreen() {
 
   const nivelAtual = licenca?.nivel || 'rubi';
   const bottomPad = Platform.OS === 'web' ? 24 : insets.bottom;
+
+  // ── Guarda CEO — apenas o CEO tem acesso à gestão de planos/subscrição ──
+  if (user?.role !== 'ceo') {
+    return (
+      <View style={s.container}>
+        <TopBar title="Gestão de Planos" onBack={() => router.back()} />
+        <View style={s.accessDenied}>
+          <View style={s.accessDeniedIcon}>
+            <Ionicons name="lock-closed" size={36} color={Colors.danger} />
+          </View>
+          <Text style={s.accessDeniedTitle}>Acesso Restrito</Text>
+          <Text style={s.accessDeniedText}>
+            A gestão de planos e subscrição é exclusiva do CEO.{'\n'}
+            Contacte o CEO da instituição para questões relacionadas com a subscrição.
+          </Text>
+          <TouchableOpacity style={s.accessDeniedBtn} onPress={() => router.back()}>
+            <Ionicons name="arrow-back" size={16} color="#fff" />
+            <Text style={s.accessDeniedBtnText}>Voltar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   function toggleExpandido(n: TipoNivel) {
     setExpandido(prev => ({ ...prev, [n]: !prev[n] }));
@@ -311,4 +336,12 @@ const s = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16,
   },
   gerarBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
+
+  // Acesso negado
+  accessDenied: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  accessDeniedIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: Colors.danger + '18', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.danger + '40', marginBottom: 20 },
+  accessDeniedTitle: { fontSize: 22, fontFamily: 'Inter_700Bold', color: Colors.text, marginBottom: 12 },
+  accessDeniedText: { fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 22, marginBottom: 28 },
+  accessDeniedBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.accent, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14 },
+  accessDeniedBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
 });

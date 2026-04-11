@@ -281,48 +281,61 @@ export default function LicencaScreen() {
             </View>
           )}
 
-          {/* Formulário de activação */}
-          <View style={styles.activateCard}>
-            <View style={styles.activateHeader}>
-              <MaterialCommunityIcons name="key-outline" size={20} color={Colors.gold} />
-              <Text style={styles.activateTitle}>Activar Nova Licença</Text>
-            </View>
-            <Text style={styles.activateMsg}>
-              Introduza o código de activação fornecido pelo distribuidor SIGA.
-            </Text>
-            <View style={styles.inputContainer}>
-              <MaterialCommunityIcons name="key" size={20} color={Colors.gold} style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                value={codigo}
-                onChangeText={v => setCodigo(v.toUpperCase())}
-                placeholder="SIGE-XXX-XXXXXXXX"
-                placeholderTextColor={Colors.textMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-              />
-            </View>
-            <TouchableOpacity
-              style={[styles.activateBtn, isLoading && { opacity: 0.7 }]}
-              onPress={handleActivar}
-              disabled={isLoading}
-            >
-              <LinearGradient
-                colors={[Colors.gold, Colors.gold + 'CC']}
-                style={styles.activateBtnGrad}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+          {/* Formulário de activação — exclusivo do CEO */}
+          {user?.role === 'ceo' ? (
+            <View style={styles.activateCard}>
+              <View style={styles.activateHeader}>
+                <MaterialCommunityIcons name="key-outline" size={20} color={Colors.gold} />
+                <Text style={styles.activateTitle}>Activar Nova Licença</Text>
+              </View>
+              <Text style={styles.activateMsg}>
+                Introduza o código de activação fornecido pelo distribuidor SIGA.
+              </Text>
+              <View style={styles.inputContainer}>
+                <MaterialCommunityIcons name="key" size={20} color={Colors.gold} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.input}
+                  value={codigo}
+                  onChangeText={v => setCodigo(v.toUpperCase())}
+                  placeholder="SIGE-XXX-XXXXXXXX"
+                  placeholderTextColor={Colors.textMuted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.activateBtn, isLoading && { opacity: 0.7 }]}
+                onPress={handleActivar}
+                disabled={isLoading}
               >
-                {isLoading ? (
-                  <Text style={styles.activateBtnText}>A activar…</Text>
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
-                    <Text style={styles.activateBtnText}>Activar Licença</Text>
-                  </>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
+                <LinearGradient
+                  colors={[Colors.gold, Colors.gold + 'CC']}
+                  style={styles.activateBtnGrad}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                >
+                  {isLoading ? (
+                    <Text style={styles.activateBtnText}>A activar…</Text>
+                  ) : (
+                    <>
+                      <MaterialCommunityIcons name="shield-check" size={20} color="#fff" />
+                      <Text style={styles.activateBtnText}>Activar Licença</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.ceoOnlyCard}>
+              <View style={styles.ceoOnlyIcon}>
+                <MaterialCommunityIcons name="crown" size={28} color={Colors.gold} />
+              </View>
+              <Text style={styles.ceoOnlyTitle}>Renovação Restrita ao CEO</Text>
+              <Text style={styles.ceoOnlyText}>
+                A activação e renovação da licença do sistema é da exclusiva responsabilidade do CEO.
+                Contacte o CEO da sua instituição para renovar o acesso.
+              </Text>
+            </View>
+          )}
 
           {/* Planos */}
           <View style={styles.planosCard}>
@@ -438,6 +451,14 @@ const styles = StyleSheet.create({
   },
   detailLabel: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginBottom: 2 },
   detailVal: { fontSize: 14, fontFamily: 'Inter_700Bold', color: Colors.textSecondary },
+
+  ceoOnlyCard: {
+    backgroundColor: 'rgba(255,196,0,0.08)', borderRadius: 18, padding: 22,
+    borderWidth: 1, borderColor: Colors.gold + '44', marginBottom: 16, alignItems: 'center',
+  },
+  ceoOnlyIcon: { width: 60, height: 60, borderRadius: 18, backgroundColor: Colors.gold + '18', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.gold + '44', marginBottom: 14 },
+  ceoOnlyTitle: { fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.gold, marginBottom: 10, textAlign: 'center' },
+  ceoOnlyText: { fontSize: 13, fontFamily: 'Inter_400Regular', color: Colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
   activateCard: {
     backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18, padding: 18,

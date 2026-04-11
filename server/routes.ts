@@ -4246,7 +4246,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/licenca/credito — adiciona crédito acumulado a uma escola (para desconto no próximo pagamento)
-  app.post("/api/licenca/credito", async (req: Request, res: Response) => {
+  app.post("/api/licenca/credito", requireAuth, async (req: Request, res: Response) => {
+    if (req.jwtUser?.role !== 'ceo') {
+      return json(res, 403, { error: 'Acesso restrito. Apenas o CEO pode gerir créditos de subscrição.' });
+    }
     try {
       const { valor } = requireBodyObject(req) as { valor: number };
       if (!valor || valor <= 0) return json(res, 400, { error: 'Valor inválido.' });
@@ -4266,7 +4269,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/licenca/ativar — activa licença e grava nível no servidor
-  app.post("/api/licenca/ativar", async (req: Request, res: Response) => {
+  app.post("/api/licenca/ativar", requireAuth, async (req: Request, res: Response) => {
+    if (req.jwtUser?.role !== 'ceo') {
+      return json(res, 403, { error: 'Acesso restrito. Apenas o CEO pode activar ou renovar a subscrição.' });
+    }
     try {
       const { nivel, plano, dataExpiracao, escolaNome, precoPorAluno, totalAlunos, creditoAplicado } =
         requireBodyObject(req) as {
@@ -4296,10 +4302,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/config", async (req: Request, res: Response) => {
+  app.put("/api/config", requireAuth, async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
-      const allowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito","percMac","percPp","percNt","percPt","percPg","percExame","provaRecuperacaoHabilitada"] as const;
+      const isCeoUser = req.jwtUser?.role === 'ceo';
+      // Campos de licença/subscrição: apenas o CEO pode alterar
+      const LICENCA_FIELDS = new Set(["licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito"]);
+      const allAllowed = ["nomeEscola","logoUrl","pp1Habilitado","pptHabilitado","notaMinimaAprovacao","maxAlunosTurma","numAvaliacoes","macMin","macMax","horarioFuncionamento","flashScreen","multaConfig","inscricoesAbertas","inscricaoDataInicio","inscricaoDataFim","propinaHabilitada","numeroEntidade","iban","nomeBeneficiario","bancoTransferencia","telefoneMulticaixaExpress","nib","directorGeral","directorPedagogico","directorProvincialEducacao","codigoMED","nifEscola","provinciaEscola","municipioEscola","morada","telefoneEscola","emailEscola","tipoEnsino","modalidade","inssEmpPerc","inssPatrPerc","irtTabela","mesesAnoAcademico","prazosLancamento","papHabilitado","estagioComoDisciplina","papDisciplinasContribuintes","exameAntecipadoHabilitado","periodosHorario","ultimoBackup","avaliacaoPeriodoAtivo","avaliacaoPeriodoInicio","avaliacaoPeriodoFim","avaliacaoPeriodoLabel","exclusaoDuasReprovacoes","notasVisiveis","licencaNivel","licencaPrecoPorAluno","licencaSaldoCredito","percMac","percPp","percNt","percPt","percPg","percExame","provaRecuperacaoHabilitada"] as const;
+      const allowed = isCeoUser ? allAllowed : allAllowed.filter(k => !LICENCA_FIELDS.has(k));
       const jsonbKeys = new Set(["flashScreen","multaConfig","irtTabela","mesesAnoAcademico","prazosLancamento","papDisciplinasContribuintes","periodosHorario"]);
       const setParts: string[] = []; const values: unknown[] = [];
       for (const key of allowed) {
