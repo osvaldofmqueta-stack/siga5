@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/colors';
 import { useAuth } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
@@ -15,6 +16,15 @@ import {
   PermKey,
 } from '@/context/PermissoesContext';
 import TopBar from '@/components/TopBar';
+
+const TIPO_CONTRATO = [
+  { id: 'efectivo',           label: 'Efectivo',             color: '#4CAF50' },
+  { id: 'colaborador',        label: 'Colaborador',          color: '#2196F3' },
+  { id: 'contratado',         label: 'Contratado',           color: '#FF9800' },
+  { id: 'prestacao_servicos', label: 'Prestação de Serviços', color: '#9C27B0' },
+];
+
+const PROFESSOR_ROLES = ['professor', 'diretor_turma'];
 
 const ROLE_LABEL: Record<string, string> = {
   ceo: 'CEO', pca: 'PCA', admin: 'Administrador do Sistema',
@@ -84,6 +94,10 @@ export default function GestaoAcessosScreen() {
   const [searchPerms, setSearchPerms] = useState('');
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set(FEATURE_CATEGORIES.map(c => c.categoria)));
 
+  // ── Vínculo do professor ──
+  const [professorRecordId, setProfessorRecordId] = useState<string | null>(null);
+  const [selectedVinculo, setSelectedVinculo] = useState<string>('efectivo');
+
   // ── Perfis tab state ──
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [editedRolePerms, setEditedRolePerms] = useState<Record<string, boolean>>({});
@@ -131,6 +145,42 @@ export default function GestaoAcessosScreen() {
     setSaved(false);
   }, [selectedUserId, isLoading]);
 
+  // ── Busca o registo do professor quando um utilizador professor é seleccionado ──
+  useEffect(() => {
+    if (!selectedUserId || !selectedUser) {
+      setProfessorRecordId(null);
+      setSelectedVinculo('efectivo');
+      return;
+    }
+    if (!PROFESSOR_ROLES.includes(selectedUser.role)) {
+      setProfessorRecordId(null);
+      setSelectedVinculo('efectivo');
+      return;
+    }
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('@siga_token');
+        const res = await fetch('/api/professores', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const prof = (Array.isArray(data) ? data : data.professores ?? [])
+          .find((p: any) => p.utilizadorId === selectedUserId || p.utilizadorId === String(selectedUserId));
+        if (prof) {
+          setProfessorRecordId(prof.id);
+          setSelectedVinculo(prof.tipoContrato ?? 'efectivo');
+        } else {
+          setProfessorRecordId(null);
+          setSelectedVinculo('efectivo');
+        }
+      } catch {
+        setProfessorRecordId(null);
+        setSelectedVinculo('efectivo');
+      }
+    })();
+  }, [selectedUserId]);
+
   // ── Perfis tab logic ──
   useEffect(() => {
     if (!selectedRole) return;
@@ -170,6 +220,20 @@ export default function GestaoAcessosScreen() {
     setSaving(true);
     try {
       await saveUserPermissions(selectedUserId, editedPerms);
+
+      // Se o utilizador for professor, actualiza também o tipo de vínculo no perfil
+      if (professorRecordId && selectedUser && PROFESSOR_ROLES.includes(selectedUser.role)) {
+        const token = await AsyncStorage.getItem('@siga_token');
+        await fetch(`/api/professores/${professorRecordId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ tipoContrato: selectedVinculo }),
+        });
+      }
+
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } finally {
@@ -452,6 +516,7 @@ export default function GestaoAcessosScreen() {
                     {visibleCats.map(cat => {
                       const isExpanded = searchPerms.trim() ? true : expandedCats.has(cat.categoria);
                       const activeInCat = countActive(cat, editedPerms);
+                      const isProfessor = selectedUser && PROFESSOR_ROLES.includes(selectedUser.role);
                       return (
                         <View key={cat.categoria} style={styles.catCard}>
                           <TouchableOpacity
@@ -471,25 +536,61 @@ export default function GestaoAcessosScreen() {
                           {isExpanded && cat.features.map((feat, idx) => {
                             const isOn = editedPerms[feat.key] === true;
                             const isRoleFeature = feat.roles.includes(selectedUser.role);
+                            const isLastFeat = idx === cat.features.length - 1;
+                            const showVinculo = feat.key === 'alterar_tipo_contrato' && isProfessor && professorRecordId;
                             return (
-                              <View key={feat.key} style={[styles.featRow, idx === cat.features.length - 1 && { borderBottomWidth: 0 }]}>
-                                <View style={styles.featInfo}>
-                                  <View style={styles.featLabelRow}>
-                                    <Text style={[styles.featLabel, !isOn && { color: Colors.textMuted }]}>{feat.label}</Text>
-                                    {!isRoleFeature && (
-                                      <View style={styles.outOfRolePill}>
-                                        <Text style={styles.outOfRoleText}>Fora do cargo</Text>
-                                      </View>
-                                    )}
+                              <View key={feat.key}>
+                                <View style={[styles.featRow, isLastFeat && !showVinculo && { borderBottomWidth: 0 }]}>
+                                  <View style={styles.featInfo}>
+                                    <View style={styles.featLabelRow}>
+                                      <Text style={[styles.featLabel, !isOn && { color: Colors.textMuted }]}>{feat.label}</Text>
+                                      {!isRoleFeature && (
+                                        <View style={styles.outOfRolePill}>
+                                          <Text style={styles.outOfRoleText}>Fora do cargo</Text>
+                                        </View>
+                                      )}
+                                    </View>
+                                    <Text style={styles.featDesc} numberOfLines={1}>{feat.desc}</Text>
                                   </View>
-                                  <Text style={styles.featDesc} numberOfLines={1}>{feat.desc}</Text>
+                                  <Switch
+                                    value={isOn}
+                                    onValueChange={() => togglePerm(feat.key as PermKey)}
+                                    trackColor={{ false: Colors.border, true: Colors.success + '66' }}
+                                    thumbColor={isOn ? Colors.success : Colors.textMuted}
+                                  />
                                 </View>
-                                <Switch
-                                  value={isOn}
-                                  onValueChange={() => togglePerm(feat.key as PermKey)}
-                                  trackColor={{ false: Colors.border, true: Colors.success + '66' }}
-                                  thumbColor={isOn ? Colors.success : Colors.textMuted}
-                                />
+                                {showVinculo && (
+                                  <View style={[styles.vinculoRow, isLastFeat && { borderBottomWidth: 0 }]}>
+                                    <View style={styles.vinculoHeader}>
+                                      <Ionicons name="link" size={13} color={Colors.gold} />
+                                      <Text style={styles.vinculoTitle}>Tipo de Vínculo Contratual</Text>
+                                    </View>
+                                    <View style={styles.vinculoTags}>
+                                      {TIPO_CONTRATO.map(t => {
+                                        const isActive = selectedVinculo === t.id;
+                                        return (
+                                          <TouchableOpacity
+                                            key={t.id}
+                                            style={[
+                                              styles.vinculoTag,
+                                              isActive && { backgroundColor: `${t.color}22`, borderColor: t.color + '99' },
+                                            ]}
+                                            onPress={() => { setSelectedVinculo(t.id); setSaved(false); }}
+                                            activeOpacity={0.75}
+                                          >
+                                            {isActive && <Ionicons name="checkmark-circle" size={12} color={t.color} />}
+                                            <Text style={[styles.vinculoTagText, isActive && { color: t.color, fontFamily: 'Inter_600SemiBold' }]}>
+                                              {t.label}
+                                            </Text>
+                                          </TouchableOpacity>
+                                        );
+                                      })}
+                                    </View>
+                                    <Text style={styles.vinculoHint}>
+                                      Afecta o cálculo salarial. Guardado junto com as permissões.
+                                    </Text>
+                                  </View>
+                                )}
                               </View>
                             );
                           })}
@@ -903,4 +1004,13 @@ const styles = StyleSheet.create({
   saveBtnText: { fontSize: 15, fontFamily: 'Inter_700Bold', color: '#fff' },
   savedConfirm: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.success + '22', borderRadius: 12, paddingVertical: 14, borderWidth: 1, borderColor: Colors.success + '44' },
   savedText: { fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.success },
+
+  // Vínculo selector
+  vinculoRow: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.gold + '08' },
+  vinculoHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  vinculoTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.gold },
+  vinculoTags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  vinculoTag: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: Colors.border },
+  vinculoTagText: { fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted },
+  vinculoHint: { fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted, marginTop: 8, lineHeight: 14 },
 });
