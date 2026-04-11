@@ -2149,15 +2149,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             await query(`UPDATE public.funcionarios SET ${syncParts.join(",")} WHERE "utilizadorId"=$${syncVals.length}`, syncVals);
           }
         }
-        // Sync avatar → professores.foto or alunos.foto based on the user's role
+        // Sync avatar → only the correct table for this specific user's role
         if (b.avatar !== undefined) {
-          const userRole = await query<JsonObject>(`SELECT role FROM public.utilizadores WHERE id=$1`, [userId]);
-          const role = (userRole[0] as any)?.role;
+          const role = (updated[0] as any)?.role;
           if (role === 'professor') {
             await query(`UPDATE public.professores SET foto=$1 WHERE "utilizadorId"=$2`, [b.avatar, userId]);
           } else if (role === 'aluno') {
             await query(`UPDATE public.alunos SET foto=$1 WHERE "utilizadorId"=$2`, [b.avatar, userId]);
           }
+          // Other roles (admin, director, etc.) only update utilizadores.avatar — already done above
         }
       } catch { /* sync is best-effort */ }
 
