@@ -363,7 +363,8 @@ export default function ProfessorHubScreen() {
       await marcarLida(n.id);
     }
     setShowReaberturaModal(false);
-    router.push('/(main)/professor-pauta' as any);
+    const link = reaberturaNotifs[0]?.link;
+    router.push((link || '/(main)/professor-pauta') as any);
   }
 
   async function handleDismissReabertura() {

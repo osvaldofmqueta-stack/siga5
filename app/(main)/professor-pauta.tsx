@@ -16,7 +16,7 @@ import * as XLSX from 'xlsx';
 import { useConfig } from '@/context/ConfigContext';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
@@ -124,10 +124,14 @@ export default function ProfessorPautaScreen() {
   const insets = useSafeAreaInsets();
   const bottomInset = Platform.OS === 'web' ? 34 : insets.bottom;
 
-  const [turmaId, setTurmaId] = useState('');
-  const [disciplina, setDisciplina] = useState('');
-  const [trimestre, setTrimestre] = useState<Trimestre>(1);
-  const [step, setStep] = useState<'selecao' | 'pauta' | 'pap'>('selecao');
+  const params = useLocalSearchParams<{ turmaId?: string; disciplina?: string; trimestre?: string }>();
+
+  const [turmaId, setTurmaId] = useState(params.turmaId ? decodeURIComponent(params.turmaId) : '');
+  const [disciplina, setDisciplina] = useState(params.disciplina ? decodeURIComponent(params.disciplina) : '');
+  const [trimestre, setTrimestre] = useState<Trimestre>(params.trimestre ? (parseInt(params.trimestre) as Trimestre) : 1);
+  const [step, setStep] = useState<'selecao' | 'pauta' | 'pap'>(
+    params.turmaId && params.disciplina ? 'pauta' : 'selecao'
+  );
   const [notasForms, setNotasForms] = useState<NotaForm[]>([]);
   const [saving, setSaving] = useState(false);
   const [showSolicitModal, setShowSolicitModal] = useState(false);

@@ -1728,7 +1728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 `A reabertura do campo "${nomeCampo}" da pauta de ${disciplina} (${turmaNome} · ${trimestre}º Trim.) foi aprovada. Aceda à pauta para actualizar o lançamento.`,
                 'reabertura_aprovada',
                 hoje,
-                '/(main)/professor-pauta',
+                `/(main)/professor-pauta?turmaId=${encodeURIComponent(turmaId)}&disciplina=${encodeURIComponent(disciplina)}&trimestre=${trimestre}`,
               ]
             );
           }

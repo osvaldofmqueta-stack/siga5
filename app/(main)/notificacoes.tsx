@@ -18,23 +18,31 @@ import { useNotificacoes, TipoNotificacao, Notificacao, timeAgo } from '@/contex
 import { webAlert } from '@/utils/webAlert';
 
 // ── Tipo config ───────────────────────────────────────────────────────────────
-const TIPO_CONFIG: Record<TipoNotificacao, {
+const TIPO_CONFIG_MAP: Record<string, {
   icon: string; iconLib: 'ion' | 'mci';
   color: string; bg: string; label: string; badgeColor: string;
 }> = {
-  urgente: { icon: 'alert-circle',          iconLib: 'ion', color: '#FF4757', bg: '#FF475715', label: 'Urgente',  badgeColor: '#FF4757' },
-  aviso:   { icon: 'alert-decagram-outline', iconLib: 'mci', color: '#F39C12', bg: '#F39C1215', label: 'Aviso',    badgeColor: '#F39C12' },
-  info:    { icon: 'information-circle',     iconLib: 'ion', color: '#3498DB', bg: '#3498DB15', label: 'Info',     badgeColor: '#3498DB' },
-  sucesso: { icon: 'checkmark-circle',       iconLib: 'ion', color: '#2ECC71', bg: '#2ECC7115', label: 'Sucesso',  badgeColor: '#2ECC71' },
+  urgente:              { icon: 'alert-circle',          iconLib: 'ion', color: '#FF4757', bg: '#FF475715', label: 'Urgente',    badgeColor: '#FF4757' },
+  aviso:                { icon: 'alert-decagram-outline', iconLib: 'mci', color: '#F39C12', bg: '#F39C1215', label: 'Aviso',      badgeColor: '#F39C12' },
+  info:                 { icon: 'information-circle',     iconLib: 'ion', color: '#3498DB', bg: '#3498DB15', label: 'Info',       badgeColor: '#3498DB' },
+  sucesso:              { icon: 'checkmark-circle',       iconLib: 'ion', color: '#2ECC71', bg: '#2ECC7115', label: 'Sucesso',    badgeColor: '#2ECC71' },
+  reabertura_aprovada:  { icon: 'lock-open',              iconLib: 'ion', color: '#F4C53B', bg: '#F4C53B15', label: 'Reabertura', badgeColor: '#F4C53B' },
 };
 
+const TIPO_CONFIG_DEFAULT = { icon: 'notifications', iconLib: 'ion' as const, color: '#3498DB', bg: '#3498DB15', label: 'Info', badgeColor: '#3498DB' };
+
+function getTipoConfig(tipo: string) {
+  return TIPO_CONFIG_MAP[tipo] ?? TIPO_CONFIG_DEFAULT;
+}
+
 const FILTROS: { key: string; label: string; icon: string }[] = [
-  { key: 'todas',    label: 'Todas',    icon: 'layers-outline' },
-  { key: 'nao_lidas',label: 'Não lidas',icon: 'ellipse' },
-  { key: 'urgente',  label: 'Urgente',  icon: 'alert-circle-outline' },
-  { key: 'aviso',    label: 'Aviso',    icon: 'warning-outline' },
-  { key: 'info',     label: 'Info',     icon: 'information-circle-outline' },
-  { key: 'sucesso',  label: 'Sucesso',  icon: 'checkmark-circle-outline' },
+  { key: 'todas',              label: 'Todas',      icon: 'layers-outline' },
+  { key: 'nao_lidas',          label: 'Não lidas',  icon: 'ellipse' },
+  { key: 'urgente',            label: 'Urgente',    icon: 'alert-circle-outline' },
+  { key: 'aviso',              label: 'Aviso',      icon: 'warning-outline' },
+  { key: 'info',               label: 'Info',       icon: 'information-circle-outline' },
+  { key: 'sucesso',            label: 'Sucesso',    icon: 'checkmark-circle-outline' },
+  { key: 'reabertura_aprovada',label: 'Reabertura', icon: 'lock-open-outline' },
 ];
 
 // ── Group by date ─────────────────────────────────────────────────────────────
@@ -64,7 +72,7 @@ function NotifItem({
   onPress: (n: Notificacao) => void;
   onDelete: (id: string) => void;
 }) {
-  const cfg = TIPO_CONFIG[item.tipo];
+  const cfg = getTipoConfig(item.tipo);
 
   return (
     <TouchableOpacity
@@ -124,7 +132,7 @@ function DetalheModal({
   router: ReturnType<typeof useRouter>;
 }) {
   if (!notif) return null;
-  const cfg = TIPO_CONFIG[notif.tipo];
+  const cfg = getTipoConfig(notif.tipo);
   return (
     <Modal visible={!!notif} transparent animationType="fade" onRequestClose={onClose}>
       <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={onClose}>

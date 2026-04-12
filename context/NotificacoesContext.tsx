@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useMemo, ReactNo
 import { api } from '../lib/api';
 import { useAuth } from './AuthContext';
 
-export type TipoNotificacao = 'info' | 'aviso' | 'urgente' | 'sucesso';
+export type TipoNotificacao = 'info' | 'aviso' | 'urgente' | 'sucesso' | 'reabertura_aprovada' | string;
 
 export interface Notificacao {
   id: string;
