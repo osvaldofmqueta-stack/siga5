@@ -367,8 +367,8 @@ export default function DirectorTurmaScreen() {
 
       {/* Selector de turma (se for director de mais de uma) */}
       {minhasTurmas.length > 1 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.turmaTabs}>
-          <View style={s.turmaTabsInner}>
+        <View style={s.turmaTabs}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.turmaTabsInner}>
             {minhasTurmas.map((t, i) => (
               <TouchableOpacity
                 key={t.id}
@@ -378,61 +378,65 @@ export default function DirectorTurmaScreen() {
                 <Text style={[s.turmaTabText, turmaIdx === i && s.turmaTabTextActive]}>{t.nome}</Text>
               </TouchableOpacity>
             ))}
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </View>
       )}
 
       {/* Info bar da turma */}
       {turmaAtual && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.infoBar} contentContainerStyle={s.infoBarContent}>
-          <View style={s.infoPill}>
-            <Ionicons name="people" size={12} color={Colors.info} />
-            <Text style={s.infoPillText}>{alunosDaTurma.length} alunos</Text>
-          </View>
-          <View style={s.infoPill}>
-            <Ionicons name="time-outline" size={12} color={Colors.gold} />
-            <Text style={s.infoPillText}>{turmaAtual.turno}</Text>
-          </View>
-          {turmaAtual.sala ? (
+        <View style={s.infoBar}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.infoBarContent}>
             <View style={s.infoPill}>
-              <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
-              <Text style={s.infoPillText}>Sala {turmaAtual.sala}</Text>
+              <Ionicons name="people" size={12} color={Colors.info} />
+              <Text style={s.infoPillText}>{alunosDaTurma.length} alunos</Text>
             </View>
-          ) : null}
-          <View style={s.infoPill}>
-            <Ionicons name="calendar-outline" size={12} color={Colors.success} />
-            <Text style={s.infoPillText}>{turmaAtual.anoLetivo}</Text>
-          </View>
-          <TouchableOpacity
-            style={[s.infoPill, { backgroundColor: turmaAtual.faltasBloqueadas ? Colors.danger + '22' : Colors.surface, borderWidth: 1, borderColor: turmaAtual.faltasBloqueadas ? Colors.danger + '55' : Colors.border }]}
-            onPress={handleToggleFaltasBloqueadas}
-          >
-            <Ionicons name={turmaAtual.faltasBloqueadas ? 'lock-closed' : 'lock-open-outline'} size={12} color={turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted} />
-            <Text style={[s.infoPillText, { color: turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted }]}>
-              {turmaAtual.faltasBloqueadas ? 'Faltas Bloqueadas' : 'Bloquear Faltas'}
-            </Text>
-          </TouchableOpacity>
-        </ScrollView>
+            <View style={s.infoPill}>
+              <Ionicons name="time-outline" size={12} color={Colors.gold} />
+              <Text style={s.infoPillText}>{turmaAtual.turno}</Text>
+            </View>
+            {turmaAtual.sala ? (
+              <View style={s.infoPill}>
+                <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+                <Text style={s.infoPillText}>Sala {turmaAtual.sala}</Text>
+              </View>
+            ) : null}
+            <View style={s.infoPill}>
+              <Ionicons name="calendar-outline" size={12} color={Colors.success} />
+              <Text style={s.infoPillText}>{turmaAtual.anoLetivo}</Text>
+            </View>
+            <TouchableOpacity
+              style={[s.infoPill, { backgroundColor: turmaAtual.faltasBloqueadas ? Colors.danger + '22' : Colors.surface, borderWidth: 1, borderColor: turmaAtual.faltasBloqueadas ? Colors.danger + '55' : Colors.border }]}
+              onPress={handleToggleFaltasBloqueadas}
+            >
+              <Ionicons name={turmaAtual.faltasBloqueadas ? 'lock-closed' : 'lock-open-outline'} size={12} color={turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted} />
+              <Text style={[s.infoPillText, { color: turmaAtual.faltasBloqueadas ? Colors.danger : Colors.textMuted }]}>
+                {turmaAtual.faltasBloqueadas ? 'Faltas Bloqueadas' : 'Bloquear Faltas'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
       )}
 
       {/* Tabs */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabScroll} contentContainerStyle={s.tabRow}>
-        {tabConfig.map(tc => (
-          <TouchableOpacity
-            key={tc.key}
-            style={[s.tabBtn, tab === tc.key && s.tabBtnActive]}
-            onPress={() => setTab(tc.key)}
-          >
-            <Ionicons name={tc.icon as any} size={14} color={tab === tc.key ? Colors.gold : Colors.textMuted} />
-            <Text style={[s.tabText, tab === tc.key && s.tabTextActive]}>{tc.label}</Text>
-            {tc.badge !== undefined && tc.badge > 0 && (
-              <View style={s.tabBadge}>
-                <Text style={s.tabBadgeText}>{tc.badge}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={s.tabScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.tabRow}>
+          {tabConfig.map(tc => (
+            <TouchableOpacity
+              key={tc.key}
+              style={[s.tabBtn, tab === tc.key && s.tabBtnActive]}
+              onPress={() => setTab(tc.key)}
+            >
+              <Ionicons name={tc.icon as any} size={14} color={tab === tc.key ? Colors.gold : Colors.textMuted} />
+              <Text style={[s.tabText, tab === tc.key && s.tabTextActive]}>{tc.label}</Text>
+              {tc.badge !== undefined && tc.badge > 0 && (
+                <View style={s.tabBadge}>
+                  <Text style={s.tabBadgeText}>{tc.badge}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* ── Tab: DOSSIER ─────────────────────────────────────────────────────── */}
       {tab === 'dossier' && (
@@ -813,17 +817,17 @@ export default function DirectorTurmaScreen() {
 const s = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   turmaTabs: { height: 52, backgroundColor: Colors.primaryDark, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  turmaTabsInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8, height: 52 },
+  turmaTabsInner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, gap: 8 },
   turmaTab: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface },
   turmaTabActive: { backgroundColor: Colors.accent },
   turmaTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   turmaTabTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
   infoBar: { height: 44, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  infoBarContent: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 44 },
+  infoBarContent: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14 },
   infoPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   infoPillText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   tabScroll: { height: 50, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  tabRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8, alignItems: 'center', height: 50 },
+  tabRow: { flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 8, gap: 8, alignItems: 'center' },
   tabBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: Colors.surface, position: 'relative' },
   tabBtnActive: { backgroundColor: `${Colors.gold}22`, borderWidth: 1, borderColor: Colors.gold },
   tabText: { fontSize: 12, fontFamily: 'Inter_500Medium', color: Colors.textMuted },
