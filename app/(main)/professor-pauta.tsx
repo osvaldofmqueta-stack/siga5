@@ -191,9 +191,10 @@ export default function ProfessorPautaScreen() {
   const isPautaFechada = pautaAtual?.status === 'fechada';
   const isPendente = pautaAtual?.status === 'pendente_abertura';
 
-  // PAP derived values
+  // PAP derived values — only for Técnico-Profissional courses
   const is13Classe = turmaAtual?.classe === '13ª Classe' || turmaAtual?.classe === '13';
-  const isPapMode = is13Classe && config.papHabilitado;
+  const isTecnicoProfissional = turmaAtual?.tipoEnsino === 'Técnico-Profissional';
+  const isPapMode = is13Classe && config.papHabilitado && isTecnicoProfissional;
   const classeAtual = turmaAtual?.classe;
   const useProvGlobal = trimestre === 3 && isClasseTransicao(classeAtual);
   const useExame = trimestre === 3 && is12aClasse(classeAtual);
@@ -552,16 +553,22 @@ export default function ProfessorPautaScreen() {
 
   async function fecharPauta() {
     if (!pautaAtual) {
-      webAlert('Aviso', 'Guarde as notas primeiro antes de fechar a pauta.');
+      webAlert('Aviso', 'Guarde as notas primeiro antes de submeter a pauta.');
       return;
     }
+    const totalAlunos = alunosDaTurma.length;
+    const notasLancadas = notas.filter(n => n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre).length;
+    const faltando = totalAlunos - notasLancadas;
+    const avisoFaltando = faltando > 0
+      ? `\n\n⚠️ Atenção: ${faltando} aluno(s) ainda não têm nota lançada.`
+      : '\n\n✅ Todos os alunos têm notas lançadas.';
     webAlert(
-      'Fechar Pauta',
-      `Tem a certeza que deseja fechar a pauta de ${disciplina} — ${turmaAtual?.nome} — ${trimestre}º Trimestre?\n\nApós o fecho, as notas não poderão ser alteradas sem autorização.`,
+      'Submeter Pauta',
+      `Tem a certeza que deseja submeter e encerrar a pauta de ${disciplina} — ${turmaAtual?.nome} — ${trimestre}º Trimestre?${avisoFaltando}\n\nApós a submissão, as notas ficam encerradas e não poderão ser alteradas sem autorização da direcção.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Fechar Pauta',
+          text: 'Submeter Pauta',
           style: 'destructive',
           onPress: async () => {
             await updatePauta(pautaAtual.id, {
@@ -569,12 +576,12 @@ export default function ProfessorPautaScreen() {
               dataFecho: new Date().toISOString(),
             });
             await addNotificacao({
-              titulo: 'Pauta Fechada',
-              mensagem: `Pauta de ${disciplina} (${turmaAtual?.nome}) — ${trimestre}º Trimestre foi fechada com sucesso.`,
+              titulo: 'Pauta Submetida',
+              mensagem: `Pauta de ${disciplina} (${turmaAtual?.nome}) — ${trimestre}º Trimestre foi submetida e encerrada com sucesso.`,
               tipo: 'sucesso',
               data: new Date().toISOString(),
             });
-            webAlert('Pauta Fechada', 'A pauta foi fechada com sucesso. Para reabrir, será necessária autorização.');
+            webAlert('Pauta Submetida', 'A pauta foi submetida e encerrada com sucesso. Para reabrir, será necessário solicitar autorização à direcção.');
           },
         },
       ]
@@ -813,7 +820,12 @@ export default function ProfessorPautaScreen() {
   }
 
   const pautaStatusColor = isPautaFechada ? Colors.danger : isPendente ? Colors.warning : pautaAtual ? Colors.success : Colors.textMuted;
-  const pautaStatusLabel = isPautaFechada ? 'Fechada' : isPendente ? 'Aguarda Reabertura' : pautaAtual ? 'Aberta' : 'Não Lançada';
+  const pautaStatusLabel = isPautaFechada ? 'Submetida e Encerrada' : isPendente ? 'Aguarda Reabertura' : pautaAtual ? 'Aberta (Em Lançamento)' : 'Não Iniciada';
+
+  // Count of students with grades entered for this pauta/trimestre
+  const notasLancadasCount = notas.filter(n => n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre).length;
+  const totalAlunosCount = alunosDaTurma.length;
+  const pautaCompleta = notasLancadasCount >= totalAlunosCount && totalAlunosCount > 0;
 
   useEnterToSave(solicitarReabertura, showSolicitModal);
 
@@ -902,7 +914,7 @@ export default function ProfessorPautaScreen() {
                 </Text>
                 {pautaAtual && (
                   <Text style={styles.statusPreviewSub}>
-                    {alunosDaTurma.length} alunos · {notas.filter(n => n.turmaId === turmaId && n.disciplina === disciplina && n.trimestre === trimestre).length} notas lançadas
+                    {notasLancadasCount}/{totalAlunosCount} alunos com notas lançadas{pautaCompleta ? ' ✓' : ''}
                   </Text>
                 )}
               </View>
@@ -1149,9 +1161,16 @@ export default function ProfessorPautaScreen() {
       {/* Status Bar */}
       <View style={[styles.pautaStatusBar, { backgroundColor: pautaStatusColor + '18' }]}>
         <View style={[styles.statusDot, { backgroundColor: pautaStatusColor }]} />
-        <Text style={[styles.pautaStatusText, { color: pautaStatusColor }]}>
-          {pautaStatusLabel}
-        </Text>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.pautaStatusText, { color: pautaStatusColor }]}>
+            {pautaStatusLabel}
+          </Text>
+          {!isPautaFechada && !isPendente && pautaAtual && (
+            <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: pautaCompleta ? Colors.success : Colors.textMuted, marginTop: 1 }}>
+              {notasLancadasCount}/{totalAlunosCount} notas lançadas{pautaCompleta ? ' — pronta para submeter' : ''}
+            </Text>
+          )}
+        </View>
         {isPautaFechada && (
           <TouchableOpacity
             style={styles.reaberturaBtn}
@@ -1389,9 +1408,14 @@ export default function ProfessorPautaScreen() {
                 <Text style={styles.saveBtnText}>Guardar Notas</Text>
               </TouchableOpacity>
               {pautaAtual && (
-                <TouchableOpacity style={styles.fecharBtn} onPress={fecharPauta}>
-                  <Ionicons name="lock-closed" size={18} color="#fff" />
-                  <Text style={styles.saveBtnText}>Fechar Pauta</Text>
+                <TouchableOpacity
+                  style={[styles.fecharBtn, pautaCompleta && { backgroundColor: Colors.success }]}
+                  onPress={fecharPauta}
+                >
+                  <Ionicons name="checkmark-circle" size={18} color="#fff" />
+                  <Text style={styles.saveBtnText}>
+                    {pautaCompleta ? 'Submeter Pauta ✓' : 'Submeter Pauta'}
+                  </Text>
                 </TouchableOpacity>
               )}
             </>

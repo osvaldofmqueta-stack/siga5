@@ -384,7 +384,7 @@ export default function DirectorTurmaScreen() {
 
       {/* Info bar da turma */}
       {turmaAtual && (
-        <View style={s.infoBar}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.infoBar} contentContainerStyle={s.infoBarContent}>
           <View style={s.infoPill}>
             <Ionicons name="people" size={12} color={Colors.info} />
             <Text style={s.infoPillText}>{alunosDaTurma.length} alunos</Text>
@@ -393,10 +393,12 @@ export default function DirectorTurmaScreen() {
             <Ionicons name="time-outline" size={12} color={Colors.gold} />
             <Text style={s.infoPillText}>{turmaAtual.turno}</Text>
           </View>
-          <View style={s.infoPill}>
-            <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
-            <Text style={s.infoPillText}>Sala {turmaAtual.sala}</Text>
-          </View>
+          {turmaAtual.sala ? (
+            <View style={s.infoPill}>
+              <Ionicons name="location-outline" size={12} color={Colors.textMuted} />
+              <Text style={s.infoPillText}>Sala {turmaAtual.sala}</Text>
+            </View>
+          ) : null}
           <View style={s.infoPill}>
             <Ionicons name="calendar-outline" size={12} color={Colors.success} />
             <Text style={s.infoPillText}>{turmaAtual.anoLetivo}</Text>
@@ -410,7 +412,7 @@ export default function DirectorTurmaScreen() {
               {turmaAtual.faltasBloqueadas ? 'Faltas Bloqueadas' : 'Bloquear Faltas'}
             </Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       )}
 
       {/* Tabs */}
@@ -816,7 +818,8 @@ const s = StyleSheet.create({
   turmaTabActive: { backgroundColor: Colors.accent },
   turmaTabText: { fontSize: 13, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   turmaTabTextActive: { color: '#fff', fontFamily: 'Inter_600SemiBold' },
-  infoBar: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 14, paddingVertical: 10, backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  infoBar: { backgroundColor: Colors.backgroundCard, borderBottomWidth: 1, borderBottomColor: Colors.border, maxHeight: 44 },
+  infoBarContent: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8 },
   infoPill: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: Colors.surface, borderRadius: 8, paddingHorizontal: 9, paddingVertical: 4 },
   infoPillText: { fontSize: 11, fontFamily: 'Inter_500Medium', color: Colors.textSecondary },
   tabScroll: { maxHeight: 50, borderBottomWidth: 1, borderBottomColor: Colors.border },
