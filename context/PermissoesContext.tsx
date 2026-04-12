@@ -20,7 +20,7 @@ export type PermKey =
   | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios'
   | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento'
   | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios'
-  | 'alterar_tipo_contrato';
+  | 'alterar_tipo_contrato' | 'solicitacoes_documentos';
 
 export interface FeatureDef {
   key: PermKey;
@@ -117,6 +117,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'editor_documentos', label: 'Editor de Documentos', desc: 'Modelos e emissão de documentos', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
       { key: 'boletim_matricula', label: 'Boletim de Matrícula', desc: 'Impressão de ficha de matrícula', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
       { key: 'gerar_documento', label: 'Gerar Documento PDF', desc: 'Geração de documentos PDF oficiais: declarações, certidões e outros documentos escolares', roles: ['secretaria', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'solicitacoes_documentos', label: 'Solicitações de Documentos', desc: 'Receber, processar e emitir documentos solicitados pelos alunos (declarações, certidões, certificados, diplomas)', roles: ['secretaria', 'chefe_secretaria', 'admin', 'director', 'ceo', 'pca'] },
     ],
   },
   {
@@ -260,7 +261,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Alterar vínculos contratuais de professores e funcionários
     'alterar_tipo_contrato',
     // Integrações e novas funcionalidades
-    'med_integracao',
+    'med_integracao', 'solicitacoes_documentos',
   ],
 
   // ── Secretaria: operações administrativas académicas ─────────────
@@ -279,7 +280,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
     'relatorios', 'extrato_propinas', 'exclusoes_faltas', 'desempenho', 'relatorio_faltas',
     // Novas funcionalidades da secretaria
-    'processos_secretaria',
+    'processos_secretaria', 'solicitacoes_documentos',
   ],
 
   // ── Financeiro: gestão financeira completa ───────────────────────

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from 'expo-router';
 import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import MapaAproveitamentoModal from '@/components/MapaAproveitamentoModal';
 import PendingSolicitacoesModal, { Solicitacao } from '@/components/PendingSolicitacoesModal';
@@ -483,7 +484,7 @@ export default function SecretariaHubScreen() {
 
   const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Solicitacao[]>([]);
   const [showSolicitacoesModal, setShowSolicitacoesModal] = useState(false);
-  const solicitacoesShownRef = useRef(false);
+  const manuallyClosedRef = useRef(false);
   const [rematriculaBloquearPendencia, setRematriculaBloquearPendencia] = useState(true);
   const [rematriculaBloquearReprovados, setRematriculaBloquearReprovados] = useState(true);
   const [rematriculaLoading, setRematriculaLoading] = useState(false);
@@ -605,19 +606,20 @@ export default function SecretariaHubScreen() {
     fetchCorrespondencias();
   }, [fetchDocumentos, fetchProcessos, fetchCorrespondencias]);
 
-  useEffect(() => {
-    apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
-      .then(r => r.json())
-      .then((data: Solicitacao[]) => {
-        const list = Array.isArray(data) ? data : [];
-        setSolicitacoesPendentes(list);
-        if (list.length > 0 && !solicitacoesShownRef.current) {
-          solicitacoesShownRef.current = true;
-          setTimeout(() => setShowSolicitacoesModal(true), 700);
-        }
-      })
-      .catch(() => {});
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
+        .then(r => r.json())
+        .then((data: Solicitacao[]) => {
+          const list = Array.isArray(data) ? data : [];
+          setSolicitacoesPendentes(list);
+          if (list.length > 0 && !manuallyClosedRef.current) {
+            setTimeout(() => setShowSolicitacoesModal(true), 600);
+          }
+        })
+        .catch(() => {});
+    }, [])
+  );
 
   async function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     try {
@@ -1792,16 +1794,22 @@ export default function SecretariaHubScreen() {
         </View>
       </Modal>
 
-      {/* Modal automático — solicitações de documentos pendentes */}
+      {/* Modal passo-a-passo — solicitações de documentos pendentes */}
       <PendingSolicitacoesModal
         visible={showSolicitacoesModal}
         solicitacoes={solicitacoesPendentes}
         onClose={() => setShowSolicitacoesModal(false)}
+        onAdiar={() => {
+          manuallyClosedRef.current = true;
+          setShowSolicitacoesModal(false);
+        }}
         onUpdate={(updated) => {
-          setSolicitacoesPendentes(prev =>
-            prev.map(s => s.id === updated.id ? updated : s)
-                .filter(s => s.status === 'pendente' || s.status === 'em_processamento')
-          );
+          setSolicitacoesPendentes(prev => {
+            const next = prev.map(s => s.id === updated.id ? updated : s)
+              .filter(s => s.status === 'pendente' || s.status === 'em_processamento');
+            if (next.length === 0) setShowSolicitacoesModal(false);
+            return next;
+          });
         }}
       />
     </View>

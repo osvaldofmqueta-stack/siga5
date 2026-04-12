@@ -1,11 +1,11 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Platform, RefreshControl,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import { useData } from '@/context/DataContext';
 import { useAuth } from '@/context/AuthContext';
@@ -141,7 +141,7 @@ export default function DashboardScreen() {
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Solicitacao[]>([]);
   const [showSolicitacoesModal, setShowSolicitacoesModal] = useState(false);
-  const solicitacoesShownRef = useRef(false);
+  const manuallyClosedRef = useRef(false);
 
   const role = user?.role || '';
   const isAluno = role === 'aluno';
@@ -173,21 +173,22 @@ export default function DashboardScreen() {
       .catch(() => setFuncionarios([]));
   }, [isRhViewer]);
 
-  // Solicitações pendentes de documentos — modal automático ao entrar
-  useEffect(() => {
-    if (!isSecretariaRole) return;
-    apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
-      .then(r => r.json())
-      .then((data: Solicitacao[]) => {
-        const list = Array.isArray(data) ? data : [];
-        setSolicitacoesPendentes(list);
-        if (list.length > 0 && !solicitacoesShownRef.current) {
-          solicitacoesShownRef.current = true;
-          setTimeout(() => setShowSolicitacoesModal(true), 600);
-        }
-      })
-      .catch(() => {});
-  }, [isSecretariaRole]);
+  // Solicitações pendentes — re-verifica cada vez que o ecrã fica em foco
+  useFocusEffect(
+    useCallback(() => {
+      if (!isSecretariaRole) return;
+      apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
+        .then(r => r.json())
+        .then((data: Solicitacao[]) => {
+          const list = Array.isArray(data) ? data : [];
+          setSolicitacoesPendentes(list);
+          if (list.length > 0 && !manuallyClosedRef.current) {
+            setTimeout(() => setShowSolicitacoesModal(true), 600);
+          }
+        })
+        .catch(() => {});
+    }, [isSecretariaRole])
+  );
 
   const eventoTypeColor = (tipo: string) => ({
     'Académico': Colors.info, 'Cultural': Colors.gold, 'Desportivo': Colors.success,
@@ -1084,17 +1085,23 @@ export default function DashboardScreen() {
 
       </ScrollView>
 
-      {/* Modal solicitações de documentos — secretaria */}
+      {/* Modal passo-a-passo — solicitações de documentos */}
       {isSecretariaRole && (
         <PendingSolicitacoesModal
           visible={showSolicitacoesModal}
           solicitacoes={solicitacoesPendentes}
           onClose={() => setShowSolicitacoesModal(false)}
+          onAdiar={() => {
+            manuallyClosedRef.current = true;
+            setShowSolicitacoesModal(false);
+          }}
           onUpdate={(updated) => {
-            setSolicitacoesPendentes(prev =>
-              prev.map(s => s.id === updated.id ? updated : s)
-                  .filter(s => s.status === 'pendente')
-            );
+            setSolicitacoesPendentes(prev => {
+              const next = prev.map(s => s.id === updated.id ? updated : s)
+                .filter(s => s.status === 'pendente' || s.status === 'em_processamento');
+              if (next.length === 0) setShowSolicitacoesModal(false);
+              return next;
+            });
           }}
         />
       )}
