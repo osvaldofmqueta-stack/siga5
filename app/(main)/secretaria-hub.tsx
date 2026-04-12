@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import EmissaoRapidaModal from '@/components/EmissaoRapidaModal';
 import MapaAproveitamentoModal from '@/components/MapaAproveitamentoModal';
+import PendingSolicitacoesModal, { Solicitacao } from '@/components/PendingSolicitacoesModal';
 import {
   View,
   Text,
@@ -28,6 +29,7 @@ import { alertSucesso, alertErro } from '@/utils/toast';
 import TopBar from '@/components/TopBar';
 import { webAlert } from '@/utils/webAlert';
 import api from '@/lib/api';
+import { apiRequest } from '@/lib/query-client';
 
 const { width } = Dimensions.get('window');
 
@@ -478,6 +480,10 @@ export default function SecretariaHubScreen() {
   const [cursoExpandido, setCursoExpandido] = useState<string | null>(null);
   const [showRematricula, setShowRematricula] = useState(false);
   const [rematriculaAnoDestino, setRematriculaAnoDestino] = useState('');
+
+  const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Solicitacao[]>([]);
+  const [showSolicitacoesModal, setShowSolicitacoesModal] = useState(false);
+  const solicitacoesShownRef = useRef(false);
   const [rematriculaBloquearPendencia, setRematriculaBloquearPendencia] = useState(true);
   const [rematriculaBloquearReprovados, setRematriculaBloquearReprovados] = useState(true);
   const [rematriculaLoading, setRematriculaLoading] = useState(false);
@@ -598,6 +604,20 @@ export default function SecretariaHubScreen() {
     fetchProcessos();
     fetchCorrespondencias();
   }, [fetchDocumentos, fetchProcessos, fetchCorrespondencias]);
+
+  useEffect(() => {
+    apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
+      .then(r => r.json())
+      .then((data: Solicitacao[]) => {
+        const list = Array.isArray(data) ? data : [];
+        setSolicitacoesPendentes(list);
+        if (list.length > 0 && !solicitacoesShownRef.current) {
+          solicitacoesShownRef.current = true;
+          setTimeout(() => setShowSolicitacoesModal(true), 700);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleEmitir(doc: Omit<Documento, 'id' | 'emitidoEm' | 'emitidoPor'>) {
     try {
@@ -743,6 +763,21 @@ export default function SecretariaHubScreen() {
                   {stats.processosPendentes} processo{stats.processosPendentes > 1 ? 's' : ''} pendente{stats.processosPendentes > 1 ? 's' : ''} aguardam tratamento
                 </Text>
                 <Ionicons name="chevron-forward" size={14} color={Colors.warning} />
+              </TouchableOpacity>
+            )}
+
+            {/* Banner — solicitações de documentos pendentes */}
+            {solicitacoesPendentes.length > 0 && (
+              <TouchableOpacity
+                style={[styles.alertBanner, { backgroundColor: Colors.gold + '18', borderColor: Colors.gold + '40' }]}
+                onPress={() => setShowSolicitacoesModal(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name="file-document-multiple" size={18} color={Colors.gold} />
+                <Text style={[styles.alertText, { color: Colors.gold }]}>
+                  {solicitacoesPendentes.length} solicitaç{solicitacoesPendentes.length !== 1 ? 'ões' : 'ão'} de documentos pendente{solicitacoesPendentes.length !== 1 ? 's' : ''} — toque para tratar
+                </Text>
+                <Ionicons name="chevron-forward" size={14} color={Colors.gold} />
               </TouchableOpacity>
             )}
 
@@ -1756,6 +1791,19 @@ export default function SecretariaHubScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal automático — solicitações de documentos pendentes */}
+      <PendingSolicitacoesModal
+        visible={showSolicitacoesModal}
+        solicitacoes={solicitacoesPendentes}
+        onClose={() => setShowSolicitacoesModal(false)}
+        onUpdate={(updated) => {
+          setSolicitacoesPendentes(prev =>
+            prev.map(s => s.id === updated.id ? updated : s)
+                .filter(s => s.status === 'pendente' || s.status === 'em_processamento')
+          );
+        }}
+      />
     </View>
   );
 }

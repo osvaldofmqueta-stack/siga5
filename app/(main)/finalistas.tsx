@@ -232,7 +232,7 @@ export default function FinalistasScreen() {
   const [search, setSearch] = useState('');
   const [filterAno, setFilterAno] = useState<string>('');
 
-  const anoEfetivo = anoSelecionado || anoAtivo;
+  const anoEfetivo = (anoSelecionado || anoAtivo)?.ano ?? '';
 
   const load = useCallback(async (ano?: string) => {
     try {
