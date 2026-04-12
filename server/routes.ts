@@ -75,6 +75,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] utilizadores.genero:', (migErr as Error).message);
   }
 
+  // Add genero column to funcionarios
+  try {
+    await query(`ALTER TABLE public.funcionarios ADD COLUMN IF NOT EXISTS genero text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] funcionarios.genero ensured.');
+  } catch (migErr) {
+    console.warn('[migration] funcionarios.genero:', (migErr as Error).message);
+  }
+
+  // Add utilizadorId column to funcionarios
+  try {
+    await query(`ALTER TABLE public.funcionarios ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
+    console.log('[migration] funcionarios.utilizadorId ensured.');
+  } catch (migErr) {
+    console.warn('[migration] funcionarios.utilizadorId:', (migErr as Error).message);
+  }
+
+  // Add genero column to professores
+  try {
+    await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS genero text NOT NULL DEFAULT ''`, []);
+    console.log('[migration] professores.genero ensured.');
+  } catch (migErr) {
+    console.warn('[migration] professores.genero:', (migErr as Error).message);
+  }
+
   // Add utilizadorId column to professores (links academic profile → user account)
   try {
     await query(`ALTER TABLE public.professores ADD COLUMN IF NOT EXISTS "utilizadorId" varchar`, []);
