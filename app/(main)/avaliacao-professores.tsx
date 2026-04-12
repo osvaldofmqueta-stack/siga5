@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { getRoleLabel } from '@/utils/genero';
 import { useAuth } from '../../context/AuthContext';
 import { useConfig } from '../../context/ConfigContext';
 import { api } from '../../lib/api';
@@ -995,13 +996,7 @@ function AvaliacaoParcialScreen({ onBack }: { onBack: () => void }) {
     `${p.nome} ${p.apelido} ${p.numeroProfessor}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  const getRoleLabel = () => {
-    if (role === 'chefe_secretaria') return 'Responsável da Secretaria';
-    if (role === 'secretaria') return 'Secretaria Académica';
-    if (role === 'rh') return 'Recursos Humanos';
-    if (role === 'aluno') return 'Aluno';
-    return role;
-  };
+  const myRoleLabel = getRoleLabel(role, user?.genero);
 
   const criteriosCfg = CRITERIOS.filter(c => meusCriterios.includes(c.key as string));
 
@@ -1028,7 +1023,7 @@ function AvaliacaoParcialScreen({ onBack }: { onBack: () => void }) {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>Avaliação de Professores</Text>
-          <Text style={styles.headerSub}>{getRoleLabel()} · avaliação dos critérios atribuídos</Text>
+          <Text style={styles.headerSub}>{myRoleLabel} · avaliação dos critérios atribuídos</Text>
         </View>
       </View>
 

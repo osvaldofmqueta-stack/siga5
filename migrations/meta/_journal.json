@@ -15,6 +15,13 @@
       "when": 1775222999536,
       "tag": "0001_cultured_crusher_hogan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1775979296731,
+      "tag": "0002_dark_slayback",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useLicense } from '@/context/LicenseContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { usePermissoes, PermKey } from '@/context/PermissoesContext';
+import { getRoleLabel } from '@/utils/genero';
 
 const DRAWER_WIDTH = Math.min(Dimensions.get('window').width * 0.78, 300);
 const SIDEBAR_WIDTH = 260;
@@ -1136,20 +1137,7 @@ export default function DrawerLeft() {
             <View style={styles.perfilInfo}>
               <Text style={styles.perfilNome} numberOfLines={1}>{user?.nome}</Text>
               <Text style={[styles.roleText, user?.role === 'ceo' && { color: '#FFD700' }]}>
-                {({
-                  ceo: 'CEO — Super Admin',
-                  pca: 'Presidente',
-                  admin: 'Administrador',
-                  director: 'Director',
-                  chefe_secretaria: 'Chefe de Secretaria',
-                  secretaria: 'Secretária Académica',
-                  professor: 'Professor',
-                  aluno: 'Aluno',
-                  financeiro: 'Gestor Financeiro',
-                  encarregado: 'Encarregado',
-                  rh: 'Recursos Humanos',
-                  pedagogico: 'Director Pedagógico',
-                } as Record<string, string>)[user?.role ?? ''] ?? user?.role ?? 'Utilizador'}
+                {getRoleLabel(user?.role ?? '', user?.genero)}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />

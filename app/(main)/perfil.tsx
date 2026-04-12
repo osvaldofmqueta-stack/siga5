@@ -246,15 +246,7 @@ export default function PerfilScreen() {
 
   if (!user) return null;
 
-  const roleLabel = ({
-    ceo: 'CEO / Super Administrador',
-    pca: 'Presidente do Conselho',
-    admin: 'Administrador',
-    director: 'Director Académico',
-    secretaria: 'Secretaria',
-    professor: 'Professor',
-    aluno: 'Aluno',
-  } as Record<string, string>)[user.role] || user.role;
+  const roleLabel = getRoleLabel(user.role, user.genero);
 
   const roleBadgeColor = ({
     ceo: '#8B5CF6',

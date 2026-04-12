@@ -13,6 +13,7 @@ import * as Haptics from 'expo-haptics';
 import { Colors } from '@/constants/colors';
 import { useAuth, saveAuthToken } from '@/context/AuthContext';
 import type { AuthUser } from '@/context/AuthContext';
+import { getRoleLabel } from '@/utils/genero';
 import { useUsers } from '@/context/UsersContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { getApiUrl } from '@/lib/query-client';
@@ -776,19 +777,6 @@ export default function LoginScreen() {
     return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
-  const getRoleLabel = (role: string) => {
-    const labels: Record<string, string> = {
-      ceo: 'CEO / Administrador',
-      pca: 'Presidente do Conselho',
-      admin: 'Administrador',
-      director: 'Director',
-      secretaria: 'Secretaria',
-      professor: 'Professor',
-      aluno: 'Aluno',
-      financeiro: 'Gestor Financeiro',
-    };
-    return labels[role] || role;
-  };
 
   const biometricWelcomeScreen = (
     <Animated.View style={[styles.biometricWelcomeContainer, { opacity: cardOpacity, transform: [{ translateY: cardSlide }] }]}>
@@ -809,7 +797,7 @@ export default function LoginScreen() {
             )}
           </View>
           <View style={styles.bwRoleBadge}>
-            <Text style={styles.bwRoleText}>{getRoleLabel(lastUser?.role || '')}</Text>
+            <Text style={styles.bwRoleText}>{getRoleLabel(lastUser?.role || '', lastUser?.genero)}</Text>
           </View>
         </View>
 

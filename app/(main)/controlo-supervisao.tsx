@@ -214,11 +214,7 @@ export default function ControloSupervisaoScreen() {
     { key: 'financeiro', label: 'Financeiro', icon: 'cash', badge: stats.pagamentosHoje || undefined },
   ];
 
-  const roleName = user?.role === 'ceo' ? 'CEO'
-    : user?.role === 'pca' ? 'PCA'
-    : user?.role === 'chefe_secretaria' ? 'Chefe de Secretaria'
-    : user?.role === 'admin' ? 'Administrador'
-    : 'Director';
+  const roleName = getRoleLabel(user?.role ?? '', user?.genero);
 
   // ── Desktop layout ────────────────────────────────────────────────────────
   function renderContent() {
