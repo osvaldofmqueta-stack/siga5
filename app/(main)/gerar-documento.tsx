@@ -23,6 +23,7 @@ type DocTipo =
   | 'boletim_notas'
   | 'historico_escolar'
   | 'declaracao_conclusao'
+  | 'declaracao_finalista'
   | 'custom';
 
 interface DocTemplate {
@@ -39,6 +40,7 @@ interface DocTipoConfig {
   icon: string;
   color: string;
   requiresNotas: boolean;
+  soFinalistas?: boolean;
 }
 
 // ─── Document type config ─────────────────────────────────────────────────────
@@ -91,6 +93,15 @@ const DOC_TIPOS: DocTipoConfig[] = [
     icon: 'school',
     color: '#14b8a6',
     requiresNotas: false,
+  },
+  {
+    key: 'declaracao_finalista',
+    label: 'Declaração de Finalista',
+    desc: 'Exclusivo 13ª Classe — declara que o aluno é finalista e está a realizar a PAP',
+    icon: 'trophy',
+    color: '#f59e0b',
+    requiresNotas: false,
+    soFinalistas: true,
   },
 ];
 
@@ -175,6 +186,7 @@ function buildVarMap(
     '{{PROCESSO_NUMERO}}': extra.processoNumero || String(Math.floor(Math.random() * 900 + 100)),
     '{{RESULTADO}}': extra.resultado || 'APTO',
     '{{AREA}}': extra.area || turma?.nivel || '—',
+    '{{CURSO}}': turma?.nivel || '—',
     ...notaVars,
   };
 }
@@ -613,6 +625,51 @@ function buildDeclaracaoConclusao(vars: Record<string, string>): string {
   </body></html>`;
 }
 
+function buildDeclaracaoFinalista(vars: Record<string, string>): string {
+  const v = (k: string) => vars[k] || '—';
+  const genF = v('{{GENERO}}') === 'Feminino';
+  const docRef = `DF-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`;
+  return `<!DOCTYPE html><html><head>${BASE_PRINT_CSS}</head><body>
+  <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  <div class="page">
+    <div class="header">
+      <div class="escola-nome">${v('{{NOME_ESCOLA}}')}</div>
+      <div class="escola-sub">República de Angola — Ministério da Educação</div>
+    </div>
+    <div class="num-doc">N.º Doc: ${docRef}</div>
+    <div class="doc-titulo">Declaração de Finalista</div>
+    <div class="body-text">
+      Para os devidos efeitos, declaro que <strong>${v('{{NOME_COMPLETO}}')}</strong>,
+      ${genF ? 'filha de' : 'filho de'} <strong>${v('{{PAI}}')}</strong> e de <strong>${v('{{MAE}}')}</strong>,
+      nasc${genF ? 'ida' : 'ido'} em <strong>${v('{{DATA_NASCIMENTO}}')}</strong>,
+      portador${genF ? 'a' : ''} do Bilhete de Identidade n.º <strong>${v('{{BI_NUMERO}}')}</strong>,
+      com o número de matrícula <strong>${v('{{NUMERO_MATRICULA}}')}</strong>,
+      é alun${genF ? 'a' : 'o'} <strong>FINALISTA</strong> do Curso de <strong>${v('{{CURSO}}')}</strong>
+      nesta instituição, frequentando a <strong>${v('{{CLASSE}}')}</strong>, turma <strong>${v('{{TURMA}}')}</strong>,
+      no ano lectivo <strong>${v('{{ANO_LECTIVO}}')}</strong>.
+    </div>
+    <div class="body-text">
+      O${genF ? 'a' : ''} referid${genF ? 'a' : 'o'} alun${genF ? 'a' : 'o'} encontra-se a frequentar regularmente as aulas
+      e a realizar a <strong>Prova de Aptidão Profissional (PAP)</strong>,
+      requisito obrigatório para conclusão do ensino técnico-profissional.
+    </div>
+    <div class="body-text">
+      A presente declaração é emitida a pedido d${genF ? 'a' : 'o'} interessad${genF ? 'a' : 'o'},
+      para fins de <strong>${v('{{FINALIDADE}}')}</strong>.
+    </div>
+    <div class="local-data">${v('{{NOME_ESCOLA}}')}, ${v('{{DATA_ACTUAL}}')}.</div>
+    <div class="assinatura">
+      <div class="linha"></div>
+      <p>${v('{{NOME_DIRECTOR}}')}</p>
+      <p>Director${genF ? 'a' : ''} Geral</p>
+    </div>
+    <div class="footer">
+      ${v('{{NOME_ESCOLA}}')} — Secretaria Académica &nbsp;|&nbsp; Matrícula n.º ${v('{{NUMERO_MATRICULA}}')} &nbsp;|&nbsp; ${docRef} &nbsp;|&nbsp; Emitido em ${v('{{DATA_ACTUAL}}')}
+    </div>
+  </div>
+  </body></html>`;
+}
+
 function generateHTML(
   tipo: DocTipo,
   vars: Record<string, string>,
@@ -634,6 +691,7 @@ function generateHTML(
     case 'boletim_notas': return buildBoletimNotas(vars, notas, aluno);
     case 'historico_escolar': return buildHistoricoEscolar(vars, notas, aluno);
     case 'declaracao_conclusao': return buildDeclaracaoConclusao(vars);
+    case 'declaracao_finalista': return buildDeclaracaoFinalista(vars);
     default: return buildDeclaracaoMatricula(vars);
   }
 }
@@ -654,6 +712,7 @@ export default function GerarDocumentoScreen() {
   const [step, setStep] = useState<'aluno' | 'tipo' | 'extras' | 'preview'>('aluno');
 
   const [searchAluno, setSearchAluno] = useState('');
+  const [soFinalistas, setSoFinalistas] = useState(false);
   const [selectedAluno, setSelectedAluno] = useState<Aluno | null>(null);
   const [selectedTipo, setSelectedTipo] = useState<DocTipo | null>(null);
   const [selectedCustomTemplate, setSelectedCustomTemplate] = useState<DocTemplate | null>(null);
