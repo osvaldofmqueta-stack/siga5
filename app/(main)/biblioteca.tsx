@@ -380,30 +380,47 @@ function CatalogoTab({ livros, canManage, user, onReload, refreshing, onRefresh 
         </View>
       </Modal>
 
-      {/* Bookshelf grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={i => i.id}
-        key={numCols}
-        numColumns={numCols}
-        columnWrapperStyle={{ paddingHorizontal: padding, gap, marginBottom: gap }}
+      {/* Bookshelf grid — ScrollView with shelf planks */}
+      <ScrollView
+        style={styles.flex}
+        contentContainerStyle={{ padding, paddingBottom: 120 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#5E6AD2" />}
-        contentContainerStyle={{ paddingTop: 10, paddingBottom: 120 }}
-        ListEmptyComponent={
+        showsVerticalScrollIndicator={false}
+      >
+        {filtered.length === 0 ? (
           <View style={styles.emptyBox}>
             <Ionicons name="library-outline" size={48} color="#444" />
             <Text style={styles.emptyText}>Nenhum livro encontrado</Text>
             {canManage && <Text style={styles.emptySub}>Toque em + para adicionar o primeiro livro</Text>}
           </View>
-        }
-        renderItem={({ item }) => (
-          <ShelfBookCard
-            livro={item}
-            cardWidth={cardWidth}
-            onPress={() => setDetailLivro(item)}
-          />
+        ) : (
+          <View style={shelfStyles.bookcase}>
+            {Array.from({ length: Math.ceil(filtered.length / numCols) }, (_, rowIdx) => {
+              const row = filtered.slice(rowIdx * numCols, rowIdx * numCols + numCols);
+              return (
+                <View key={rowIdx} style={shelfStyles.shelfRow}>
+                  <View style={shelfStyles.booksRow}>
+                    {row.map(livro => (
+                      <ShelfBookCard
+                        key={livro.id}
+                        livro={livro}
+                        cardWidth={cardWidth}
+                        onPress={() => setDetailLivro(livro)}
+                      />
+                    ))}
+                    {Array.from({ length: numCols - row.length }).map((_, i) => (
+                      <View key={`spacer-${i}`} style={{ width: cardWidth }} />
+                    ))}
+                  </View>
+                  <View style={shelfStyles.plank}>
+                    <View style={shelfStyles.plankEdge} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         )}
-      />
+      </ScrollView>
 
       {/* Book Detail Modal */}
       <BookDetailModal
@@ -2409,6 +2426,35 @@ const styles = StyleSheet.create({
 
 // Shelf book card styles
 const shelfStyles = StyleSheet.create({
+  bookcase: { gap: 0 },
+  shelfRow: { marginBottom: 6 },
+  booksRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  plank: {
+    height: 16,
+    backgroundColor: '#2c1f10',
+    borderTopWidth: 3,
+    borderTopColor: '#6b4c2a',
+    borderBottomWidth: 2,
+    borderBottomColor: '#140e06',
+    marginTop: 4,
+    marginBottom: 12,
+    borderRadius: 2,
+  },
+  plankEdge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 2,
+    backgroundColor: '#a87040',
+    opacity: 0.35,
+    borderRadius: 2,
+  },
   card: { backgroundColor: '#13131f', borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', shadowColor: '#000', shadowOffset: { width: 2, height: 4 }, shadowOpacity: 0.35, shadowRadius: 4, elevation: 5 },
   coverWrap: { width: '100%', position: 'relative', overflow: 'hidden' },
   coverImg: { width: '100%', height: '100%' },
