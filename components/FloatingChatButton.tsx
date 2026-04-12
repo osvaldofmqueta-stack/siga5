@@ -20,18 +20,13 @@ import { Colors } from '@/constants/colors';
 import { useChatInterno, ChatMsg } from '@/context/ChatInternoContext';
 import { useAuth } from '@/context/AuthContext';
 import { useUsers } from '@/context/UsersContext';
+import { getRoleLabel } from '@/utils/genero';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
 const PANEL_W = Math.min(SCREEN_WIDTH * 0.95, 480);
 const PANEL_H = SCREEN_HEIGHT * 0.78;
 
 const HIDDEN_ROUTES = ['/chat-interno', '/(main)/chat-interno'];
-
-const ROLE_LABELS: Record<string, string> = {
-  admin: 'Administrador', director: 'Director', secretaria: 'Secretaria',
-  chefe_secretaria: 'Chefe de Secretaria', professor: 'Professor',
-  financeiro: 'Financeiro', rh: 'Recursos Humanos', ceo: 'CEO', pca: 'PCA',
-};
 
 const ROLE_COLORS: Record<string, string> = {
   admin: '#8B5CF6', director: '#EF4444', secretaria: '#F59E0B',
@@ -95,7 +90,7 @@ export default function FloatingChatButton() {
     if (!q) return staffContacts;
     return staffContacts.filter((c: StaffContact) =>
       c.nome.toLowerCase().includes(q) ||
-      (ROLE_LABELS[c.role] ?? c.role).toLowerCase().includes(q)
+      getRoleLabel(c.role, (c as any).genero).toLowerCase().includes(q)
     );
   }, [staffContacts, searchContact]);
 
@@ -242,7 +237,7 @@ export default function FloatingChatButton() {
                   <View style={{ flex: 1, marginLeft: 10 }}>
                     <Text style={styles.chatSubHeaderName}>{chatName}</Text>
                     <Text style={[styles.chatSubHeaderRole, { color: roleColor(chatRole) }]}>
-                      {ROLE_LABELS[chatRole] ?? chatRole}
+                      {getRoleLabel(chatRole, undefined)}
                     </Text>
                   </View>
                 </View>
@@ -367,7 +362,7 @@ export default function FloatingChatButton() {
                             )}
                           </View>
                           <Text style={[styles.roleChip, { color: roleColor(conv.userRole) }]}>
-                            {ROLE_LABELS[conv.userRole] ?? conv.userRole}
+                            {getRoleLabel(conv.userRole, (conv as any).genero)}
                           </Text>
                         </View>
                       </TouchableOpacity>
@@ -409,7 +404,7 @@ export default function FloatingChatButton() {
                         <View style={{ flex: 1, marginLeft: 12 }}>
                           <Text style={styles.contactName}>{c.nome}</Text>
                           <Text style={[styles.contactRole, { color: roleColor(c.role) }]}>
-                            {ROLE_LABELS[c.role] ?? c.role}
+                            {getRoleLabel(c.role, (c as any).genero)}
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={16} color={Colors.textMuted} />

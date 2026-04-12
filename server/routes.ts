@@ -679,12 +679,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }).catch(() => {});
 
       let alunoId: string | null = null;
+      let genero: string = '';
+
       if (String(u.role) === 'aluno') {
         const alunoRows = await query<JsonObject>(
-          `SELECT id FROM public.alunos WHERE "utilizadorId" = $1 LIMIT 1`,
+          `SELECT id, genero FROM public.alunos WHERE "utilizadorId" = $1 LIMIT 1`,
           [String(u.id)]
         );
-        if (alunoRows[0]) alunoId = String(alunoRows[0].id);
+        if (alunoRows[0]) {
+          alunoId = String(alunoRows[0].id);
+          genero = String(alunoRows[0].genero ?? '');
+        }
+      } else {
+        // Try to get genero from funcionarios linked to this user
+        const funcRows = await query<JsonObject>(
+          `SELECT genero FROM public.funcionarios WHERE "utilizadorId" = $1 LIMIT 1`,
+          [String(u.id)]
+        );
+        if (funcRows[0]) {
+          genero = String(funcRows[0].genero ?? '');
+        } else if (String(u.role) === 'professor') {
+          // Fallback: try professores table via utilizadorId
+          const profRows = await query<JsonObject>(
+            `SELECT genero FROM public.professores WHERE "utilizadorId" = $1 LIMIT 1`,
+            [String(u.id)]
+          );
+          if (profRows[0]) genero = String(profRows[0].genero ?? '');
+        }
       }
 
       return json(res, 200, {
@@ -696,6 +717,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: u.role,
           escola: u.escola ?? "",
           telefone: u.telefone ?? "",
+          genero,
           ...(alunoId ? { alunoId } : {}),
         },
       });
@@ -2148,7 +2170,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   app.get("/api/utilizadores", requireAuth, async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(
-      `SELECT * FROM public.utilizadores ORDER BY "criadoEm" DESC`,
+      `SELECT u.*,
+        COALESCE(f.genero, a.genero, '') AS genero
+       FROM public.utilizadores u
+       LEFT JOIN public.funcionarios f ON f."utilizadorId" = u.id
+       LEFT JOIN public.alunos a ON a."utilizadorId" = u.id
+       ORDER BY u."criadoEm" DESC`,
       [],
     );
     json(res, 200, rows);

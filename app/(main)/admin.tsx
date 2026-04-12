@@ -28,6 +28,7 @@ import { useLookup } from '@/hooks/useLookup';
 import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { webAlert } from '@/utils/webAlert';
 import { api } from '@/lib/api';
+import { getRoleLabel } from '@/utils/genero';
 
 
 interface EscolaConfig {
@@ -110,12 +111,6 @@ const GROUPS = [
   },
 ];
 
-const ROLE_LABEL: Record<UserRole, string> = {
-  ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
-  chefe_secretaria: 'Chefe de Secretaria',
-  secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
-  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
-};
 const ROLE_COLOR: Record<UserRole, string> = {
   ceo: '#FFD700', pca: '#9B59B6', admin: '#E67E22', director: Colors.accent,
   chefe_secretaria: '#E11D48',
@@ -1249,7 +1244,7 @@ export default function AdminScreen() {
                   <Text style={styles.userEmail}>{u.email}</Text>
                 </View>
                 <View style={[styles.roleBadge, { backgroundColor: (ROLE_COLOR[u.role] || Colors.textMuted) + '22' }]}>
-                  <Text style={[styles.roleText, { color: ROLE_COLOR[u.role] || Colors.textMuted }]}>{ROLE_LABEL[u.role]}</Text>
+                  <Text style={[styles.roleText, { color: ROLE_COLOR[u.role] || Colors.textMuted }]}>{getRoleLabel(u.role, (u as any).genero)}</Text>
                 </View>
                 <TouchableOpacity style={{ padding: 6, marginLeft: 4 }} onPress={() => confirmarEliminarUser(u.id, u.nome)}>
                   <Ionicons name="trash-outline" size={15} color={Colors.danger} />
@@ -3453,7 +3448,7 @@ export default function AdminScreen() {
                     style={[styles.roleBtn, formUser.role === r && { backgroundColor: (ROLE_COLOR[r] || Colors.textMuted) + '33', borderColor: ROLE_COLOR[r] || Colors.textMuted }]}
                     onPress={() => setFormUser(f => ({ ...f, role: r }))}
                   >
-                    <Text style={[styles.roleBtnText, formUser.role === r && { color: ROLE_COLOR[r] || Colors.textMuted }]}>{ROLE_LABEL[r]}</Text>
+                    <Text style={[styles.roleBtnText, formUser.role === r && { color: ROLE_COLOR[r] || Colors.textMuted }]}>{getRoleLabel(r, '')}</Text>
                   </TouchableOpacity>
                 ))}
               </View>

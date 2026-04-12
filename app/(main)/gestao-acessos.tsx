@@ -16,6 +16,7 @@ import {
   PermKey,
 } from '@/context/PermissoesContext';
 import TopBar from '@/components/TopBar';
+import { getRoleLabel } from '@/utils/genero';
 
 const TIPO_CONTRATO = [
   { id: 'efectivo',           label: 'Efectivo',             color: '#4CAF50' },
@@ -27,17 +28,6 @@ const TIPO_CONTRATO = [
 const PROFESSOR_ROLES = ['professor', 'diretor_turma'];
 const ROLES_RESET_SENHA = ['ceo', 'pca', 'admin', 'director', 'subdiretor_administrativo', 'chefe_secretaria'];
 
-const ROLE_LABEL: Record<string, string> = {
-  ceo: 'CEO', pca: 'PCA', admin: 'Administrador do Sistema',
-  director: 'Subdiretor(a) Pedagógico',
-  subdiretor_administrativo: 'Subdiretor(a) Administrativo',
-  chefe_secretaria: 'Secretaria Académica',
-  secretaria: 'Secretaria', professor: 'Professor',
-  diretor_turma: 'Professor — Diretor de Turma',
-  aluno: 'Aluno', financeiro: 'Gestor Financeiro',
-  encarregado: 'Encarregado de Educação', rh: 'Gestor de Recursos Humanos',
-  pedagogico: 'Diretor Académico',
-};
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#8B5CF6', pca: '#F59E0B', admin: '#3B82F6', director: Colors.accent,
   subdiretor_administrativo: '#7C3AED',
@@ -122,13 +112,13 @@ export default function GestaoAcessosScreen() {
   const filteredUsers = users.filter(u =>
     u.id !== user?.id &&
     (u.nome.toLowerCase().includes(search.toLowerCase()) ||
-      ROLE_LABEL[u.role]?.toLowerCase().includes(search.toLowerCase()))
+      getRoleLabel(u.role, (u as any).genero).toLowerCase().includes(search.toLowerCase()))
   );
   const selectedUser = users.find(u => u.id === selectedUserId);
 
   // ── Filtro de perfis de cargo ──
   const filteredRoles = MANAGEABLE_ROLES.filter(role =>
-    ROLE_LABEL[role]?.toLowerCase().includes(searchRole.toLowerCase())
+    getRoleLabel(role, '').toLowerCase().includes(searchRole.toLowerCase())
   );
 
   // ── Filtragem de categorias de permissões ──
@@ -469,7 +459,7 @@ export default function GestaoAcessosScreen() {
                           {u.nome}
                         </Text>
                         <View style={[styles.rolePill, { backgroundColor: roleColor + '20' }]}>
-                          <Text style={[styles.rolePillText, { color: roleColor }]}>{ROLE_LABEL[u.role]}</Text>
+                          <Text style={[styles.rolePillText, { color: roleColor }]}>{getRoleLabel(u.role, (u as any).genero)}</Text>
                         </View>
                         <Text style={styles.permCount}>{active}/{TOTAL_FEATURES} funcionalidades</Text>
                       </View>
@@ -501,7 +491,7 @@ export default function GestaoAcessosScreen() {
                       <Text style={styles.permUserEmail}>{selectedUser.email}</Text>
                       <View style={[styles.rolePill, { backgroundColor: ROLE_COLOR[selectedUser.role] + '20', alignSelf: 'flex-start', marginTop: 4 }]}>
                         <Text style={[styles.rolePillText, { color: ROLE_COLOR[selectedUser.role] }]}>
-                          {ROLE_LABEL[selectedUser.role]}
+                          {getRoleLabel(selectedUser.role, (selectedUser as any).genero)}
                         </Text>
                       </View>
                     </View>
@@ -729,7 +719,7 @@ export default function GestaoAcessosScreen() {
                       </View>
                       <View style={styles.listInfo}>
                         <Text style={[styles.listName, isSelected && { color: Colors.gold }]} numberOfLines={1}>
-                          {ROLE_LABEL[role]}
+                          {getRoleLabel(role, '')}
                         </Text>
                         <Text style={styles.permCount}>{usersOfRole.length} utilizador{usersOfRole.length !== 1 ? 'es' : ''}</Text>
                       </View>
@@ -760,7 +750,7 @@ export default function GestaoAcessosScreen() {
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.permUserName}>{ROLE_LABEL[selectedRole]}</Text>
+                      <Text style={styles.permUserName}>{getRoleLabel(selectedRole, '')}</Text>
                       <Text style={styles.permUserEmail}>
                         {users.filter(u => u.role === selectedRole).length} utilizador(es) afectados
                       </Text>
@@ -781,7 +771,7 @@ export default function GestaoAcessosScreen() {
                   <View style={styles.infoBanner}>
                     <Ionicons name="information-circle" size={16} color={Colors.info} />
                     <Text style={styles.infoBannerText}>
-                      Estas permissões aplicam-se a todos os <Text style={{ fontFamily: 'Inter_700Bold' }}>{ROLE_LABEL[selectedRole]}</Text> que não tenham configuração individual.
+                      Estas permissões aplicam-se a todos os <Text style={{ fontFamily: 'Inter_700Bold' }}>{getRoleLabel(selectedRole, '')}</Text> que não tenham configuração individual.
                     </Text>
                   </View>
 
@@ -886,7 +876,7 @@ export default function GestaoAcessosScreen() {
                     {savedRole ? (
                       <View style={styles.savedConfirm}>
                         <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                        <Text style={styles.savedText}>Perfil guardado! Todos os {ROLE_LABEL[selectedRole]} foram actualizados.</Text>
+                        <Text style={styles.savedText}>Perfil guardado! Todos os {getRoleLabel(selectedRole, '')} foram actualizados.</Text>
                       </View>
                     ) : (
                       <TouchableOpacity
@@ -899,7 +889,7 @@ export default function GestaoAcessosScreen() {
                           : <Ionicons name="save" size={18} color="#fff" />
                         }
                         <Text style={styles.saveBtnText}>
-                          {savingRole ? 'A guardar...' : `Guardar Perfil — ${ROLE_LABEL[selectedRole]}`}
+                          {savingRole ? 'A guardar...' : `Guardar Perfil — ${getRoleLabel(selectedRole, '')}`}
                         </Text>
                       </TouchableOpacity>
                     )}

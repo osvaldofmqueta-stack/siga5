@@ -12,19 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors } from '@/constants/colors';
 import type { AuthUser } from '@/context/AuthContext';
+import { getRoleLabel } from '@/utils/genero';
 
 const DURATION = 2400;
-
-const ROLE_LABELS: Record<string, string> = {
-  ceo: 'CEO · Administrador',
-  pca: 'Presidente do Conselho',
-  admin: 'Administrador',
-  director: 'Director',
-  secretaria: 'Secretaria Académica',
-  professor: 'Professor',
-  aluno: 'Aluno',
-  financeiro: 'Gestor Financeiro',
-};
 
 function getInitials(nome: string): string {
   const parts = nome.trim().split(' ').filter(Boolean);
@@ -166,7 +156,7 @@ export default function WelcomeModal({ visible, user, onFinish }: WelcomeModalPr
               <View style={styles.roleBadge}>
                 <View style={styles.roleDot} />
                 <Text style={styles.roleText}>
-                  {ROLE_LABELS[user.role] || user.role}
+                  {getRoleLabel(user.role, user.genero)}
                 </Text>
               </View>
               {!!user.escola && (

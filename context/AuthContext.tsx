@@ -13,6 +13,7 @@ export interface AuthUser {
   avatar?: string;
   biometricEnabled: boolean;
   alunoId?: string;
+  genero?: 'M' | 'F' | '';
 }
 
 interface AuthContextValue {

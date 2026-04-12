@@ -15,19 +15,13 @@ import { useRegistro } from '@/context/RegistroContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
 import TopBar from '@/components/TopBar';
 import { api } from '@/lib/api';
+import { getRoleLabel } from '@/utils/genero';
 
 const { width } = Dimensions.get('window');
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 type RoleFilter = 'todos' | 'secretaria' | 'professor' | 'financeiro' | 'aluno' | 'admin';
 type TabKey = 'visao' | 'utilizadores' | 'secretaria' | 'academico' | 'financeiro';
-
-const ROLE_LABEL: Record<string, string> = {
-  ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
-  chefe_secretaria: 'Chefe de Secretaria',
-  secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
-  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
-};
 
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#FFD700', pca: '#9B59B6', admin: '#E67E22', director: Colors.info,
@@ -48,7 +42,7 @@ function RolePill({ role }: { role: string }) {
   const color = ROLE_COLOR[role] || Colors.textMuted;
   return (
     <View style={[pill.wrap, { backgroundColor: color + '22', borderColor: color + '55' }]}>
-      <Text style={[pill.text, { color }]}>{ROLE_LABEL[role] || role}</Text>
+      <Text style={[pill.text, { color }]}>{getRoleLabel(role, undefined)}</Text>
     </View>
   );
 }
@@ -262,7 +256,7 @@ export default function ControloSupervisaoScreen() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={styles.roleDistTop}>
-                          <Text style={styles.roleDistLabel}>{ROLE_LABEL[role] || role}</Text>
+                          <Text style={styles.roleDistLabel}>{getRoleLabel(role, undefined)}</Text>
                           <Text style={[styles.roleDistCount, { color }]}>{count}</Text>
                         </View>
                         <View style={styles.progressBg}>
@@ -331,7 +325,7 @@ export default function ControloSupervisaoScreen() {
                   onPress={() => setRoleFilter(f)}
                 >
                   <Text style={[styles.filterChipText, roleFilter === f && styles.filterChipTextActive]}>
-                    {f === 'todos' ? 'Todos' : ROLE_LABEL[f] || f}
+                    {f === 'todos' ? 'Todos' : getRoleLabel(f, undefined)}
                   </Text>
                 </TouchableOpacity>
               ))}

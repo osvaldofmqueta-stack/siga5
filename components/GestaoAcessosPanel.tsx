@@ -13,13 +13,8 @@ import {
   PermKey,
 } from '@/context/PermissoesContext';
 import { useAuth } from '@/context/AuthContext';
+import { getRoleLabel } from '@/utils/genero';
 
-const ROLE_LABEL: Record<string, string> = {
-  ceo: 'CEO', pca: 'PCA', admin: 'Administrador', director: 'Director',
-  chefe_secretaria: 'Chefe de Secretaria',
-  secretaria: 'Secretaria', professor: 'Professor', aluno: 'Aluno',
-  financeiro: 'Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
-};
 const ROLE_COLOR: Record<string, string> = {
   ceo: '#8B5CF6', pca: '#F59E0B', admin: '#3B82F6', director: Colors.accent,
   chefe_secretaria: '#E11D48',
@@ -90,7 +85,7 @@ export default function GestaoAcessosPanel() {
   const managedUsers = users.filter(u => u.id !== user?.id);
   const filteredUsers = managedUsers.filter(u =>
     u.nome.toLowerCase().includes(search.toLowerCase()) ||
-    (ROLE_LABEL[u.role] || '').toLowerCase().includes(search.toLowerCase())
+    getRoleLabel(u.role, (u as any).genero).toLowerCase().includes(search.toLowerCase())
   );
   const selectedUser = users.find(u => u.id === selectedUserId);
 
@@ -225,7 +220,7 @@ export default function GestaoAcessosPanel() {
               </View>
               <View style={s.userChipInfo}>
                 <Text style={[s.userChipName, isSelected && { color: roleColor }]} numberOfLines={1}>{u.nome}</Text>
-                <Text style={[s.userChipRole, { color: roleColor }]}>{ROLE_LABEL[u.role]}</Text>
+                <Text style={[s.userChipRole, { color: roleColor }]}>{getRoleLabel(u.role, (u as any).genero)}</Text>
                 <Text style={s.userChipCount}>{active}/{TOTAL_FEATURES}</Text>
               </View>
               {isSelected && (
@@ -257,7 +252,7 @@ export default function GestaoAcessosPanel() {
               <Text style={s.selUserEmail}>{selectedUser.email}</Text>
               <View style={[s.rolePill, { backgroundColor: ROLE_COLOR[selectedUser.role] + '22' }]}>
                 <Text style={[s.rolePillTxt, { color: ROLE_COLOR[selectedUser.role] }]}>
-                  {ROLE_LABEL[selectedUser.role]}
+                  {getRoleLabel(selectedUser.role, (selectedUser as any).genero)}
                 </Text>
               </View>
             </View>

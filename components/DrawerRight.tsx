@@ -12,6 +12,7 @@ import { Colors } from '@/constants/colors';
 import { useDrawer } from '@/context/DrawerContext';
 import { useAuth } from '@/context/AuthContext';
 import { useBreakpoint } from '@/hooks/useBreakpoint';
+import { getRoleLabel } from '@/utils/genero';
 
 const { width } = Dimensions.get('window');
 const DRAWER_WIDTH = Math.min(width * 0.8, 310);
@@ -21,12 +22,6 @@ const roleColors: Record<string, string> = {
   chefe_secretaria: '#E11D48',
   secretaria: Colors.info, professor: Colors.success, aluno: Colors.success,
   financeiro: Colors.warning, encarregado: '#F97316', rh: '#06B6D4',
-};
-const roleLabels: Record<string, string> = {
-  ceo: 'CEO', pca: 'Presidente', admin: 'Administrador', director: 'Director',
-  chefe_secretaria: 'Chefe de Secretaria',
-  secretaria: 'Secretária Académica', professor: 'Professor', aluno: 'Aluno',
-  financeiro: 'Gestor Financeiro', encarregado: 'Encarregado', rh: 'Recursos Humanos',
 };
 
 const CEO_SHORTCUTS = [
@@ -192,7 +187,7 @@ export default function DrawerRight() {
               <Text style={styles.userEmail}>{user?.email}</Text>
               <View style={[styles.roleBadge, { backgroundColor: `${roleColor}20` }]}>
                 <Text style={[styles.roleText, { color: roleColor }]}>
-                  {roleLabels[user?.role ?? ''] ?? user?.role}
+                  {getRoleLabel(user?.role ?? '', user?.genero)}
                 </Text>
               </View>
             </View>

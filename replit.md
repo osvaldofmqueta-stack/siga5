@@ -1,6 +1,33 @@
 # SIGA v3 - Sistema Integrado de Gestão Académica
 
-## Recent Changes (Latest Session — Sistema de Avaliação Angola: T1/T2/T3 com PG e Exames)
+## Recent Changes (Latest Session — Tratamento de Género em Todo o Sistema)
+
+### `utils/genero.ts` (novo ficheiro)
+- Utilitário centralizado `getRoleLabel(role, genero)` com mapas gendered M/F para todos os cargos
+- `getGeneroLabel(genero)` para mostrar "Masculino"/"Feminino"
+- Cargos com tratamento gendered: Professor/Professora, Director/Directora, Aluno/Aluna, Administrador/Administradora, Gestor/Gestora Financeiro/a, Encarregado/a, Coordenador/a Pedagógico/a, etc.
+
+### `context/AuthContext.tsx`
+- Interface `AuthUser`: adicionado campo `genero?: 'M' | 'F' | ''`
+
+### `server/routes.ts`
+- **POST `/api/login`**: inclui `genero` na resposta — lido de `alunos.genero` (para role=aluno), `funcionarios.genero` (para outros), com fallback a `professores.genero`
+- **GET `/api/utilizadores`**: JOIN com `funcionarios` e `alunos` para retornar `genero` de cada utilizador
+
+### Componentes e Ecrãs Actualizados (removidos mapas hardcoded, substituídos por `getRoleLabel`)
+- `components/DrawerRight.tsx`
+- `components/WelcomeModal.tsx`
+- `components/GestaoAcessosPanel.tsx`
+- `components/FloatingChatButton.tsx`
+- `app/(main)/perfil.tsx`
+- `app/(main)/chat-interno.tsx`
+- `app/(main)/controlo-supervisao.tsx`
+- `app/(main)/gestao-acessos.tsx`
+- `app/(main)/admin.tsx`
+
+---
+
+## Previous Changes (Sistema de Avaliação Angola: T1/T2/T3 com PG e Exames)
 
 ### `shared/schema.ts`
 - **`notas`**: adicionadas colunas `pg1`, `pg2` (Provas Globais), `ex1`, `ex2` (Exames), `provaRecuperacao` (todos INTEGER DEFAULT 0)
