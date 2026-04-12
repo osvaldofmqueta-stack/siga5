@@ -772,6 +772,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
+  app.get("/api/finalistas", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { anoLetivo } = req.query as { anoLetivo?: string };
+
+      const terminalClasses = ["13ª Classe", "13a Classe", "13ª", "13a"];
+      const classFilter = terminalClasses.map((_, i) => `t.classe = $${i + 1}`).join(" OR ");
+
+      const rows = await query<JsonObject>(
+        `SELECT
+          a.id,
+          a."numeroMatricula",
+          a.nome,
+          a.apelido,
+          a."dataNascimento",
+          a.genero,
+          a.foto,
+          a."turmaId",
+          a."nomeEncarregado",
+          a."telefoneEncarregado",
+          a."emailEncarregado",
+          a.ativo,
+          a."createdAt",
+          t.nome AS "turmaNome",
+          t.classe,
+          t.turno,
+          t."anoLetivo",
+          t."cursoId",
+          c.nome AS "cursoNome",
+          c.codigo AS "cursoCodigo",
+          c."areaFormacao"
+        FROM public.alunos a
+        JOIN public.turmas t ON a."turmaId" = t.id
+        LEFT JOIN public.cursos c ON t."cursoId" = c.id
+        WHERE (${classFilter})
+          AND a.ativo = true
+          ${anoLetivo ? `AND t."anoLetivo" = $${terminalClasses.length + 1}` : ""}
+        ORDER BY c.nome ASC, t.nome ASC, a.nome ASC, a.apelido ASC`,
+        anoLetivo ? [...terminalClasses, anoLetivo] : terminalClasses,
+      );
+
+      const grouped: Record<string, { cursoId: string | null; cursoNome: string; cursoCodigo: string; areaFormacao: string; alunos: JsonObject[] }> = {};
+      for (const row of rows) {
+        const key = (row.cursoNome as string) || "Sem Curso";
+        if (!grouped[key]) {
+          grouped[key] = {
+            cursoId: row.cursoId as string | null,
+            cursoNome: (row.cursoNome as string) || "Sem Curso",
+            cursoCodigo: (row.cursoCodigo as string) || "",
+            areaFormacao: (row.areaFormacao as string) || "",
+            alunos: [],
+          };
+        }
+        grouped[key].alunos.push(row);
+      }
+
+      const grupos = Object.values(grouped).sort((a, b) => a.cursoNome.localeCompare(b.cursoNome));
+
+      json(res, 200, {
+        total: rows.length,
+        grupos,
+      });
+    } catch (e) {
+      json(res, 500, { error: (e as Error).message });
+    }
+  });
+
   app.post("/api/alunos", requireAuth, requirePermission("alunos"), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);

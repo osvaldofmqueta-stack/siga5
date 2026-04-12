@@ -483,15 +483,25 @@ export default function AlunosScreen() {
     const turmaName = getClasseFromTurma(item.turmaId, turmas);
     const idade = calcIdade(item.dataNascimento);
     const semTurma = !item.turmaId;
+    const turmaObj = turmas.find(t => t.id === item.turmaId);
+    const isFinalista = turmaObj?.classe === '13ª Classe' || turmaObj?.classe === '13a Classe' || turmaObj?.classe === '13ª' || turmaObj?.classe === '13a';
     return (
-      <View style={[styles.alunoCard, semTurma && { borderLeftWidth: 3, borderLeftColor: Colors.warning }]}>
+      <View style={[styles.alunoCard, semTurma && { borderLeftWidth: 3, borderLeftColor: Colors.warning }, isFinalista && { borderLeftWidth: 3, borderLeftColor: Colors.gold }]}>
         <View style={[styles.avatar, { backgroundColor: item.genero === 'F' ? `${Colors.accent}30` : `${Colors.info}30` }]}>
           <Text style={[styles.avatarText, { color: item.genero === 'F' ? Colors.accent : Colors.info }]}>
             {item.nome.charAt(0)}{item.apelido.charAt(0)}
           </Text>
         </View>
         <View style={styles.alunoInfo}>
-          <Text style={styles.alunoNome}>{item.nome} {item.apelido}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Text style={styles.alunoNome}>{item.nome} {item.apelido}</Text>
+            {isFinalista && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: Colors.gold + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: Colors.gold + '55' }}>
+                <MaterialCommunityIcons name="school" size={10} color={Colors.gold} />
+                <Text style={{ fontSize: 9, fontFamily: 'Inter_700Bold', color: Colors.gold, letterSpacing: 0.4 }}>FINALISTA</Text>
+              </View>
+            )}
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
             <Text style={styles.alunoMeta}>{item.numeroMatricula} · {idade} anos</Text>
             {semTurma ? (

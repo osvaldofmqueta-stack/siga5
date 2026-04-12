@@ -239,6 +239,7 @@ export default function DrawerLeft() {
         { label: 'Gestão de Cursos', route: '/(main)/admin?section=cursos&group=academico', icon: <MaterialCommunityIcons name="book-open-variant" size={20} color="inherit" />, permKey: 'gestao_academica' },
         { label: 'Biblioteca', route: '/(main)/biblioteca', icon: <Ionicons name="library" size={20} color="inherit" />, permKey: 'biblioteca' },
         { label: 'Trabalhos Finais de Curso', route: '/(main)/trabalhos-finais', icon: <MaterialCommunityIcons name="book-education-outline" size={20} color="inherit" /> },
+        { label: 'Estudantes Finalistas', route: '/(main)/finalistas', icon: <MaterialCommunityIcons name="school" size={20} color="inherit" /> },
       ],
     },
     {
@@ -313,6 +314,7 @@ export default function DrawerLeft() {
             { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={18} color="inherit" />, permKey: 'disciplinas' },
             { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={18} color="inherit" />, permKey: 'pedagogico' },
             { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Estudantes Finalistas', route: '/(main)/finalistas', icon: <MaterialCommunityIcons name="school" size={18} color="inherit" /> },
           ],
         },
       ],
@@ -390,6 +392,7 @@ export default function DrawerLeft() {
             { label: 'Disciplinas', route: '/(main)/disciplinas', icon: <MaterialCommunityIcons name="book-outline" size={18} color="inherit" />, permKey: 'disciplinas' },
             { label: 'Exclusões & Faltas', route: '/(main)/exclusoes-faltas', icon: <MaterialCommunityIcons name="account-cancel" size={18} color="inherit" />, permKey: 'pedagogico' },
             { label: 'Quadro de Honra', route: '/(main)/quadro-honra', icon: <MaterialCommunityIcons name="trophy" size={18} color="inherit" />, permKey: 'pedagogico' },
+            { label: 'Estudantes Finalistas', route: '/(main)/finalistas', icon: <MaterialCommunityIcons name="school" size={18} color="inherit" /> },
           ],
         },
       ],

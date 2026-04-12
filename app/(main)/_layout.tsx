@@ -117,6 +117,7 @@ export default function MainLayout() {
           <Stack.Screen name="director-turma" />
           <Stack.Screen name="relatorio-faltas" />
           <Stack.Screen name="diario-classe" />
+          <Stack.Screen name="finalistas" />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>
