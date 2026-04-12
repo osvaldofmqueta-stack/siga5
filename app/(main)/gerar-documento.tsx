@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Colors } from '@/constants/colors';
 import TopBar from '@/components/TopBar';
 import { useData, Aluno, Nota } from '@/context/DataContext';
@@ -13,6 +13,7 @@ import { useConfig } from '@/context/ConfigContext';
 import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
+import { apiRequest } from '@/lib/query-client';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -705,6 +706,7 @@ export default function GerarDocumentoScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const params = useLocalSearchParams<{ alunoId?: string; tipo?: string; solicitacaoId?: string }>();
 
   const anoAtual = anoSelecionado?.ano || String(new Date().getFullYear());
 
@@ -742,6 +744,24 @@ export default function GerarDocumentoScreen() {
       .then(h => setDocHistory(h || []))
       .catch(() => {});
   }, []);
+
+  // Pre-select aluno + tipo from URL params (when launched from solicitações modal)
+  useEffect(() => {
+    if (!params.alunoId || alunos.length === 0) return;
+    const aluno = alunos.find(a => a.id === params.alunoId);
+    if (!aluno) return;
+    setSelectedAluno(aluno);
+    if (params.tipo && DOC_TIPOS.some(d => d.key === params.tipo)) {
+      setSelectedTipo(params.tipo as DocTipo);
+      setStep('extras');
+    } else {
+      setStep('tipo');
+    }
+    // Mark solicitacao as em_processamento silently
+    if (params.solicitacaoId) {
+      apiRequest('PUT', `/api/solicitacoes-documentos/${params.solicitacaoId}`, { status: 'em_processamento' }).catch(() => {});
+    }
+  }, [params.alunoId, params.tipo, params.solicitacaoId, alunos]);
 
   const alunosFiltrados = useMemo(() => {
     const q = searchAluno.toLowerCase().trim();

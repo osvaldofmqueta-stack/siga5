@@ -9451,10 +9451,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ── Solicitações de Documentos (aluno) ─────────────────────────────────────
   app.get('/api/solicitacoes-documentos', requireAuth, async (req: Request, res: Response) => {
     try {
-      const { alunoId } = req.query as { alunoId?: string };
-      const rows = alunoId
-        ? await query<JsonObject>(`SELECT * FROM public.solicitacoes_documentos WHERE "alunoId"=$1 ORDER BY "createdAt" DESC`, [alunoId])
-        : await query<JsonObject>(`SELECT * FROM public.solicitacoes_documentos ORDER BY "createdAt" DESC`, []);
+      const { alunoId, status } = req.query as { alunoId?: string; status?: string };
+      let whereClause = '';
+      const params: any[] = [];
+      const conditions: string[] = [];
+      if (alunoId) { params.push(alunoId); conditions.push(`sd."alunoId"=$${params.length}`); }
+      if (status) { params.push(status); conditions.push(`sd.status=$${params.length}`); }
+      if (conditions.length) whereClause = 'WHERE ' + conditions.join(' AND ');
+      const rows = await query<JsonObject>(`
+        SELECT sd.*,
+          a.nome AS "nomeAluno",
+          a.apelido AS "apelidoAluno",
+          a."numeroMatricula" AS "alunoNumMatricula",
+          a."turmaId" AS "alunoTurmaId",
+          t.nome AS "nomeTurma",
+          t.classe AS "classeAluno"
+        FROM public.solicitacoes_documentos sd
+        LEFT JOIN public.alunos a ON a.id = sd."alunoId"
+        LEFT JOIN public.turmas t ON t.id = a."turmaId"
+        ${whereClause}
+        ORDER BY sd."createdAt" DESC
+      `, params);
       json(res, 200, rows);
     } catch (e) {
       json(res, 500, { error: (e as Error).message });
@@ -9470,7 +9487,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
          VALUES ($1,$2,$3,$4,$5,$6,NOW(),NOW()) RETURNING *`,
         [b.id, b.alunoId, b.tipo, b.motivo ?? '', b.observacao ?? '', b.status ?? 'pendente']
       );
-      json(res, 201, rows[0]);
+      const sol = rows[0];
+      // Notify all chefe_secretaria and secretaria users
+      try {
+        const alunoRows = await query<JsonObject>(`SELECT nome, apelido FROM public.alunos WHERE id=$1`, [b.alunoId]);
+        const nomeAluno = alunoRows[0] ? `${alunoRows[0].nome} ${alunoRows[0].apelido}` : 'Aluno';
+        const staffRows = await query<JsonObject>(
+          `SELECT id FROM public.utilizadores WHERE role IN ('chefe_secretaria','secretaria') AND ativo=true`,
+          []
+        );
+        const hoje = new Date().toISOString().slice(0, 10);
+        for (const staff of staffRows) {
+          await query(
+            `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
+             VALUES ($1,$2,$3,$4,$5,false,$6)`,
+            [
+              staff.id,
+              'Nova Solicitação de Documento',
+              `${nomeAluno} solicitou: ${b.tipo}. Motivo: ${(b.motivo || '').substring(0, 80)}`,
+              'solicitacao_documento',
+              hoje,
+              '/(main)/solicitacoes-secretaria',
+            ]
+          );
+        }
+      } catch (notifErr) {
+        console.error('[solicitacoes] Falha ao criar notificação:', notifErr);
+      }
+      json(res, 201, sol);
     } catch (e) {
       json(res, 400, { error: (e as Error).message });
     }

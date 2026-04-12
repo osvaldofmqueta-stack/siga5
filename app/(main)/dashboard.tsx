@@ -1,9 +1,9 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Dimensions, Platform, RefreshControl,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Colors } from '@/constants/colors';
@@ -15,6 +15,7 @@ import { useAnoAcademico } from '@/context/AnoAcademicoContext';
 import TopBar from '@/components/TopBar';
 import { BarChart, DonutChart } from '@/components/Charts';
 import { apiRequest } from '@/lib/query-client';
+import PendingSolicitacoesModal, { Solicitacao } from '@/components/PendingSolicitacoesModal';
 
 const { width } = Dimensions.get('window');
 const CHART_W = Math.min(width - 64, 360);
@@ -128,6 +129,7 @@ interface Funcionario { id: string; nome: string; apelido: string; departamento:
 export default function DashboardScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+
   const { user } = useAuth();
   const { alunos, professores, turmas, notas, eventos, presencas, isLoading } = useData();
   const { getPagamentosAluno, getMesesEmAtraso, taxas, isAlunoBloqueado } = useFinanceiro();
@@ -137,6 +139,9 @@ export default function DashboardScreen() {
   const [registros, setRegistros] = useState<Registro[]>([]);
   const [loadingReg, setLoadingReg] = useState(false);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
+  const [solicitacoesPendentes, setSolicitacoesPendentes] = useState<Solicitacao[]>([]);
+  const [showSolicitacoesModal, setShowSolicitacoesModal] = useState(false);
+  const solicitacoesShownRef = useRef(false);
 
   const role = user?.role || '';
   const isAluno = role === 'aluno';
@@ -144,6 +149,7 @@ export default function DashboardScreen() {
   const isEncarregado = role === 'encarregado';
   const isDirector = role === 'director';
   const isAdminRole = ['ceo', 'pca', 'admin', 'chefe_secretaria', 'secretaria', 'financeiro', 'rh'].includes(role);
+  const isSecretariaRole = ['chefe_secretaria', 'secretaria'].includes(role);
   const isRhViewer = ['ceo', 'pca', 'admin', 'director'].includes(role);
   const isFinanceRole = ['pca', 'ceo', 'admin', 'financeiro'].includes(role);
 
@@ -166,6 +172,22 @@ export default function DashboardScreen() {
       .then((data: Funcionario[]) => setFuncionarios(Array.isArray(data) ? data : []))
       .catch(() => setFuncionarios([]));
   }, [isRhViewer]);
+
+  // Solicitações pendentes de documentos — modal automático ao entrar
+  useEffect(() => {
+    if (!isSecretariaRole) return;
+    apiRequest('GET', '/api/solicitacoes-documentos?status=pendente')
+      .then(r => r.json())
+      .then((data: Solicitacao[]) => {
+        const list = Array.isArray(data) ? data : [];
+        setSolicitacoesPendentes(list);
+        if (list.length > 0 && !solicitacoesShownRef.current) {
+          solicitacoesShownRef.current = true;
+          setTimeout(() => setShowSolicitacoesModal(true), 600);
+        }
+      })
+      .catch(() => {});
+  }, [isSecretariaRole]);
 
   const eventoTypeColor = (tipo: string) => ({
     'Académico': Colors.info, 'Cultural': Colors.gold, 'Desportivo': Colors.success,
@@ -999,6 +1021,45 @@ export default function DashboardScreen() {
               )}
             </View>
 
+            {/* Solicitações de Documentos — secretaria */}
+            {isSecretariaRole && (
+              <View style={st.section}>
+                <SectionTitle
+                  label="Solicitações de Documentos"
+                  color={Colors.gold}
+                  action={() => router.push('/(main)/solicitacoes-secretaria' as any)}
+                  actionLabel="Ver todas"
+                />
+                <TouchableOpacity
+                  style={[st.card, { flexDirection: 'row', alignItems: 'center', gap: 14 }]}
+                  onPress={() => setShowSolicitacoesModal(true)}
+                  activeOpacity={0.8}
+                >
+                  <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: Colors.gold + '18', alignItems: 'center', justifyContent: 'center' }}>
+                    <MaterialCommunityIcons name="file-document-multiple" size={22} color={Colors.gold} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: Colors.text }}>
+                      {solicitacoesPendentes.length > 0
+                        ? `${solicitacoesPendentes.length} pedido${solicitacoesPendentes.length !== 1 ? 's' : ''} pendente${solicitacoesPendentes.length !== 1 ? 's' : ''}`
+                        : 'Sem pendências'}
+                    </Text>
+                    <Text style={{ fontSize: 12, color: Colors.textMuted, marginTop: 2 }}>
+                      {solicitacoesPendentes.length > 0
+                        ? 'Toque para gerir e emitir documentos'
+                        : 'Todas as solicitações foram tratadas'}
+                    </Text>
+                  </View>
+                  {solicitacoesPendentes.length > 0 && (
+                    <View style={{ backgroundColor: Colors.danger, borderRadius: 12, minWidth: 24, height: 24, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}>
+                      <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>{solicitacoesPendentes.length}</Text>
+                    </View>
+                  )}
+                  <Ionicons name="chevron-forward" size={18} color={Colors.textMuted} />
+                </TouchableOpacity>
+              </View>
+            )}
+
             {/* Acções Rápidas */}
             <View style={st.section}>
               <SectionTitle label={isFinanceRole ? 'Acesso Financeiro Rápido' : 'Acções Rápidas'} color={isFinanceRole ? Colors.success : Colors.primaryLight} />
@@ -1022,6 +1083,21 @@ export default function DashboardScreen() {
         )}
 
       </ScrollView>
+
+      {/* Modal solicitações de documentos — secretaria */}
+      {isSecretariaRole && (
+        <PendingSolicitacoesModal
+          visible={showSolicitacoesModal}
+          solicitacoes={solicitacoesPendentes}
+          onClose={() => setShowSolicitacoesModal(false)}
+          onUpdate={(updated) => {
+            setSolicitacoesPendentes(prev =>
+              prev.map(s => s.id === updated.id ? updated : s)
+                  .filter(s => s.status === 'pendente')
+            );
+          }}
+        />
+      )}
     </View>
   );
 }
