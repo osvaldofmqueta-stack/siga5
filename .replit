@@ -74,3 +74,7 @@ build = ["bash", "-c", "node node_modules/.bin/patch-package && npx expo export 
 SMTP_HOST = "smtp-relay.brevo.com"
 SMTP_PORT = "587"
 VAPID_SUBJECT = "mailto:admin@queta.ao"
+NEON_DATABASE_URL = "postgresql://neondb_owner:npg_v2qroExba0tH@ep-dawn-hat-an0e6ord-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+JWT_SECRET = "0bd9883064e3c17f2ba5ddb829c105a9ea36cb34b26c540cb6e0475348b84d5d"
+VAPID_PUBLIC_KEY = "BE2T8vkkJA1_GcGny0vgkrpOnsvbZXN2u-3yahUXIymZYGXlU1jPaPZTPrG8aDAgMogL3KlrMGTLD2rcJSjWWog"
+VAPID_PRIVATE_KEY = "7ISvwDcjHRFlgKDqvgreXdghaQpvlKR3hEo1qPqlunM"
