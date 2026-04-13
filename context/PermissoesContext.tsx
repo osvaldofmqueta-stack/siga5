@@ -26,7 +26,7 @@ export type PermKey =
   | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento'
   | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios'
   | 'alterar_tipo_contrato' | 'solicitacoes_documentos'
-  | 'arquivo_documentos' | 'gerir_avaliacoes';
+  | 'arquivo_documentos' | 'gerir_avaliacoes' | 'biblioteca_gestao';
 
 export interface FeatureDef {
   key: PermKey;
@@ -139,7 +139,8 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
     categoria: 'Biblioteca Escolar',
     icon: 'library',
     features: [
-      { key: 'biblioteca', label: 'Biblioteca Escolar', desc: 'Gestão de livros, empréstimos e devoluções', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
+      { key: 'biblioteca', label: 'Biblioteca Escolar', desc: 'Acesso ao catálogo, pesquisa de livros e solicitação de empréstimos', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'professor', 'aluno', 'ceo', 'pca'] },
+      { key: 'biblioteca_gestao', label: 'Gestão da Biblioteca', desc: 'Registar empréstimos, devoluções e gerir o acervo (não disponível por defeito para professores)', roles: ['admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
     ],
   },
   {
@@ -231,7 +232,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Académico (supervisão)
     'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
     'horario', 'historico', 'grelha', 'gestao_academica', 'admissao',
-    'disciplinas', 'transferencias', 'biblioteca',
+    'disciplinas', 'transferencias', 'biblioteca', 'biblioteca_gestao',
     // Pedagógico (supervisão)
     'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
@@ -260,7 +261,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'boletim_matricula', 'editor_documentos', 'secretaria_hub',
     'pedagogico', 'avaliacao_professores', 'desempenho', 'visao_geral',
     'relatorios', 'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas',
-    'biblioteca', 'documentos_hub', 'gerar_documento',
+    'biblioteca', 'biblioteca_gestao', 'documentos_hub', 'gerar_documento',
     'plano_aula', 'diario_classe', 'director_turma', 'relatorio_faltas',
     // Financeiro (supervisão e relatórios — admin não opera mas vê relatórios)
     'financeiro_relatorios', 'extrato_propinas', 'bolsas',
@@ -285,7 +286,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Documentos (responsabilidade da secretaria)
     'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub', 'gerar_documento',
     // Planeamento & análise
-    'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
+    'salas', 'biblioteca', 'biblioteca_gestao', 'quadro_honra', 'trabalhos_finais',
     'relatorios', 'extrato_propinas', 'exclusoes_faltas', 'desempenho', 'relatorio_faltas',
     // Novas funcionalidades da secretaria
     'processos_secretaria', 'solicitacoes_documentos', 'arquivo_documentos',
@@ -321,7 +322,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'dashboard', 'notificacoes', 'chat_interno', 'eventos', 'calendario_academico',
     // Académico (análise e qualidade)
     'alunos', 'professores', 'turmas', 'salas', 'notas', 'presencas',
-    'horario', 'historico', 'disciplinas', 'grelha', 'biblioteca',
+    'horario', 'historico', 'disciplinas', 'grelha', 'biblioteca', 'biblioteca_gestao',
     // Pedagógico (core do pedagógico)
     'pedagogico', 'avaliacao_professores', 'gestao_academica',
     'desempenho', 'visao_geral', 'relatorios',
@@ -378,7 +379,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'secretaria_hub', 'editor_documentos', 'boletim_matricula',
     'documentos_hub', 'gerar_documento', 'processos_secretaria',
     // Biblioteca e recursos
-    'biblioteca', 'relatorios',
+    'biblioteca', 'biblioteca_gestao', 'relatorios',
     // Integrações
     'med_integracao',
   ] as PermKey[],

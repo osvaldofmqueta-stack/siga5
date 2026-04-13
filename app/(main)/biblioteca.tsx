@@ -11,6 +11,7 @@ import DateInput from '@/components/DateInput';
 import TopBar from '@/components/TopBar';
 import { useToast } from '@/context/ToastContext';
 import { useAuth, getAuthToken } from '@/context/AuthContext';
+import { usePermissoes } from '@/context/PermissoesContext';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface Livro {
@@ -126,12 +127,15 @@ export default function BibliotecaScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { showToast } = useToast();
   const { user, isLoading: authLoading } = useAuth();
-  const canManage = user?.role !== 'aluno';
+  const { hasPermission } = usePermissoes();
+  const canManage = hasPermission('biblioteca_gestao');
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      await req('/api/emprestimos/sync-atrasos', { method: 'POST' });
+      if (canManage) {
+        await req('/api/emprestimos/sync-atrasos', { method: 'POST' }).catch(() => {});
+      }
       const [ls, es] = await Promise.all([
         req<Livro[]>('/api/livros'),
         req<Emprestimo[]>('/api/emprestimos'),

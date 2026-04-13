@@ -67,7 +67,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "disciplinas","admissao","pedagogico","desempenho","visao_geral",
                      "rh_hub","rh_controle","rh_payroll","controlo_supervisao","gestao_acessos",
                      "auditoria","notificacoes","portal_encarregado","calendario_academico",
-                     "transferencias","biblioteca","boletim_matricula","boletim_propina",
+                     "transferencias","biblioteca","biblioteca_gestao","boletim_matricula","boletim_propina",
                      "quadro_honra","trabalhos_finais","exclusoes_faltas","plano_aula",
                      "eventos","gestao_academica","grelha","historico","salas","dashboard",
                      "avaliacao_professores","admin",
@@ -80,7 +80,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "gestao_academica","editor_documentos","boletim_matricula","documentos_hub",
                      "secretaria_hub","pedagogico","avaliacao_professores","desempenho",
                      "visao_geral","relatorios","quadro_honra","trabalhos_finais",
-                     "exclusoes_faltas","biblioteca","eventos","plano_aula",
+                     "exclusoes_faltas","biblioteca","biblioteca_gestao","eventos","plano_aula",
                      "notificacoes","chat_interno","calendario_academico","admin",
                      "gestao_acessos","controlo_supervisao","auditoria",
                      "arquivo_documentos","gerir_avaliacoes","solicitacoes_documentos","gerar_documento"],
@@ -91,7 +91,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "visao_geral","relatorios","quadro_honra","trabalhos_finais","exclusoes_faltas",
                      "rh_hub","rh_controle","financeiro_relatorios","extrato_propinas",
                      "editor_documentos","boletim_matricula","boletim_propina","documentos_hub",
-                     "controlo_supervisao","auditoria","biblioteca","eventos",
+                     "controlo_supervisao","auditoria","biblioteca","biblioteca_gestao","eventos",
                      "notificacoes","chat_interno","calendario_academico",
                      "arquivo_documentos","gerir_avaliacoes","gerar_documento"],
   // pedagogico: qualidade académica, currículo, avaliação pedagógica
@@ -99,7 +99,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "horario","historico","disciplinas","grelha","gestao_academica",
                      "pedagogico","avaliacao_professores","desempenho","visao_geral","relatorios",
                      "quadro_honra","trabalhos_finais","exclusoes_faltas","plano_aula",
-                     "biblioteca","notificacoes","chat_interno","eventos","calendario_academico",
+                     "biblioteca","biblioteca_gestao","notificacoes","chat_interno","eventos","calendario_academico",
                      "gerir_avaliacoes"],
   // secretaria: operações académicas diárias — matrícula, documentos, transferências
   // NÃO tem gestão financeira (é do financeiro) nem configurações de sistema (é do admin)
@@ -107,7 +107,7 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "horario","historico","admissao","transferencias","gestao_academica",
                      "disciplinas","grelha",
                      "editor_documentos","boletim_matricula","boletim_propina","documentos_hub",
-                     "extrato_propinas","biblioteca","quadro_honra","trabalhos_finais",
+                     "extrato_propinas","biblioteca","biblioteca_gestao","quadro_honra","trabalhos_finais",
                      "notificacoes","chat_interno","eventos","calendario_academico",
                      "arquivo_documentos","solicitacoes_documentos","gerar_documento"],
   // professor: actividade lectiva própria — lança notas, sumários e materiais das suas turmas

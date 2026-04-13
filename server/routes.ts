@@ -6535,7 +6535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  app.post('/api/livros', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.post('/api/livros', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const b = req.body as Record<string, unknown>;
       const rows = await query<JsonObject>(
@@ -6548,7 +6548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put('/api/livros/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.put('/api/livros/:id', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const { id } = req.params;
       const b = req.body as Record<string, unknown>;
@@ -6566,7 +6566,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete('/api/livros/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.delete('/api/livros/:id', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const { id } = req.params;
       await query(`UPDATE public.livros SET ativo=false WHERE id=$1`, [id]);
@@ -6582,7 +6582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  app.post('/api/emprestimos', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.post('/api/emprestimos', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const b = req.body as Record<string, unknown>;
       // Check availability
@@ -6613,7 +6613,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put('/api/emprestimos/:id', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.put('/api/emprestimos/:id', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const { id } = req.params;
       const b = req.body as Record<string, unknown>;
@@ -6633,7 +6633,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Sync atrasados on read
-  app.post('/api/emprestimos/sync-atrasos', requireAuth, requirePermission('biblioteca'), async (req, res) => {
+  app.post('/api/emprestimos/sync-atrasos', requireAuth, requirePermission('biblioteca_gestao'), async (req, res) => {
     try {
       const today = new Date().toISOString().slice(0, 10);
       await query(
@@ -6751,7 +6751,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put('/api/desejos-livros/:id', requireAuth, requirePermission('biblioteca'), async (req: Request, res: Response) => {
+  app.put('/api/desejos-livros/:id', requireAuth, requirePermission('biblioteca_gestao'), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
