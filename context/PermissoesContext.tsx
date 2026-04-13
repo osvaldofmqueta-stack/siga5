@@ -1,5 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { useAuth } from './AuthContext';
+import { useAuth, getAuthToken } from './AuthContext';
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 export type PermKey =
@@ -425,10 +430,11 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     try {
       const isSuperUser = user.role === 'ceo' || user.role === 'pca' || user.role === 'chefe_secretaria';
+      const headers = await authHeaders();
       const [myRes, allRes, roleRes] = await Promise.all([
-        fetch(`/api/user-permissions/${user.id}`),
-        isSuperUser ? fetch('/api/user-permissions') : Promise.resolve(null),
-        fetch('/api/role-permissions'),
+        fetch(`/api/user-permissions/${user.id}`, { headers }),
+        isSuperUser ? fetch('/api/user-permissions', { headers }) : Promise.resolve(null),
+        fetch('/api/role-permissions', { headers }),
       ]);
       const myData = await myRes.json();
       setMyPermissoes(myData.permissoes || {});
@@ -504,30 +510,34 @@ export function PermissoesProvider({ children }: { children: ReactNode }) {
   }
 
   async function saveUserPermissions(userId: string, permissoes: Record<string, boolean>) {
+    const headers = await authHeaders();
     await fetch(`/api/user-permissions/${userId}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ permissoes }),
     });
     reload();
   }
 
   async function resetUserPermissions(userId: string) {
-    await fetch(`/api/user-permissions/${userId}`, { method: 'DELETE' });
+    const headers = await authHeaders();
+    await fetch(`/api/user-permissions/${userId}`, { method: 'DELETE', headers });
     reload();
   }
 
   async function saveRolePermissions(role: string, permissoes: Record<string, boolean>) {
+    const headers = await authHeaders();
     await fetch(`/api/role-permissions/${role}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ permissoes }),
     });
     reload();
   }
 
   async function resetRolePermissions(role: string) {
-    await fetch(`/api/role-permissions/${role}`, { method: 'DELETE' });
+    const headers = await authHeaders();
+    await fetch(`/api/role-permissions/${role}`, { method: 'DELETE', headers });
     reload();
   }
 

@@ -328,12 +328,17 @@ export default function PerfilScreen() {
           Alert.alert('Erro', msg || 'Não foi possível actualizar a foto de perfil.');
           return;
         }
-        if (user.role === 'aluno') {
-          const aluno = alunos.find(a => a.email === user.email || a.nome.includes(user.nome.split(' ')[0]));
-          if (aluno) await updateAluno(aluno.id, { foto: url });
-        } else if (user.role === 'professor') {
-          const prof = professores.find(p => p.email === user.email);
-          if (prof) await updateProfessor(prof.id, { foto: url });
+        // Sync photo to linked record — best-effort, never shows error to user
+        try {
+          if (user.role === 'aluno') {
+            const aluno = alunos.find(a => a.email === user.email || a.nome.includes(user.nome.split(' ')[0]));
+            if (aluno) await updateAluno(aluno.id, { foto: url });
+          } else if (user.role === 'professor') {
+            const prof = professores.find(p => p.email === user.email);
+            if (prof) await updateProfessor(prof.id, { foto: url });
+          }
+        } catch {
+          // Sync is best-effort — avatar is already saved in utilizadores.avatar
         }
       }
     } catch (e: any) {
