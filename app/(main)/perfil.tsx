@@ -11,6 +11,7 @@ import {
   Image,
   Animated,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -311,16 +312,32 @@ export default function PerfilScreen() {
   }
 
   async function handlePickPhoto() {
-    const url = await pickAndUploadPhoto();
-    if (url) {
-      await updateUser({ avatar: url });
-      if (user.role === 'aluno') {
-        const aluno = alunos.find(a => a.email === user.email || a.nome.includes(user.nome.split(' ')[0]));
-        if (aluno) await updateAluno(aluno.id, { foto: url });
-      } else if (user.role === 'professor') {
-        const prof = professores.find(p => p.email === user.email);
-        if (prof) await updateProfessor(prof.id, { foto: url });
+    try {
+      const url = await pickAndUploadPhoto();
+      if (url) {
+        try {
+          await updateUser({ avatar: url });
+        } catch (authErr: any) {
+          const msg = authErr?.message ?? '';
+          if (msg.includes('expirada') || msg.includes('inválida') || msg.includes('autenticado')) {
+            Alert.alert('Sessão expirada', 'A sua sessão expirou. Por favor, faça login novamente.');
+            await logout();
+            router.replace('/login' as any);
+            return;
+          }
+          Alert.alert('Erro', msg || 'Não foi possível actualizar a foto de perfil.');
+          return;
+        }
+        if (user.role === 'aluno') {
+          const aluno = alunos.find(a => a.email === user.email || a.nome.includes(user.nome.split(' ')[0]));
+          if (aluno) await updateAluno(aluno.id, { foto: url });
+        } else if (user.role === 'professor') {
+          const prof = professores.find(p => p.email === user.email);
+          if (prof) await updateProfessor(prof.id, { foto: url });
+        }
       }
+    } catch (e: any) {
+      Alert.alert('Erro', e?.message || 'Não foi possível actualizar a foto de perfil.');
     }
   }
 
