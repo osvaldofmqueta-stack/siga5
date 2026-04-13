@@ -270,20 +270,20 @@ export default function AdminScreen() {
     finally { setReaResponding(null); }
   }
 
-  // ── Solicitações de Lançamento de Avaliação ────────────────
+  // ── Pedidos de Abertura de Avaliação (novo sistema) ────────────────
   interface SolicAvalRow {
-    id: string; professorId: string; professorNome: string;
-    turmaId: string; turmaNome: string; disciplina: string;
-    trimestre: number; tipoAvaliacao: string; motivo: string;
-    status: 'pendente' | 'aprovado' | 'rejeitado';
-    respondidoPor?: string; respondidoEm?: string;
-    observacao?: string; createdAt: string;
+    id: string; professorId: string; professorNome?: string;
+    turmaId?: string; turmaNome?: string; disciplina: string;
+    trimestre: number; avaliacao: string; motivo: string;
+    status: 'pendente' | 'aprovada' | 'rejeitada';
+    respondidoPor?: string; respondidoNome?: string; respondidoEm?: string;
+    observacao?: string; criadoEm: string;
   }
   const [solicAvalList, setSolicAvalList] = useState<SolicAvalRow[]>([]);
   const [solicAvalLoading, setSolicAvalLoading] = useState(false);
   const [solicAvalResponding, setSolicAvalResponding] = useState<string | null>(null);
   const [solicAvalObs, setSolicAvalObs] = useState('');
-  const [solicAvalModal, setSolicAvalModal] = useState<{ id: string; decisao: 'aprovado' | 'rejeitado'; label: string } | null>(null);
+  const [solicAvalModal, setSolicAvalModal] = useState<{ id: string; decisao: 'aprovada' | 'rejeitada'; label: string } | null>(null);
 
   const solicAvalPendentes = useMemo(() => solicAvalList.filter(s => s.status === 'pendente'), [solicAvalList]);
 
@@ -295,26 +295,20 @@ export default function AdminScreen() {
   async function fetchSolicAvaliacao() {
     setSolicAvalLoading(true);
     try {
-      const r = await fetch('/api/solicitacoes-avaliacao');
-      if (r.ok) setSolicAvalList(await r.json());
+      const list = await api.get<SolicAvalRow[]>('/api/pedidos-abertura-avaliacao');
+      setSolicAvalList(Array.isArray(list) ? list : []);
     } catch { setSolicAvalList([]); }
     finally { setSolicAvalLoading(false); }
   }
 
-  async function responderSolicAvaliacao(id: string, decisao: 'aprovado' | 'rejeitado', observacao: string) {
+  async function responderSolicAvaliacao(id: string, decisao: 'aprovada' | 'rejeitada', observacao: string) {
     setSolicAvalResponding(id);
     try {
-      const r = await fetch(`/api/solicitacoes-avaliacao/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: decisao, observacao }),
-      });
-      if (r.ok) {
-        alertSucesso(decisao === 'aprovado' ? 'Aprovado' : 'Rejeitado', `O pedido foi ${decisao === 'aprovado' ? 'aprovado' : 'rejeitado'} com sucesso.`);
-        setSolicAvalModal(null);
-        setSolicAvalObs('');
-        await fetchSolicAvaliacao();
-      }
+      await api.put(`/api/pedidos-abertura-avaliacao/${id}/responder`, { decisao, observacao });
+      alertSucesso(decisao === 'aprovada' ? 'Aprovado' : 'Rejeitado', `O pedido foi ${decisao === 'aprovada' ? 'aprovado' : 'rejeitado'} com sucesso.`);
+      setSolicAvalModal(null);
+      setSolicAvalObs('');
+      await fetchSolicAvaliacao();
     } catch { webAlert('Erro', 'Não foi possível responder ao pedido.'); }
     finally { setSolicAvalResponding(null); }
   }
@@ -2990,19 +2984,19 @@ export default function AdminScreen() {
                     </Text>
                     {solicAvalPendentes.map(s => {
                       const isRes = solicAvalResponding === s.id;
-                      const tipo = s.tipoAvaliacao.startsWith('aval') ? `Avaliação ${s.tipoAvaliacao.replace('aval', '')}` : s.tipoAvaliacao === 'pp1' ? 'Prova do Professor' : s.tipoAvaliacao === 'ppt' ? 'Prova Trimestral' : s.tipoAvaliacao;
-                      const dt = new Date(s.createdAt).toLocaleDateString('pt-PT');
+                      const tipo = s.avaliacao?.startsWith('aval') ? `Avaliação ${s.avaliacao.replace('aval', '')}` : s.avaliacao === 'pp1' ? 'Prova do Professor' : s.avaliacao === 'ppt' ? 'Prova Trimestral' : s.avaliacao;
+                      const dt = s.criadoEm ? new Date(s.criadoEm).toLocaleDateString('pt-PT') : '';
                       return (
                         <View key={s.id} style={{ backgroundColor: Colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: Colors.warning + '44', gap: 8 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <Ionicons name="key-outline" size={14} color={Colors.info} />
-                            <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 14, flex: 1 }}>{s.professorNome}</Text>
+                            <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.text, fontSize: 14, flex: 1 }}>{s.professorNome ?? s.professorId}</Text>
                             <View style={{ backgroundColor: Colors.info + '22', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
                               <Text style={{ fontFamily: 'Inter_700Bold', color: Colors.info, fontSize: 11 }}>{tipo}</Text>
                             </View>
                           </View>
                           <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 12 }}>
-                            {s.disciplina} · T{s.trimestre} · {s.turmaNome || s.turmaId} · {dt}
+                            {s.disciplina} · T{s.trimestre}{s.turmaNome ? ` · ${s.turmaNome}` : ''} · {dt}
                           </Text>
                           {!!s.motivo && (
                             <View style={{ backgroundColor: Colors.background, borderRadius: 8, padding: 10 }}>
@@ -3013,7 +3007,7 @@ export default function AdminScreen() {
                           <View style={{ flexDirection: 'row', gap: 8, marginTop: 2 }}>
                             <TouchableOpacity
                               style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.success + '20', borderWidth: 1, borderColor: Colors.success + '60' }, isRes && { opacity: 0.5 }]}
-                              onPress={() => setSolicAvalModal({ id: s.id, decisao: 'aprovado', label: `${s.professorNome} — ${tipo}` })}
+                              onPress={() => setSolicAvalModal({ id: s.id, decisao: 'aprovada', label: `${s.professorNome ?? s.professorId} — ${tipo}` })}
                               disabled={isRes}
                             >
                               <Ionicons name="checkmark-circle" size={15} color={Colors.success} />
@@ -3021,7 +3015,7 @@ export default function AdminScreen() {
                             </TouchableOpacity>
                             <TouchableOpacity
                               style={[{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.danger + '15', borderWidth: 1, borderColor: Colors.danger + '55' }, isRes && { opacity: 0.5 }]}
-                              onPress={() => setSolicAvalModal({ id: s.id, decisao: 'rejeitado', label: `${s.professorNome} — ${tipo}` })}
+                              onPress={() => setSolicAvalModal({ id: s.id, decisao: 'rejeitada', label: `${s.professorNome ?? s.professorId} — ${tipo}` })}
                               disabled={isRes}
                             >
                               <Ionicons name="close-circle" size={15} color={Colors.danger} />
@@ -3040,22 +3034,22 @@ export default function AdminScreen() {
                       Tratados ({solicAvalList.filter(s => s.status !== 'pendente').length})
                     </Text>
                     {solicAvalList.filter(s => s.status !== 'pendente').map(s => {
-                      const tipo = s.tipoAvaliacao.startsWith('aval') ? `Avaliação ${s.tipoAvaliacao.replace('aval', '')}` : s.tipoAvaliacao === 'pp1' ? 'PP' : s.tipoAvaliacao === 'ppt' ? 'PT' : s.tipoAvaliacao;
-                      const statusColor = s.status === 'aprovado' ? Colors.success : Colors.danger;
+                      const tipo = s.avaliacao?.startsWith('aval') ? `Avaliação ${s.avaliacao.replace('aval', '')}` : s.avaliacao === 'pp1' ? 'PP' : s.avaliacao === 'ppt' ? 'PT' : s.avaliacao;
+                      const statusColor = s.status === 'aprovada' ? Colors.success : Colors.danger;
                       return (
                         <View key={s.id} style={{ backgroundColor: Colors.surface, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: statusColor + '33', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <Ionicons name={s.status === 'aprovado' ? 'checkmark-circle' : 'close-circle'} size={18} color={statusColor} />
+                          <Ionicons name={s.status === 'aprovada' ? 'checkmark-circle' : 'close-circle'} size={18} color={statusColor} />
                           <View style={{ flex: 1 }}>
                             <Text style={{ fontFamily: 'Inter_600SemiBold', color: Colors.text, fontSize: 13 }}>
-                              {s.professorNome} · {tipo}
+                              {s.professorNome ?? s.professorId} · {tipo}
                             </Text>
                             <Text style={{ fontFamily: 'Inter_400Regular', color: Colors.textMuted, fontSize: 11, marginTop: 2 }}>
-                              {s.disciplina} · T{s.trimestre} · {s.turmaNome}
+                              {s.disciplina} · T{s.trimestre}{s.turmaNome ? ` · ${s.turmaNome}` : ''}
                             </Text>
                           </View>
                           <View style={{ paddingHorizontal: 8, paddingVertical: 3, backgroundColor: statusColor + '22', borderRadius: 8 }}>
                             <Text style={{ fontFamily: 'Inter_700Bold', color: statusColor, fontSize: 11 }}>
-                              {s.status === 'aprovado' ? 'Aprovado' : 'Rejeitado'}
+                              {s.status === 'aprovada' ? 'Aprovado' : 'Rejeitado'}
                             </Text>
                           </View>
                         </View>
@@ -3076,9 +3070,9 @@ export default function AdminScreen() {
         <View style={styles.overlay}>
           <View style={[styles.modalBox, { maxWidth: 440 }]}>
             <View style={styles.modalHeader}>
-              <Ionicons name={solicAvalModal?.decisao === 'aprovado' ? 'checkmark-circle' : 'close-circle'} size={20} color={solicAvalModal?.decisao === 'aprovado' ? Colors.success : Colors.danger} style={{ marginRight: 8 }} />
+              <Ionicons name={solicAvalModal?.decisao === 'aprovada' ? 'checkmark-circle' : 'close-circle'} size={20} color={solicAvalModal?.decisao === 'aprovada' ? Colors.success : Colors.danger} style={{ marginRight: 8 }} />
               <Text style={[styles.modalTitle, { flex: 1 }]}>
-                {solicAvalModal?.decisao === 'aprovado' ? 'Aprovar Lançamento' : 'Rejeitar Lançamento'}
+                {solicAvalModal?.decisao === 'aprovada' ? 'Aprovar Lançamento' : 'Rejeitar Lançamento'}
               </Text>
               <TouchableOpacity onPress={() => setSolicAvalModal(null)} style={styles.closeBtn}>
                 <Ionicons name="close" size={22} color={Colors.textSecondary} />
@@ -3098,12 +3092,12 @@ export default function AdminScreen() {
               <ActivityIndicator color={Colors.gold} style={{ marginTop: 16 }} />
             ) : (
               <TouchableOpacity
-                style={[styles.solicitBtn, { backgroundColor: solicAvalModal?.decisao === 'aprovado' ? Colors.success : Colors.danger }]}
+                style={[styles.solicitBtn, { backgroundColor: solicAvalModal?.decisao === 'aprovada' ? Colors.success : Colors.danger }]}
                 onPress={() => solicAvalModal && responderSolicAvaliacao(solicAvalModal.id, solicAvalModal.decisao, solicAvalObs)}
               >
-                <Ionicons name={solicAvalModal?.decisao === 'aprovado' ? 'checkmark' : 'close'} size={18} color="#fff" />
+                <Ionicons name={solicAvalModal?.decisao === 'aprovada' ? 'checkmark' : 'close'} size={18} color="#fff" />
                 <Text style={styles.saveBtnText}>
-                  {solicAvalModal?.decisao === 'aprovado' ? 'Confirmar Aprovação' : 'Confirmar Rejeição'}
+                  {solicAvalModal?.decisao === 'aprovada' ? 'Confirmar Aprovação' : 'Confirmar Rejeição'}
                 </Text>
               </TouchableOpacity>
             )}

@@ -143,7 +143,7 @@ async function getUserPermissions(userId: string, role: UserRole): Promise<strin
   return ROLE_DEFAULTS[role] ?? [];
 }
 
-export function requirePermission(permKey: string) {
+export function requirePermission(permKey: string | string[]) {
   return async (req: Request, res: Response, next: NextFunction) => {
     if (!req.jwtUser) {
       res.status(401).json({ error: "Não autenticado." });
@@ -152,12 +152,14 @@ export function requirePermission(permKey: string) {
     const { userId, role } = req.jwtUser;
     if (role === "ceo" || role === "pca") { next(); return; }
     const perms = await getUserPermissions(userId, role);
-    if (perms.includes("*") || perms.includes(permKey)) {
+    const keys = Array.isArray(permKey) ? permKey : [permKey];
+    if (perms.includes("*") || keys.some(k => perms.includes(k))) {
       next();
     } else {
+      const primaryKey = Array.isArray(permKey) ? permKey[0] : permKey;
       res.status(403).json({
-        error: `Acesso negado. Não tem permissão para '${permKey}'.`,
-        permKey,
+        error: `Acesso negado. Não tem permissão para '${primaryKey}'.`,
+        permKey: primaryKey,
       });
     }
   };

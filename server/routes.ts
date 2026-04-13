@@ -591,6 +591,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] config_geral.avaliacoesCamposAbertos:', (migErr as Error).message);
   }
 
+  // ── Tabela de pedidos de abertura de avaliação por professor ──────────────
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.pedidos_abertura_avaliacao (
+        id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+        "professorId" text NOT NULL,
+        "professorNome" text,
+        "turmaId" text,
+        "turmaNome" text,
+        disciplina text NOT NULL,
+        trimestre integer NOT NULL,
+        avaliacao text NOT NULL,
+        motivo text NOT NULL,
+        status text NOT NULL DEFAULT 'pendente',
+        "respondidoPor" text,
+        "respondidoNome" text,
+        "respondidoEm" timestamptz,
+        observacao text,
+        "criadoEm" timestamptz NOT NULL DEFAULT now()
+      )
+    `, []);
+    console.log('[migration] pedidos_abertura_avaliacao table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] pedidos_abertura_avaliacao:', (migErr as Error).message);
+  }
+
   // ── Migrar constraint de avaliacoes_parciais: por papel → por avaliadorId ──
   // Permite que cada aluno/utilizador contribua individualmente; a agregação calcula a média.
   try {
@@ -1611,7 +1637,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/notas", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.post("/api/notas", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const AVAL_KEYS = ['aval1','aval2','aval3','aval4','aval5','aval6','aval7','aval8'] as const;
@@ -1687,7 +1713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/notas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.put("/api/notas/:id", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1756,7 +1782,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/notas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.delete("/api/notas/:id", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     const { id } = req.params;
     const rows = await query<JsonObject>(
       `DELETE FROM public.notas WHERE id = $1 RETURNING *`,
@@ -1767,7 +1793,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PATCH lancado flag per nota — professor toggles per-student visibility
-  app.patch("/api/notas/:id/lancado", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.patch("/api/notas/:id/lancado", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1819,12 +1845,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  // Responder a pedido de reabertura (privilegiado: admin, director, pca, ceo, chefe_secretaria)
-  app.put("/api/notas/:id/responder-reabertura", requireAuth, async (req: Request, res: Response) => {
+  // Responder a pedido de reabertura (requer permissão gerir_avaliacoes)
+  app.put("/api/notas/:id/responder-reabertura", requireAuth, requirePermission(["gerir_avaliacoes","admin","controlo_supervisao"]), async (req: Request, res: Response) => {
     try {
-      const user = req.jwtUser;
-      const PRIV = ['ceo','pca','admin','director','chefe_secretaria'];
-      if (!user || !PRIV.includes(user.role)) return json(res, 403, { error: 'Sem permissão.' });
 
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -1918,6 +1941,167 @@ export async function registerRoutes(app: Express): Promise<Server> {
          WHERE n."pedidosReabertura"::text != '[]' AND n."pedidosReabertura"::text != 'null'
          AND n."pedidosReabertura"::jsonb @> '[{"status":"pendente"}]'
          ORDER BY n."data" DESC`,
+        []
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // PEDIDOS DE ABERTURA DE AVALIAÇÃO
+  // Professor solicita permissão para lançar uma avaliação específica.
+  // Responsável (gerir_avaliacoes) aprova ou rejeita.
+  // ──────────────────────────────────────────────────────────────────────────
+
+  // GET /api/pedidos-abertura-avaliacao
+  // — Para professor: os seus próprios pedidos
+  // — Para responsável: todos os pedidos (com filtro ?status=pendente)
+  app.get("/api/pedidos-abertura-avaliacao", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.jwtUser!;
+      const PRIVILEGED = ['ceo','pca','admin','director','chefe_secretaria','pedagogico'];
+      const { status, professorId } = req.query as any;
+      const conditions: string[] = [];
+      const values: unknown[] = [];
+
+      if (!PRIVILEGED.includes(user.role)) {
+        // Professors only see their own requests
+        values.push(user.userId);
+        conditions.push(`"professorId"=$${values.length}`);
+      } else {
+        if (professorId) { values.push(professorId); conditions.push(`"professorId"=$${values.length}`); }
+      }
+      if (status) { values.push(status); conditions.push(`status=$${values.length}`); }
+
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.pedidos_abertura_avaliacao ${where} ORDER BY "criadoEm" DESC`,
+        values
+      );
+      json(res, 200, rows);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // POST /api/pedidos-abertura-avaliacao — professor cria pedido
+  app.post("/api/pedidos-abertura-avaliacao", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.jwtUser!;
+      const b = requireBodyObject(req);
+      const { professorId, professorNome, turmaId, turmaNome, disciplina, trimestre, avaliacao, motivo } = b as any;
+      if (!professorId || !disciplina || !trimestre || !avaliacao || !motivo) {
+        return json(res, 400, { error: 'professorId, disciplina, trimestre, avaliacao e motivo são obrigatórios.' });
+      }
+      // Check for existing pending request for same professor+turma+disciplina+trimestre+avaliacao
+      const existing = await query<JsonObject>(
+        `SELECT id FROM public.pedidos_abertura_avaliacao
+         WHERE "professorId"=$1 AND disciplina=$2 AND trimestre=$3 AND avaliacao=$4 AND status='pendente'
+         AND ($5::text IS NULL OR "turmaId"=$5)`,
+        [professorId, disciplina, trimestre, avaliacao, turmaId ?? null]
+      );
+      if (existing.length > 0) {
+        return json(res, 409, { error: 'Já existe um pedido pendente para esta avaliação.' });
+      }
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.pedidos_abertura_avaliacao
+           ("professorId","professorNome","turmaId","turmaNome",disciplina,trimestre,avaliacao,motivo,status,"criadoEm")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendente',now()) RETURNING *`,
+        [professorId, professorNome ?? null, turmaId ?? null, turmaNome ?? null, disciplina, trimestre, avaliacao, motivo]
+      );
+      // Notificar responsáveis com permissão gerir_avaliacoes
+      try {
+        const responsaveis = await query<JsonObject>(
+          `SELECT u.id FROM public.utilizadores u
+           WHERE u.role IN ('ceo','pca','admin','director','chefe_secretaria','pedagogico') AND u.ativo = true`,
+          []
+        );
+        const avalLabel: Record<string,string> = {
+          aval1:'Avaliação 1',aval2:'Avaliação 2',aval3:'Avaliação 3',aval4:'Avaliação 4',
+          aval5:'Avaliação 5',aval6:'Avaliação 6',aval7:'Avaliação 7',aval8:'Avaliação 8',
+          pp1:'PP (Prova do Professor)',ppt:'PT (Prova Trimestral)',
+        };
+        const nomeAval = avalLabel[avaliacao] ?? avaliacao;
+        for (const r of responsaveis) {
+          await query(
+            `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
+             VALUES ($1,$2,$3,$4,$5,false,$6)`,
+            [
+              r.id,
+              'Pedido de Abertura de Avaliação',
+              `${professorNome ?? 'Professor'} solicitou abertura de "${nomeAval}" para ${disciplina}${turmaNome ? ` (${turmaNome})` : ''}, ${trimestre}º Trim.`,
+              'pedido_abertura_avaliacao',
+              new Date().toISOString().slice(0,10),
+              '/(main)/controlo-supervisao',
+            ]
+          );
+        }
+      } catch (notifErr) {
+        console.error('[pedido-abertura] Falha ao criar notificações:', notifErr);
+      }
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // PUT /api/pedidos-abertura-avaliacao/:id/responder — responsável responde
+  app.put("/api/pedidos-abertura-avaliacao/:id/responder", requireAuth, requirePermission(["gerir_avaliacoes","admin","controlo_supervisao"]), async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const user = req.jwtUser!;
+      const b = requireBodyObject(req);
+      const { decisao, observacao } = b as any; // 'aprovada' | 'rejeitada'
+      if (!decisao) return json(res, 400, { error: 'decisao é obrigatória.' });
+
+      const rows = await query<JsonObject>(
+        `UPDATE public.pedidos_abertura_avaliacao
+         SET status=$1, "respondidoPor"=$2, "respondidoNome"=$3, "respondidoEm"=now(), observacao=$4
+         WHERE id=$5 RETURNING *`,
+        [decisao, user.userId, null, observacao ?? null, id]
+      );
+      if (!rows[0]) return json(res, 404, { error: 'Pedido não encontrado.' });
+
+      // Notificar o professor
+      if (decisao === 'aprovada' || decisao === 'rejeitada') {
+        try {
+          const pedido = rows[0] as any;
+          const profRows = await query<JsonObject>(
+            `SELECT "utilizadorId" FROM public.professores WHERE id=$1 LIMIT 1`, [pedido.professorId]
+          );
+          const utilizadorId = profRows[0]?.utilizadorId as string | undefined;
+          if (utilizadorId) {
+            const avalLabel: Record<string,string> = {
+              aval1:'Avaliação 1',aval2:'Avaliação 2',aval3:'Avaliação 3',aval4:'Avaliação 4',
+              aval5:'Avaliação 5',aval6:'Avaliação 6',aval7:'Avaliação 7',aval8:'Avaliação 8',
+              pp1:'PP (Prova do Professor)',ppt:'PT (Prova Trimestral)',
+            };
+            const nomeAval = avalLabel[pedido.avaliacao] ?? pedido.avaliacao;
+            const aprovado = decisao === 'aprovada';
+            await query(
+              `INSERT INTO public.notificacoes ("utilizadorId","titulo","mensagem","tipo","data","lida","link")
+               VALUES ($1,$2,$3,$4,$5,false,$6)`,
+              [
+                utilizadorId,
+                aprovado ? 'Abertura de Avaliação Aprovada' : 'Pedido de Abertura Rejeitado',
+                aprovado
+                  ? `A sua solicitação para lançar "${nomeAval}" de ${pedido.disciplina}${pedido.turmaNome ? ` (${pedido.turmaNome})` : ''} foi aprovada. Pode agora lançar as notas.`
+                  : `A sua solicitação para lançar "${nomeAval}" de ${pedido.disciplina} foi rejeitada.${observacao ? ` Motivo: ${observacao}` : ''}`,
+                aprovado ? 'abertura_avaliacao_aprovada' : 'abertura_avaliacao_rejeitada',
+                new Date().toISOString().slice(0,10),
+                '/(main)/notas',
+              ]
+            );
+          }
+        } catch (notifErr) {
+          console.error('[pedido-abertura] Falha ao notificar professor:', notifErr);
+        }
+      }
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // GET /api/pedidos-abertura-avaliacao/pendentes — lista de pendentes para responsáveis
+  app.get("/api/pedidos-abertura-avaliacao/pendentes", requireAuth, requirePermission(["gerir_avaliacoes","admin","controlo_supervisao"]), async (_req: Request, res: Response) => {
+    try {
+      const rows = await query<JsonObject>(
+        `SELECT * FROM public.pedidos_abertura_avaliacao WHERE status='pendente' ORDER BY "criadoEm" ASC`,
         []
       );
       json(res, 200, rows);
@@ -2779,7 +2963,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     json(res, 200, rows);
   });
 
-  app.post("/api/pautas", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.post("/api/pautas", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -2791,7 +2975,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/pautas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.put("/api/pautas/:id", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -2808,7 +2992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/pautas/:id", requireAuth, requirePermission("pautas"), async (req: Request, res: Response) => {
+  app.delete("/api/pautas/:id", requireAuth, requirePermission(["notas","pautas","professor_pauta"]), async (req: Request, res: Response) => {
     const rows = await query<JsonObject>(`DELETE FROM public.pautas WHERE id=$1 RETURNING *`, [req.params.id]);
     if (!rows[0]) return json(res, 404, { error: "Not found." });
     json(res, 200, rows[0]);

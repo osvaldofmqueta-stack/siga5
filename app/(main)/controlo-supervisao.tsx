@@ -134,18 +134,20 @@ export default function ControloSupervisaoScreen() {
   const [presencas, setPresencas] = useState<any[]>([]);
   const [sumarios, setSumarios] = useState<any[]>([]);
   const [reaberturaNotas, setReaberturaNotas] = useState<any[]>([]);
+  const [pedidosAberturaCount, setPedidosAberturaCount] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
 
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
 
   async function loadApiData() {
     try {
-      const [pag, nt, pres, sum, reab] = await Promise.all([
+      const [pag, nt, pres, sum, reab, abertura] = await Promise.all([
         api.get<any[]>('/api/pagamentos').catch(() => []),
         api.get<any[]>('/api/notas').catch(() => []),
         api.get<any[]>('/api/presencas').catch(() => []),
         api.get<any[]>('/api/sumarios').catch(() => []),
         api.get<any[]>('/api/notas/reabertura-pendentes').catch(() => []),
+        api.get<any[]>('/api/pedidos-abertura-avaliacao?status=pendente').catch(() => []),
       ]);
       setPagamentos(pag);
       setNotas(nt);
@@ -155,6 +157,7 @@ export default function ControloSupervisaoScreen() {
         (n.pedidosReabertura || []).filter((p: any) => p.status === 'pendente')
       );
       setReaberturaNotas(pendentesReab);
+      setPedidosAberturaCount(Array.isArray(abertura) ? abertura.filter((p: any) => p.status === 'pendente').length : 0);
     } catch {
       // ignore
     }
@@ -210,7 +213,7 @@ export default function ControloSupervisaoScreen() {
     { key: 'visao', label: 'Visão Geral', icon: 'grid' },
     { key: 'utilizadores', label: 'Utilizadores', icon: 'people', badge: users.length },
     { key: 'secretaria', label: 'Secretaria', icon: 'briefcase' },
-    { key: 'academico', label: 'Académico', icon: 'school', badge: reaberturaNotas.length || undefined },
+    { key: 'academico', label: 'Académico', icon: 'school', badge: (reaberturaNotas.length + pedidosAberturaCount) || undefined },
     { key: 'financeiro', label: 'Financeiro', icon: 'cash', badge: stats.pagamentosHoje || undefined },
   ];
 
@@ -437,6 +440,18 @@ export default function ControloSupervisaoScreen() {
                   title="Reabertura de Notas"
                   sub={reaberturaNotas.length > 0 ? `${reaberturaNotas.length} pedido(s) pendente(s)` : 'Sem pedidos pendentes'}
                   badge={reaberturaNotas.length > 0 ? `${reaberturaNotas.length}` : undefined}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push({ pathname: '/(main)/admin', params: { section: 'solicit_avaliacao', group: 'academico' } } as any)}
+                activeOpacity={0.8}
+              >
+                <ActivityRow
+                  icon="key"
+                  color={Colors.info}
+                  title="Abertura de Avaliações"
+                  sub={pedidosAberturaCount > 0 ? `${pedidosAberturaCount} pedido(s) pendente(s)` : 'Sem pedidos pendentes'}
+                  badge={pedidosAberturaCount > 0 ? `${pedidosAberturaCount}` : undefined}
                 />
               </TouchableOpacity>
             </SectionCard>

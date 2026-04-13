@@ -192,13 +192,87 @@ function NotaFormModal({
 
   const [form, setForm] = useState<Partial<Nota>>(nota ? { ...nota, lancamentos: nota.lancamentos || buildEmptyLanc() } : makeEmpty());
 
+  const { user } = useAuth();
+  const isProfessorRole = user?.role === 'professor';
+  const isPrivilegedRole = !!user?.role && ['ceo','pca','admin','director','chefe_secretaria','pedagogico'].includes(user.role);
+
   // Reabertura de campos bloqueados
   const [reaberturaModal, setReaberturaModal] = useState<{ campo: string; label: string } | null>(null);
   const [reaberturaMotivo, setReaberturaMotivo] = useState('');
   const [isSubmittingRea, setIsSubmittingRea] = useState(false);
 
+  // Pedidos de abertura de avaliação (pre-entry)
+  const [pedidosAbertura, setPedidosAbertura] = useState<any[]>([]);
+  const [solicitarAberturaModal, setSolicitarAberturaModal] = useState<{ avaliacao: string; label: string } | null>(null);
+  const [solicitarMotivo, setSolicitarMotivo] = useState('');
+  const [isSubmittingAbertura, setIsSubmittingAbertura] = useState(false);
+
   const camposAbertos: string[] = (form.camposAbertos as string[]) ?? [];
   const pedidosReabertura: PedidoReabertura[] = (form.pedidosReabertura as PedidoReabertura[]) ?? [];
+
+  // Load pedidos de abertura whenever professor/turma/disciplina/trimestre changes
+  useEffect(() => {
+    if (!isProfessorRole || !professorId || !visible) { setPedidosAbertura([]); return; }
+    api.get<any[]>('/api/pedidos-abertura-avaliacao')
+      .then((data: any[]) => {
+        if (Array.isArray(data)) setPedidosAbertura(data);
+        else setPedidosAbertura([]);
+      })
+      .catch(() => setPedidosAbertura([]));
+  }, [isProfessorRole, professorId, visible]);
+
+  function getAberturaStatus(avaliacao: string): 'approved' | 'pending' | 'rejected' | 'none' {
+    if (!isProfessorRole || isPrivilegedRole) return 'approved';
+    const pedidosFiltrados = pedidosAbertura.filter(p =>
+      p.professorId === professorId &&
+      p.disciplina === form.disciplina &&
+      Number(p.trimestre) === Number(trimestre) &&
+      p.avaliacao === avaliacao &&
+      (!selectedTurmaId || p.turmaId === selectedTurmaId || !p.turmaId)
+    ).sort((a: any, b: any) => new Date(b.criadoEm).getTime() - new Date(a.criadoEm).getTime());
+    const ultimo = pedidosFiltrados[0];
+    if (!ultimo) return 'none';
+    if (ultimo.status === 'aprovada') return 'approved';
+    if (ultimo.status === 'pendente') return 'pending';
+    return 'rejected';
+  }
+
+  async function reloadPedidosAbertura() {
+    if (!isProfessorRole || !professorId) return;
+    try {
+      const data = await api.get<any[]>('/api/pedidos-abertura-avaliacao');
+      if (Array.isArray(data)) setPedidosAbertura(data);
+    } catch { /* ignore */ }
+  }
+
+  async function submitSolicitarAbertura() {
+    if (!solicitarMotivo.trim()) {
+      webAlert('Motivo necessário', 'Indique o motivo pelo qual precisa lançar esta avaliação.');
+      return;
+    }
+    setIsSubmittingAbertura(true);
+    try {
+      const turmaObj = turmas.find((t: any) => t.id === selectedTurmaId);
+      await api.post('/api/pedidos-abertura-avaliacao', {
+        professorId,
+        turmaId: selectedTurmaId || null,
+        turmaNome: turmaObj?.nome || null,
+        disciplina: form.disciplina,
+        trimestre,
+        avaliacao: solicitarAberturaModal!.avaliacao,
+        motivo: solicitarMotivo.trim(),
+      });
+      alertSucesso('Pedido enviado', 'O pedido foi enviado à direcção para análise.');
+      setSolicitarAberturaModal(null);
+      setSolicitarMotivo('');
+      await reloadPedidosAbertura();
+    } catch (e: any) {
+      const msg = e?.message?.includes('pendente') ? 'Já existe um pedido pendente para esta avaliação.' : 'Não foi possível enviar o pedido.';
+      webAlert('Erro', msg);
+    } finally {
+      setIsSubmittingAbertura(false);
+    }
+  }
 
   function hasPendingRequest(campo: string) {
     return pedidosReabertura.some(p => p.campo === campo && p.status === 'pendente');
@@ -620,13 +694,69 @@ function NotaFormModal({
                   <Text style={mS.blockSub}>{avaisRegistadas}/{numAvaliacoes} registadas</Text>
                 </View>
               </View>
+
+              {/* Aviso de solicitação obrigatória para professores */}
+              {isProfessorRole && !isPrivilegedRole && form.disciplina && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.info + '15', borderRadius: 8, padding: 9, marginBottom: 10, borderWidth: 1, borderColor: Colors.info + '35' }}>
+                  <Ionicons name="lock-closed-outline" size={13} color={Colors.info} />
+                  <Text style={{ flex: 1, fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info, lineHeight: 16 }}>
+                    As avaliações requerem autorização da direcção. Toque no cadeado para solicitar abertura.
+                  </Text>
+                </View>
+              )}
+
               <View style={mS.gradesGrid}>
                 {activeAvalKeys.map((key, i) => {
                   const wasLanc = !!(lanc[key as keyof NotaLancamentos]);
                   const prevLanc = i === 0 ? true : !!(lanc[activeAvalKeys[i - 1] as keyof NotaLancamentos]);
-                  const isLocked = isEditingExisting && wasLanc && !camposAbertos.includes(key);
+                  const isLancLocked = isEditingExisting && wasLanc && !camposAbertos.includes(key);
                   const isSequentialLocked = !wasLanc && !prevLanc;
-                  const isPending = isEditingExisting && wasLanc && isLocked && hasPendingRequest(key);
+                  const isPending = isEditingExisting && wasLanc && isLancLocked && hasPendingRequest(key);
+
+                  // Abertura lock: professor has not been approved to enter this evaluation yet
+                  const aberturaStatus = getAberturaStatus(key);
+                  const isAberturaLocked = isProfessorRole && !isPrivilegedRole && !wasLanc && aberturaStatus !== 'approved';
+
+                  const isLocked = isLancLocked;
+                  const isReadonly = isLocked || isSequentialLocked || isAberturaLocked;
+
+                  if (isAberturaLocked && !isSequentialLocked) {
+                    return (
+                      <TouchableOpacity
+                        key={key}
+                        style={{ flex: 1 }}
+                        activeOpacity={0.8}
+                        onPress={() => {
+                          if (aberturaStatus === 'pending') {
+                            webAlert('Pedido em Análise', 'Já existe um pedido pendente para esta avaliação. Aguarde a resposta da direcção.');
+                          } else {
+                            if (!form.disciplina) { webAlert('Atenção', 'Seleccione a disciplina primeiro.'); return; }
+                            setSolicitarMotivo('');
+                            setSolicitarAberturaModal({ avaliacao: key, label: `AVAL ${i + 1}` });
+                          }
+                        }}
+                      >
+                        <View style={gS.gradeBox}>
+                          <View style={gS.gradeLabelRow}>
+                            <Text style={gS.gradeLabel}>{`AVAL ${i + 1}`}</Text>
+                            {aberturaStatus === 'pending'
+                              ? <Ionicons name="time-outline" size={10} color={Colors.warning} />
+                              : <Ionicons name="lock-closed-outline" size={10} color={Colors.textMuted} />}
+                          </View>
+                          <View style={[gS.gradeReadonly, {
+                            borderColor: aberturaStatus === 'pending' ? Colors.warning + '60' : Colors.textMuted + '40',
+                            backgroundColor: aberturaStatus === 'pending' ? Colors.warning + '08' : Colors.surface,
+                            alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 4,
+                          }]}>
+                            {aberturaStatus === 'pending'
+                              ? <><Ionicons name="time" size={11} color={Colors.warning} /><Text style={{ fontSize: 9, color: Colors.warning, fontFamily: 'Inter_600SemiBold' }}>Pendente</Text></>
+                              : <><Ionicons name="lock-closed" size={11} color={Colors.textMuted} /><Text style={{ fontSize: 9, color: Colors.textMuted, fontFamily: 'Inter_500Medium' }}>Solicitar</Text></>}
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  }
+
                   return (
                     <TouchableOpacity
                       key={key}
@@ -637,9 +767,9 @@ function NotaFormModal({
                       <GradeInput
                         label={`AVAL ${i + 1}`}
                         value={(form[key as keyof Nota] as number) || 0}
-                        onChange={(isLocked || isSequentialLocked) ? undefined : v => set(key as keyof Nota, v)}
+                        onChange={isReadonly ? undefined : v => set(key as keyof Nota, v)}
                         registered={wasLanc}
-                        readonly={isLocked || isSequentialLocked}
+                        readonly={isReadonly}
                         pending={isPending}
                         max={5}
                       />
@@ -832,6 +962,55 @@ function NotaFormModal({
               <TouchableOpacity style={[mS.reaSubmitBtn, isSubmittingRea && { opacity: 0.6 }]} onPress={submitReabertura} disabled={isSubmittingRea}>
                 <Ionicons name="send" size={15} color="#fff" />
                 <Text style={mS.reaSubmitText}>{isSubmittingRea ? 'A enviar...' : 'Enviar Pedido'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal de Solicitação de Abertura de Avaliação */}
+      <Modal visible={!!solicitarAberturaModal} transparent animationType="fade" onRequestClose={() => setSolicitarAberturaModal(null)}>
+        <View style={mS.reaOverlay}>
+          <View style={mS.reaCard}>
+            <View style={mS.reaHeader}>
+              <Ionicons name="key-outline" size={20} color={Colors.accent} />
+              <Text style={[mS.reaTitle, { color: Colors.accent }]}>Solicitar Lançamento</Text>
+            </View>
+            <Text style={mS.reaSubtitle}>
+              Avaliação: <Text style={{ fontWeight: '700' }}>{solicitarAberturaModal?.label}</Text>
+            </Text>
+            {form.disciplina ? (
+              <Text style={[mS.reaSubtitle, { marginTop: 2 }]}>
+                Disciplina: <Text style={{ fontWeight: '700' }}>{form.disciplina}</Text>{' '}
+                · {trimestre}º Trimestre
+              </Text>
+            ) : null}
+            <Text style={mS.reaDesc}>
+              Para lançar esta avaliação, é necessária autorização da direcção. Indique o motivo abaixo.
+              O responsável receberá uma notificação e poderá aprovar o lançamento.
+            </Text>
+            <TextInput
+              style={mS.reaInput}
+              placeholder="Ex: Início do 1º período de avaliações contínuas..."
+              placeholderTextColor={Colors.textMuted}
+              value={solicitarMotivo}
+              onChangeText={setSolicitarMotivo}
+              multiline
+              numberOfLines={3}
+              maxLength={300}
+            />
+            <Text style={mS.reaCount}>{solicitarMotivo.length}/300</Text>
+            <View style={mS.reaActions}>
+              <TouchableOpacity style={mS.reaCancelBtn} onPress={() => setSolicitarAberturaModal(null)}>
+                <Text style={mS.reaCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[mS.reaSubmitBtn, { backgroundColor: Colors.accent }, isSubmittingAbertura && { opacity: 0.6 }]}
+                onPress={submitSolicitarAbertura}
+                disabled={isSubmittingAbertura}
+              >
+                <Ionicons name="send" size={15} color="#fff" />
+                <Text style={mS.reaSubmitText}>{isSubmittingAbertura ? 'A enviar...' : 'Solicitar Abertura'}</Text>
               </TouchableOpacity>
             </View>
           </View>
