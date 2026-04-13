@@ -221,6 +221,7 @@ export default function DrawerLeft() {
         { label: 'Organizar Alunos em Turmas', route: '/(main)/organizar-turmas', icon: <MaterialCommunityIcons name="account-group" size={20} color="inherit" />, permKey: 'admissao' },
         { label: 'Hub de Pagamentos', route: '/(main)/pagamentos-hub', icon: <MaterialCommunityIcons name="cash-check" size={20} color="inherit" />, permKey: 'financeiro' },
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Arquivo de Documentos', route: '/(main)/arquivo-documentos', icon: <MaterialCommunityIcons name="folder-multiple" size={20} color="inherit" />, permKey: 'arquivo_documentos' },
 
       ],
     },
@@ -461,7 +462,7 @@ export default function DrawerLeft() {
       title: 'Documentos & Comunicação',
       items: [
         { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
-
+        { label: 'Arquivo de Documentos', route: '/(main)/arquivo-documentos', icon: <MaterialCommunityIcons name="folder-multiple" size={20} color="inherit" />, permKey: 'arquivo_documentos' },
         { label: 'Calendário Académico', route: '/(main)/calendario-academico', icon: <MaterialCommunityIcons name="calendar-month" size={20} color="inherit" />, permKey: 'eventos' },
         { label: 'Eventos Escolares', route: '/(main)/eventos', icon: <Ionicons name="calendar" size={20} color="inherit" />, permKey: 'eventos' },
       ],

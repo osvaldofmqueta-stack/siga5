@@ -118,6 +118,7 @@ export default function MainLayout() {
           <Stack.Screen name="relatorio-faltas" />
           <Stack.Screen name="diario-classe" />
           <Stack.Screen name="finalistas" />
+          <Stack.Screen name="arquivo-documentos" />
         </Stack>
         {isDesktop && <DrawerRight />}
       </View>

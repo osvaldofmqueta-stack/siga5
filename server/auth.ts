@@ -72,7 +72,8 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "eventos","gestao_academica","grelha","historico","salas","dashboard",
                      "avaliacao_professores","admin",
                      "professor_hub","professor_turmas","professor_pauta","professor_sumario",
-                     "professor_mensagens","professor_materiais","portal_estudante","pagamentos_hub"],
+                     "professor_mensagens","professor_materiais","portal_estudante","pagamentos_hub",
+                     "arquivo_documentos","gerir_avaliacoes","solicitacoes_documentos"],
   // admin: configuração técnica, gestão de utilizadores, auditoria — sem finanças nem RH operacional
   admin:            ["dashboard","alunos","professores","turmas","salas","notas","presencas",
                      "horario","historico","disciplinas","grelha","admissao","transferencias",
@@ -81,7 +82,8 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "visao_geral","relatorios","quadro_honra","trabalhos_finais",
                      "exclusoes_faltas","biblioteca","eventos","plano_aula",
                      "notificacoes","chat_interno","calendario_academico","admin",
-                     "gestao_acessos","controlo_supervisao","auditoria"],
+                     "gestao_acessos","controlo_supervisao","auditoria",
+                     "arquivo_documentos","gerir_avaliacoes","solicitacoes_documentos","gerar_documento"],
   // director: supervisão estratégica — vê tudo, não opera finanças nem configura o sistema
   director:         ["dashboard","alunos","professores","turmas","salas","notas","presencas",
                      "horario","historico","disciplinas","grelha","admissao","transferencias",
@@ -90,13 +92,15 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "rh_hub","rh_controle","financeiro_relatorios","extrato_propinas",
                      "editor_documentos","boletim_matricula","boletim_propina","documentos_hub",
                      "controlo_supervisao","auditoria","biblioteca","eventos",
-                     "notificacoes","chat_interno","calendario_academico"],
+                     "notificacoes","chat_interno","calendario_academico",
+                     "arquivo_documentos","gerir_avaliacoes","gerar_documento"],
   // pedagogico: qualidade académica, currículo, avaliação pedagógica
   pedagogico:       ["dashboard","alunos","professores","turmas","salas","notas","presencas",
                      "horario","historico","disciplinas","grelha","gestao_academica",
                      "pedagogico","avaliacao_professores","desempenho","visao_geral","relatorios",
                      "quadro_honra","trabalhos_finais","exclusoes_faltas","plano_aula",
-                     "biblioteca","notificacoes","chat_interno","eventos","calendario_academico"],
+                     "biblioteca","notificacoes","chat_interno","eventos","calendario_academico",
+                     "gerir_avaliacoes"],
   // secretaria: operações académicas diárias — matrícula, documentos, transferências
   // NÃO tem gestão financeira (é do financeiro) nem configurações de sistema (é do admin)
   secretaria:       ["secretaria_hub","alunos","turmas","salas","notas","presencas",
@@ -104,7 +108,8 @@ const ROLE_DEFAULTS: Record<string, string[]> = {
                      "disciplinas","grelha",
                      "editor_documentos","boletim_matricula","boletim_propina","documentos_hub",
                      "extrato_propinas","biblioteca","quadro_honra","trabalhos_finais",
-                     "notificacoes","chat_interno","eventos","calendario_academico"],
+                     "notificacoes","chat_interno","eventos","calendario_academico",
+                     "arquivo_documentos","solicitacoes_documentos","gerar_documento"],
   // professor: actividade lectiva própria — lança notas, sumários e materiais das suas turmas
   professor:        ["notas","pautas","professor_hub","professor_turmas","professor_pauta","professor_sumario",
                      "professor_mensagens","professor_materiais","horario","plano_aula",

@@ -558,6 +558,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     console.warn('[migration] avaliacoes_parciais:', (migErr as Error).message);
   }
 
+  // ── solicitacoes_avaliacao: professor requests to open specific assessment field ──
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS public.solicitacoes_avaliacao (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid()::varchar,
+        "professorId" varchar NOT NULL,
+        "professorNome" varchar NOT NULL,
+        "turmaId" varchar NOT NULL,
+        "turmaNome" varchar NOT NULL DEFAULT '',
+        disciplina varchar NOT NULL,
+        trimestre integer NOT NULL,
+        "tipoAvaliacao" varchar NOT NULL,
+        motivo text NOT NULL DEFAULT '',
+        status varchar NOT NULL DEFAULT 'pendente',
+        "respondidoPor" varchar,
+        "respondidoEm" timestamptz,
+        observacao text,
+        "createdAt" timestamptz NOT NULL DEFAULT now()
+      )
+    `, []);
+    console.log('[migration] solicitacoes_avaliacao table ensured.');
+  } catch (migErr) {
+    console.warn('[migration] solicitacoes_avaliacao:', (migErr as Error).message);
+  }
+
+  // ── config_geral: campos abertos de avaliacao por professor (avaliacoes abertas globalmente) ──
+  try {
+    await query(`ALTER TABLE public.config_geral ADD COLUMN IF NOT EXISTS "avaliacoesCamposAbertos" jsonb NOT NULL DEFAULT '{}'::jsonb`, []);
+    console.log('[migration] config_geral.avaliacoesCamposAbertos ensured.');
+  } catch (migErr) {
+    console.warn('[migration] config_geral.avaliacoesCamposAbertos:', (migErr as Error).message);
+  }
+
   // ── Migrar constraint de avaliacoes_parciais: por papel → por avaliadorId ──
   // Permite que cada aluno/utilizador contribua individualmente; a agregação calcula a média.
   try {
@@ -2784,12 +2817,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // SOLICITAÇÕES DE ABERTURA
   // -----------------------
-  app.get("/api/solicitacoes-abertura", async (_req: Request, res: Response) => {
+  app.get("/api/solicitacoes-abertura", requireAuth, async (_req: Request, res: Response) => {
     const rows = await query<JsonObject>(`SELECT * FROM public.solicitacoes_abertura ORDER BY "createdAt" DESC`, []);
     json(res, 200, rows);
   });
 
-  app.post("/api/solicitacoes-abertura", async (req: Request, res: Response) => {
+  app.post("/api/solicitacoes-abertura", requireAuth, async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const rows = await query<JsonObject>(
@@ -2801,7 +2834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
   });
 
-  app.put("/api/solicitacoes-abertura/:id", async (req: Request, res: Response) => {
+  app.put("/api/solicitacoes-abertura/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const b = requireBodyObject(req);
@@ -2813,6 +2846,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (!setParts.length) return json(res, 400, { error: "No fields." });
       const rows = await query<JsonObject>(`UPDATE public.solicitacoes_abertura SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`, [...values, id]);
+      if (!rows[0]) return json(res, 404, { error: "Not found." });
+      json(res, 200, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  // -----------------------
+  // SOLICITAÇÕES DE AVALIAÇÃO (professor solicita abertura de campo de avaliação)
+  // -----------------------
+  const PRIV_AVALIACAO = ['ceo','pca','admin','director','chefe_secretaria','pedagogico'] as UserRole[];
+
+  app.get("/api/solicitacoes-avaliacao", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { professorId, turmaId, disciplina, trimestre, status } = req.query as Record<string, string>;
+      const user = req.jwtUser!;
+      const conditions: string[] = [];
+      const values: unknown[] = [];
+      // Professores só veem as suas próprias solicitações
+      if (!PRIV_AVALIACAO.includes(user.role)) {
+        conditions.push(`"professorId"=$${values.length+1}`);
+        values.push(user.userId);
+      } else if (professorId) {
+        conditions.push(`"professorId"=$${values.length+1}`);
+        values.push(professorId);
+      }
+      if (turmaId) { conditions.push(`"turmaId"=$${values.length+1}`); values.push(turmaId); }
+      if (disciplina) { conditions.push(`disciplina=$${values.length+1}`); values.push(disciplina); }
+      if (trimestre) { conditions.push(`trimestre=$${values.length+1}`); values.push(Number(trimestre)); }
+      if (status) { conditions.push(`status=$${values.length+1}`); values.push(status); }
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+      const rows = await query<JsonObject>(`SELECT * FROM public.solicitacoes_avaliacao ${where} ORDER BY "createdAt" DESC`, values);
+      json(res, 200, rows);
+    } catch (e) { json(res, 500, { error: (e as Error).message }); }
+  });
+
+  app.post("/api/solicitacoes-avaliacao", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const b = requireBodyObject(req);
+      const rows = await query<JsonObject>(
+        `INSERT INTO public.solicitacoes_avaliacao
+           ("professorId","professorNome","turmaId","turmaNome","disciplina","trimestre","tipoAvaliacao","motivo","status")
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'pendente') RETURNING *`,
+        [b.professorId,b.professorNome,b.turmaId,b.turmaNome??'',b.disciplina,b.trimestre,b.tipoAvaliacao,b.motivo??''],
+      );
+      json(res, 201, rows[0]);
+    } catch (e) { json(res, 400, { error: (e as Error).message }); }
+  });
+
+  app.put("/api/solicitacoes-avaliacao/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const user = req.jwtUser!;
+      if (!PRIV_AVALIACAO.includes(user.role)) {
+        return json(res, 403, { error: 'Sem permissão para responder solicitações de avaliação.' });
+      }
+      const { id } = req.params;
+      const b = requireBodyObject(req);
+      const allowed = ["status","observacao"] as const;
+      const setParts: string[] = []; const values: unknown[] = [];
+      values.push(user.userId); setParts.push(`"respondidoPor"=$1`);
+      values.push(new Date().toISOString()); setParts.push(`"respondidoEm"=$2`);
+      for (const key of allowed) {
+        const v = b[key]; if (v === undefined) continue;
+        values.push(v); setParts.push(`"${key}"=$${values.length}`);
+      }
+      const rows = await query<JsonObject>(
+        `UPDATE public.solicitacoes_avaliacao SET ${setParts.join(",")} WHERE id=$${values.length+1} RETURNING *`,
+        [...values, id]
+      );
       if (!rows[0]) return json(res, 404, { error: "Not found." });
       json(res, 200, rows[0]);
     } catch (e) { json(res, 400, { error: (e as Error).message }); }
@@ -4796,20 +4896,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // -----------------------
   // DOCUMENTOS EMITIDOS (HISTÓRICO)
   // -----------------------
-  app.get("/api/documentos-emitidos", async (_req: Request, res: Response) => {
+  app.get("/api/documentos-emitidos", requireAuth, requirePermission("arquivo_documentos"), async (req: Request, res: Response) => {
     try {
+      const { alunoId, tipo, anoAcademico, search } = req.query as Record<string, string>;
+      const conditions: string[] = [];
+      const values: unknown[] = [];
+      if (alunoId) { conditions.push(`aluno_id=$${values.length+1}`); values.push(alunoId); }
+      if (tipo) { conditions.push(`tipo=$${values.length+1}`); values.push(tipo); }
+      if (anoAcademico) { conditions.push(`ano_academico=$${values.length+1}`); values.push(anoAcademico); }
+      if (search) {
+        conditions.push(`(aluno_nome ILIKE $${values.length+1} OR aluno_num ILIKE $${values.length+1} OR tipo ILIKE $${values.length+1})`);
+        values.push(`%${search}%`);
+      }
+      const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
       const rows = await query<JsonObject>(
         `SELECT id, aluno_id AS "alunoId", aluno_nome AS "alunoNome", aluno_num AS "alunoNum",
                 aluno_turma AS "alunoTurma", tipo, finalidade, ano_academico AS "anoAcademico",
                 emitido_por AS "emitidoPor", emitido_em AS "emitidoEm", dados_snapshot AS "dadosSnapshot"
-         FROM public.documentos_emitidos ORDER BY emitido_em DESC`,
-        []
+         FROM public.documentos_emitidos ${where} ORDER BY emitido_em DESC`,
+        values
       );
       json(res, 200, rows);
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  app.get("/api/documentos-emitidos/aluno/:alunoId", async (req: Request, res: Response) => {
+  app.get("/api/documentos-emitidos/aluno/:alunoId", requireAuth, async (req: Request, res: Response) => {
     try {
       const rows = await query<JsonObject>(
         `SELECT id, aluno_id AS "alunoId", aluno_nome AS "alunoNome", aluno_num AS "alunoNum",
@@ -4822,7 +4933,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  app.post("/api/documentos-emitidos", async (req: Request, res: Response) => {
+  app.post("/api/documentos-emitidos", requireAuth, async (req: Request, res: Response) => {
     try {
       const b = requireBodyObject(req);
       const { alunoId, alunoNome, alunoNum, alunoTurma, tipo, finalidade, anoAcademico, emitidoPor, dadosSnapshot } = b as Record<string, unknown>;
@@ -4839,7 +4950,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) { json(res, 500, { error: (e as Error).message }); }
   });
 
-  app.delete("/api/documentos-emitidos/:id", async (req: Request, res: Response) => {
+  app.delete("/api/documentos-emitidos/:id", requireAuth, requirePermission("arquivo_documentos"), async (req: Request, res: Response) => {
     try {
       await query(`DELETE FROM public.documentos_emitidos WHERE id=$1`, [req.params.id]);
       json(res, 200, { ok: true });

@@ -71,6 +71,36 @@ interface PapForm {
   notaPAP: number | null;
 }
 
+interface SolicAvaliacao {
+  id: string;
+  professorId: string;
+  professorNome: string;
+  turmaId: string;
+  turmaNome: string;
+  disciplina: string;
+  trimestre: number;
+  tipoAvaliacao: string;
+  motivo: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado';
+  respondidoPor?: string;
+  respondidoEm?: string;
+  observacao?: string;
+  createdAt: string;
+}
+
+// Tipos de avaliação que o professor pode solicitar abertura
+const TIPOS_AVALIACAO_SOLIC = [
+  { key: 'aval1', label: 'Avaliação 1 (A1)' },
+  { key: 'aval2', label: 'Avaliação 2 (A2)' },
+  { key: 'aval3', label: 'Avaliação 3 (A3)' },
+  { key: 'aval4', label: 'Avaliação 4 (A4)' },
+  { key: 'aval5', label: 'Avaliação 5 (A5)' },
+  { key: 'aval6', label: 'Avaliação 6 (A6)' },
+  { key: 'aval7', label: 'Avaliação 7 (A7)' },
+  { key: 'aval8', label: 'Avaliação 8 (A8)' },
+  { key: 'pp1', label: 'Prova do Professor (PP)' },
+];
+
 type AvalKey = 'aval1' | 'aval2' | 'aval3' | 'aval4' | 'aval5' | 'aval6' | 'aval7' | 'aval8';
 const ALL_AVAL_KEYS: AvalKey[] = ['aval1', 'aval2', 'aval3', 'aval4', 'aval5', 'aval6', 'aval7', 'aval8'];
 
@@ -149,9 +179,78 @@ export default function ProfessorPautaScreen() {
   // Tracks which fields are already saved/locked per student (alunoId → Set of field names)
   const [savedFields, setSavedFields] = useState<Record<string, Set<string>>>({});
 
+  // Grade launch control — solicitacoes de avaliacao
+  const [solicitacoesAvaliacao, setSolicitacoesAvaliacao] = useState<SolicAvaliacao[]>([]);
+  const [showSolicAvalModal, setShowSolicAvalModal] = useState(false);
+  const [solicAvalTipo, setSolicAvalTipo] = useState('');
+  const [solicAvalMotivo, setSolicAvalMotivo] = useState('');
+  const [sendingSolicAval, setSendingSolicAval] = useState(false);
+
   const prof = useMemo(() => professores.find(p => p.email === user?.email), [professores, user]);
 
-  const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria'].includes(user.role);
+  const isPrivilegedRole = !!user?.role && ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria', 'pedagogico'].includes(user.role);
+
+  // ── Grade Launch Control helpers ──────────────────────────────────────────
+  const loadSolicAvaliacao = useCallback(async () => {
+    if (!turmaId || !disciplina) return;
+    try {
+      const p = new URLSearchParams({ turmaId, disciplina, trimestre: String(trimestre) });
+      const r = await fetch(`/api/solicitacoes-avaliacao?${p.toString()}`);
+      if (r.ok) setSolicitacoesAvaliacao(await r.json());
+    } catch {}
+  }, [turmaId, disciplina, trimestre]);
+
+  useEffect(() => {
+    if (step === 'pauta') loadSolicAvaliacao();
+  }, [step, loadSolicAvaliacao]);
+
+  // Fields approved by privileged roles for this professor/turma/disciplina/trimestre
+  const camposAprovados = useMemo(() => {
+    if (isPrivilegedRole) return new Set<string>(['*']);
+    return new Set(solicitacoesAvaliacao.filter(s => s.status === 'aprovado').map(s => s.tipoAvaliacao));
+  }, [solicitacoesAvaliacao, isPrivilegedRole]);
+
+  // Provas (pp1, ppt, pg1, pg2, ex1, ex2, provaRecuperacao) follow global calendar
+  const PROVA_FIELDS = new Set(['pp1', 'ppt', 'pg1', 'pg2', 'ex1', 'ex2', 'provaRecuperacao']);
+
+  function isAvalFieldOpen(field: string): boolean {
+    if (isPrivilegedRole) return true;
+    if (camposAprovados.has('*')) return true;
+    if (PROVA_FIELDS.has(field)) return config.avaliacaoPeriodoAtivo === true;
+    return camposAprovados.has(field);
+  }
+
+  async function submitSolicAvaliacao() {
+    if (!prof || !turmaAtual || !solicAvalTipo) return;
+    setSendingSolicAval(true);
+    try {
+      const r = await fetch('/api/solicitacoes-avaliacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          professorId: prof.id,
+          professorNome: `${prof.nome} ${prof.apelido}`.trim(),
+          turmaId,
+          turmaNome: turmaAtual.nome,
+          disciplina,
+          trimestre,
+          tipoAvaliacao: solicAvalTipo,
+          motivo: solicAvalMotivo,
+        }),
+      });
+      if (r.ok) {
+        await loadSolicAvaliacao();
+        setShowSolicAvalModal(false);
+        setSolicAvalTipo('');
+        setSolicAvalMotivo('');
+        webAlert('Solicitação Enviada', 'O pedido de abertura foi enviado. Aguarde aprovação do responsável.');
+      }
+    } catch {
+      webAlert('Erro', 'Não foi possível enviar a solicitação.');
+    } finally {
+      setSendingSolicAval(false);
+    }
+  }
 
   const minhasTurmas = useMemo(() => {
     if (isPrivilegedRole) return turmas.filter(t => t.ativo);
@@ -1185,6 +1284,15 @@ export default function ProfessorPautaScreen() {
             </Text>
           </TouchableOpacity>
         )}
+        {!isPautaFechada && !isPrivilegedRole && (
+          <TouchableOpacity
+            style={styles.solicitAvalBtn}
+            onPress={() => setShowSolicAvalModal(true)}
+          >
+            <Ionicons name="key-outline" size={13} color={Colors.info} />
+            <Text style={styles.solicitAvalBtnText}>Solicitar Campo</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={[styles.miniPautaBtn, { backgroundColor: '#0d2e0d', borderWidth: 1, borderColor: '#1a7a1a' }]} onPress={gerarExcelMiniPauta}>
           <Ionicons name="document-outline" size={14} color="#4ade80" />
           <Text style={[styles.miniPautaBtnText, { color: '#4ade80' }]}>Excel</Text>
@@ -1217,6 +1325,33 @@ export default function ProfessorPautaScreen() {
         </View>
       )}
 
+      {/* Banner: Grade Launch Control — status dos campos aprovados */}
+      {!isPrivilegedRole && !isPautaFechada && solicitacoesAvaliacao.length > 0 && (
+        <View style={styles.lanchControlBanner}>
+          <Ionicons name="shield-checkmark-outline" size={14} color={Colors.info} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.lanchControlTitle}>Campos Aprovados</Text>
+            <Text style={styles.lanchControlSub} numberOfLines={2}>
+              {solicitacoesAvaliacao.filter(s => s.status === 'aprovado').length > 0
+                ? solicitacoesAvaliacao.filter(s => s.status === 'aprovado')
+                    .map(s => TIPOS_AVALIACAO_SOLIC.find(t => t.key === s.tipoAvaliacao)?.label ?? s.tipoAvaliacao)
+                    .join(', ')
+                : 'Nenhum campo aprovado ainda'}
+              {solicitacoesAvaliacao.filter(s => s.status === 'pendente').length > 0 &&
+                ` · ${solicitacoesAvaliacao.filter(s => s.status === 'pendente').length} pedido(s) pendente(s)`}
+            </Text>
+          </View>
+        </View>
+      )}
+      {!isPrivilegedRole && !isPautaFechada && solicitacoesAvaliacao.length === 0 && (
+        <View style={[styles.lanchControlBanner, { backgroundColor: Colors.warning + '12', borderBottomColor: Colors.warning + '33' }]}>
+          <Ionicons name="lock-closed-outline" size={14} color={Colors.warning} />
+          <Text style={[styles.lanchControlTitle, { color: Colors.warning, flex: 1 }]}>
+            Lançamento bloqueado — solicite abertura de campo para inserir notas
+          </Text>
+        </View>
+      )}
+
       {/* Banner especial para T3 Classe de Transição ou 12ª Classe */}
       {(useProvGlobal || useExame) && (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: useExame ? Colors.danger + '18' : Colors.info + '15', borderBottomWidth: 1, borderBottomColor: useExame ? Colors.danger + '33' : Colors.info + '33' }}>
@@ -1232,29 +1367,59 @@ export default function ProfessorPautaScreen() {
       {/* Grade Fields Legend */}
       {(() => {
         const nAval = config.numAvaliacoes ?? 4;
+        function LegendCol({ fieldKey, label, color }: { fieldKey: string; label: string; color?: string }) {
+          const isOpen = isAvalFieldOpen(fieldKey);
+          const isPending = !isPrivilegedRole && solicitacoesAvaliacao.some(s => s.tipoAvaliacao === fieldKey && s.status === 'pendente');
+          const lockIcon = isPending ? 'hourglass-outline' : 'lock-closed';
+          const lockColor = isPending ? Colors.warning : Colors.textMuted + '99';
+          return (
+            <TouchableOpacity
+              style={[styles.legendaCol, { alignItems: 'center' }]}
+              onPress={() => {
+                if (isPrivilegedRole || isOpen) return;
+                if (isPending) { webAlert('Pendente', 'Já existe um pedido de abertura para este campo. Aguarde aprovação.'); return; }
+                if (PROVA_FIELDS.has(fieldKey)) { webAlert('Período Fechado', 'O lançamento de provas está controlado pelo calendário da direcção. Aguarde a abertura do período.'); return; }
+                setSolicAvalTipo(fieldKey);
+                setSolicAvalMotivo('');
+                setShowSolicAvalModal(true);
+              }}
+              activeOpacity={isOpen || isPrivilegedRole ? 1 : 0.7}
+            >
+              <Text style={[styles.legendaColText, { color: color ?? (isOpen || isPrivilegedRole ? Colors.textSecondary : Colors.textMuted + '88') }]}>{label}</Text>
+              {!isPrivilegedRole && (
+                <Ionicons
+                  name={isOpen ? 'unlock' : (lockIcon as any)}
+                  size={7}
+                  color={isOpen ? Colors.success + 'CC' : lockColor}
+                  style={{ marginTop: 1 }}
+                />
+              )}
+            </TouchableOpacity>
+          );
+        }
         return (
           <View style={styles.legendaBar}>
             <Text style={[styles.legendaCol, { width: 44 }]}>Nº</Text>
             <Text style={[styles.legendaCol, { flex: 1 }]}>Aluno</Text>
-            {ALL_AVAL_KEYS.slice(0, nAval).map((_, i) => (
-              <Text key={i} style={styles.legendaCol}>A{i + 1}</Text>
+            {ALL_AVAL_KEYS.slice(0, nAval).map((key, i) => (
+              <LegendCol key={key} fieldKey={key} label={`A${i + 1}`} />
             ))}
-            <Text style={styles.legendaCol}>PP</Text>
+            <LegendCol fieldKey="pp1" label="PP" />
             {useProvGlobal ? (
               <>
-                <Text style={[styles.legendaCol, { color: Colors.info }]}>PG1</Text>
-                <Text style={[styles.legendaCol, { color: Colors.info }]}>PG2</Text>
+                <LegendCol fieldKey="pg1" label="PG1" color={Colors.info} />
+                <LegendCol fieldKey="pg2" label="PG2" color={Colors.info} />
               </>
             ) : useExame ? (
               <>
-                <Text style={[styles.legendaCol, { color: Colors.danger }]}>EX1</Text>
-                <Text style={[styles.legendaCol, { color: Colors.danger }]}>EX2</Text>
+                <LegendCol fieldKey="ex1" label="EX1" color={Colors.danger} />
+                <LegendCol fieldKey="ex2" label="EX2" color={Colors.danger} />
               </>
             ) : (
-              <Text style={styles.legendaCol}>PT</Text>
+              <LegendCol fieldKey="ppt" label="PT" />
             )}
             {config.provaRecuperacaoHabilitada && (
-              <Text style={[styles.legendaCol, { color: Colors.warning }]}>REC</Text>
+              <LegendCol fieldKey="provaRecuperacao" label="REC" color={Colors.warning} />
             )}
             <Text style={[styles.legendaCol, { color: Colors.gold }]}>NF</Text>
           </View>
@@ -1343,6 +1508,7 @@ export default function ProfessorPautaScreen() {
                 <>
                   {editFields.map(field => {
                     const isFieldLocked = alunoSavedFields.has(field);
+                    const isOpen = isAvalFieldOpen(field);
                     if (isFieldLocked) {
                       return (
                         <TouchableOpacity
@@ -1356,6 +1522,25 @@ export default function ProfessorPautaScreen() {
                         >
                           <Ionicons name="lock-closed" size={9} color={Colors.textMuted} style={{ marginBottom: 1 }} />
                           <Text style={styles.gradeLockedText}>{form[field] || '—'}</Text>
+                        </TouchableOpacity>
+                      );
+                    }
+                    if (!isOpen) {
+                      const isPendente = solicitacoesAvaliacao.some(s => s.tipoAvaliacao === field && s.status === 'pendente');
+                      return (
+                        <TouchableOpacity
+                          key={field}
+                          style={[styles.gradeLocked, { borderColor: isPendente ? Colors.warning + '88' : Colors.border, backgroundColor: isPendente ? Colors.warning + '11' : Colors.border + '44' }]}
+                          onPress={() => {
+                            if (isPendente) { webAlert('Aguardando Aprovação', 'O seu pedido de abertura está pendente. Aguarde a aprovação do responsável.'); return; }
+                            if (PROVA_FIELDS.has(field)) { webAlert('Período Fechado', 'O período de lançamento de provas ainda não foi aberto pela direcção.'); return; }
+                            setSolicAvalTipo(field);
+                            setSolicAvalMotivo('');
+                            setShowSolicAvalModal(true);
+                          }}
+                        >
+                          <Ionicons name={isPendente ? 'hourglass-outline' : 'lock-closed'} size={9} color={isPendente ? Colors.warning : Colors.textMuted} style={{ marginBottom: 1 }} />
+                          <Text style={[styles.gradeLockedText, { color: isPendente ? Colors.warning : Colors.textMuted + '99' }]}>—</Text>
                         </TouchableOpacity>
                       );
                     }
@@ -1422,6 +1607,84 @@ export default function ProfessorPautaScreen() {
           )}
         </View>
       )}
+
+      {/* Solicitar Abertura de Campo de Avaliação Modal */}
+      <Modal visible={showSolicAvalModal} transparent animationType="slide" onRequestClose={() => setShowSolicAvalModal(false)}>
+        <View style={styles.overlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="key-outline" size={20} color={Colors.info} style={{ marginRight: 8 }} />
+              <Text style={styles.modalTitle}>Solicitar Abertura de Campo</Text>
+              <TouchableOpacity onPress={() => setShowSolicAvalModal(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={22} color={Colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.modalSub}>
+              Selecione o campo de avaliação que pretende abrir para lançamento de notas.
+              O pedido será enviado para aprovação do responsável.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Campo de Avaliação</Text>
+            <ScrollView style={{ maxHeight: 200, marginBottom: 4 }}>
+              {TIPOS_AVALIACAO_SOLIC.slice(0, (config.numAvaliacoes ?? 4) + 1).map(tipo => {
+                const existente = solicitacoesAvaliacao.find(s => s.tipoAvaliacao === tipo.key);
+                const isAprovado = existente?.status === 'aprovado';
+                const isPendente = existente?.status === 'pendente';
+                return (
+                  <TouchableOpacity
+                    key={tipo.key}
+                    style={[
+                      styles.tipoAvalItem,
+                      solicAvalTipo === tipo.key && styles.tipoAvalItemActive,
+                      (isAprovado || isPendente) && styles.tipoAvalItemDisabled,
+                    ]}
+                    onPress={() => { if (!isAprovado && !isPendente) setSolicAvalTipo(tipo.key); }}
+                    activeOpacity={(isAprovado || isPendente) ? 1 : 0.7}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.tipoAvalLabel, solicAvalTipo === tipo.key && { color: Colors.info }]}>
+                        {tipo.label}
+                      </Text>
+                      {(isAprovado || isPendente) && (
+                        <Text style={[styles.tipoAvalStatus, { color: isAprovado ? Colors.success : Colors.warning }]}>
+                          {isAprovado ? '✓ Já aprovado' : '⏳ Pedido pendente'}
+                        </Text>
+                      )}
+                    </View>
+                    {solicAvalTipo === tipo.key && !isAprovado && !isPendente && (
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.info} />
+                    )}
+                    {isAprovado && <Ionicons name="checkmark-circle" size={18} color={Colors.success} />}
+                    {isPendente && <Ionicons name="hourglass-outline" size={18} color={Colors.warning} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <Text style={styles.fieldLabel}>Motivo (opcional)</Text>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Descreva brevemente o motivo do pedido..."
+              placeholderTextColor={Colors.textMuted}
+              value={solicAvalMotivo}
+              onChangeText={setSolicAvalMotivo}
+              multiline
+            />
+            {sendingSolicAval ? (
+              <ActivityIndicator color={Colors.info} style={{ marginTop: 16 }} />
+            ) : (
+              <TouchableOpacity
+                style={[styles.solicitBtn, { backgroundColor: Colors.info }, !solicAvalTipo && styles.solicitBtnDisabled]}
+                onPress={submitSolicAvaliacao}
+                disabled={!solicAvalTipo}
+              >
+                <Ionicons name="send" size={18} color="#fff" />
+                <Text style={styles.saveBtnText}>Enviar Pedido de Abertura</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Solicitar Reabertura Modal */}
       <Modal visible={showSolicitModal} transparent animationType="slide" onRequestClose={() => setShowSolicitModal(false)}>
@@ -1542,4 +1805,16 @@ const styles = StyleSheet.create({
   input: { backgroundColor: Colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, fontFamily: 'Inter_400Regular', color: Colors.text, borderWidth: 1, borderColor: Colors.border },
   solicitBtn: { backgroundColor: Colors.warning, borderRadius: 14, paddingVertical: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 16, marginBottom: 8 },
   solicitBtnDisabled: { opacity: 0.4 },
+  // Grade Launch Control
+  solicitAvalBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.info + '22', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
+  solicitAvalBtnText: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info },
+  lanchControlBanner: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: Colors.info + '12', borderBottomWidth: 1, borderBottomColor: Colors.info + '33' },
+  lanchControlTitle: { fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info },
+  lanchControlSub: { fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.info + 'BB', marginTop: 2 },
+  tipoAvalItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: Colors.border, marginBottom: 6, backgroundColor: Colors.surface },
+  tipoAvalItemActive: { borderColor: Colors.info + '88', backgroundColor: Colors.info + '15' },
+  tipoAvalItemDisabled: { opacity: 0.6 },
+  tipoAvalLabel: { fontSize: 14, fontFamily: 'Inter_500Medium', color: Colors.text },
+  tipoAvalStatus: { fontSize: 11, fontFamily: 'Inter_500Medium', marginTop: 2 },
+  legendaColText: { fontSize: 10, fontFamily: 'Inter_700Bold', textAlign: 'center' },
 });

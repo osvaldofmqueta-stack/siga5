@@ -25,7 +25,8 @@ export type PermKey =
   | 'documentos_hub' | 'plano_aula' | 'exclusoes_faltas' | 'financeiro_relatorios'
   | 'diario_classe' | 'director_turma' | 'relatorio_faltas' | 'gerar_documento'
   | 'med_integracao' | 'gestao_planos' | 'processos_secretaria' | 'funcionarios'
-  | 'alterar_tipo_contrato' | 'solicitacoes_documentos';
+  | 'alterar_tipo_contrato' | 'solicitacoes_documentos'
+  | 'arquivo_documentos' | 'gerir_avaliacoes';
 
 export interface FeatureDef {
   key: PermKey;
@@ -86,6 +87,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'director_turma', label: 'Director de Turma', desc: 'Funções do director de turma: comunicação com encarregados, gestão de faltas e ocorrências', roles: ['professor', 'admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'relatorio_faltas', label: 'Relatório de Faltas', desc: 'Geração e análise de relatórios de assiduidade por turma e aluno', roles: ['professor', 'admin', 'director', 'pedagogico', 'secretaria', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'pedagogico', label: 'Área Pedagógica', desc: 'Gestão pedagógica: sumários, calendário de provas, solicitações e pautas', roles: ['admin', 'director', 'pedagogico', 'chefe_secretaria', 'ceo', 'pca'] },
+      { key: 'gerir_avaliacoes', label: 'Gerir Abertura de Avaliações', desc: 'Aprovar ou rejeitar pedidos de professores para lançar avaliações específicas (avaliações contínuas, provas e exames)', roles: ['ceo', 'pca', 'admin', 'director', 'chefe_secretaria', 'pedagogico'] },
     ],
   },
   {
@@ -123,6 +125,7 @@ export const FEATURE_CATEGORIES: FeatureCategory[] = [
       { key: 'boletim_matricula', label: 'Boletim de Matrícula', desc: 'Impressão de ficha de matrícula', roles: ['secretaria', 'admin', 'director', 'pedagogico', 'ceo', 'pca'] },
       { key: 'gerar_documento', label: 'Gerar Documento PDF', desc: 'Geração de documentos PDF oficiais: declarações, certidões e outros documentos escolares', roles: ['secretaria', 'admin', 'director', 'chefe_secretaria', 'ceo', 'pca'] },
       { key: 'solicitacoes_documentos', label: 'Solicitações de Documentos', desc: 'Receber, processar e emitir documentos solicitados pelos alunos (declarações, certidões, certificados, diplomas)', roles: ['secretaria', 'chefe_secretaria', 'admin', 'director', 'ceo', 'pca'] },
+      { key: 'arquivo_documentos', label: 'Arquivo de Documentos', desc: 'Consulta, pesquisa e re-emissão de todos os documentos emitidos: declarações, certidões, pautas, mini-pautas e mapas com histórico completo', roles: ['secretaria', 'chefe_secretaria', 'admin', 'director', 'ceo', 'pca'] },
     ],
   },
   {
@@ -240,7 +243,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Documentos (director assina e revê documentos oficiais)
     'editor_documentos', 'boletim_matricula', 'boletim_propina', 'documentos_hub', 'gerar_documento',
     // Integrações e supervisão de novas funcionalidades
-    'med_integracao', 'funcionarios',
+    'med_integracao', 'funcionarios', 'arquivo_documentos', 'gerir_avaliacoes',
   ] as PermKey[],
 
   // ── Admin: configuração do sistema e gestão de utilizadores ──────
@@ -266,7 +269,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Alterar vínculos contratuais de professores e funcionários
     'alterar_tipo_contrato',
     // Integrações e novas funcionalidades
-    'med_integracao', 'solicitacoes_documentos',
+    'med_integracao', 'solicitacoes_documentos', 'arquivo_documentos', 'gerir_avaliacoes',
   ],
 
   // ── Secretaria: operações administrativas académicas ─────────────
@@ -285,7 +288,7 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     'salas', 'biblioteca', 'quadro_honra', 'trabalhos_finais',
     'relatorios', 'extrato_propinas', 'exclusoes_faltas', 'desempenho', 'relatorio_faltas',
     // Novas funcionalidades da secretaria
-    'processos_secretaria', 'solicitacoes_documentos',
+    'processos_secretaria', 'solicitacoes_documentos', 'arquivo_documentos',
   ],
 
   // ── Financeiro: gestão financeira completa ───────────────────────
@@ -325,6 +328,8 @@ export const ROLE_DEFAULTS: Record<string, PermKey[]> = {
     // Qualidade académica
     'quadro_honra', 'trabalhos_finais', 'exclusoes_faltas', 'plano_aula',
     'diario_classe', 'director_turma', 'relatorio_faltas',
+    // Controlo de avaliações e arquivo
+    'gerir_avaliacoes',
   ],
 
   // ── Professor: docência e actividade lectiva ──────────────────────
