@@ -187,6 +187,15 @@ function injectPwaTags(html: string): string {
   return result;
 }
 
+function setupFrameHeaders(app: express.Application) {
+  app.use((_req, res, next) => {
+    res.removeHeader('X-Frame-Options');
+    res.removeHeader('Content-Security-Policy');
+    res.setHeader('X-Frame-Options', 'ALLOWALL');
+    next();
+  });
+}
+
 function setupCors(app: express.Application) {
   app.use((req, res, next) => {
     const origins = new Set<string>();
@@ -375,6 +384,10 @@ function setupWebProxy(app: express.Application) {
       },
       on: {
         proxyRes: responseInterceptor(async (responseBuffer, proxyRes, _req, res) => {
+          // Always remove frame-blocking headers from proxied responses
+          (res as Response).removeHeader('X-Frame-Options');
+          (res as Response).removeHeader('Content-Security-Policy');
+
           const contentType = proxyRes.headers["content-type"] || "";
           // Disable caching for JS bundles too so updates are always picked up
           if (contentType.includes("javascript") || contentType.includes("application/json")) {
@@ -452,6 +465,7 @@ function setupErrorHandler(app: express.Application) {
 }
 
 (async () => {
+  setupFrameHeaders(app);
   setupCors(app);
   setupBodyParsing(app);
   setupRequestLogging(app);
