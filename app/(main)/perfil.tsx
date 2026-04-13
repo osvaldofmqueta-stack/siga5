@@ -873,24 +873,55 @@ export default function PerfilScreen() {
 
         {/* Tempos */}
         {salEst.temposSemanais > 0 && (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, padding: 10, backgroundColor: Colors.primaryDark, borderRadius: 10 }}>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Esperados</Text>
-              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.text }}>{salEst.temposEsperados}</Text>
+          <View style={{ marginBottom: 10, padding: 10, backgroundColor: Colors.primaryDark, borderRadius: 10, gap: 6 }}>
+            <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+              Tempos Lectivos
+            </Text>
+            {/* Cálculo: semanais × 4 semanas = mensal */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Tempos por semana</Text>
+              <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>{salEst.temposSemanais}</Text>
             </View>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Trabalhados</Text>
-              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.success }}>{salEst.temposTrabalhados}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>× 4 semanas/mês</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>=</Text>
+                <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.info }}>{salEst.temposEsperados} tempos/mês</Text>
+              </View>
             </View>
-            <View style={{ alignItems: 'center' }}>
-              <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Faltas</Text>
-              <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: salEst.faltasMes > 0 ? Colors.danger : Colors.success }}>{salEst.faltasMes}</Text>
+            <View style={{ height: 1, backgroundColor: Colors.border }} />
+            {/* Trabalhados e Faltas */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Total Esperado</Text>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.text }}>{salEst.temposEsperados}</Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: Colors.border }} />
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Trabalhados</Text>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: Colors.success }}>{salEst.temposTrabalhados}</Text>
+              </View>
+              <View style={{ width: 1, backgroundColor: Colors.border }} />
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={{ fontSize: 10, fontFamily: 'Inter_400Regular', color: Colors.danger }}>Faltas</Text>
+                <Text style={{ fontSize: 16, fontFamily: 'Inter_700Bold', color: salEst.faltasMes > 0 ? Colors.danger : Colors.textMuted }}>{salEst.faltasMes}</Text>
+              </View>
             </View>
             {salEst.temposComDadosReais && (
-              <View style={{ backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, alignSelf: 'center' }}>
-                <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>Dados Reais</Text>
+              <View style={{ alignSelf: 'flex-end', backgroundColor: Colors.success + '22', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 9, fontFamily: 'Inter_600SemiBold', color: Colors.success }}>✓ Dados Reais</Text>
               </View>
             )}
+          </View>
+        )}
+        {/* Faltas visíveis mesmo sem tempos configurados */}
+        {salEst.temposSemanais === 0 && salEst.faltasMes > 0 && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, padding: 10, backgroundColor: Colors.danger + '18', borderRadius: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="warning-outline" size={14} color={Colors.danger} />
+              <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.danger }}>Faltas registadas</Text>
+            </View>
+            <Text style={{ fontSize: 15, fontFamily: 'Inter_700Bold', color: Colors.danger }}>{salEst.faltasMes}</Text>
           </View>
         )}
 
@@ -898,28 +929,38 @@ export default function PerfilScreen() {
         <View style={{ gap: 4 }}>
 
           {isColaborador && salEst.valorPorTempoLectivo > 0 ? (
-            /* ── Colaborador / Contratado / Prestação de Serviços: paid by tempos ── */
+            /* ── Colaborador / Contratado / Prestação de Serviços: pago por tempos ── */
             <>
-              {/* Box showing the per-tempo calculation */}
-              <View style={{ backgroundColor: Colors.primaryDark, borderRadius: 10, padding: 10, marginBottom: 4, gap: 4 }}>
+              <View style={{ backgroundColor: Colors.primaryDark, borderRadius: 10, padding: 10, marginBottom: 4, gap: 5 }}>
                 <Text style={{ fontSize: 10, fontFamily: 'Inter_700Bold', color: Colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
-                  Remuneração por Tempos
+                  Cálculo da Remuneração
                 </Text>
+                {/* Fórmula: tempos/semana × 4 semanas = tempos/mês */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>{salEst.temposSemanais} tempos/sem × 4 sem</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>{salEst.temposEsperados} tempos/mês</Text>
+                </View>
+                {salEst.faltasMes > 0 && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.danger }}>− Faltas ({salEst.faltasMes})</Text>
+                    <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.danger }}>{salEst.temposTrabalhados} tempos</Text>
+                  </View>
+                )}
+                <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 2 }} />
+                {/* Cálculo final: tempos trabalhados × valor/tempo */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Valor por tempo</Text>
                   <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.text }}>{fmt(salEst.valorPorTempoLectivo)}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>Tempos trabalhados</Text>
-                  <Text style={{ fontSize: 12, fontFamily: 'Inter_600SemiBold', color: Colors.info }}>× {salEst.temposTrabalhados}</Text>
+                  <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>× {salEst.temposTrabalhados} tempos trabalhados</Text>
+                  <Text style={{ fontSize: 11, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>=</Text>
                 </View>
-                <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 2 }} />
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ fontSize: 12, fontFamily: 'Inter_700Bold', color: Colors.text }}>Remuneração tempos</Text>
-                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: vinculo.color }}>{fmt(salEst.salColaborador || (salEst.valorPorTempoLectivo * salEst.temposTrabalhados))}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2 }}>
+                  <Text style={{ fontSize: 13, fontFamily: 'Inter_700Bold', color: Colors.text }}>Remuneração Bruta</Text>
+                  <Text style={{ fontSize: 14, fontFamily: 'Inter_700Bold', color: vinculo.color }}>{fmt(salEst.salColaborador || (salEst.valorPorTempoLectivo * salEst.temposTrabalhados))}</Text>
                 </View>
               </View>
-              {/* Fixed base salary if mixed contract */}
               {salEst.salarioBase > 0 && (
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <Text style={{ fontSize: 12, fontFamily: 'Inter_400Regular', color: Colors.textMuted }}>+ Salário Base Fixo</Text>

@@ -9063,8 +9063,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subTrans             = Number(pessoa.subsidioTransporte ?? 0);
       const subHab               = Number(pessoa.subsidioHabitacao ?? 0);
       const valorTempoLectivo    = Number(pessoa.valorPorTempoLectivo ?? 0);
-      // Usar temposSemanais do perfil; se for 0 usar contagem do horário real
-      const temposSemanais       = Number(pessoa.temposSemanais ?? 0) || horarioTemposSemanais;
+      // Tempos semanais: sempre inteiro (sem decimais — não existem meios-tempos)
+      const temposSemanais       = Math.round(Number(pessoa.temposSemanais ?? 0) || horarioTemposSemanais);
 
       // Helper: contar dias úteis (seg-sex) num intervalo de datas (inclusive)
       function contarDiasUteis(inicio: Date, fim: Date): number {
@@ -9091,9 +9091,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? contarDiasUteis(inicioMes, hoje)
         : totalDiasUteisNoMes;
 
-      // Fórmula base para colaboradores: temposSemanais × 4 semanas = tempos esperados no mês
+      // Fórmula base: temposSemanais × 4 semanas = total tempos mensais (sempre inteiro)
       const SEMANAS_MES = 4;
-      const temposEsperados = Math.round(temposSemanais * SEMANAS_MES * 10) / 10;
+      const temposEsperados = temposSemanais * SEMANAS_MES; // inteiro garantido
 
       // Para efectivos: continuar com base em dias úteis (para cálculo de faltas por dia)
       const temposPorDiaUtil = temposSemanais > 0 ? temposSemanais / 5 : 0;
@@ -9107,19 +9107,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : valorFaltaAdministrativo;
 
       // Estimativa de semanas decorridas no mês actual (para colaboradores sem dados reais)
+      // Arredondado para inteiro — não existem fracções de semana no cálculo de tempos
       const semanasDecorridas = isCurrentMonth
-        ? Math.round((diasUteisCorridos / (totalDiasUteisNoMes || 1)) * SEMANAS_MES * 10) / 10
+        ? Math.min(SEMANAS_MES, Math.round((diasUteisCorridos / (totalDiasUteisNoMes || 1)) * SEMANAS_MES))
         : SEMANAS_MES;
-      const temposEsperadosCorridos = Math.round(temposSemanais * semanasDecorridas * 10) / 10;
+      const temposEsperadosCorridos = temposSemanais * semanasDecorridas; // inteiro
 
       let salBaseEfectivo  = salBase;
       let descontoTempos   = 0;
       let salColaborador   = 0;
       const temposComDadosReais = temposRegistados !== null;
 
-      // Tempos trabalhados base: dados reais (tabela tempos_lectivos) ou estimativa
+      // Tempos trabalhados base: dados reais (tabela tempos_lectivos) ou estimativa — sempre inteiro
       let temposTrabalhados = temposRegistados !== null
-        ? temposRegistados
+        ? Math.round(temposRegistados)
         : Math.max(0, temposEsperadosCorridos - faltasMes);
 
       if (tipoContrato === 'efectivo' && temposSemanais > 0 && descontoPorTempoNaoDado > 0) {

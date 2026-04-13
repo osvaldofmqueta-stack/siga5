@@ -154,9 +154,14 @@ function EstimativaSalarialCard() {
       {/* Tempos lectivos */}
       {(data.temposSemanais ?? 0) > 0 && (
         <View style={sal.temposBox}>
+          {/* Cálculo: semanais × 4 semanas = mensal */}
           <View style={sal.temposRow}>
-            <Text style={sal.temposLabel}>Tempos esperados (mês completo)</Text>
-            <Text style={sal.temposVal}>{data.temposEsperados} ({data.temposSemanais}/sem)</Text>
+            <Text style={sal.temposLabel}>Tempos por semana</Text>
+            <Text style={sal.temposVal}>{data.temposSemanais}</Text>
+          </View>
+          <View style={sal.temposRow}>
+            <Text style={sal.temposLabel}>× 4 semanas = total mensal</Text>
+            <Text style={[sal.temposVal, { color: Colors.info }]}>{data.temposEsperados} tempos</Text>
           </View>
           {isColaborador && data.isCurrentMonth && (
             <View style={sal.temposRow}>
@@ -170,12 +175,19 @@ function EstimativaSalarialCard() {
               {data.temposTrabalhados}
             </Text>
           </View>
-          {temFalta && (
-            <View style={sal.temposRow}>
-              <Text style={[sal.temposLabel, { color: Colors.danger }]}>Faltas / tempos em falta</Text>
-              <Text style={[sal.temposVal, { color: Colors.danger }]}>{data.faltasMes}</Text>
-            </View>
-          )}
+          <View style={[sal.temposRow, { marginTop: 2 }]}>
+            <Text style={[sal.temposLabel, { color: (data.faltasMes ?? 0) > 0 ? Colors.danger : Colors.textMuted }]}>Faltas registadas</Text>
+            <Text style={[sal.temposVal, { color: (data.faltasMes ?? 0) > 0 ? Colors.danger : Colors.textMuted }]}>{data.faltasMes ?? 0}</Text>
+          </View>
+        </View>
+      )}
+      {/* Faltas mesmo sem tempos configurados */}
+      {(data.temposSemanais ?? 0) === 0 && (data.faltasMes ?? 0) > 0 && (
+        <View style={sal.temposBox}>
+          <View style={sal.temposRow}>
+            <Text style={[sal.temposLabel, { color: Colors.danger }]}>Faltas registadas</Text>
+            <Text style={[sal.temposVal, { color: Colors.danger }]}>{data.faltasMes}</Text>
+          </View>
         </View>
       )}
 
