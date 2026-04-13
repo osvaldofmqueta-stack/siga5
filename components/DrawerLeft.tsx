@@ -354,6 +354,13 @@ export default function DrawerLeft() {
       ],
     },
     {
+      title: 'Secretaria & Documentos',
+      items: [
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Arquivo de Documentos', route: '/(main)/arquivo-documentos', icon: <MaterialCommunityIcons name="folder-multiple" size={20} color="inherit" />, permKey: 'arquivo_documentos' },
+      ],
+    },
+    {
       title: 'Administração',
       items: [
         { label: 'Configurações do Sistema', route: '/(main)/admin', icon: <Ionicons name="settings" size={20} color="inherit" />, permKey: 'admin' },
@@ -416,6 +423,13 @@ export default function DrawerLeft() {
             { label: 'Bolsas & Descontos', route: '/(main)/bolsas', icon: <MaterialCommunityIcons name="school-outline" size={18} color="inherit" />, permKey: 'financeiro' },
           ],
         },
+      ],
+    },
+    {
+      title: 'Secretaria & Documentos',
+      items: [
+        { label: 'Editor de Documentos', route: '/(main)/editor-documentos', icon: <Ionicons name="newspaper" size={20} color="inherit" />, permKey: 'editor_documentos' },
+        { label: 'Arquivo de Documentos', route: '/(main)/arquivo-documentos', icon: <MaterialCommunityIcons name="folder-multiple" size={20} color="inherit" />, permKey: 'arquivo_documentos' },
       ],
     },
     ...(isRH ? [{
