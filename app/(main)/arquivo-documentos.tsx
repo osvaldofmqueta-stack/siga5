@@ -103,7 +103,7 @@ function formatDate(iso: string): string {
 export default function ArquivoDocumentosScreen() {
   const { user } = useAuth();
   const { anoSelecionado } = useAnoAcademico();
-  const { podeAcessar } = usePermissoes();
+  const { hasPermission: podeAcessar } = usePermissoes();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const bottomInset = Platform.OS === 'web' ? 20 : insets.bottom;
