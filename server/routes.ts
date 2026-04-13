@@ -740,6 +740,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Get avatar: prefer utilizadores.avatar, fallback to linked record foto
+      let avatar = String(u.avatar ?? '');
+      if (!avatar) {
+        if (String(u.role) === 'aluno' && alunoId) {
+          const fotoRows = await query<JsonObject>(`SELECT foto FROM public.alunos WHERE id=$1 LIMIT 1`, [alunoId]);
+          avatar = String(fotoRows[0]?.foto ?? '');
+        } else if (String(u.role) === 'professor') {
+          const fotoRows = await query<JsonObject>(`SELECT foto FROM public.professores WHERE "utilizadorId"=$1 LIMIT 1`, [String(u.id)]);
+          avatar = String(fotoRows[0]?.foto ?? '');
+        }
+      }
+
       return json(res, 200, {
         token,
         user: {
@@ -749,6 +761,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           role: u.role,
           escola: u.escola ?? "",
           telefone: u.telefone ?? "",
+          avatar,
           genero,
           ...(alunoId ? { alunoId } : {}),
         },

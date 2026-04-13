@@ -746,7 +746,7 @@ export default function LoginScreen() {
         role: data.user.role,
         escola: data.user.escola ?? '',
         biometricEnabled: false,
-        avatar: savedAvatar,
+        avatar: data.user.avatar || savedAvatar || undefined,
       };
       await login(u);
       router.replace(getRouteForRole(data.user.role) as any);
