@@ -1610,9 +1610,21 @@ export default function PortalEstudanteScreen() {
               </View>
               {materialAberto?.descricao ? <Text style={styles.matModalDesc}>{materialAberto.descricao}</Text> : null}
               {materialAberto?.tipo === 'link' ? (
-                <View style={styles.matLinkBox}>
+                <TouchableOpacity style={styles.matLinkBox} onPress={() => {
+                  if (materialAberto?.conteudo) {
+                    import('react-native').then(({ Linking }) => Linking.openURL(materialAberto.conteudo));
+                  }
+                }}>
                   <Ionicons name="link" size={16} color={Colors.info} />
-                  <Text style={styles.matLinkText} numberOfLines={2}>{materialAberto?.conteudo}</Text>
+                  <Text style={[styles.matLinkText, { flex: 1 }]} numberOfLines={2}>{materialAberto?.conteudo}</Text>
+                  <Ionicons name="open-outline" size={14} color={Colors.info} />
+                </TouchableOpacity>
+              ) : ['pdf', 'docx', 'ppt'].includes(materialAberto?.tipo || '') ? (
+                <View style={styles.matLinkBox}>
+                  <Ionicons name="document-outline" size={24} color={Colors.gold} />
+                  <Text style={[styles.matModalConteudo, { flex: 1 }]} numberOfLines={1}>
+                    {materialAberto?.nomeArquivo || materialAberto?.titulo}
+                  </Text>
                 </View>
               ) : (
                 <ScrollView style={styles.matModalScroll}>
@@ -1620,8 +1632,23 @@ export default function PortalEstudanteScreen() {
                 </ScrollView>
               )}
               <View style={styles.matModalFooter}>
-                {(materialAberto?.tipo === 'pdf' || materialAberto?.tipo === 'link') && (
-                  <TouchableOpacity style={[styles.payBtn, { flex: 1, marginRight: 8 }]}>
+                {(['pdf', 'docx', 'ppt'].includes(materialAberto?.tipo || '') || materialAberto?.tipo === 'link') && (
+                  <TouchableOpacity style={[styles.payBtn, { flex: 1, marginRight: 8 }]} onPress={() => {
+                    const mat = materialAberto;
+                    if (!mat?.conteudo) return;
+                    if (mat.tipo === 'link') {
+                      import('react-native').then(({ Linking }) => Linking.openURL(mat.conteudo));
+                    } else if (Platform.OS === 'web' && mat.conteudo.startsWith('data:')) {
+                      const a = document.createElement('a');
+                      a.href = mat.conteudo;
+                      a.download = mat.nomeArquivo || mat.titulo || 'ficheiro';
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    } else {
+                      import('react-native').then(({ Linking }) => Linking.openURL(mat.conteudo));
+                    }
+                  }}>
                     <Ionicons name="download-outline" size={16} color="#fff" />
                     <Text style={styles.payBtnText}>Descarregar</Text>
                   </TouchableOpacity>

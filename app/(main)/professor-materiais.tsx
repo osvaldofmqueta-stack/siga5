@@ -91,10 +91,30 @@ export default function ProfessorMateriaisScreen() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        setConteudo(asset.uri);
         setArquivoNome(asset.name);
         setArquivoTamanho(asset.size || 0);
         if (!titulo) setTitulo(asset.name.replace(/\.[^/.]+$/, ''));
+
+        // Upload the file to the server so the content is persisted as a
+        // base64 data URL rather than a temporary blob: URL that breaks on refresh.
+        try {
+          const blobResponse = await fetch(asset.uri);
+          const blob = await blobResponse.blob();
+          const formData = new FormData();
+          formData.append('file', blob, asset.name);
+          const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData });
+          if (uploadRes.ok) {
+            const { url } = await uploadRes.json();
+            setConteudo(url);
+          } else {
+            // Fallback: store the raw URI (works only in current session)
+            setConteudo(asset.uri);
+            webAlert('Aviso', 'Não foi possível fazer upload do ficheiro. O ficheiro pode não estar disponível após recarregar a página.');
+          }
+        } catch {
+          // Fallback for native platforms where fetch(blob:) may not work
+          setConteudo(asset.uri);
+        }
       }
     } catch {
       webAlert('Erro', 'Não foi possível selecionar o ficheiro.');
@@ -143,7 +163,19 @@ export default function ProfessorMateriaisScreen() {
     if (mat.tipo === 'link') {
       Linking.openURL(mat.conteudo).catch(() => webAlert('Erro', 'Não foi possível abrir o link.'));
     } else if (FILE_TIPOS.includes(mat.tipo as TipoMaterial)) {
-      Linking.openURL(mat.conteudo).catch(() => webAlert('Ficheiro local', 'O ficheiro está guardado no dispositivo: ' + (mat.nomeArquivo || mat.conteudo)));
+      if (Platform.OS === 'web' && mat.conteudo.startsWith('data:')) {
+        // Create a download anchor for base64 data URLs on web
+        const a = document.createElement('a');
+        a.href = mat.conteudo;
+        a.download = mat.nomeArquivo || mat.titulo || 'ficheiro';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } else {
+        Linking.openURL(mat.conteudo).catch(() =>
+          webAlert('Ficheiro', 'O ficheiro está guardado no dispositivo: ' + (mat.nomeArquivo || mat.conteudo))
+        );
+      }
     }
   }
 
