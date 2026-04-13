@@ -33,6 +33,7 @@ import FlashScreenOverlay from '@/components/FlashScreenOverlay';
 import { OfflineProvider } from '@/context/OfflineContext';
 import OfflineBanner from '@/components/OfflineBanner';
 import { WebAlertProvider } from '@/utils/webAlert';
+import ToastManager from '@/components/ToastManager';
 
 if (Platform.OS !== 'web') {
   SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -114,6 +115,7 @@ function AppProviders() {
                                               <RootLayoutNav />
                                               <FlashScreenOverlay />
                                               <OfflineBanner />
+                                              <ToastManager />
                                             </WebAlertProvider>
                                           </ToastProvider>
                                         </DrawerProvider>
