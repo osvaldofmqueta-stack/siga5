@@ -12,6 +12,7 @@ import TopBar from '@/components/TopBar';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { webAlert } from '@/utils/webAlert';
+import { showToast } from '@/utils/toast';
 import { useEnterToSave } from '@/hooks/useEnterToSave';
 import { DEPARTAMENTOS, getDepartamentoByKey, DepartamentoKey } from '@/shared/departamentos';
 import { BarChart, DonutChart, LineChart } from '@/components/Charts';
@@ -800,8 +801,8 @@ function ConfiguracaoTab() {
     try {
       const saved = await api.put('/api/configuracao-rh', config);
       if (saved) setConfig(saved);
-      webAlert('Sucesso', 'Configuração guardada com sucesso!');
-    } catch { webAlert('Erro', 'Não foi possível guardar.'); }
+      showToast('Configuração de RH guardada com sucesso', 'success');
+    } catch { showToast('Não foi possível guardar a configuração — verifique a ligação', 'error'); }
     finally { setSaving(false); }
   }
 

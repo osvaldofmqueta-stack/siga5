@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef, ReactNode } from 'react';
 import { api } from '../lib/api';
+import { showToast } from '../utils/toast';
 
 export interface FlashScreenConfig {
   ativa: boolean;
@@ -169,6 +170,7 @@ const ConfigContext = createContext<ConfigContextValue | null>(null);
 export function ConfigProvider({ children }: { children: ReactNode }) {
   const [config, setConfig] = useState<ConfigGeral>(DEFAULT_CONFIG);
   const [isLoading, setIsLoading] = useState(true);
+  const saveToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     api.get<Record<string, unknown>>('/api/config')
@@ -257,13 +259,30 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   async function updateConfig(updates: Partial<ConfigGeral>) {
     const next = { ...config, ...updates };
     setConfig(next);
-    await api.put('/api/config', next);
+    try {
+      await api.put('/api/config', next);
+      // Debounce: só mostra o toast depois de 700ms sem nova alteração
+      if (saveToastTimer.current) clearTimeout(saveToastTimer.current);
+      saveToastTimer.current = setTimeout(() => {
+        showToast('Configuração guardada com sucesso', 'success');
+      }, 700);
+    } catch {
+      showToast('Erro ao guardar configuração — verifique a ligação', 'error');
+    }
   }
 
   async function updateFlashScreen(updates: Partial<FlashScreenConfig>) {
     const next = { ...config, flashScreen: { ...config.flashScreen, ...updates } };
     setConfig(next);
-    await api.put('/api/config', next);
+    try {
+      await api.put('/api/config', next);
+      if (saveToastTimer.current) clearTimeout(saveToastTimer.current);
+      saveToastTimer.current = setTimeout(() => {
+        showToast('Configuração guardada com sucesso', 'success');
+      }, 700);
+    } catch {
+      showToast('Erro ao guardar configuração — verifique a ligação', 'error');
+    }
   }
 
   const value = useMemo<ConfigContextValue>(
